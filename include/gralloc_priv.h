@@ -29,6 +29,23 @@
 
 #include "ump.h"
 
+/* UGH.. HACK */
+enum {
+    GRALLOC_USAGE_HW_FIMC1        = 0x01000000,
+    GRALLOC_USAGE_HW_ION          = 0x02000000,
+    GRALLOC_USAGE_YUV_ADDR        = 0x04000000,
+    /* SEC Private usage , for Overlay path at HWC */
+    GRALLOC_USAGE_HWC_HWOVERLAY     = 0x20000000,
+
+    /* SEC Private usage , for HWC to set HDMI S3D format */
+    /* HDMI should display this buffer as S3D SBS LR/RL*/
+    GRALLOC_USAGE_PRIVATE_SBS_LR        = 0x00400000,
+    GRALLOC_USAGE_PRIVATE_SBS_RL        = 0x00200000,
+    /* HDMI should display this buffer as 3D TB LR/RL*/
+    GRALLOC_USAGE_PRIVATE_TB_LR         = 0x00100000,
+    GRALLOC_USAGE_PRIVATE_TB_RL         = 0x00080000,
+};
+
 /*
  * HWC_HWOVERLAY is flag for location of glFinish().
  * Enable this define if you want that glFinish() is in HWComposer.
