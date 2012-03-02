@@ -15,6 +15,6 @@
 # limitations under the License.
 #
 
-exynos5_dirs := libion_exynos libgralloc_ump
+exynos5_dirs := libion_exynos
 
 include $(call all-named-subdir-makefiles,$(exynos5_dirs))
