@@ -15,6 +15,8 @@
 # limitations under the License.
 #
 
-exynos5_dirs := libion_exynos
+exynos5_dirs := \
+	libion_exynos \
+	libexynosutils
 
 include $(call all-named-subdir-makefiles,$(exynos5_dirs))
