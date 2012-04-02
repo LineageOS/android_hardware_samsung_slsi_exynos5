@@ -57,7 +57,7 @@
 #include <sys/types.h>
 
 #include <videodev2.h>
-#include <videodev2_samsung.h>
+#include <videodev2_exynos_camera.h>
 #include <linux/vt.h>
 
 #include <utils/RefBase.h>
@@ -71,7 +71,7 @@
 #include "ExynosExif.h"
 #include "exynos_v4l2.h"
 
-using namespace android;
+namespace android {
 
 #define GAIA_FW_BETA                        1
 
@@ -89,6 +89,8 @@ public:
     int  previewColorFormat;
     int  videoW;
     int  videoH;
+    int  prefVideoPreviewW;
+    int  prefVideoPreviewH;
     int  videoColorFormat;
     int  pictureW;
     int  pictureH;
@@ -127,6 +129,8 @@ public:
     int  fps;
     int  focalLengthNum;
     int  focalLengthDen;
+    bool supportVideoStabilization;
+    bool applyVideoStabilization;
     bool videoStabilization;
     int  maxNumMeteringAreas;
     int  maxNumDetectedFaces;
@@ -241,6 +245,7 @@ public:
         FOCUS_MODE_EDOF               = (1 << 4), //!< \n
         FOCUS_MODE_CONTINUOUS_VIDEO   = (1 << 5), //!< \n
         FOCUS_MODE_CONTINUOUS_PICTURE = (1 << 6), //!< \n
+        FOCUS_MODE_TOUCH              = (1 << 7), //!< \n
     };
 
     //! Scene mode
@@ -372,7 +377,7 @@ public:
     bool            putPictureBuf(ExynosBuffer *buf);
 
     //! Encode JPEG from YUV
-    bool            yuv2Jpeg(ExynosBuffer *yuvBuf, ExynosBuffer *jpegBuf);
+    bool            yuv2Jpeg(ExynosBuffer *yuvBuf, ExynosBuffer *jpegBuf, ExynosRect *rect);
 
     //! Starts camera auto-focus and registers a callback function to run when the camera is focused.
     bool            autoFocus(void);
@@ -526,6 +531,9 @@ public:
 
     //! Gets the supported video frame sizes that can be used by MediaRecorder.
     bool            getSupportedVideoSizes(int *w, int *h);
+
+    //! Gets the preferred Preview size for the video recording.
+    bool            getPreferredPreivewSizeForVideo(int *w, int *h);
 
     //! Gets the supported white balance.
     int             getSupportedWhiteBalance(void);
@@ -694,6 +702,7 @@ private:
     int             m_jpegThumbnailQuality;
 
     int             m_currentZoom;
+    bool            m_recordingHint;
 
     // v4l2 sub-dev file description
     devInfo         m_sensorDev;
@@ -716,6 +725,7 @@ private:
 
     char            m_cameraName[32];
     bool            m_internalISP;
+    bool            m_touchAFMode;
 
     // media controller variable
     struct media_device *m_media;
@@ -760,7 +770,7 @@ private:
                               int           zoom);
 
     void            m_setExifFixedAttribute(void);
-    void            m_setExifChangedAttribute(void);
+    void            m_setExifChangedAttribute(exif_attribute_t *exifInfo, ExynosRect *rect);
     void            m_secRect2SecRect2(ExynosRect *rect, ExynosRect2 *rect2);
     void            m_secRect22SecRect(ExynosRect2 *rect2, ExynosRect *rect);
     void            m_printFormat(int colorFormat, const char *arg);
@@ -902,5 +912,7 @@ public:
     //! Gets 3DNR
     bool            get3DNR(void);
 };
+
+}; // namespace android
 
 #endif // EXYNOS_CAMERA_H__
