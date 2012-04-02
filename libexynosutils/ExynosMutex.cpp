@@ -58,13 +58,13 @@ ExynosMutex::ExynosMutex(
         androidMutexType = Mutex::SHARED;
         break;
     default:
-        LOGE("%s::unmatched type(%d) fail", __func__, type);
+        ALOGE("%s::unmatched type(%d) fail", __func__, type);
         break;
     }
 
     m_mutex = new Mutex(androidMutexType, name);
     if (m_mutex == NULL) {
-        LOGE("%s::Mutex create fail", __func__);
+        ALOGE("%s::Mutex create fail", __func__);
     }
 
     m_type = type;
@@ -82,21 +82,21 @@ bool ExynosMutex::lock(
     void)
 {
 #ifdef EXYNOS_MUTEX_DEBUG
-    LOGD("%s::%s'lock() start", __func__, m_name);
+    ALOGD("%s::%s'lock() start", __func__, m_name);
 #endif
 
     if (m_mutex == NULL) {
-        LOGE("%s::Mutex create fail", __func__);
+        ALOGE("%s::Mutex create fail", __func__);
         return false;
     }
 
     if (((Mutex *)m_mutex)->lock() != 0) {
-        LOGE("%s::m_core->lock() fail", __func__);
+        ALOGE("%s::m_core->lock() fail", __func__);
         return false;
     }
 
 #ifdef EXYNOS_MUTEX_DEBUG
-    LOGD("%s::%s'lock() end", __func__, m_name);
+    ALOGD("%s::%s'lock() end", __func__, m_name);
 #endif
 
     return true;
@@ -106,18 +106,18 @@ bool ExynosMutex::unLock(
     void)
 {
 #ifdef EXYNOS_MUTEX_DEBUG
-    LOGD("%s::%s'unlock() start", __func__, m_name);
+    ALOGD("%s::%s'unlock() start", __func__, m_name);
 #endif
 
     if (m_mutex == NULL) {
-        LOGE("%s::Mutex create fail", __func__);
+        ALOGE("%s::Mutex create fail", __func__);
         return false;
     }
 
     ((Mutex *)m_mutex)->unlock();
 
 #ifdef EXYNOS_MUTEX_DEBUG
-    LOGD("%s::%s'unlock() end", __func__, m_name);
+    ALOGD("%s::%s'unlock() end", __func__, m_name);
 #endif
 
     return true;
@@ -129,18 +129,18 @@ bool ExynosMutex::tryLock(
     int ret = 0;
 
 #ifdef EXYNOS_MUTEX_DEBUG
-    LOGD("%s::%s'trylock() start", __func__, m_name);
+    ALOGD("%s::%s'trylock() start", __func__, m_name);
 #endif
 
     if (m_mutex == NULL) {
-        LOGE("%s::Mutex create fail", __func__);
+        ALOGE("%s::Mutex create fail", __func__);
         return false;
     }
 
     ret = ((Mutex *)m_mutex)->tryLock();
 
 #ifdef EXYNOS_MUTEX_DEBUG
-    LOGD("%s::%s'trylock() end", __func__, m_name);
+    ALOGD("%s::%s'trylock() end", __func__, m_name);
 #endif
 
     return (ret == 0) ? true : false;
@@ -174,7 +174,7 @@ bool exynos_mutex_destroy(
     void *handle)
 {
     if (handle == NULL) {
-        LOGE("%s::handle is null", __func__);
+        ALOGE("%s::handle is null", __func__);
         return false;
     }
 
@@ -187,7 +187,7 @@ bool exynos_mutex_lock(
     void *handle)
 {
     if (handle == NULL) {
-        LOGE("%s::handle is null", __func__);
+        ALOGE("%s::handle is null", __func__);
         return false;
     }
 
@@ -199,7 +199,7 @@ bool exynos_mutex_unlock(
     void *handle)
 {
     if (handle == NULL) {
-        LOGE("%s::handle is null", __func__);
+        ALOGE("%s::handle is null", __func__);
         return false;
     }
 
@@ -211,7 +211,7 @@ bool exynos_mutex_trylock(
     void *handle)
 {
     if (handle == NULL) {
-        LOGE("%s::handle is null", __func__);
+        ALOGE("%s::handle is null", __func__);
         return false;
     }
 
@@ -223,7 +223,7 @@ int exynos_mutex_get_type(
     void *handle)
 {
     if (handle == NULL) {
-        LOGE("%s::handle is null", __func__);
+        ALOGE("%s::handle is null", __func__);
         return false;
     }
 
@@ -234,7 +234,7 @@ int exynos_mutex_get_created_status(
     void *handle)
 {
     if (handle == NULL) {
-        LOGE("%s::handle is null", __func__);
+        ALOGE("%s::handle is null", __func__);
         return false;
     }
 
