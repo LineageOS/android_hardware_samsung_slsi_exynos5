@@ -88,12 +88,12 @@ int exynos_subdev_open_devname(const char *devname, int oflag, ...)
         if ((lstat(filename, &s) == 0) && S_ISCHR(s.st_mode) &&
                 ((int)((unsigned short)(s.st_rdev) >> 8) == 81)) {
             minor = (int)((unsigned short)(s.st_rdev & 0x3f));
-            LOGD("try node: %s, minor: %d", filename, minor);
+            ALOGD("try node: %s, minor: %d", filename, minor);
             /* open sysfs entry */
             sprintf(filename, "/sys/class/video4linux/v4l-subdev%d/name", minor);
             stream_fd = fopen(filename, "r");
             if (stream_fd < 0) {
-                LOGE("failed to open sysfs entry for subdev");
+                ALOGE("failed to open sysfs entry for subdev");
                 continue;   /* try next */
             }
 
@@ -103,11 +103,11 @@ int exynos_subdev_open_devname(const char *devname, int oflag, ...)
 
             /* check read size */
             if (size == 0) {
-                LOGE("failed to read sysfs entry for subdev");
+                ALOGE("failed to read sysfs entry for subdev");
             } else {
                 /* matched */
                 if (strncmp(name, devname, strlen(devname)) == 0) {
-                    LOGI("node found for device %s: /dev/v4l-subdev%d", devname, minor);
+                    ALOGI("node found for device %s: /dev/v4l-subdev%d", devname, minor);
                     found = true;
                 }
             }
@@ -121,11 +121,11 @@ int exynos_subdev_open_devname(const char *devname, int oflag, ...)
         va_end(ap);
 
         if (fd > 0)
-            LOGI("open subdev device %s", filename);
+            ALOGI("open subdev device %s", filename);
         else
-            LOGE("failed to open subdev device %s", filename);
+            ALOGE("failed to open subdev device %s", filename);
     } else {
-        LOGE("no subdev device found");
+        ALOGE("no subdev device found");
     }
 
     return fd;
@@ -140,18 +140,18 @@ int exynos_subdev_enum_frame_size(int fd, struct v4l2_subdev_frame_size_enum *fr
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!frame_size_enum) {
-        LOGE("%s: frame_size_enum is NULL", __func__);
+        ALOGE("%s: frame_size_enum is NULL", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_SUBDEV_ENUM_FRAME_SIZE, frame_size_enum);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_SUBDEV_ENUM_FRAME_SIZE");
+        ALOGE("failed to ioctl: VIDIOC_SUBDEV_ENUM_FRAME_SIZE");
         return ret;
     }
 
@@ -167,18 +167,18 @@ int exynos_subdev_g_fmt(int fd, struct v4l2_subdev_format *fmt)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!fmt) {
-        LOGE("%s: fmt is NULL", __func__);
+        ALOGE("%s: fmt is NULL", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_SUBDEV_G_FMT, fmt);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_SUBDEV_G_FMT");
+        ALOGE("failed to ioctl: VIDIOC_SUBDEV_G_FMT");
         return ret;
     }
 
@@ -194,18 +194,18 @@ int exynos_subdev_s_fmt(int fd, struct v4l2_subdev_format *fmt)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!fmt) {
-        LOGE("%s: fmt is NULL", __func__);
+        ALOGE("%s: fmt is NULL", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_SUBDEV_S_FMT, fmt);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_SUBDEV_S_FMT");
+        ALOGE("failed to ioctl: VIDIOC_SUBDEV_S_FMT");
         return ret;
     }
 
@@ -221,18 +221,18 @@ int exynos_subdev_g_crop(int fd, struct v4l2_subdev_crop *crop)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!crop) {
-        LOGE("%s: crop is NULL", __func__);
+        ALOGE("%s: crop is NULL", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_SUBDEV_G_CROP, crop);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_SUBDEV_G_CROP");
+        ALOGE("failed to ioctl: VIDIOC_SUBDEV_G_CROP");
         return ret;
     }
 
@@ -248,18 +248,18 @@ int exynos_subdev_s_crop(int fd, struct v4l2_subdev_crop *crop)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!crop) {
-        LOGE("%s: crop is NULL", __func__);
+        ALOGE("%s: crop is NULL", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_SUBDEV_S_CROP, crop);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_SUBDEV_S_CROP");
+        ALOGE("failed to ioctl: VIDIOC_SUBDEV_S_CROP");
         return ret;
     }
 
@@ -275,18 +275,18 @@ int exynos_subdev_enum_frame_interval(int fd, struct v4l2_subdev_frame_interval_
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!frame_internval_enum) {
-        LOGE("%s: frame_internval_enum is NULL", __func__);
+        ALOGE("%s: frame_internval_enum is NULL", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_SUBDEV_ENUM_FRAME_INTERVAL, frame_internval_enum);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_SUBDEV_ENUM_FRAME_INTERVAL");
+        ALOGE("failed to ioctl: VIDIOC_SUBDEV_ENUM_FRAME_INTERVAL");
         return ret;
     }
 
@@ -302,18 +302,18 @@ int exynos_subdev_g_frame_interval(int fd, struct v4l2_subdev_frame_interval *fr
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!frame_internval) {
-        LOGE("%s: frame_internval is NULL", __func__);
+        ALOGE("%s: frame_internval is NULL", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_SUBDEV_G_FRAME_INTERVAL, frame_internval);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_SUBDEV_G_FRAME_INTERVAL");
+        ALOGE("failed to ioctl: VIDIOC_SUBDEV_G_FRAME_INTERVAL");
         return ret;
     }
 
@@ -329,18 +329,18 @@ int exynos_subdev_s_frame_interval(int fd, struct v4l2_subdev_frame_interval *fr
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!frame_internval) {
-        LOGE("%s: frame_internval is NULL", __func__);
+        ALOGE("%s: frame_internval is NULL", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_SUBDEV_S_FRAME_INTERVAL, frame_internval);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_SUBDEV_S_FRAME_INTERVAL");
+        ALOGE("failed to ioctl: VIDIOC_SUBDEV_S_FRAME_INTERVAL");
         return ret;
     }
 
@@ -356,18 +356,18 @@ int exynos_subdev_enum_mbus_code(int fd, struct v4l2_subdev_mbus_code_enum *mbus
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!mbus_code_enum) {
-        LOGE("%s: mbus_code_enum is NULL", __func__);
+        ALOGE("%s: mbus_code_enum is NULL", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_SUBDEV_ENUM_MBUS_CODE, mbus_code_enum);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_SUBDEV_ENUM_MBUS_CODE");
+        ALOGE("failed to ioctl: VIDIOC_SUBDEV_ENUM_MBUS_CODE");
         return ret;
     }
 

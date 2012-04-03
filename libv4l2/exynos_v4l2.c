@@ -110,12 +110,12 @@ int exynos_v4l2_open_devname(const char *devname, int oflag, ...)
         if ((lstat(filename, &s) == 0) && S_ISCHR(s.st_mode) &&
                 ((int)((unsigned short)(s.st_rdev) >> 8) == 81)) {
             minor = (int)((unsigned short)(s.st_rdev & 0x3f));
-            LOGD("try node: %s, minor: %d", filename, minor);
+            ALOGD("try node: %s, minor: %d", filename, minor);
             /* open sysfs entry */
             sprintf(filename, "/sys/class/video4linux/video%d/name", minor);
             stream_fd = fopen(filename, "r");
             if (stream_fd < 0) {
-                LOGE("failed to open sysfs entry for videodev");
+                ALOGE("failed to open sysfs entry for videodev");
                 continue;   /* try next */
             }
 
@@ -125,11 +125,11 @@ int exynos_v4l2_open_devname(const char *devname, int oflag, ...)
 
             /* check read size */
             if (size == 0) {
-                LOGE("failed to read sysfs entry for videodev");
+                ALOGE("failed to read sysfs entry for videodev");
             } else {
                 /* matched */
                 if (strncmp(name, devname, strlen(devname)) == 0) {
-                    LOGI("node found for device %s: /dev/video%d", devname, minor);
+                    ALOGI("node found for device %s: /dev/video%d", devname, minor);
                     found = true;
                 }
             }
@@ -143,11 +143,11 @@ int exynos_v4l2_open_devname(const char *devname, int oflag, ...)
         va_end(ap);
 
         if (fd > 0)
-            LOGI("open video device %s", filename);
+            ALOGI("open video device %s", filename);
         else
-            LOGE("failed to open video device %s", filename);
+            ALOGE("failed to open video device %s", filename);
     } else {
-        LOGE("no video device found");
+        ALOGE("no video device found");
     }
 
     return fd;
@@ -158,7 +158,7 @@ int exynos_v4l2_close(int fd)
     int ret = -1;
 
     if (fd < 0)
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
     else
         ret = close(fd);
 
@@ -171,18 +171,18 @@ bool exynos_v4l2_enuminput(int fd, int index, char *input_name_buf)
     struct v4l2_input input;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return NULL;
     }
 
     input.index = index;
     ret = ioctl(fd, VIDIOC_ENUMINPUT, &input);
     if (ret) {
-        LOGE("%s: no matching index founds", __func__);
+        ALOGE("%s: no matching index founds", __func__);
         return false;
     }
 
-    LOGI("Name of input channel[%d] is %s", input.index, input.name);
+    ALOGI("Name of input channel[%d] is %s", input.index, input.name);
 
     strcpy(input_name_buf, (const char *)input.name);
 
@@ -195,7 +195,7 @@ int exynos_v4l2_s_input(int fd, int index)
     struct v4l2_input input;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
@@ -203,7 +203,7 @@ int exynos_v4l2_s_input(int fd, int index)
 
     ret = ioctl(fd, VIDIOC_S_INPUT, &input);
     if (ret){
-        LOGE("failed to ioctl: VIDIOC_S_INPUT (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_S_INPUT (%d)", ret);
         return ret;
     }
 
@@ -216,7 +216,7 @@ bool exynos_v4l2_querycap(int fd, unsigned int need_caps)
     int ret;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return false;
     }
 
@@ -225,7 +225,7 @@ bool exynos_v4l2_querycap(int fd, unsigned int need_caps)
             !(need_caps & V4L2_CAP_VIDEO_OUTPUT) &&
             !(need_caps & V4L2_CAP_VIDEO_OUTPUT_MPLANE) &&
             !(need_caps & V4L2_CAP_VIDEO_OVERLAY)) {
-        LOGE("%s: unsupported capabilities", __func__);
+        ALOGE("%s: unsupported capabilities", __func__);
         return false;
     }
 
@@ -233,12 +233,12 @@ bool exynos_v4l2_querycap(int fd, unsigned int need_caps)
 
     ret = ioctl(fd, VIDIOC_QUERYCAP, &cap);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_QUERYCAP (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_QUERYCAP (%d)", ret);
         return false;
     }
 
     if ((need_caps & cap.capabilities) != need_caps) {
-        LOGE("%s: unsupported capabilities", __func__);
+        ALOGE("%s: unsupported capabilities", __func__);
         return false;
     }
 
@@ -255,7 +255,7 @@ bool exynos_v4l2_enum_fmt(int fd, enum v4l2_buf_type type, unsigned int fmt)
 
     while (ioctl(fd, VIDIOC_ENUM_FMT, &fmtdesc) == 0) {
         if (fmtdesc.pixelformat == fmt) {
-            LOGE("Passed fmt = %#x found pixel format[%d]: %s", fmt, fmtdesc.index, fmtdesc.description);
+            ALOGE("Passed fmt = %#x found pixel format[%d]: %s", fmt, fmtdesc.index, fmtdesc.description);
             found = 1;
             break;
         }
@@ -264,7 +264,7 @@ bool exynos_v4l2_enum_fmt(int fd, enum v4l2_buf_type type, unsigned int fmt)
     }
 
     if (!found) {
-        LOGE("%s: unsupported pixel format", __func__);
+        ALOGE("%s: unsupported pixel format", __func__);
         return false;
     }
 
@@ -276,23 +276,23 @@ int exynos_v4l2_g_fmt(int fd, struct v4l2_format *fmt)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!fmt) {
-        LOGE("%s: fmt is NULL", __func__);
+        ALOGE("%s: fmt is NULL", __func__);
         return ret;
     }
 
     if (__v4l2_check_buf_type(fmt->type) == false) {
-        LOGE("%s: unsupported buffer type", __func__);
+        ALOGE("%s: unsupported buffer type", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_G_FMT, fmt);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_G_FMT");
+        ALOGE("failed to ioctl: VIDIOC_G_FMT");
         return ret;
     }
 
@@ -304,25 +304,25 @@ static int __v4l2_s_fmt(int fd, unsigned int request, struct v4l2_format *fmt)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!fmt) {
-        LOGE("%s: fmt is NULL", __func__);
+        ALOGE("%s: fmt is NULL", __func__);
         return ret;
     }
 
     if (__v4l2_check_buf_type(fmt->type) == false) {
-        LOGE("%s: unsupported buffer type", __func__);
+        ALOGE("%s: unsupported buffer type", __func__);
         return ret;
     } else {
         ret = ioctl(fd, request, fmt);
         if (ret) {
             if (request == VIDIOC_TRY_FMT)
-                LOGE("failed to ioctl: VIDIOC_TRY_FMT (%d)", ret);
+                ALOGE("failed to ioctl: VIDIOC_TRY_FMT (%d)", ret);
             else
-                LOGE("failed to ioctl: VIDIOC_S_FMT (%d)", ret);
+                ALOGE("failed to ioctl: VIDIOC_S_FMT (%d)", ret);
 
             return ret;
         }
@@ -347,22 +347,22 @@ int exynos_v4l2_reqbufs(int fd, struct v4l2_requestbuffers *req)
     unsigned int count;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!req) {
-        LOGE("%s: req is NULL", __func__);
+        ALOGE("%s: req is NULL", __func__);
         return ret;
     }
 
     if ((req->memory != V4L2_MEMORY_MMAP) && (req->memory != V4L2_MEMORY_USERPTR)) {
-        LOGE("%s: unsupported memory type", __func__);
+        ALOGE("%s: unsupported memory type", __func__);
         return ret;
     }
 
     if (__v4l2_check_buf_type(req->type) == false) {
-        LOGE("%s: unsupported buffer type", __func__);
+        ALOGE("%s: unsupported buffer type", __func__);
         return ret;
     }
 
@@ -370,12 +370,12 @@ int exynos_v4l2_reqbufs(int fd, struct v4l2_requestbuffers *req)
 
     ret = ioctl(fd, VIDIOC_REQBUFS, req);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_REQBUFS (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_REQBUFS (%d)", ret);
         return ret;
     }
 
     if (count != req->count) {
-        LOGW("number of buffers had been changed: %d => %d", count, req->count);
+        ALOGW("number of buffers had been changed: %d => %d", count, req->count);
     }
 
     return ret;
@@ -386,28 +386,28 @@ int exynos_v4l2_querybuf(int fd, struct v4l2_buffer *buf)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!buf) {
-        LOGE("%s: buf is NULL", __func__);
+        ALOGE("%s: buf is NULL", __func__);
         return ret;
     }
 
     if (buf->memory != V4L2_MEMORY_MMAP) {
-        LOGE("%s: unsupported memory type", __func__);
+        ALOGE("%s: unsupported memory type", __func__);
         return ret;
     }
 
     if (__v4l2_check_buf_type(buf->type) == false) {
-        LOGE("%s: unsupported buffer type", __func__);
+        ALOGE("%s: unsupported buffer type", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_QUERYBUF, buf);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_QUERYBUF (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_QUERYBUF (%d)", ret);
         return ret;
     }
 
@@ -419,28 +419,28 @@ int exynos_v4l2_qbuf(int fd, struct v4l2_buffer *buf)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!buf) {
-        LOGE("%s: buf is NULL", __func__);
+        ALOGE("%s: buf is NULL", __func__);
         return ret;
     }
 
     if ((buf->memory != V4L2_MEMORY_MMAP) && (buf->memory != V4L2_MEMORY_USERPTR)) {
-        LOGE("%s: unsupported memory type", __func__);
+        ALOGE("%s: unsupported memory type", __func__);
         return ret;
     }
 
     if (__v4l2_check_buf_type(buf->type) == false) {
-        LOGE("%s: unsupported buffer type", __func__);
+        ALOGE("%s: unsupported buffer type", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_QBUF, buf);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_QBUF (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_QBUF (%d)", ret);
         return ret;
     }
 
@@ -452,28 +452,28 @@ int exynos_v4l2_dqbuf(int fd, struct v4l2_buffer *buf)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!buf) {
-        LOGE("%s: buf is NULL", __func__);
+        ALOGE("%s: buf is NULL", __func__);
         return ret;
     }
 
     if ((buf->memory != V4L2_MEMORY_MMAP) && (buf->memory != V4L2_MEMORY_USERPTR)) {
-        LOGE("%s: unsupported memory type", __func__);
+        ALOGE("%s: unsupported memory type", __func__);
         return ret;
     }
 
     if (__v4l2_check_buf_type(buf->type) == false) {
-        LOGE("%s: unsupported buffer type", __func__);
+        ALOGE("%s: unsupported buffer type", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_DQBUF, buf);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_DQBUF (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_DQBUF (%d)", ret);
         return ret;
     }
 
@@ -485,18 +485,18 @@ int exynos_v4l2_streamon(int fd, enum v4l2_buf_type type)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (__v4l2_check_buf_type(type) == false) {
-        LOGE("%s: unsupported buffer type", __func__);
+        ALOGE("%s: unsupported buffer type", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_STREAMON, &type);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_STREAMON (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_STREAMON (%d)", ret);
         return ret;
     }
 
@@ -508,18 +508,18 @@ int exynos_v4l2_streamoff(int fd, enum v4l2_buf_type type)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (__v4l2_check_buf_type(type) == false) {
-        LOGE("%s: unsupported buffer type", __func__);
+        ALOGE("%s: unsupported buffer type", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_STREAMOFF, &type);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_STREAMOFF (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_STREAMOFF (%d)", ret);
         return ret;
     }
 
@@ -531,23 +531,23 @@ int exynos_v4l2_cropcap(int fd, struct v4l2_cropcap *crop)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!crop) {
-        LOGE("%s: crop is NULL", __func__);
+        ALOGE("%s: crop is NULL", __func__);
         return ret;
     }
 
     if (__v4l2_check_buf_type(crop->type) == false) {
-        LOGE("%s: unsupported buffer type", __func__);
+        ALOGE("%s: unsupported buffer type", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_CROPCAP, crop);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_CROPCAP (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_CROPCAP (%d)", ret);
         return ret;
     }
 
@@ -559,23 +559,23 @@ int exynos_v4l2_g_crop(int fd, struct v4l2_crop *crop)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!crop) {
-        LOGE("%s: crop is NULL", __func__);
+        ALOGE("%s: crop is NULL", __func__);
         return ret;
     }
 
     if (__v4l2_check_buf_type(crop->type) == false) {
-        LOGE("%s: unsupported buffer type", __func__);
+        ALOGE("%s: unsupported buffer type", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_G_CROP, crop);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_G_CROP (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_G_CROP (%d)", ret);
         return ret;
     }
 
@@ -587,23 +587,23 @@ int exynos_v4l2_s_crop(int fd, struct v4l2_crop *crop)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (!crop) {
-        LOGE("%s: crop is NULL", __func__);
+        ALOGE("%s: crop is NULL", __func__);
         return ret;
     }
 
     if (__v4l2_check_buf_type(crop->type) == false) {
-        LOGE("%s: unsupported buffer type", __func__);
+        ALOGE("%s: unsupported buffer type", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_S_CROP, crop);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_S_CROP (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_S_CROP (%d)", ret);
         return ret;
     }
 
@@ -618,13 +618,13 @@ int exynos_v4l2_g_ctrl(int fd, unsigned int id, int *value)
     ctrl.id = id;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_G_CTRL, &ctrl);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_G_CTRL (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_G_CTRL (%d)", ret);
         return ret;
     }
 
@@ -642,13 +642,13 @@ int exynos_v4l2_s_ctrl(int fd, unsigned int id, int value)
     ctrl.value = value;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_S_CTRL, &ctrl);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_S_CTRL (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_S_CTRL (%d)", ret);
         return ret;
     }
 
@@ -660,18 +660,18 @@ int exynos_v4l2_g_parm(int fd, struct v4l2_streamparm *streamparm)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (__v4l2_check_buf_type(streamparm->type) == false) {
-        LOGE("%s: unsupported buffer type", __func__);
+        ALOGE("%s: unsupported buffer type", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_G_PARM, streamparm);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_G_PARM (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_G_PARM (%d)", ret);
         return ret;
     }
 
@@ -683,18 +683,18 @@ int exynos_v4l2_s_parm(int fd, struct v4l2_streamparm *streamparm)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (__v4l2_check_buf_type(streamparm->type) == false) {
-        LOGE("%s: unsupported buffer type", __func__);
+        ALOGE("%s: unsupported buffer type", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_S_PARM, streamparm);
     if (ret) {
-        LOGE("failed to ioctl: VIDIOC_S_PARM (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_S_PARM (%d)", ret);
         return ret;
     }
 
@@ -706,18 +706,18 @@ int exynos_v4l2_g_ext_ctrl(int fd, struct v4l2_ext_controls *ctrl)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (ctrl == NULL) {
-        LOGE("%s: ctrl is NULL", __func__);
+        ALOGE("%s: ctrl is NULL", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_G_EXT_CTRLS, ctrl);
     if (ret)
-        LOGE("failed to ioctl: VIDIOC_G_EXT_CTRLS (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_G_EXT_CTRLS (%d)", ret);
 
     return ret;
 }
@@ -727,18 +727,18 @@ int exynos_v4l2_s_ext_ctrl(int fd, struct v4l2_ext_controls *ctrl)
     int ret = -1;
 
     if (fd < 0) {
-        LOGE("%s: invalid fd: %d", __func__, fd);
+        ALOGE("%s: invalid fd: %d", __func__, fd);
         return ret;
     }
 
     if (ctrl == NULL) {
-        LOGE("%s: ctrl is NULL", __func__);
+        ALOGE("%s: ctrl is NULL", __func__);
         return ret;
     }
 
     ret = ioctl(fd, VIDIOC_S_EXT_CTRLS, ctrl);
     if (ret)
-        LOGE("failed to ioctl: VIDIOC_S_EXT_CTRLS (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_S_EXT_CTRLS (%d)", ret);
 
     return ret;
 }

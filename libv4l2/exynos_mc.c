@@ -98,7 +98,7 @@ static struct media_link *__media_entity_add_link(struct media_entity *entity)
 
 static int __media_enum_links(struct media_device *media)
 {
-    LOGD("%s: start", __func__);
+    ALOGD("%s: start", __func__);
     __u32 id;
     int ret = 0;
 
@@ -112,7 +112,7 @@ static int __media_enum_links(struct media_device *media)
         links.links = (struct media_link_desc*)malloc(entity->info.links * sizeof(struct media_link_desc));
 
         if (ioctl(media->fd, MEDIA_IOC_ENUM_LINKS, &links) < 0) {
-            LOGE("Unable to enumerate pads and links (%s)", strerror(errno));
+            ALOGE("Unable to enumerate pads and links (%s)", strerror(errno));
             free(links.pads);
             free(links.links);
             return -errno;
@@ -134,7 +134,7 @@ static int __media_enum_links(struct media_device *media)
             source = exynos_media_get_entity_by_id(media, link->source.entity);
             sink = exynos_media_get_entity_by_id(media, link->sink.entity);
             if (source == NULL || sink == NULL) {
-                LOGE("WARNING entity %u link %u from %u/%u to %u/%u is invalid!",
+                ALOGE("WARNING entity %u link %u from %u/%u to %u/%u is invalid!",
                       id, i, link->source.entity,
                       link->source.index,
                       link->sink.entity,
@@ -198,15 +198,15 @@ static int __media_get_media_fd(const char *filename, struct media_device *media
     char *ptr;
     char media_buf[6];
 
-    LOGD("%s: %s", __func__, filename);
+    ALOGD("%s: %s", __func__, filename);
 
     media->fd = open(filename, O_RDWR, 0);
     if (media->fd < 0) {
-        LOGE("Open sysfs media device failed, media->fd: %d", media->fd);
+        ALOGE("Open sysfs media device failed, media->fd: %d", media->fd);
         return -1;
     }
 
-    LOGD("%s: media->fd: %d", __func__, media->fd);
+    ALOGD("%s: media->fd: %d", __func__, media->fd);
 
     return media->fd;
 
@@ -259,7 +259,7 @@ static int __media_enum_entities(struct media_device *media)
         /* Fall back to get the device name via sysfs */
         __media_get_devname_sysfs(entity);
         if (ret < 0)
-            LOGE("media_get_devname failed");
+            ALOGE("media_get_devname failed");
     }
 
     return ret;
@@ -275,37 +275,37 @@ static struct media_device *__media_open_debug(
 
     media = (struct media_device *)calloc(1, sizeof(struct media_device));
     if (media == NULL) {
-        LOGE("media: %p", media);
+        ALOGE("media: %p", media);
         return NULL;
     }
 
     __media_debug_set_handler(media, debug_handler, debug_priv);
 
-    LOGD("%s: Opening media device %s", __func__, filename);
-    LOGD("%s: media: %p", __func__, media);
+    ALOGD("%s: Opening media device %s", __func__, filename);
+    ALOGD("%s: media: %p", __func__, media);
 
     media->fd = __media_get_media_fd(filename, media);
     if (media->fd < 0) {
         exynos_media_close(media);
-        LOGE("failed __media_get_media_fd %s", filename);
+        ALOGE("failed __media_get_media_fd %s", filename);
         return NULL;
     }
 
-    LOGD("%s: media->fd: %d", __func__, media->fd);
+    ALOGD("%s: media->fd: %d", __func__, media->fd);
     ret = __media_enum_entities(media);
 
     if (ret < 0) {
-        LOGE("Unable to enumerate entities for device %s (%s)", filename, strerror(-ret));
+        ALOGE("Unable to enumerate entities for device %s (%s)", filename, strerror(-ret));
         exynos_media_close(media);
         return NULL;
     }
 
-    LOGD("%s: Found %u entities", __func__, media->entities_count);
-    LOGD("%s: Enumerating pads and links", __func__);
+    ALOGD("%s: Found %u entities", __func__, media->entities_count);
+    ALOGD("%s: Enumerating pads and links", __func__);
 
     ret = __media_enum_links(media);
     if (ret < 0) {
-        LOGE("Unable to enumerate pads and links for device %s", filename);
+        ALOGE("Unable to enumerate pads and links for device %s", filename);
         exynos_media_close(media);
         return NULL;
     }
@@ -475,7 +475,7 @@ int exynos_media_setup_link(struct media_device *media,
     }
 
     if (i == source->entity->num_links) {
-        LOGE("Link not found");
+        ALOGE("Link not found");
         return -ENOENT;
     }
 
@@ -493,7 +493,7 @@ int exynos_media_setup_link(struct media_device *media,
 
     ret = ioctl(media->fd, MEDIA_IOC_SETUP_LINK, &ulink);
     if (ret == -1) {
-        LOGE("Unable to setup link (%s)", strerror(errno));
+        ALOGE("Unable to setup link (%s)", strerror(errno));
         return -errno;
     }
 
@@ -566,7 +566,7 @@ static int __media_get_devname_udev(struct udev *udev,
         return -EINVAL;
 
     devnum = makedev(entity->info.v4l.major, entity->info.v4l.minor);
-    LOGE("looking up device: %u:%u",
+    ALOGE("looking up device: %u:%u",
           major(devnum), minor(devnum));
     device = udev_device_new_from_devnum(udev, 'c', devnum);
     if (device) {
@@ -721,27 +721,27 @@ int exynos_media_parse_setup_link(
 
     link = exynos_media_parse_link(media, p, &end);
     if (link == NULL) {
-        LOGE("Unable to parse link");
+        ALOGE("Unable to parse link");
         return -EINVAL;
     }
 
     p = end;
     if (*p++ != '[') {
-        LOGE("Unable to parse link flags");
+        ALOGE("Unable to parse link flags");
         return -EINVAL;
     }
 
     flags = strtoul(p, &end, 10);
     for (p = end; isspace(*p); p++);
     if (*p++ != ']') {
-        LOGE("Unable to parse link flags");
+        ALOGE("Unable to parse link flags");
         return -EINVAL;
     }
 
     for (; isspace(*p); p++);
     *endp = (char *)p;
 
-    LOGD("%s: Setting up link %u:%u -> %u:%u [%u]", __func__,
+    ALOGD("%s: Setting up link %u:%u -> %u:%u [%u]", __func__,
           link->source->entity->info.id, link->source->index,
           link->sink->entity->info.id, link->sink->index,
           flags);
