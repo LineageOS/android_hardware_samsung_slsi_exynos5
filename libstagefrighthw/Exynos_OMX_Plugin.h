@@ -18,7 +18,7 @@
 
 #define Exynos_OMX_PLUGIN
 
-#include <media/stagefright/OMXPluginBase.h>
+#include <media/hardware/OMXPluginBase.h>
 
 namespace android {
 

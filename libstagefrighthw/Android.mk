@@ -21,7 +21,9 @@ LOCAL_SRC_FILES := \
 LOCAL_CFLAGS += $(PV_CFLAGS_MINUS_VISIBILITY)
 
 LOCAL_C_INCLUDES:= \
-      $(TOP)/frameworks/base/include/media/stagefright/openmax \
+      frameworks/native/include/media/hardware \
+      frameworks/native/include/media/openmax \
+      frameworks/native/include
 
 LOCAL_SHARED_LIBRARIES :=    \
         libbinder            \
@@ -29,7 +31,7 @@ LOCAL_SHARED_LIBRARIES :=    \
         libcutils            \
         libui                \
         libdl                \
-        libsurfaceflinger_client
+        libstagefright_foundation
 
 LOCAL_MODULE := libstagefrighthw
 
