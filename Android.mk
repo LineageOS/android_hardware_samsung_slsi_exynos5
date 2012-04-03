@@ -17,6 +17,13 @@
 
 exynos5_dirs := \
 	libion_exynos \
-	libexynosutils
+	libexynosutils \
+	exynos_omx \
+	libcsc \
+	libgscaler \
+	librotator \
+	libstagefrighthw \
+	libswconverter \
+	libv4l2
 
 include $(call all-named-subdir-makefiles,$(exynos5_dirs))
