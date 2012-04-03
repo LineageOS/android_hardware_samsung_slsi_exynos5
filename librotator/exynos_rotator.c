@@ -117,7 +117,7 @@ static unsigned int m_rotator_get_plane_count(
         plane_count = 3;
         break;
     default:
-        LOGE("%s::unmatched v4l_pixel_format color_space(0x%x)",
+        ALOGE("%s::unmatched v4l_pixel_format color_space(0x%x)",
              __func__, v4l_pixel_format);
         plane_count = -1;
         break;
@@ -165,7 +165,7 @@ static unsigned int m_rotator_get_plane_size(
         plane_size[2] = (width / 2) * (height / 2);
         break;
     default:
-        LOGE("%s::unmatched v4l_pixel_format color_space(0x%x)",
+        ALOGE("%s::unmatched v4l_pixel_format color_space(0x%x)",
              __func__, v4l_pixel_format);
         return -1;
         break;
@@ -204,13 +204,13 @@ static bool m_exynos_rotator_check_src_size(
     int v4l2_colorformat)
 {
     if (*w < ROTATOR_MIN_W_SIZE || *h < ROTATOR_MIN_H_SIZE) {
-        LOGE("%s::too small size (w : %d < %d) (h : %d < %d)",
+        ALOGE("%s::too small size (w : %d < %d) (h : %d < %d)",
             __func__, ROTATOR_MIN_W_SIZE, *w, ROTATOR_MIN_H_SIZE, *h);
         return false;
     }
 
     if (*crop_w < ROTATOR_MIN_W_SIZE || *crop_h < ROTATOR_MIN_H_SIZE) {
-        LOGE("%s::too small size (w : %d < %d) (h : %d < %d)",
+        ALOGE("%s::too small size (w : %d < %d) (h : %d < %d)",
             __func__, ROTATOR_MIN_W_SIZE,* crop_w, ROTATOR_MIN_H_SIZE, *crop_h);
         return false;
     }
@@ -280,13 +280,13 @@ static bool m_exynos_rotator_check_dst_size(
     }
 
     if (*w < ROTATOR_MIN_W_SIZE || *h < ROTATOR_MIN_H_SIZE) {
-        LOGE("%s::too small size (w : %d < %d) (h : %d < %d)",
+        ALOGE("%s::too small size (w : %d < %d) (h : %d < %d)",
             __func__, ROTATOR_MIN_W_SIZE, *w, ROTATOR_MIN_H_SIZE, *h);
         return false;
     }
 
     if (*crop_w < ROTATOR_MIN_W_SIZE || *crop_h < ROTATOR_MIN_H_SIZE) {
-        LOGE("%s::too small size (w : %d < %d) (h : %d < %d)",
+        ALOGE("%s::too small size (w : %d < %d) (h : %d < %d)",
             __func__, ROTATOR_MIN_W_SIZE,* crop_w, ROTATOR_MIN_H_SIZE, *crop_h);
         return false;
     }
@@ -340,7 +340,7 @@ static int m_exynos_rotator_create(void)
     sprintf(node, "%s%d", PFX_NODE_ROTATOR, NODE_NUM_ROTATOR);
     fd = exynos_v4l2_open(node, O_RDWR);
     if (fd < 0) {
-        LOGE("%s::exynos_v4l2_open(%s) fail", __func__, node);
+        ALOGE("%s::exynos_v4l2_open(%s) fail", __func__, node);
         return -1;
     }
 
@@ -349,7 +349,7 @@ static int m_exynos_rotator_create(void)
           V4L2_CAP_VIDEO_CAPTURE_MPLANE;
 
     if (exynos_v4l2_querycap(fd, cap) == false) {
-        LOGE("%s::exynos_v4l2_querycap() fail", __func__);
+        ALOGE("%s::exynos_v4l2_querycap() fail", __func__);
         if (0 < fd)
             close(fd);
         fd = 0;
@@ -363,14 +363,14 @@ static bool m_exynos_rotator_destroy(
 {
     if (rotator_handle->src.stream_on == true) {
         if (exynos_v4l2_streamoff(rotator_handle->rotator_fd, rotator_handle->src.buf_type) < 0)
-            LOGE("%s::exynos_v4l2_streamoff() fail", __func__);
+            ALOGE("%s::exynos_v4l2_streamoff() fail", __func__);
 
         rotator_handle->src.stream_on = false;
     }
 
     if (rotator_handle->dst.stream_on == true) {
         if (exynos_v4l2_streamoff(rotator_handle->rotator_fd, rotator_handle->dst.buf_type) < 0)
-            LOGE("%s::exynos_v4l2_streamoff() fail", __func__);
+            ALOGE("%s::exynos_v4l2_streamoff() fail", __func__);
 
         rotator_handle->dst.stream_on = false;
     }
@@ -417,14 +417,14 @@ bool m_exynos_rotator_find_and_trylock_and_create(
         if (flag_find_new_rotator == false) {
             usleep(ROTATOR_WAITING_TIME_FOR_TRYLOCK);
             total_sleep_time += ROTATOR_WAITING_TIME_FOR_TRYLOCK;
-            LOGV("%s::waiting for anthere process doens't use rotator", __func__);
+            ALOGV("%s::waiting for anthere process doens't use rotator", __func__);
         }
 
     } while(   flag_find_new_rotator == false
             && total_sleep_time < MAX_ROTATOR_WAITING_TIME_FOR_TRYLOCK);
 
     if (flag_find_new_rotator == false)
-        LOGE("%s::we don't have no available rotator.. fail", __func__);
+        ALOGE("%s::we don't have no available rotator.. fail", __func__);
 
     return flag_find_new_rotator;
 }
@@ -439,7 +439,7 @@ static bool m_exynos_rotator_set_format(
 
     plane_count = m_rotator_get_plane_count(info->v4l2_colorformat);
     if (plane_count < 0) {
-        LOGE("%s::not supported v4l2_colorformat", __func__);
+        ALOGE("%s::not supported v4l2_colorformat", __func__);
         return false;
     }
 
@@ -447,14 +447,14 @@ static bool m_exynos_rotator_set_format(
         // format
         info->format.type = info->buf_type;
         if (exynos_v4l2_g_fmt(fd, &info->format) < 0) {
-            LOGE("%s::exynos_v4l2_g_fmt() fail type=%d", __func__, info->buf_type);
+            ALOGE("%s::exynos_v4l2_g_fmt() fail type=%d", __func__, info->buf_type);
             return false;
         }
 
         if (info->width            != info->format.fmt.pix_mp.width ||
             info->height           != info->format.fmt.pix_mp.height ||
             info->v4l2_colorformat != info->format.fmt.pix_mp.pixelformat) {
-            LOGV("%s::info is different..)", __func__);
+            ALOGV("%s::info is different..)", __func__);
             goto set_hw;
         }
 
@@ -462,7 +462,7 @@ static bool m_exynos_rotator_set_format(
         if (info->buf_type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
         info->crop.type = info->buf_type;
         if (exynos_v4l2_g_crop(fd, &info->crop) < 0) {
-            LOGE("%s::exynos_v4l2_g_crop() fail", __func__);
+            ALOGE("%s::exynos_v4l2_g_crop() fail", __func__);
             return false;
         }
 
@@ -470,7 +470,7 @@ static bool m_exynos_rotator_set_format(
             info->crop_top    != info->crop.c.top ||
             info->crop_width  != info->crop.c.width ||
             info->crop_height != info->crop.c.height) {
-            LOGV("%s::crop is different..", __func__);
+            ALOGV("%s::crop is different..", __func__);
             goto set_hw;
         }
         }
@@ -480,17 +480,17 @@ static bool m_exynos_rotator_set_format(
         int value = 0;
 
         if (exynos_v4l2_g_ctrl(fd, V4L2_CID_ROTATE, &value) < 0) {
-            LOGE("%s::exynos_v4l2_g_ctrl(V4L2_CID_ROTATE) fail");
+            ALOGE("%s::exynos_v4l2_g_ctrl(V4L2_CID_ROTATE) fail");
             return false;
         }
 
         if (info->rotation != value) {
-            LOGV("%s::rotation is different..", __func__);
+            ALOGV("%s::rotation is different..", __func__);
             goto set_hw;
         }
 
         // skip s_fmt
-        LOGV("%s::fmt, crop is same with old-one, so skip s_fmt crop..", __func__);
+        ALOGV("%s::fmt, crop is same with old-one, so skip s_fmt crop..", __func__);
         return true;
     }
 
@@ -498,14 +498,14 @@ set_hw:
 
     if (info->stream_on == true) {
         if (exynos_v4l2_streamoff(fd, info->buf_type) < 0) {
-            LOGE("%s::exynos_v4l2_streamoff() fail", __func__);
+            ALOGE("%s::exynos_v4l2_streamoff() fail", __func__);
             return false;
         }
         info->stream_on = false;
     }
 
     if (exynos_v4l2_s_ctrl(fd, V4L2_CID_ROTATE, info->rotation) < 0) {
-        LOGE("%s::exynos_v4l2_s_ctrl(V4L2_CID_ROTATE) fail", __func__);
+        ALOGE("%s::exynos_v4l2_s_ctrl(V4L2_CID_ROTATE) fail", __func__);
         return false;
     }
 
@@ -516,7 +516,7 @@ set_hw:
     info->format.fmt.pix_mp.num_planes  = plane_count;
 
     if (exynos_v4l2_s_fmt(fd, &info->format) < 0) {
-        LOGE("%s::exynos_v4l2_s_fmt() fail", __func__);
+        ALOGE("%s::exynos_v4l2_s_fmt() fail", __func__);
         return false;
     }
 
@@ -528,13 +528,13 @@ set_hw:
     info->crop.c.height = info->crop_height;
 
     if (exynos_v4l2_s_crop(fd, &info->crop) < 0) {
-        LOGE("%s::exynos_v4l2_s_crop() fail", __func__);
+        ALOGE("%s::exynos_v4l2_s_crop() fail", __func__);
         return false;
     }
     }
 
     if (exynos_v4l2_s_ctrl(fd, V4L2_CID_CACHEABLE, info->cacheable) < 0) {
-        LOGE("%s::exynos_v4l2_s_ctrl() fail", __func__);
+        ALOGE("%s::exynos_v4l2_s_ctrl() fail", __func__);
         return false;
     }
 
@@ -542,7 +542,7 @@ set_hw:
     req_buf.type   = info->buf_type;
     req_buf.memory = V4L2_MEMORY_USERPTR;
     if (exynos_v4l2_reqbufs(fd, &req_buf) < 0) {
-        LOGE("%s::exynos_v4l2_reqbufs() fail", __func__);
+        ALOGE("%s::exynos_v4l2_reqbufs() fail", __func__);
         return false;
     }
 
@@ -574,7 +574,7 @@ static bool m_exynos_rotator_set_addr(
     }
 
     if (exynos_v4l2_qbuf(fd, &info->buffer) < 0) {
-        LOGE("%s::exynos_v4l2_qbuf() fail", __func__);
+        ALOGE("%s::exynos_v4l2_qbuf() fail", __func__);
         return false;
     }
 
@@ -589,7 +589,7 @@ void *exynos_rotator_create(void)
 
     struct ROTATOR_HANDLE *rotator_handle = (struct ROTATOR_HANDLE *)malloc(sizeof(struct ROTATOR_HANDLE));
     if (rotator_handle == NULL) {
-        LOGE("%s::malloc(struct ROTATOR_HANDLE) fail", __func__);
+        ALOGE("%s::malloc(struct ROTATOR_HANDLE) fail", __func__);
         goto err;
     }
 
@@ -609,7 +609,7 @@ void *exynos_rotator_create(void)
     sprintf(mutex_name, "%sOp%d", LOG_TAG, op_id);
     rotator_handle->op_mutex = exynos_mutex_create(EXYNOS_MUTEX_TYPE_PRIVATE, mutex_name);
     if (rotator_handle->op_mutex == NULL) {
-        LOGE("%s::exynos_mutex_create(%s) fail", __func__, mutex_name);
+        ALOGE("%s::exynos_mutex_create(%s) fail", __func__, mutex_name);
         goto err;
     }
 
@@ -619,12 +619,12 @@ void *exynos_rotator_create(void)
 
     rotator_handle->obj_mutex = exynos_mutex_create(EXYNOS_MUTEX_TYPE_SHARED, mutex_name);
     if (rotator_handle->obj_mutex == NULL) {
-        LOGE("%s::exynos_mutex_create(%s) fail", __func__, mutex_name);
+        ALOGE("%s::exynos_mutex_create(%s) fail", __func__, mutex_name);
         goto err;
     }
 
     if (m_exynos_rotator_find_and_trylock_and_create(rotator_handle) == false) {
-        LOGE("%s::m_exynos_rotator_find_and_trylock_and_create() fail", __func__);
+        ALOGE("%s::m_exynos_rotator_find_and_trylock_and_create() fail", __func__);
         goto err;
     }
 
@@ -643,7 +643,7 @@ err:
         if ((rotator_handle->obj_mutex != NULL) &&
             (exynos_mutex_get_created_status(rotator_handle->obj_mutex) == EXYNOS_MUTEX_STATUS_CREATED)) {
             if (exynos_mutex_destroy(rotator_handle->obj_mutex) == false)
-                LOGE("%s::exynos_mutex_destroy() fail", __func__);
+                ALOGE("%s::exynos_mutex_destroy() fail", __func__);
         }
 
         if (rotator_handle->op_mutex)
@@ -662,7 +662,7 @@ void exynos_rotator_destroy(
     struct ROTATOR_HANDLE *rotator_handle = (struct ROTATOR_HANDLE *)handle;
 
     if (handle == NULL) {
-        LOGE("%s::handle == NULL() fail", __func__);
+        ALOGE("%s::handle == NULL() fail", __func__);
         return;
     }
 
@@ -676,7 +676,7 @@ void exynos_rotator_destroy(
     if ((rotator_handle->obj_mutex != NULL) &&
         (exynos_mutex_get_created_status(rotator_handle->obj_mutex) == EXYNOS_MUTEX_STATUS_CREATED)) {
         if (exynos_mutex_destroy(rotator_handle->obj_mutex) == false)
-            LOGE("%s::exynos_mutex_destroy() fail", __func__);
+            ALOGE("%s::exynos_mutex_destroy() fail", __func__);
     }
 
     exynos_mutex_unlock(rotator_handle->op_mutex);
@@ -700,7 +700,7 @@ int exynos_rotator_set_src_format(
     rotator_handle = (struct ROTATOR_HANDLE *)handle;
 
     if (handle == NULL) {
-        LOGE("%s::handle == NULL() fail", __func__);
+        ALOGE("%s::handle == NULL() fail", __func__);
         return -1;
     }
 
@@ -733,7 +733,7 @@ int exynos_rotator_set_dst_format(
     rotator_handle = (struct ROTATOR_HANDLE *)handle;
 
     if (handle == NULL) {
-        LOGE("%s::handle == NULL() fail", __func__);
+        ALOGE("%s::handle == NULL() fail", __func__);
         return -1;
     }
 
@@ -762,7 +762,7 @@ int exynos_rotator_set_rotation(
     rotator_handle = (struct ROTATOR_HANDLE *)handle;
 
     if (handle == NULL) {
-        LOGE("%s::handle == NULL() fail", __func__);
+        ALOGE("%s::handle == NULL() fail", __func__);
         return ret;
     }
 
@@ -771,7 +771,7 @@ int exynos_rotator_set_rotation(
     int new_rotation = rotation % 360;
 
     if (new_rotation % 90 != 0) {
-        LOGE("%s::rotation(%d) cannot be acceptable fail", __func__, rotation);
+        ALOGE("%s::rotation(%d) cannot be acceptable fail", __func__, rotation);
         goto done;
     }
 
@@ -796,7 +796,7 @@ int exynos_rotator_set_src_addr(
     rotator_handle = (struct ROTATOR_HANDLE *)handle;
 
     if (handle == NULL) {
-        LOGE("%s::handle == NULL() fail", __func__);
+        ALOGE("%s::handle == NULL() fail", __func__);
         return -1;
     }
 
@@ -819,7 +819,7 @@ int exynos_rotator_set_dst_addr(
     rotator_handle = (struct ROTATOR_HANDLE *)handle;
 
     if (handle == NULL) {
-        LOGE("%s::handle == NULL() fail", __func__);
+        ALOGE("%s::handle == NULL() fail", __func__);
         return -1;
     }
 
@@ -843,7 +843,7 @@ int exynos_rotator_convert(
     rotator_handle = (struct ROTATOR_HANDLE *)handle;
 
     if (handle == NULL) {
-        LOGE("%s::handle == NULL() fail", __func__);
+        ALOGE("%s::handle == NULL() fail", __func__);
         return -1;
     }
 
@@ -854,7 +854,7 @@ int exynos_rotator_convert(
 
     if (exynos_mutex_trylock(rotator_handle->cur_obj_mutex) == false) {
         if (m_exynos_rotator_find_and_trylock_and_create(rotator_handle) == false) {
-            LOGE("%s::m_exynos_rotator_find_and_trylock_and_create() fail", __func__);
+            ALOGE("%s::m_exynos_rotator_find_and_trylock_and_create() fail", __func__);
             goto done;
         }
         flag_new_rotator = true;
@@ -864,7 +864,7 @@ int exynos_rotator_convert(
                                     &rotator_handle->src.crop_left, &rotator_handle->src.crop_top,
                                     &rotator_handle->src.crop_width, &rotator_handle->src.crop_height,
                                     rotator_handle->src.v4l2_colorformat) == false) {
-        LOGE("%s::m_exynos_rotator_check_size(src) fail", __func__);
+        ALOGE("%s::m_exynos_rotator_check_size(src) fail", __func__);
         goto done;
     }
 
@@ -873,33 +873,33 @@ int exynos_rotator_convert(
                                     &rotator_handle->dst.crop_width, &rotator_handle->dst.crop_height,
                                     rotator_handle->dst.v4l2_colorformat,
                                     rotator_handle->dst.rotation) == false) {
-        LOGE("%s::m_exynos_rotator_check_size(dst) fail", __func__);
+        ALOGE("%s::m_exynos_rotator_check_size(dst) fail", __func__);
         goto done;
     }
 
     if (m_exynos_rotator_set_format(rotator_handle->rotator_fd, &rotator_handle->src, flag_new_rotator) == false) {
-        LOGE("%s::m_exynos_rotator_set_format(src) fail", __func__);
+        ALOGE("%s::m_exynos_rotator_set_format(src) fail", __func__);
         goto done;
     }
 
     if (m_exynos_rotator_set_format(rotator_handle->rotator_fd, &rotator_handle->dst, flag_new_rotator) == false) {
-        LOGE("%s::m_exynos_rotator_set_format(dst) fail", __func__);
+        ALOGE("%s::m_exynos_rotator_set_format(dst) fail", __func__);
         goto done;
     }
 
     if (m_exynos_rotator_set_addr(rotator_handle->rotator_fd, &rotator_handle->src) == false) {
-        LOGE("%s::m_exynos_rotator_set_addr(src) fail", __func__);
+        ALOGE("%s::m_exynos_rotator_set_addr(src) fail", __func__);
         goto done;
     }
 
     if (m_exynos_rotator_set_addr(rotator_handle->rotator_fd, &rotator_handle->dst) == false) {
-        LOGE("%s::m_exynos_rotator_set_addr(dst) fail", __func__);
+        ALOGE("%s::m_exynos_rotator_set_addr(dst) fail", __func__);
         goto done;
     }
 
     if (rotator_handle->src.stream_on == false) {
         if (exynos_v4l2_streamon(rotator_handle->rotator_fd, rotator_handle->src.buf_type) < 0) {
-            LOGE("%s::exynos_v4l2_streamon(src) fail", __func__);
+            ALOGE("%s::exynos_v4l2_streamon(src) fail", __func__);
             goto done;
         }
         rotator_handle->src.stream_on = true;
@@ -907,19 +907,19 @@ int exynos_rotator_convert(
 
     if (rotator_handle->dst.stream_on == false) {
         if (exynos_v4l2_streamon(rotator_handle->rotator_fd, rotator_handle->dst.buf_type) < 0) {
-            LOGE("%s::exynos_v4l2_streamon(dst) fail", __func__);
+            ALOGE("%s::exynos_v4l2_streamon(dst) fail", __func__);
             goto done;
         }
         rotator_handle->dst.stream_on = true;
     }
 
     if (exynos_v4l2_dqbuf(rotator_handle->rotator_fd, &rotator_handle->src.buffer) < 0) {
-        LOGE("%s::exynos_v4l2_dqbuf(src) fail", __func__);
+        ALOGE("%s::exynos_v4l2_dqbuf(src) fail", __func__);
         goto done;
     }
 
     if (exynos_v4l2_dqbuf(rotator_handle->rotator_fd, &rotator_handle->dst.buffer) < 0) {
-        LOGE("%s::exynos_v4l2_dqbuf(dst) fail", __func__);
+        ALOGE("%s::exynos_v4l2_dqbuf(dst) fail", __func__);
         goto done;
     }
 
@@ -941,7 +941,7 @@ int exynos_rotator_connect(
     rotator_handle = (struct ROTATOR_HANDLE *)handle;
 
     if (handle == NULL) {
-        LOGE("%s::handle == NULL() fail", __func__);
+        ALOGE("%s::handle == NULL() fail", __func__);
         return -1;
     }
 
@@ -949,7 +949,7 @@ int exynos_rotator_connect(
 
     if (exynos_mutex_trylock(rotator_handle->cur_obj_mutex) == false) {
         if (m_exynos_rotator_find_and_trylock_and_create(rotator_handle) == false) {
-            LOGE("%s::m_exynos_rotator_find_and_trylock_and_create() fail", __func__);
+            ALOGE("%s::m_exynos_rotator_find_and_trylock_and_create() fail", __func__);
             goto done;
         }
     }
@@ -970,7 +970,7 @@ int exynos_rotator_disconnect(
     rotator_handle = (struct ROTATOR_HANDLE *)handle;
 
     if (handle == NULL) {
-        LOGE("%s::handle == NULL() fail", __func__);
+        ALOGE("%s::handle == NULL() fail", __func__);
         return -1;
     }
 
