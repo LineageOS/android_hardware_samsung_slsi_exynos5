@@ -126,7 +126,7 @@ static void *MFC_Encoder_Init(void)
 
     pCtx = (ExynosVideoEncContext *)malloc(sizeof(*pCtx));
     if (pCtx == NULL) {
-        LOGE("%s: Failed to allocate encoder context buffer", __func__);
+        ALOGE("%s: Failed to allocate encoder context buffer", __func__);
         goto EXIT_ALLOC_FAIL;
     }
 
@@ -134,12 +134,12 @@ static void *MFC_Encoder_Init(void)
 
     pCtx->hEnc = exynos_v4l2_open_devname(VIDEO_ENCODER_NAME, O_RDWR | O_NONBLOCK, 0);
     if (pCtx->hEnc < 0) {
-        LOGE("%s: Failed to open encoder device", __func__);
+        ALOGE("%s: Failed to open encoder device", __func__);
         goto EXIT_OPEN_FAIL;
     }
 
     if (!exynos_v4l2_querycap(pCtx->hEnc, needCaps)) {
-        LOGE("%s: Failed to querycap", __func__);
+        ALOGE("%s: Failed to querycap", __func__);
         goto EXIT_QUERYCAP_FAIL;
     }
 
@@ -168,7 +168,7 @@ static ExynosVideoErrorType MFC_Encoder_Finalize(void *pHandle)
     int i, j;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
@@ -235,7 +235,7 @@ static ExynosVideoErrorType MFC_Decoder_Enable_FrameSkip(
     ExynosVideoEncInitParam *pInitParam = &encParam->initParam;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
@@ -266,7 +266,7 @@ static ExynosVideoErrorType MFC_Encoder_Set_EncParam (
     struct v4l2_ext_controls ext_ctrls;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
@@ -573,7 +573,7 @@ static ExynosVideoErrorType MFC_Encoder_Set_EncParam (
         break;
 
     default:
-        LOGE("[%s] Undefined codec type",__func__);
+        ALOGE("[%s] Undefined codec type",__func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
@@ -588,7 +588,7 @@ static ExynosVideoErrorType MFC_Encoder_Set_EncParam (
         ext_ctrls.count = H263_CTRL_NUM;
 
     if (exynos_v4l2_s_ext_ctrl(pCtx->hEnc, &ext_ctrls)) {
-        LOGE("%s: Failed to s_ext_ctrl", __func__);
+        ALOGE("%s: Failed to s_ext_ctrl", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -608,13 +608,13 @@ static ExynosVideoErrorType MFC_Encoder_Set_FrameTag(
     ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
 
     if (exynos_v4l2_s_ctrl(pCtx->hEnc, V4L2_CID_MPEG_MFC51_VIDEO_FRAME_TAG, frameTag)) {
-        LOGE("%s: Failed to s_ctrl", __func__);
+        ALOGE("%s: Failed to s_ctrl", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -634,12 +634,12 @@ static int MFC_Encoder_Get_FrameTag(void *pHandle)
     int frameTag = -1;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         goto EXIT;
     }
 
     if (exynos_v4l2_g_ctrl(pCtx->hEnc, V4L2_CID_MPEG_MFC51_VIDEO_FRAME_TAG, &frameTag)) {
-        LOGE("%s: Failed to g_ctrl", __func__);
+        ALOGE("%s: Failed to g_ctrl", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -659,13 +659,13 @@ static ExynosVideoErrorType MFC_Encoder_Set_FrameType(
     ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
 
     if (exynos_v4l2_s_ctrl(pCtx->hEnc, V4L2_CID_MPEG_MFC51_VIDEO_FORCE_FRAME_TYPE, frameType)) {
-        LOGE("%s: Failed to s_ctrl", __func__);
+        ALOGE("%s: Failed to s_ctrl", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -685,13 +685,13 @@ static ExynosVideoErrorType MFC_Encoder_Set_FrameRate(
     ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
 
     if (exynos_v4l2_s_ctrl(pCtx->hEnc, V4L2_CID_MPEG_MFC51_VIDEO_FRAME_RATE_CH, frameRate)) {
-        LOGE("%s: Failed to s_ctrl", __func__);
+        ALOGE("%s: Failed to s_ctrl", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -711,13 +711,13 @@ static ExynosVideoErrorType MFC_Encoder_Set_BitRate(
     ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
 
     if (exynos_v4l2_s_ctrl(pCtx->hEnc, V4L2_CID_MPEG_MFC51_VIDEO_BIT_RATE_CH, bitRate)) {
-        LOGE("%s: Failed to s_ctrl", __func__);
+        ALOGE("%s: Failed to s_ctrl", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -737,13 +737,13 @@ static ExynosVideoErrorType MFC_Encoder_Set_FrameSkip(
     ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
 
     if (exynos_v4l2_s_ctrl(pCtx->hEnc, V4L2_CID_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE, frameSkip)) {
-        LOGE("%s: Failed to s_ctrl", __func__);
+        ALOGE("%s: Failed to s_ctrl", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -763,13 +763,13 @@ static ExynosVideoErrorType MFC_Encoder_Set_IDRPeriod(
     ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
 
     if (exynos_v4l2_s_ctrl(pCtx->hEnc, V4L2_CID_MPEG_VIDEO_H264_I_PERIOD, IDRPeriod)) {
-        LOGE("%s: Failed to s_ctrl", __func__);
+        ALOGE("%s: Failed to s_ctrl", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -788,7 +788,7 @@ static ExynosVideoErrorType MFC_Encoder_Set_Shareable_Inbuf(void *pHandle)
     ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
@@ -808,7 +808,7 @@ static ExynosVideoErrorType MFC_Encoder_Set_Shareable_Outbuf(void *pHandle)
     ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
@@ -831,7 +831,7 @@ static ExynosVideoErrorType MFC_Encoder_Get_BufferInfo_Inbuf(
     ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_NOBUFFERS;
         goto EXIT;
     }
@@ -854,7 +854,7 @@ static ExynosVideoErrorType MFC_Encoder_Get_BufferInfo_Outbuf(
     ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_NOBUFFERS;
         goto EXIT;
     }
@@ -878,13 +878,13 @@ static ExynosVideoErrorType MFC_Encoder_Set_Geometry_Inbuf(
     struct v4l2_format fmt;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
 
     if (bufferConf == NULL) {
-        LOGE("%s: Buffer geometry must be supplied", __func__);
+        ALOGE("%s: Buffer geometry must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
@@ -898,7 +898,7 @@ static ExynosVideoErrorType MFC_Encoder_Set_Geometry_Inbuf(
     fmt.fmt.pix_mp.num_planes = VIDEO_ENCODER_INBUF_PLANES;
 
     if (exynos_v4l2_s_fmt(pCtx->hEnc, &fmt)) {
-        LOGE("%s: Failed to s_fmt", __func__);
+        ALOGE("%s: Failed to s_fmt", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -922,13 +922,13 @@ static ExynosVideoErrorType MFC_Encoder_Get_Geometry_Inbuf(
     struct v4l2_format fmt;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
 
     if (bufferConf == NULL) {
-        LOGE("%s: Buffer geometry must be supplied", __func__);
+        ALOGE("%s: Buffer geometry must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
@@ -937,7 +937,7 @@ static ExynosVideoErrorType MFC_Encoder_Get_Geometry_Inbuf(
 
     fmt.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
     if (exynos_v4l2_g_fmt(pCtx->hEnc, &fmt)) {
-        LOGE("%s: Failed to g_fmt", __func__);
+        ALOGE("%s: Failed to g_fmt", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -963,13 +963,13 @@ static ExynosVideoErrorType MFC_Encoder_Set_Geometry_Outbuf(
     struct v4l2_format fmt;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
 
     if (bufferConf == NULL) {
-        LOGE("%s: Buffer geometry must be supplied", __func__);
+        ALOGE("%s: Buffer geometry must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
@@ -981,7 +981,7 @@ static ExynosVideoErrorType MFC_Encoder_Set_Geometry_Outbuf(
     fmt.fmt.pix_mp.plane_fmt[0].sizeimage = bufferConf->nSizeImage;
 
     if (exynos_v4l2_s_fmt(pCtx->hEnc, &fmt)) {
-        LOGE("%s: Failed to s_fmt", __func__);
+        ALOGE("%s: Failed to s_fmt", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -1005,13 +1005,13 @@ static ExynosVideoErrorType MFC_Encoder_Get_Geometry_Outbuf(
     struct v4l2_format fmt;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
 
     if (bufferConf == NULL) {
-        LOGE("%s: Buffer geometry must be supplied", __func__);
+        ALOGE("%s: Buffer geometry must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
@@ -1020,7 +1020,7 @@ static ExynosVideoErrorType MFC_Encoder_Get_Geometry_Outbuf(
 
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
     if (exynos_v4l2_g_fmt(pCtx->hEnc, &fmt)) {
-        LOGE("%s: Failed to g_fmt", __func__);
+        ALOGE("%s: Failed to g_fmt", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -1048,13 +1048,13 @@ static ExynosVideoErrorType MFC_Encoder_Setup_Inbuf(
     int i, j;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
 
     if (nBufferCount == 0) {
-        LOGE("%s: Buffer count must be greater than 0", __func__);
+        ALOGE("%s: Buffer count must be greater than 0", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
@@ -1070,7 +1070,7 @@ static ExynosVideoErrorType MFC_Encoder_Setup_Inbuf(
         req.memory = V4L2_MEMORY_MMAP;
 
     if (exynos_v4l2_reqbufs(pCtx->hEnc, &req)) {
-        LOGE("Failed to require buffer");
+        ALOGE("Failed to require buffer");
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -1079,7 +1079,7 @@ static ExynosVideoErrorType MFC_Encoder_Setup_Inbuf(
 
     pCtx->pInbuf = malloc(sizeof(*pCtx->pInbuf) * pCtx->nInbufs);
     if (pCtx->pInbuf == NULL) {
-        LOGE("Failed to allocate input buffer context");
+        ALOGE("Failed to allocate input buffer context");
         ret = VIDEO_ERROR_NOMEM;
         goto EXIT;
     }
@@ -1095,7 +1095,7 @@ static ExynosVideoErrorType MFC_Encoder_Setup_Inbuf(
         for (i = 0; i < pCtx->nInbufs; i++) {
             buf.index = i;
             if (exynos_v4l2_querybuf(pCtx->hEnc, &buf)) {
-                LOGE("%s: Failed to querybuf", __func__);
+                ALOGE("%s: Failed to querybuf", __func__);
                 ret = VIDEO_ERROR_APIFAIL;
                 goto EXIT;
             }
@@ -1171,13 +1171,13 @@ static ExynosVideoErrorType MFC_Encoder_Setup_Outbuf(
     int i, j;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
 
     if (nBufferCount == 0) {
-        LOGE("%s: Buffer count must be greater than 0", __func__);
+        ALOGE("%s: Buffer count must be greater than 0", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
@@ -1193,7 +1193,7 @@ static ExynosVideoErrorType MFC_Encoder_Setup_Outbuf(
         req.memory = V4L2_MEMORY_MMAP;
 
     if (exynos_v4l2_reqbufs(pCtx->hEnc, &req)) {
-        LOGE("%s: Failed to reqbuf", __func__);
+        ALOGE("%s: Failed to reqbuf", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -1202,7 +1202,7 @@ static ExynosVideoErrorType MFC_Encoder_Setup_Outbuf(
 
     pCtx->pOutbuf = malloc(sizeof(*pCtx->pOutbuf) * pCtx->nOutbufs);
     if (pCtx->pOutbuf == NULL) {
-        LOGE("Failed to allocate output buffer context");
+        ALOGE("Failed to allocate output buffer context");
         ret = VIDEO_ERROR_NOMEM;
         goto EXIT;
     }
@@ -1218,7 +1218,7 @@ static ExynosVideoErrorType MFC_Encoder_Setup_Outbuf(
         for (i = 0; i < pCtx->nOutbufs; i++) {
             buf.index = i;
             if (exynos_v4l2_querybuf(pCtx->hEnc, &buf)) {
-                LOGE("%s: Failed to querybuf", __func__);
+                ALOGE("%s: Failed to querybuf", __func__);
                 ret = VIDEO_ERROR_APIFAIL;
                 goto EXIT;
             }
@@ -1283,13 +1283,13 @@ static ExynosVideoErrorType MFC_Encoder_Run_Inbuf(void *pHandle)
     ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
 
     if (exynos_v4l2_streamon(pCtx->hEnc, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)) {
-        LOGE("%s: Failed to streamon for input buffer", __func__);
+        ALOGE("%s: Failed to streamon for input buffer", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -1307,13 +1307,13 @@ static ExynosVideoErrorType MFC_Encoder_Run_Outbuf(void *pHandle)
     ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
 
     if (exynos_v4l2_streamon(pCtx->hEnc, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)) {
-        LOGE("%s: Failed to streamon for output buffer", __func__);
+        ALOGE("%s: Failed to streamon for output buffer", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -1331,13 +1331,13 @@ static ExynosVideoErrorType MFC_Encoder_Stop_Inbuf(void *pHandle)
     ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
 
     if (exynos_v4l2_streamoff(pCtx->hEnc, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)) {
-        LOGE("%s: Failed to streamoff for input buffer", __func__);
+        ALOGE("%s: Failed to streamoff for input buffer", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -1355,13 +1355,13 @@ static ExynosVideoErrorType MFC_Encoder_Stop_Outbuf(void *pHandle)
     ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
 
     if (exynos_v4l2_streamoff(pCtx->hEnc, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)) {
-        LOGE("%s: Failed to streamoff for output buffer", __func__);
+        ALOGE("%s: Failed to streamoff for output buffer", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -1382,7 +1382,7 @@ static ExynosVideoErrorType MFC_Encoder_Wait_Inbuf(void *pHandle)
     int poll_state;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
@@ -1397,12 +1397,12 @@ static ExynosVideoErrorType MFC_Encoder_Wait_Inbuf(void *pHandle)
             if (poll_events.revents & POLLOUT) {
                 break;
             } else {
-                LOGE("%s: Poll return error", __func__);
+                ALOGE("%s: Poll return error", __func__);
                 ret = VIDEO_ERROR_POLL;
                 break;
             }
         } else if (poll_state < 0) {
-            LOGE("%s: Poll state error", __func__);
+            ALOGE("%s: Poll state error", __func__);
             ret = VIDEO_ERROR_POLL;
             break;
         }
@@ -1425,7 +1425,7 @@ static ExynosVideoErrorType MFC_Encoder_Wait_Outbuf(void *pHandle)
     int bframe_count = 0; // FIXME
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
@@ -1440,12 +1440,12 @@ static ExynosVideoErrorType MFC_Encoder_Wait_Outbuf(void *pHandle)
             if (poll_events.revents & POLLIN) {
                 break;
             } else {
-                LOGE("%s: Poll return error", __func__);
+                ALOGE("%s: Poll return error", __func__);
                 ret = VIDEO_ERROR_POLL;
                 break;
             }
         } else if (poll_state < 0) {
-            LOGE("%s: Poll state error", __func__);
+            ALOGE("%s: Poll state error", __func__);
             ret = VIDEO_ERROR_POLL;
             break;
         } else {
@@ -1468,7 +1468,7 @@ static int MFC_Encoder_Find_Inbuf(
     int nIndex = -1;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         nIndex = -1;
         goto EXIT;
     }
@@ -1505,7 +1505,7 @@ static int MFC_Encoder_Find_Outbuf(
     int nIndex = -1;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         nIndex = -1;
         goto EXIT;
     }
@@ -1549,7 +1549,7 @@ static ExynosVideoErrorType MFC_Encoder_Enqueue_Inbuf(
     int index, i;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
@@ -1566,7 +1566,7 @@ static ExynosVideoErrorType MFC_Encoder_Enqueue_Inbuf(
        index = MFC_Encoder_Find_Inbuf(pCtx, pBuffer[0]);
 
     if (index == -1) {
-        LOGE("%s: Failed to find input buffer", __func__);
+        ALOGE("%s: Failed to find input buffer", __func__);
         ret = VIDEO_ERROR_NOBUFFERS;
         goto EXIT;
     }
@@ -1588,7 +1588,7 @@ static ExynosVideoErrorType MFC_Encoder_Enqueue_Inbuf(
     }
 
     if (exynos_v4l2_qbuf(pCtx->hEnc, &buf)) {
-        LOGE("%s: Failed to enqueue input buffer", __func__);
+        ALOGE("%s: Failed to enqueue input buffer", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -1618,7 +1618,7 @@ static ExynosVideoErrorType MFC_Encoder_Enqueue_Outbuf(
     int i, index;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
@@ -1655,7 +1655,7 @@ static ExynosVideoErrorType MFC_Encoder_Enqueue_Outbuf(
     }
 
     if (exynos_v4l2_qbuf(pCtx->hEnc, &buf)) {
-        LOGE("%s: Failed to enqueue output buffer", __func__);
+        ALOGE("%s: Failed to enqueue output buffer", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -1678,7 +1678,7 @@ static ExynosVideoBuffer *MFC_Encoder_Dequeue_Inbuf(void *pHandle)
     struct v4l2_buffer buf;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         pOutbuf = NULL;
         goto EXIT;
     }
@@ -1696,7 +1696,7 @@ static ExynosVideoBuffer *MFC_Encoder_Dequeue_Inbuf(void *pHandle)
         pCtx->pInbuf[buf.index].bQueued = VIDEO_FALSE;
         pOutbuf = &pCtx->pInbuf[buf.index];
     } else {
-        LOGE("%s: Failed to dequeue input buffer", __func__);
+        ALOGE("%s: Failed to dequeue input buffer", __func__);
         pOutbuf = NULL;
         goto EXIT;
     }
@@ -1718,13 +1718,13 @@ static ExynosVideoBuffer *MFC_Encoder_Dequeue_Outbuf(void *pHandle)
     int value;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         pOutbuf = NULL;
         goto EXIT;
     }
 
     if (MFC_Encoder_Wait_Outbuf(pCtx) != VIDEO_ERROR_NONE) {
-        LOGE("%s: Failed to poll for output buffer", __func__);
+        ALOGE("%s: Failed to poll for output buffer", __func__);
         pOutbuf = NULL;
         goto EXIT;
     }
@@ -1757,7 +1757,7 @@ static ExynosVideoBuffer *MFC_Encoder_Dequeue_Outbuf(void *pHandle)
         pOutbuf->frameType = VIDEO_FRAME_B;
         break;
     default:
-        LOGI("%s: encoded frame type is = %d",__func__, (buf.flags & (0x7 << 3)));
+        ALOGI("%s: encoded frame type is = %d",__func__, (buf.flags & (0x7 << 3)));
         pOutbuf->frameType = VIDEO_FRAME_OTHERS;
         break;
     };
@@ -1779,7 +1779,7 @@ static ExynosVideoErrorType MFC_Encoder_Enqueue_All_Outbuf(void *pHandle)
     int i;
 
     if (pCtx == NULL) {
-        LOGE("%s: Video context info must be supplied", __func__);
+        ALOGE("%s: Video context info must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
     }
