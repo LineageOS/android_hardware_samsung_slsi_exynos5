@@ -352,7 +352,7 @@ static CSC_ERRORCODE conv_hw(
         break;
 #endif
     default:
-        LOGE("%s:: unsupported csc_hw_type", __func__);
+        ALOGE("%s:: unsupported csc_hw_type", __func__);
         break;
     }
 
@@ -383,17 +383,17 @@ void *csc_init(
 #ifdef USE_FIMC
         case CSC_HW_TYPE_FIMC:
             csc_handle->csc_hw_handle = csc_hwconverter_open();
-            LOGD("%s:: CSC_HW_TYPE_FIMC", __func__);
+            ALOGD("%s:: CSC_HW_TYPE_FIMC", __func__);
             break;
 #endif
 #ifdef USE_GSCALER
         case CSC_HW_TYPE_GSCALER:
             csc_handle->csc_hw_handle = exynos_gsc_create();
-            LOGD("%s:: CSC_HW_TYPE_GSCALER", __func__);
+            ALOGD("%s:: CSC_HW_TYPE_GSCALER", __func__);
             break;
 #endif
         default:
-            LOGE("%s:: unsupported csc_hw_type, csc use sw", __func__);
+            ALOGE("%s:: unsupported csc_hw_type, csc use sw", __func__);
             csc_handle->csc_hw_handle == NULL;
             break;
         }
@@ -411,13 +411,13 @@ void *csc_init(
 
     if (csc_handle->csc_method == CSC_METHOD_HW) {
         if (csc_handle->csc_hw_handle == NULL) {
-            LOGE("%s:: CSC_METHOD_HW can't open HW", __func__);
+            ALOGE("%s:: CSC_METHOD_HW can't open HW", __func__);
             free(csc_handle);
             csc_handle = NULL;
         }
     }
 
-    LOGD("%s:: CSC_METHOD=%d", __func__, csc_handle->csc_method);
+    ALOGD("%s:: CSC_METHOD=%d", __func__, csc_handle->csc_method);
 
     return (void *)csc_handle;
 }
@@ -442,7 +442,7 @@ CSC_ERRORCODE csc_deinit(
             break;
 #endif
         default:
-            LOGE("%s:: unsupported csc_hw_type", __func__);
+            ALOGE("%s:: unsupported csc_hw_type", __func__);
             break;
         }
     }
@@ -547,7 +547,7 @@ CSC_ERRORCODE csc_set_src_format(
             break;
 #endif
         default:
-            LOGE("%s:: unsupported csc_hw_type", __func__);
+            ALOGE("%s:: unsupported csc_hw_type", __func__);
             break;
         }
     }
@@ -631,7 +631,7 @@ CSC_ERRORCODE csc_set_dst_format(
             break;
 #endif
         default:
-            LOGE("%s:: unsupported csc_hw_type", __func__);
+            ALOGE("%s:: unsupported csc_hw_type", __func__);
             break;
         }
     }
@@ -672,7 +672,7 @@ CSC_ERRORCODE csc_set_src_buffer(
             break;
 #endif
         default:
-            LOGE("%s:: unsupported csc_hw_type", __func__);
+            ALOGE("%s:: unsupported csc_hw_type", __func__);
             break;
         }
     }
@@ -713,7 +713,7 @@ CSC_ERRORCODE csc_set_dst_buffer(
             break;
 #endif
         default:
-            LOGE("%s:: unsupported csc_hw_type", __func__);
+            ALOGE("%s:: unsupported csc_hw_type", __func__);
             break;
         }
     }
