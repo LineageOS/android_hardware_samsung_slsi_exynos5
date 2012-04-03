@@ -47,9 +47,9 @@ enum {
 };
 
 /*
- * HWC_HWOVERLAY is flag for location of glFinish().
- * Enable this define if you want that glFinish() is in HWComposer.
- * If you disable this define, glFinish() is called in threadloop().
+ * HWC_HWOVERLAY is flag for location of glReadPixel().
+ * Enable this define if you want that glReadPixel() is in HWComposer.
+ * If you disable this define, glReadPixel() is not called in threadloop().
  */
 #define HWC_HWOVERLAY 1
 
@@ -74,6 +74,7 @@ struct private_module_t
     float xdpi;
     float ydpi;
     float fps;
+    int enableVSync;
 
     enum {
         PRIV_USAGE_LOCKED_FOR_POST = 0x80000000
@@ -136,6 +137,7 @@ struct private_handle_t
     static const int sNumInts = 21;
     static const int sNumFds = 1;
     static const int sMagic = 0x3141592;
+
     private_handle_t(int flags, int size, int base, int lock_state, ump_secure_id secure_id, ump_handle handle):
         magic(sMagic),
         flags(flags),
