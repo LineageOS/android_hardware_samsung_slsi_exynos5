@@ -12,14 +12,11 @@ LOCAL_SRC_FILES := \
 
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/include \
-	$(LOCAL_PATH)/../../../../../../include
+	hardware/samsung_slsi/exynos5/include
 
 LOCAL_MODULE := libExynosVideoApi
 LOCAL_MODULE_TAGS := optional
 LOCAL_PRELINK_MODULE := false
 LOCAL_ARM_MODE := arm
-
-LOCAL_STATIC_LIBRARIES :=
-LOCAL_SHARED_LIBRARIES := liblog libexynosv4l2
 
 include $(BUILD_STATIC_LIBRARY)

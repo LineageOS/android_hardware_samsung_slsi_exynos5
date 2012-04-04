@@ -25,9 +25,7 @@ LOCAL_STATIC_LIBRARIES := libExynosOMX_Venc libExynosOMX_OSAL libExynosOMX_Basec
 LOCAL_SHARED_LIBRARIES := libc libdl libcutils libutils libui \
 	libExynosOMX_Resourcemanager libcsc
 
-ifeq ($(BOARD_USE_EXYNOS_OMX), true)
 LOCAL_SHARED_LIBRARIES += libexynosv4l2
-endif
 
 LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
 	$(EXYNOS_OMX_INC)/exynos \

@@ -29,19 +29,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <ui/android_native_buffer.h>
+#include <system/window.h>
 #include <ui/GraphicBuffer.h>
 #include <ui/GraphicBufferMapper.h>
 #include <ui/Rect.h>
-#include <media/stagefright/HardwareAPI.h>
+#include <media/hardware/HardwareAPI.h>
 #include <hardware/hardware.h>
-#include <media/stagefright/MetadataBufferType.h>
+#include <media/hardware/OMXPluginBase.h>
+#include <media/hardware/MetadataBufferType.h>
 
 #include "Exynos_OSAL_Semaphore.h"
 #include "Exynos_OMX_Baseport.h"
 #include "Exynos_OMX_Basecomponent.h"
 #include "Exynos_OMX_Macros.h"
 #include "Exynos_OMX_Vdec.h"
+#include <gralloc_priv.h>
 
 #undef  EXYNOS_LOG_TAG
 #define EXYNOS_LOG_TAG    "Exynos_OSAL_Android"

@@ -25,7 +25,7 @@ LOCAL_SHARED_LIBRARIES := libcutils libutils \
 	libui \
 	libhardware \
 	libandroid_runtime \
-	libsurfaceflinger_client \
+	libstagefright_foundation \
 	libbinder \
 	libmedia
 
@@ -34,6 +34,10 @@ LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
 	$(EXYNOS_OMX_TOP)/osal \
 	$(EXYNOS_OMX_COMPONENT)/common \
 	$(EXYNOS_OMX_COMPONENT)/video/dec \
-	$(TARGET_OUT_HEADERS)/$(EXYNOS_OMX_COPY_HEADERS_TO)
+	$(TARGET_OUT_HEADERS)/$(EXYNOS_OMX_COPY_HEADERS_TO) \
+	$(EXYNOS_OMX_TOP)/video/dec \
+	hardware/samsung_slsi/exynos5/include \
+	frameworks/native/include/media/hardware \
+	frameworks/native/include/media/openmax \
 
 include $(BUILD_STATIC_LIBRARY)

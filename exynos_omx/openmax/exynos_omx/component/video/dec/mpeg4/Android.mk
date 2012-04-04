@@ -45,9 +45,7 @@ ifeq ($(BOARD_USES_MFC_FPS),true)
 LOCAL_CFLAGS += -DCONFIG_MFC_FPS
 endif
 
-ifeq ($(BOARD_USE_EXYNOS_OMX), true)
 LOCAL_SHARED_LIBRARIES += libexynosv4l2
-endif
 
 LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
 	$(EXYNOS_OMX_INC)/exynos \
