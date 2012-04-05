@@ -43,7 +43,7 @@ enum {
     GRALLOC_USAGE_PRIVATE_SBS_RL        = 0x00200000,
     /* HDMI should display this buffer as 3D TB LR/RL*/
     GRALLOC_USAGE_PRIVATE_TB_LR         = 0x00100000,
-    GRALLOC_USAGE_PRIVATE_TB_RL         = 0x00080000,
+    GRALLOC_USAGE_PRIVATE_TB_RL         = 0x00080000
 };
 
 /*
@@ -93,7 +93,7 @@ struct private_handle_t
     enum {
         PRIV_FLAGS_FRAMEBUFFER = 0x00000001,
         PRIV_FLAGS_USES_UMP    = 0x00000002,
-        PRIV_FLAGS_USES_ION    = 0x00000020,
+        PRIV_FLAGS_USES_ION    = 0x00000020
     };
 
     enum {
