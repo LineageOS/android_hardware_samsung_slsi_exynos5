@@ -37,11 +37,11 @@
 #define MAX_COMPONENT_ROLE_NUM    1
 
 /* MPEG4 */
-#define EXYNOS_OMX_COMPONENT_MPEG4_DEC         "OMX.SEC.MPEG4.Decoder"
+#define EXYNOS_OMX_COMPONENT_MPEG4_DEC         "OMX.Exynos5.MPEG4.Decoder"
 #define EXYNOS_OMX_COMPONENT_MPEG4_DEC_ROLE    "video_decoder.mpeg4"
 
 /* H.263 */
-#define EXYNOS_OMX_COMPONENT_H263_DEC          "OMX.SEC.H263.Decoder"
+#define EXYNOS_OMX_COMPONENT_H263_DEC          "OMX.Exynos5.H263.Decoder"
 #define EXYNOS_OMX_COMPONENT_H263_DEC_ROLE     "video_decoder.h263"
 
 

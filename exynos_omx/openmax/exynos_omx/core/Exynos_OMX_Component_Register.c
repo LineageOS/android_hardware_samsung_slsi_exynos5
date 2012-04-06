@@ -76,7 +76,7 @@ OMX_ERRORTYPE Exynos_OMX_Component_Register(EXYNOS_OMX_COMPONENT_REGLIST **compL
         OMX_HANDLETYPE soHandle;
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "%s", d->d_name);
 
-        if (Exynos_OSAL_Strncmp(d->d_name, "libOMX.SEC.", Exynos_OSAL_Strlen("libOMX.SEC.")) == 0) {
+        if (Exynos_OSAL_Strncmp(d->d_name, "libOMX.Exynos5.", Exynos_OSAL_Strlen("libOMX.Exynos5.")) == 0) {
             Exynos_OSAL_Memset(libName, 0, MAX_OMX_COMPONENT_LIBNAME_SIZE);
             Exynos_OSAL_Strcpy(libName, EXYNOS_OMX_INSTALL_PATH);
             Exynos_OSAL_Strcat(libName, d->d_name);

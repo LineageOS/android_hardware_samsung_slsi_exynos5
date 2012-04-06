@@ -37,7 +37,7 @@
 #define MAX_COMPONENT_ROLE_NUM    1
 
 /* MP3 */
-#define EXYNOS_OMX_COMPONENT_MP3_DEC         "OMX.SEC.MP3.Decoder"
+#define EXYNOS_OMX_COMPONENT_MP3_DEC         "OMX.Exynos5.MP3.Decoder"
 #define EXYNOS_OMX_COMPONENT_MP3_DEC_ROLE    "audio_decoder.mp3"
 
 #ifdef __cplusplus

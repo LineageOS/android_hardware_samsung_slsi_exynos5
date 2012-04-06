@@ -37,7 +37,7 @@
 #define MAX_COMPONENT_ROLE_NUM  1
 
 /* H.264 */
-#define EXYNOS_OMX_COMPONENT_H264_ENC "OMX.SEC.AVC.Encoder"
+#define EXYNOS_OMX_COMPONENT_H264_ENC "OMX.Exynos5.AVC.Encoder"
 #define EXYNOS_OMX_COMPONENT_H264_ENC_ROLE "video_encoder.avc"
 
 

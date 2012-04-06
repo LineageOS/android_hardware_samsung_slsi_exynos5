@@ -37,7 +37,7 @@
 #define MAX_COMPONENT_ROLE_NUM  1
 
 /* VP8 */
-#define EXYNOS_OMX_COMPONENT_VP8_DEC      "OMX.SEC.VP8.Decoder"
+#define EXYNOS_OMX_COMPONENT_VP8_DEC      "OMX.Exynos5.VP8.Decoder"
 #define EXYNOS_OMX_COMPONENT_VP8_DEC_ROLE "video_decoder.vpx"
 
 
