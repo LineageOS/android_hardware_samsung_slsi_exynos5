@@ -2,10 +2,6 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_COPY_HEADERS_TO := libsecmm
-LOCAL_COPY_HEADERS := \
-	include/ExynosVideoApi.h
-
 LOCAL_SRC_FILES := \
 	dec/src/ExynosVideoDecoder.c \
 	enc/src/ExynosVideoEncoder.c

@@ -2,10 +2,6 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_COPY_HEADERS_TO := libsecmm
-LOCAL_COPY_HEADERS := \
-	csc.h
-
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := \

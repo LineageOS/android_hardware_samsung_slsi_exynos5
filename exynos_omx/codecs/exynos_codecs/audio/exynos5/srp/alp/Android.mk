@@ -1,12 +1,6 @@
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
-LOCAL_COPY_HEADERS_TO := libsecmm
-LOCAL_COPY_HEADERS := \
-	include/srp_api.h \
-	include/srp_ioctl.h \
-	include/srp_error.h
-
 LOCAL_SRC_FILES := \
 	src/srp_api.c
 
