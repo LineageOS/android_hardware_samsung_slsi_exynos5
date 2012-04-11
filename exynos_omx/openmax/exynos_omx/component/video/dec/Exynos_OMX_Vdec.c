@@ -42,6 +42,8 @@
 #include "Exynos_OSAL_Android.h"
 #endif
 
+#include "csc.h"
+
 #undef  EXYNOS_LOG_TAG
 #define EXYNOS_LOG_TAG    "EXYNOS_VIDEO_DEC"
 #define EXYNOS_LOG_OFF
@@ -1093,6 +1095,31 @@ OMX_ERRORTYPE Exynos_OMX_VideoDecodeGetParameter(
     case OMX_IndexParamGetAndroidNativeBuffer:
     {
         ret = Exynos_OSAL_GetANBParameter(hComponent, nParamIndex, ComponentParameterStructure);
+    }
+        break;
+
+        /* We need to fake a HAL window format here once using nativebuffer
+         * is enabled
+         */
+    case OMX_IndexParamPortDefinition:
+    {
+        OMX_PARAM_PORTDEFINITIONTYPE *portDefinition = (OMX_PARAM_PORTDEFINITIONTYPE *)ComponentParameterStructure;
+        OMX_U32                       portIndex = portDefinition->nPortIndex;
+        EXYNOS_OMX_BASEPORT          *pExynosPort = NULL;
+
+        ret = Exynos_OMX_GetParameter(hComponent, nParamIndex, ComponentParameterStructure);
+        if (ret != OMX_ErrorNone) {
+            goto EXIT;
+        }
+
+        /* at this point, GetParameter has done all the verification, we
+         * just dereference things directly here
+         */
+        pExynosPort = &pExynosComponent->pExynosPort[portIndex];
+        if (pExynosPort->bIsANBEnabled == OMX_TRUE) {
+            portDefinition->format.video.eColorFormat =
+                (OMX_COLOR_FORMATTYPE)omx_2_hal_pixel_format(portDefinition->format.video.eColorFormat);
+        }
     }
         break;
 #endif
