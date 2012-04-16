@@ -95,54 +95,6 @@ typedef struct _CSC_HANDLE {
     void           *csc_hw_handle;
 } CSC_HANDLE;
 
-OMX_COLOR_FORMATTYPE hal_2_omx_pixel_format(
-    unsigned int hal_format)
-{
-    OMX_COLOR_FORMATTYPE omx_format;
-    switch (hal_format) {
-    case HAL_PIXEL_FORMAT_YCbCr_420_P:
-        omx_format = OMX_COLOR_FormatYUV420Planar;
-        break;
-    case HAL_PIXEL_FORMAT_YCbCr_420_SP:
-        omx_format = OMX_COLOR_FormatYUV420SemiPlanar;
-        break;
-    case HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
-        omx_format = OMX_SEC_COLOR_FormatNV12Tiled;
-        break;
-    case HAL_PIXEL_FORMAT_ARGB888:
-        omx_format = OMX_COLOR_Format32bitARGB8888;
-        break;
-    default:
-        omx_format = OMX_COLOR_FormatYUV420Planar;
-        break;
-    }
-    return omx_format;
-}
-
-unsigned int omx_2_hal_pixel_format(
-    OMX_COLOR_FORMATTYPE omx_format)
-{
-    unsigned int hal_format;
-    switch (omx_format) {
-    case OMX_COLOR_FormatYUV420Planar:
-        hal_format = HAL_PIXEL_FORMAT_YCbCr_420_P;
-        break;
-    case OMX_COLOR_FormatYUV420SemiPlanar:
-        hal_format = HAL_PIXEL_FORMAT_YCbCr_420_SP;
-        break;
-    case OMX_SEC_COLOR_FormatNV12Tiled:
-        hal_format = HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED;
-        break;
-    case OMX_COLOR_Format32bitARGB8888:
-        hal_format = HAL_PIXEL_FORMAT_ARGB888;
-        break;
-    default:
-        hal_format = HAL_PIXEL_FORMAT_YCbCr_420_P;
-        break;
-    }
-    return hal_format;
-}
-
 /* source is RGB888 */
 static CSC_ERRORCODE conv_sw_src_argb888(
     CSC_HANDLE *handle)

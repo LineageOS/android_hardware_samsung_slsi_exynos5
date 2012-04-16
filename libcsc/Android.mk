@@ -1,13 +1,33 @@
 LOCAL_PATH := $(call my-dir)
 
+OMX_NAME := exynos
+
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES := \
+    csc_helper.c
+
+LOCAL_C_INCLUDES := \
+    $(LOCAL_PATH)/../exynos_omx/openmax/$(OMX_NAME)_omx/include/khronos \
+    $(LOCAL_PATH)/../exynos_omx/openmax/$(OMX_NAME)_omx/include/$(OMX_NAME) \
+    $(LOCAL_PATH)/../include
+
+LOCAL_CFLAGS := \
+    -DUSE_SAMSUNG_COLORFORMAT \
+    -DEXYNOS_OMX
+
+LOCAL_MODULE := libcsc_helper
+LOCAL_MODULE_TAGS := optional
+LOCAL_STATIC_LIBRARIES := liblog
+
+include $(BUILD_STATIC_LIBRARY)
+
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := \
 	csc.c
-
-OMX_NAME := exynos
 
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/../exynos_omx/openmax/$(OMX_NAME)_omx/include/khronos \
@@ -23,16 +43,15 @@ LOCAL_PRELINK_MODULE := false
 LOCAL_ARM_MODE := arm
 
 LOCAL_STATIC_LIBRARIES := libswconverter
+LOCAL_WHOLE_STATIC_LIBRARIES := libcsc_helper
 LOCAL_SHARED_LIBRARIES := liblog libexynosutils
 
 LOCAL_CFLAGS += -DUSE_SAMSUNG_COLORFORMAT
 
-ifeq ($(TARGET_BOARD_PLATFORM), exynos5)
 LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH)/../include
 LOCAL_CFLAGS += -DUSE_GSCALER
 LOCAL_SHARED_LIBRARIES += libexynosgscaler
-endif
 
 LOCAL_CFLAGS += -DUSE_ION
 LOCAL_SHARED_LIBRARIES += libion_exynos
