@@ -116,8 +116,8 @@ static unsigned int m_gsc_get_plane_size(
         break;
     case V4L2_PIX_FMT_NV16:
     case V4L2_PIX_FMT_NV61:
-        plane_size[0] = width * height;
-        plane_size[1] = width * height;
+        plane_size[0] = width * height * 2;
+        plane_size[1] = 0;
         plane_size[2] = 0;
         break;
     case V4L2_PIX_FMT_NV12MT_16X16:
