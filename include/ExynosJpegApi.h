@@ -21,10 +21,9 @@
 #include "videodev2.h"
 #include "videodev2_exynos_media.h"
 
-//#define JPEG_DEC_BYTE_ALIGN     (8)
-
 #define JPEG_CACHE_OFF (0)
 #define JPEG_CACHE_ON (1)
+#define KERNEL_33_JPEG_API (1)
 
 class ExynosJpegBase {
 public:
@@ -54,6 +53,7 @@ public:
         ERROR_BUFFR_IS_NULL,
         ERROR_BUFFER_TOO_SMALL,
         ERROR_GET_SIZE_FAIL,
+        ERROR_BUF_NOT_SET_YET,
         ERROR_REQBUF_FAIL,
         ERROR_INVALID_V4l2_BUF_TYPE = -0x80,
         ERROR_MMAP_FAILED,
@@ -143,10 +143,10 @@ protected:
     int setJpegConfig(enum MODE eMode, void *pConfig);
     int setColorFormat(enum MODE eMode, int iV4l2ColorFormat);
     int setJpegFormat(enum MODE eMode, int iV4l2JpegFormat);
-    int getBuf(struct BUFFER *pstBuf, char **pcBuf, int *piInputSize, int iPlaneNum);
+    int getBuf(bool bCreateBuf, struct BUFFER *pstBuf, char **pcBuf, int *iBufSize, int iSize, int iPlaneNum);
     int setBuf(struct BUFFER *pstBuf, char **pcBuf, int *iSize, int iPlaneNum);
     int updateConfig(enum MODE eMode, int iInBufs, int iOutBufs, int iInBufPlanes, int iOutBufPlanes);
-    int excute(int iInBufPlanes, int iOutBufPlanes);
+    int execute(int iInBufPlanes, int iOutBufPlanes);
 };
 
 //! ExynosJpegEncoder class
@@ -171,13 +171,14 @@ public:
 
     int     setJpegConfig(void* pConfig);
 
-    char **getInBuf(int *piInputSize);
-    char *getOutBuf(int *piOutputSize);
+    int     getInBuf(char **pcBuf, int *piInputSize, int iSize);
+    int     getOutBuf(char **pcBuf, int *piOutputSize);
 
     int     setInBuf(char **pcBuf, int *iSize);
     int     setOutBuf(char *pcBuf, int iSize);
 
     int     getSize(int *piWidth, int *piHeight);
+    int     getColorFormat(void);
     int     setColorFormat(int iV4l2ColorFormat);
     int     setJpegFormat(int iV4l2JpegFormat);
     int     updateConfig(void);
@@ -203,8 +204,8 @@ public:
 
     int     setJpegConfig(void* pConfig);
 
-    char *getInBuf(int *piInputSize);
-    char **getOutBuf(int *piOutputSize);
+    int     getInBuf(char **pcBuf, int *piInputSize);
+    int     getOutBuf(char **pcBuf, int *piOutputSize, int iSize);
 
     int     setInBuf(char *pcBuf, int iSize);
     int     setOutBuf(char **pcBuf, int *iSize);
@@ -218,6 +219,10 @@ public:
     int setJpegSize(int iJpegSize);
 
     int  decode(void);
+#ifdef WA_BLOCKING_ARTIFACT
+private:
+    void reduceBlockingArtifact(unsigned char *addr, int iColor, int width, int height);
+#endif
 };
 
 #endif /* __EXYNOS_JPEG_BASE_H__ */
