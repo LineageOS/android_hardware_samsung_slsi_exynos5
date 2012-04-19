@@ -267,6 +267,7 @@ OMX_ERRORTYPE Exynos_MFC_VP8Dec_SetParameter(
         EXYNOS_OMX_BASEPORT          *pExynosPort;
         OMX_U32                       width, height, size;
         OMX_U32                       realWidth, realHeight;
+        OMX_COLOR_FORMATTYPE          old_format;
 
         if (portIndex >= pExynosComponent->portParam.nPorts) {
             ret = OMX_ErrorBadPortIndex;
@@ -290,7 +291,16 @@ OMX_ERRORTYPE Exynos_MFC_VP8Dec_SetParameter(
             goto EXIT;
         }
 
+        old_format = pExynosPort->portDefinition.format.video.eColorFormat;
         Exynos_OSAL_Memcpy(&pExynosPort->portDefinition, pPortDefinition, pPortDefinition->nSize);
+
+#ifdef USE_ANB
+        /* should not affect the format since in ANB case, the caller
+         * is providing us a HAL format */
+        if (pExynosPort->bIsANBEnabled == OMX_TRUE) {
+            pExynosPort->portDefinition.format.video.eColorFormat = old_format;
+        }
+#endif
 
         realWidth = pExynosPort->portDefinition.format.video.nFrameWidth;
         realHeight = pExynosPort->portDefinition.format.video.nFrameHeight;
