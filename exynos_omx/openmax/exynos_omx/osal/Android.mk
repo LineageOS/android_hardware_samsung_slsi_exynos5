@@ -20,14 +20,7 @@ LOCAL_MODULE := libExynosOMX_OSAL
 
 LOCAL_CFLAGS :=
 
-LOCAL_STATIC_LIBRARIES :=
-LOCAL_SHARED_LIBRARIES := libcutils libutils \
-	libui \
-	libhardware \
-	libandroid_runtime \
-	libstagefright_foundation \
-	libbinder \
-	libmedia
+LOCAL_STATIC_LIBRARIES := liblog libcutils
 
 LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
 	$(EXYNOS_OMX_INC)/exynos \
