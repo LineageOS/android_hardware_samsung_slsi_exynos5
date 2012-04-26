@@ -24,7 +24,6 @@
  *   2010.7.15 : Create
  */
 
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,7 +37,6 @@
 #define EXYNOS_LOG_TAG    "EXYNOS_MPEG4_ENC"
 #define EXYNOS_LOG_OFF
 #include "Exynos_OSAL_Log.h"
-
 
 OSCL_EXPORT_REF int Exynos_OMX_COMPONENT_Library_Register(ExynosRegisterComponentType **ppExynosComponent)
 {
@@ -59,6 +57,6 @@ OSCL_EXPORT_REF int Exynos_OMX_COMPONENT_Library_Register(ExynosRegisterComponen
 
 EXIT:
 	FunctionOut();
+
 	return MAX_COMPONENT_NUM;
 }
-

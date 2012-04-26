@@ -762,7 +762,8 @@ OMX_BOOL Exynos_Preprocessor_InputData(OMX_COMPONENTTYPE *pOMXComponent)
                 (pExynosPort->portDefinition.format.video.eColorFormat != OMX_SEC_COLOR_FormatNV21LPhysicalAddress)) {
                 if (flagEOF == OMX_TRUE) {
                     OMX_U32 width, height;
-                    unsigned int csc_src_color_format, csc_dst_color_format;
+                    unsigned int csc_src_color_format = omx_2_hal_pixel_format((unsigned int)OMX_COLOR_FormatYUV420SemiPlanar);
+                    unsigned int csc_dst_color_format = omx_2_hal_pixel_format((unsigned int)OMX_COLOR_FormatYUV420SemiPlanar);
                     unsigned int cacheable = 1;
                     unsigned char *pSrcBuf[3] = {NULL, };
                     unsigned char *pDstBuf[3] = {NULL, };

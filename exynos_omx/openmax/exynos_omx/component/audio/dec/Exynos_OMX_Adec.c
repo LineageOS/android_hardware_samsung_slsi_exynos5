@@ -808,7 +808,6 @@ OMX_ERRORTYPE Exynos_OMX_BufferProcess(OMX_HANDLETYPE hComponent)
     OMX_ERRORTYPE             ret = OMX_ErrorNone;
     OMX_COMPONENTTYPE        *pOMXComponent = (OMX_COMPONENTTYPE *)hComponent;
     EXYNOS_OMX_BASECOMPONENT *pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
-    EXYNOS_OMX_AUDIODEC_COMPONENT *pVideoDec = (EXYNOS_OMX_AUDIODEC_COMPONENT *)pExynosComponent->hComponentHandle;
     EXYNOS_OMX_BASEPORT      *exynosInputPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
     EXYNOS_OMX_BASEPORT      *exynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
     EXYNOS_OMX_DATABUFFER    *inputUseBuffer = &pExynosComponent->exynosDataBuffer[INPUT_PORT_INDEX];

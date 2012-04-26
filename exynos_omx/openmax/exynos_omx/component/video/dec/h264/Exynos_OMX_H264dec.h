@@ -35,6 +35,8 @@
 #define MAX_H264_FP_VIDEO_INPUTBUFFER_NUM  4
 #define MAX_H264_FP_VIDEO_OUTPUTBUFFER_NUM 4
 
+#define MAX_H264_DRM_VIDEO_INPUTBUFFER_NUM  3
+
 typedef struct _EXYNOS_MFC_H264DEC_HANDLE
 {
     OMX_HANDLETYPE hMFCHandle;
@@ -44,6 +46,9 @@ typedef struct _EXYNOS_MFC_H264DEC_HANDLE
     OMX_U32  outputIndexTimestamp;
     OMX_BOOL bConfiguredMFC;
     OMX_BOOL bFlashPlayerMode;
+#ifdef S3D_SUPPORT
+    OMX_BOOL bS3DMode;
+#endif
     OMX_S32  returnCodec;
 } EXYNOS_MFC_H264DEC_HANDLE;
 

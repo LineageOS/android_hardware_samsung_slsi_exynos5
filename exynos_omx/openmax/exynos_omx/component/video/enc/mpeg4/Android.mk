@@ -13,10 +13,6 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/omx
 
 LOCAL_CFLAGS :=
 
-ifeq ($(BOARD_NONBLOCK_MODE_PROCESS), true)
-LOCAL_CFLAGS += -DNONBLOCK_MODE_PROCESS
-endif
-
 ifeq ($(BOARD_USE_METADATABUFFERTYPE), true)
 LOCAL_CFLAGS += -DUSE_METADATABUFFERTYPE
 endif
@@ -24,15 +20,17 @@ endif
 LOCAL_ARM_MODE := arm
 
 LOCAL_STATIC_LIBRARIES := libExynosOMX_Venc libExynosOMX_OSAL libExynosOMX_Basecomponent \
-	libseccscapi libExynosVideoApi
+	libswconverter libExynosVideoApi
 LOCAL_SHARED_LIBRARIES := libc libdl libcutils libutils libui \
-	libExynosOMX_Resourcemanager
+	libExynosOMX_Resourcemanager libcsc libexynosv4l2
 
 LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
 	$(EXYNOS_OMX_INC)/exynos \
 	$(EXYNOS_OMX_TOP)/osal \
 	$(EXYNOS_OMX_TOP)/core \
 	$(EXYNOS_OMX_COMPONENT)/common \
-	$(EXYNOS_OMX_COMPONENT)/video/enc
+	$(EXYNOS_OMX_COMPONENT)/video/enc \
+	hardware/samsung_slsi/exynos5/exynos_omx/codecs/exynos_codecs/video/exynos5/mfc_v4l2/include \
+	hardware/samsung_slsi/exynos5/libcsc
 
 include $(BUILD_SHARED_LIBRARY)

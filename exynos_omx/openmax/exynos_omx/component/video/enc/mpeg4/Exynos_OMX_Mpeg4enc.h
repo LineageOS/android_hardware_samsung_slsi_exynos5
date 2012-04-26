@@ -29,7 +29,7 @@
 
 #include "Exynos_OMX_Def.h"
 #include "OMX_Component.h"
-#include "SsbSipMfcApi.h"
+#include "OMX_Video.h"
 
 
 typedef enum _CODEC_TYPE
@@ -41,9 +41,10 @@ typedef enum _CODEC_TYPE
 typedef struct _EXYNOS_MFC_MPEG4ENC_HANDLE
 {
     OMX_HANDLETYPE             hMFCHandle;
-    SSBSIP_MFC_ENC_MPEG4_PARAM mpeg4MFCParam;
-    SSBSIP_MFC_ENC_H263_PARAM  h263MFCParam;
-    SSBSIP_MFC_ENC_INPUT_INFO  inputInfo;
+
+    OMX_PTR                    pMFCYUVVirBuffer[2];
+    OMX_PTR                    pMFCYUVPhyBuffer[2];
+    OMX_U32                    pMFCYUVDataSize[2];
     OMX_U32                    indexTimestamp;
     OMX_BOOL                   bConfiguredMFC;
     CODEC_TYPE                 codecType;
@@ -65,7 +66,6 @@ typedef struct _EXYNOS_MPEG4ENC_HANDLE
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 
 OSCL_EXPORT_REF OMX_ERRORTYPE Exynos_OMX_ComponentInit(OMX_HANDLETYPE hComponent, OMX_STRING componentName);
                 OMX_ERRORTYPE Exynos_OMX_ComponentDeinit(OMX_HANDLETYPE hComponent);

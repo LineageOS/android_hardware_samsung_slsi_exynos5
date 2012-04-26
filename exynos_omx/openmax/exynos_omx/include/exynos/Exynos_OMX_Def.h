@@ -115,9 +115,25 @@ typedef enum _EXYNOS_OMX_COLOR_FORMATTYPE {
     OMX_SEC_COLOR_FormatNV12LPhysicalAddress = 0x7F000002,
     OMX_SEC_COLOR_FormatNV12LVirtualAddress  = 0x7F000003,
     OMX_SEC_COLOR_FormatNV12Tiled            = 0x7FC00002,  /* 0x7FC00002 */
+#ifdef S3D_SUPPORT
+    OMX_SEC_COLOR_FormatNV12Tiled_SBS_LR            = 0x7FC00003,  /* 0x7FC00003 */
+    OMX_SEC_COLOR_FormatNV12Tiled_SBS_RL            = 0x7FC00004,  /* 0x7FC00004 */
+    OMX_SEC_COLOR_FormatNV12Tiled_TB_LR             = 0x7FC00005,  /* 0x7FC00005 */
+    OMX_SEC_COLOR_FormatNV12Tiled_TB_RL             = 0x7FC00006,  /* 0x7FC00006 */
+    OMX_SEC_COLOR_FormatYUV420SemiPlanar_SBS_LR     = 0x7FC00007,  /* 0x7FC00007 */
+    OMX_SEC_COLOR_FormatYUV420SemiPlanar_SBS_RL     = 0x7FC00008,  /* 0x7FC00008 */
+    OMX_SEC_COLOR_FormatYUV420SemiPlanar_TB_LR      = 0x7FC00009,  /* 0x7FC00009 */
+    OMX_SEC_COLOR_FormatYUV420SemiPlanar_TB_RL      = 0x7FC0000A,  /* 0x7FC0000A */
+    OMX_SEC_COLOR_FormatYUV420Planar_SBS_LR         = 0x7FC0000B,  /* 0x7FC0000B */
+    OMX_SEC_COLOR_FormatYUV420Planar_SBS_RL         = 0x7FC0000C,  /* 0x7FC0000C */
+    OMX_SEC_COLOR_FormatYUV420Planar_TB_LR          = 0x7FC0000D,  /* 0x7FC0000D */
+    OMX_SEC_COLOR_FormatYUV420Planar_TB_RL          = 0x7FC0000E,  /* 0x7FC0000E */
+#endif
     OMX_SEC_COLOR_FormatNV21LPhysicalAddress = 0x7F000010,
     OMX_SEC_COLOR_FormatNV21Linear           = 0x7F000011,
 
+    /* to copy a encoded data for drm component using gsc or fimc */
+    OMX_SEC_COLOR_FormatEncodedData                 = OMX_COLOR_FormatYCbYCr,
     /* for Android Native Window */
     OMX_SEC_COLOR_FormatANBYUV420SemiPlanar  = 0x100,
     /* for Android SurfaceMediaSource*/

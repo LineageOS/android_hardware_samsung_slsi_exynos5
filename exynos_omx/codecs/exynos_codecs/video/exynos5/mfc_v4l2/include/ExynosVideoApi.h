@@ -118,6 +118,23 @@ typedef struct _ExynosVideoBuffer {
     void                       *pPrivate;
 } ExynosVideoBuffer;
 
+typedef struct _ExynosVideoFramePacking{
+    int           available;
+    unsigned int  arrangement_id;
+    int           arrangement_cancel_flag;
+    unsigned char arrangement_type;
+    int           quincunx_sampling_flag;
+    unsigned char content_interpretation_type;
+    int           spatial_flipping_flag;
+    int           frame0_flipped_flag;
+    int           field_views_flag;
+    int           current_frame_is_frame0_flag;
+    unsigned char frame0_grid_pos_x;
+    unsigned char frame0_grid_pos_y;
+    unsigned char frame1_grid_pos_x;
+    unsigned char frame1_grid_pos_y;
+} ExynosVideoFramePacking;
+
 typedef struct _ExynosVideoEncInitParam{
     /* Initial parameters */
     ExynosVideoFrameSkipMode FrameSkip; /* [IN] frame skip mode */
@@ -133,6 +150,7 @@ typedef struct _ExynosVideoEncCommonParam{
     int SliceMode;                      /* [IN] Multi slice mode */
     int RandomIntraMBRefresh;           /* [IN] cyclic intra refresh */
     int EnableFRMRateControl;           /* [IN] frame based rate control enable */
+    int EnableMBRateControl;            /* [IN] Enable macroblock-level rate control */
     int Bitrate;                        /* [IN] rate control parameter(bit rate) */
     int FrameQp;                        /* [IN] The quantization parameter of the frame */
     int FrameQp_P;                      /* [IN] The quantization parameter of the P frame */
@@ -162,7 +180,6 @@ typedef struct _ExynosVideoEncH264Param{
     int SymbolMode;                     /* [IN] The mode of entropy coding(CABAC, CAVLC) */
     int PictureInterlace;               /* [IN] Enables the interlace mode */
     int Transform8x8Mode;               /* [IN] Allow 8x8 transform(This is allowed only for high profile) */
-    int EnableMBRateControl;            /* [IN] Enable macroblock-level rate control */
     int DarkDisable;                    /* [IN] Disable adaptive rate control on dark region */
     int SmoothDisable;                  /* [IN] Disable adaptive rate control on smooth region */
     int StaticDisable;                  /* [IN] Disable adaptive rate control on static region */
@@ -170,7 +187,6 @@ typedef struct _ExynosVideoEncH264Param{
 } ExynosVideoEncH264Param;
 
 typedef struct _ExynosVideoEncMpeg4Param {
-    int EnableMBRateControl;            /* [IN] Enable macroblock-level rate control, MFC6.x Only */
     /* MPEG4 specific parameters */
     int ProfileIDC;                     /* [IN] profile */
     int LevelIDC;                       /* [IN] level */
@@ -183,7 +199,6 @@ typedef struct _ExynosVideoEncMpeg4Param {
 } ExynosVideoEncMpeg4Param;
 
 typedef struct _ExynosVideoEncH263Param {
-    int EnableMBRateControl;            /* [IN] Enable macroblock-level rate control, MFC6.x Only */
     /* H.263 specific parameters */
     int FrameRate;                      /* [IN] rate control parameter(frame rate) */
 } ExynosVideoEncH263Param;
@@ -211,11 +226,12 @@ typedef struct _ExynosVideoDecOps {
     ExynosVideoErrorType  (*Set_FrameTag)(void *pHandle, int frameTag);
     int                   (*Get_FrameTag)(void *pHandle);
     int                   (*Get_ActualBufferCount)(void *pHandle);
-    ExynosVideoErrorType  (*Enable_Cacheable)(void *pHandle);
     ExynosVideoErrorType  (*Set_DisplayDelay)(void *pHandle, int delay);
     ExynosVideoErrorType  (*Enable_PackedPB)(void *pHandle);
     ExynosVideoErrorType  (*Enable_LoopFilter)(void *pHandle);
     ExynosVideoErrorType  (*Enable_SliceMode)(void *pHandle);
+    ExynosVideoErrorType  (*Enable_SEIParsing)(void *pHandle);
+    ExynosVideoErrorType  (*Get_FramePackingInfo)(void *pHandle, ExynosVideoFramePacking *pFramepacking);
 } ExynosVideoDecOps;
 
 typedef struct _ExynosVideoEncOps {
@@ -238,6 +254,7 @@ typedef struct _ExynosVideoDecBufferOps {
     unsigned int nSize;
 
     /* Add new ops at the end of structure, no order change */
+    ExynosVideoErrorType  (*Enable_Cacheable)(void *pHandle);
     ExynosVideoErrorType  (*Set_Shareable)(void *pHandle);
     ExynosVideoErrorType  (*Get_BufferInfo)(void *pHandle, int nIndex, ExynosVideoBuffer *pBuffer);
     ExynosVideoErrorType  (*Set_Geometry)(void *pHandle, ExynosVideoGeometry *bufferConf);
@@ -254,6 +271,7 @@ typedef struct _ExynosVideoEncBufferOps {
     unsigned int nSize;
 
     /* Add new ops at the end of structure, no order change */
+    ExynosVideoErrorType (*Enable_Cacheable)(void *pHandle);
     ExynosVideoErrorType (*Set_Shareable)(void *pHandle);
     ExynosVideoErrorType (*Get_BufferInfo)(void *pHandle, int nIndex, ExynosVideoBuffer *pBuffer);
     ExynosVideoErrorType (*Set_Geometry)(void *pHandle, ExynosVideoGeometry *bufferConf);

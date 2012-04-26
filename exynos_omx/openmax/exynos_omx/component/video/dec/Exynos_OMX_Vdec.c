@@ -239,15 +239,29 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
         goto EXIT;
     }
 
-    temp_buffer = Exynos_OSAL_Malloc(sizeof(OMX_U8) * nSizeBytes);
-    if (temp_buffer == NULL) {
-        ret = OMX_ErrorInsufficientResources;
-        goto EXIT;
+    if ((OMX_TRUE == pVideoDec->bDRMPlayerMode) && (INPUT_PORT_INDEX == nPortIndex)) {
+        if (nSizeBytes < (DEFAULT_MFC_INPUT_BUFFER_SIZE / 2))
+            nSizeBytes = DEFAULT_MFC_INPUT_BUFFER_SIZE / 2;
+
+        ret = pExynosComponent->exynos_allocSecureInputBuffer(hComponent, sizeof(OMX_U8) * nSizeBytes, &temp_buffer);
+        if (OMX_ErrorNone != ret)
+            goto EXIT;
+    } else {
+        temp_buffer = Exynos_OSAL_Malloc(sizeof(OMX_U8) * nSizeBytes);
+        if (temp_buffer == NULL) {
+            ret = OMX_ErrorInsufficientResources;
+            goto EXIT;
+        }
     }
 
     temp_bufferHeader = (OMX_BUFFERHEADERTYPE *)Exynos_OSAL_Malloc(sizeof(OMX_BUFFERHEADERTYPE));
     if (temp_bufferHeader == NULL) {
-        Exynos_OSAL_Free(temp_buffer);
+        if ((OMX_TRUE == pVideoDec->bDRMPlayerMode) && (INPUT_PORT_INDEX == nPortIndex))
+            ret = pExynosComponent->exynos_freeSecureInputBuffer(hComponent, temp_buffer);
+            if (OMX_ErrorNone != ret)
+                goto EXIT;
+        else
+            Exynos_OSAL_Free(temp_buffer);
 
         temp_buffer = NULL;
         ret = OMX_ErrorInsufficientResources;
@@ -281,7 +295,13 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
     }
 
     Exynos_OSAL_Free(temp_bufferHeader);
-    Exynos_OSAL_Free(temp_buffer);
+    if ((OMX_TRUE == pVideoDec->bDRMPlayerMode) && (INPUT_PORT_INDEX == nPortIndex)) {
+        ret = pExynosComponent->exynos_freeSecureInputBuffer(hComponent, temp_buffer);
+        if (OMX_ErrorNone != ret)
+            goto EXIT;
+    } else {
+        Exynos_OSAL_Free(temp_buffer);
+    }
 
     ret = OMX_ErrorInsufficientResources;
 
@@ -342,7 +362,13 @@ OMX_ERRORTYPE Exynos_OMX_FreeBuffer(
         if (((pExynosPort->bufferStateAllocate[i] | BUFFER_STATE_FREE) != 0) && (pExynosPort->bufferHeader[i] != NULL)) {
             if (pExynosPort->bufferHeader[i]->pBuffer == pBufferHdr->pBuffer) {
                 if (pExynosPort->bufferStateAllocate[i] & BUFFER_STATE_ALLOCATED) {
-                    Exynos_OSAL_Free(pExynosPort->bufferHeader[i]->pBuffer);
+                    if ((OMX_TRUE == pVideoDec->bDRMPlayerMode) && (INPUT_PORT_INDEX == nPortIndex)) {
+                        ret = pExynosComponent->exynos_freeSecureInputBuffer(hComponent, pExynosPort->bufferHeader[i]->pBuffer);
+                        if (OMX_ErrorNone != ret)
+                            goto EXIT;
+                    } else {
+                        Exynos_OSAL_Free(pExynosPort->bufferHeader[i]->pBuffer);
+                    }
                     pExynosPort->bufferHeader[i]->pBuffer = NULL;
                     pBufferHdr->pBuffer = NULL;
                 } else if (pExynosPort->bufferStateAllocate[i] & BUFFER_STATE_ASSIGNED) {
@@ -712,8 +738,12 @@ OMX_BOOL Exynos_Preprocessor_InputData(OMX_COMPONENTTYPE *pOMXComponent)
         } else {
             previousFrameEOF = OMX_FALSE;
         }
-        if ((pExynosComponent->bUseFlagEOF == OMX_TRUE) &&
-           !(inputUseBuffer->nFlags & OMX_BUFFERFLAG_CODECCONFIG)) {
+
+        if (OMX_TRUE == pVideoDec->bDRMPlayerMode) {
+            flagEOF = OMX_TRUE;
+            checkedSize = checkInputStreamLen;
+        } else if ((pExynosComponent->bUseFlagEOF == OMX_TRUE) &&
+                   !(inputUseBuffer->nFlags & OMX_BUFFERFLAG_CODECCONFIG)) {
             flagEOF = OMX_TRUE;
             checkedSize = checkInputStreamLen;
         } else {
@@ -732,9 +762,69 @@ OMX_BOOL Exynos_Preprocessor_InputData(OMX_COMPONENTTYPE *pOMXComponent)
         if (inputUseBuffer->nFlags & OMX_BUFFERFLAG_EOS)
             pExynosComponent->bSaveFlagEOS = OMX_TRUE;
 
-        if ((((inputData->allocSize) - (inputData->dataLen)) >= copySize)) {
-            if (copySize > 0)
-                Exynos_OSAL_Memcpy(inputData->dataBuffer + inputData->dataLen, checkInputStream, copySize);
+        if ((((inputData->allocSize) - (inputData->dataLen)) >= copySize) || (OMX_TRUE == pVideoDec->bDRMPlayerMode)) {
+            if ((pVideoDec->bDRMPlayerMode == OMX_TRUE) && (copySize > 0)) {
+                void                  *pSrcBuf[3] = { NULL, }, *pDstBuf[3] = { NULL, };
+                OMX_U32                nFrameWidth, nFrameHeight;
+
+                /* width and height depend on input buffer size about mfc */
+                nFrameWidth = 1024;
+                nFrameHeight = 512;
+
+                pSrcBuf[0] = Exynos_OSAL_SharedMemory_IONToVirt(pVideoDec->hSharedMemory, inputUseBuffer->bufferHeader->pBuffer);
+                if (NULL == pSrcBuf[0]) {
+                    Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to convert ION to Virt");
+                    goto EXIT;
+                }
+                pDstBuf[0] = inputData->dataBuffer + inputData->dataLen;
+
+                if (OMX_TRUE != pVideoDec->bSetCscCopyFormat) {
+                    unsigned int           csc_src_color_format, csc_dst_color_format;
+                    unsigned int           cacheable = 1;
+
+                    csc_src_color_format = omx_2_hal_pixel_format((unsigned int)OMX_SEC_COLOR_FormatEncodedData);
+                    csc_dst_color_format = omx_2_hal_pixel_format((unsigned int)OMX_SEC_COLOR_FormatEncodedData);
+
+                    csc_set_src_format(
+                        pVideoDec->hCscCopy,    /* handle */
+                        nFrameWidth,            /* width */
+                        nFrameHeight,           /* height */
+                        0,                      /* crop_left */
+                        0,                      /* crop_right */
+                        nFrameWidth,            /* crop_width */
+                        nFrameHeight,           /* crop_height */
+                        csc_src_color_format,   /* color_format */
+                        cacheable);             /* cacheable */
+                    csc_set_dst_format(
+                        pVideoDec->hCscCopy,    /* handle */
+                        nFrameWidth,            /* width */
+                        nFrameHeight,           /* height */
+                        0,                      /* crop_left */
+                        0,                      /* crop_right */
+                        nFrameWidth,            /* crop_width */
+                        nFrameHeight,           /* crop_height */
+                        csc_dst_color_format,   /* color_format */
+                        cacheable);             /* cacheable */
+                    pVideoDec->bSetCscCopyFormat = OMX_TRUE;
+                }
+
+                csc_set_src_buffer(
+                    pVideoDec->hCscCopy,    /* handle */
+                    pSrcBuf[0],             /* y addr */
+                    NULL,                   /* u addr or uv addr */
+                    NULL,                   /* v addr or none */
+                    0);                     /* ion fd */
+                csc_set_dst_buffer(
+                    pVideoDec->hCscCopy,    /* handle */
+                    pDstBuf[0],             /* y addr */
+                    NULL,                   /* u addr or uv addr */
+                    NULL,                   /* v addr or none */
+                    0);                     /* ion fd */
+                csc_convert(pVideoDec->hCscCopy);
+            } else {
+                if (copySize > 0)
+                    Exynos_OSAL_Memcpy(inputData->dataBuffer + inputData->dataLen, checkInputStream, copySize);
+            }
 
             inputUseBuffer->dataLen -= copySize;
             inputUseBuffer->remainDataLen -= copySize;
@@ -809,6 +899,7 @@ OMX_BOOL Exynos_Preprocessor_InputData(OMX_COMPONENTTYPE *pOMXComponent)
         ret = OMX_FALSE;
     }
 
+EXIT:
     FunctionOut();
 
     return ret;

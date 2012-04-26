@@ -51,8 +51,8 @@
 #define LOG_TAG "ExynosVideoEncoder"
 #include <utils/Log.h>
 
-#define MAX_CTRL_NUM    92
-#define H264_CTRL_NUM   92
+#define MAX_CTRL_NUM    91
+#define H264_CTRL_NUM   91
 #define MPEG4_CTRL_NUM  26
 #define H263_CTRL_NUM   18
 
@@ -143,6 +143,9 @@ static void *MFC_Encoder_Init(void)
         goto EXIT_QUERYCAP_FAIL;
     }
 
+    pCtx->bStreamonInbuf = VIDEO_FALSE;
+    pCtx->bStreamonOutbuf = VIDEO_FALSE;
+
     return (void *)pCtx;
 
 EXIT_QUERYCAP_FAIL:
@@ -225,7 +228,7 @@ EXIT:
 /*
  * [Encoder OPS] Enable Frame Skip
  */
-static ExynosVideoErrorType MFC_Decoder_Enable_FrameSkip(
+static ExynosVideoErrorType MFC_Encoder_Enable_FrameSkip(
     void *pHandle,
     ExynosVideoEncParam*encParam,
     ExynosVideoFrameSkipMode frameSkip)
@@ -286,13 +289,15 @@ static ExynosVideoErrorType MFC_Encoder_Set_EncParam (
     ext_ctrl[4].value |= (pCommonParam->LumaPadVal << 16);
     ext_ctrl[5].id = V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE;
     ext_ctrl[5].value = pCommonParam->EnableFRMRateControl;
-    ext_ctrl[6].id = V4L2_CID_MPEG_VIDEO_BITRATE;
+    ext_ctrl[6].id = V4L2_CID_MPEG_VIDEO_MB_RC_ENABLE;
+    ext_ctrl[6].value = pCommonParam->EnableMBRateControl;
+    ext_ctrl[7].id = V4L2_CID_MPEG_VIDEO_BITRATE;
 
     /* FIXME temporary fix */
     if (pCommonParam->Bitrate)
-        ext_ctrl[6].value = pCommonParam->Bitrate;
+        ext_ctrl[7].value = pCommonParam->Bitrate;
     else
-        ext_ctrl[6].value = 1; /* just for testing Movie studio */
+        ext_ctrl[7].value = 1; /* just for testing Movie studio */
 
     /* codec specific parameters */
     switch (pEncParam->eCompressionFormat) {
@@ -300,41 +305,39 @@ static ExynosVideoErrorType MFC_Encoder_Set_EncParam (
         pH264Param = &pEncParam->codecParam.h264;
 
         /* common parameters but id is depends on codec */
-        ext_ctrl[7].id = V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP;
-        ext_ctrl[7].value = pCommonParam->FrameQp;
-        ext_ctrl[8].id =  V4L2_CID_MPEG_VIDEO_H264_P_FRAME_QP;
-        ext_ctrl[8].value = pCommonParam->FrameQp_P;
-        ext_ctrl[9].id =  V4L2_CID_MPEG_VIDEO_H264_MAX_QP;
-        ext_ctrl[9].value = pCommonParam->QSCodeMax;
-        ext_ctrl[10].id = V4L2_CID_MPEG_VIDEO_H264_MIN_QP;
-        ext_ctrl[10].value = pCommonParam->QSCodeMin;
-        ext_ctrl[11].id = V4L2_CID_MPEG_MFC51_VIDEO_RC_REACTION_COEFF;
-        ext_ctrl[11].value = pCommonParam->CBRPeriodRf;
+        ext_ctrl[8].id = V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP;
+        ext_ctrl[8].value = pCommonParam->FrameQp;
+        ext_ctrl[9].id =  V4L2_CID_MPEG_VIDEO_H264_P_FRAME_QP;
+        ext_ctrl[9].value = pCommonParam->FrameQp_P;
+        ext_ctrl[10].id =  V4L2_CID_MPEG_VIDEO_H264_MAX_QP;
+        ext_ctrl[10].value = pCommonParam->QSCodeMax;
+        ext_ctrl[11].id = V4L2_CID_MPEG_VIDEO_H264_MIN_QP;
+        ext_ctrl[11].value = pCommonParam->QSCodeMin;
+        ext_ctrl[12].id = V4L2_CID_MPEG_MFC51_VIDEO_RC_REACTION_COEFF;
+        ext_ctrl[12].value = pCommonParam->CBRPeriodRf;
 
         /* H.264 specific parameters */
         if (pCommonParam->SliceMode == 0) {
-            ext_ctrl[12].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
-            ext_ctrl[12].value = 1;  /* default */
-            ext_ctrl[13].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES;
-            ext_ctrl[13].value = 2800; /* based on MFC6.x */
+            ext_ctrl[13].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
+            ext_ctrl[13].value = 1;  /* default */
+            ext_ctrl[14].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES;
+            ext_ctrl[14].value = 2800; /* based on MFC6.x */
         } else if (pCommonParam->SliceMode == 1) {
-            ext_ctrl[12].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
-            ext_ctrl[12].value = pH264Param->SliceArgument;
-            ext_ctrl[13].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES;
-            ext_ctrl[13].value = 2800; /* based on MFC6.x */
-        } else if (pCommonParam->SliceMode == 3) {
-            ext_ctrl[12].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
-            ext_ctrl[12].value = 1; /* default */
-            ext_ctrl[13].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES;
+            ext_ctrl[13].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
             ext_ctrl[13].value = pH264Param->SliceArgument;
+            ext_ctrl[14].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES;
+            ext_ctrl[14].value = 2800; /* based on MFC6.x */
+        } else if (pCommonParam->SliceMode == 3) {
+            ext_ctrl[13].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
+            ext_ctrl[13].value = 1; /* default */
+            ext_ctrl[14].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES;
+            ext_ctrl[14].value = pH264Param->SliceArgument;
         }
 
-        ext_ctrl[14].id = V4L2_CID_MPEG_VIDEO_H264_PROFILE;
-        ext_ctrl[14].value = pH264Param->ProfileIDC;
-        ext_ctrl[15].id = V4L2_CID_MPEG_VIDEO_H264_LEVEL;
-        ext_ctrl[15].value = pH264Param->LevelIDC;
-        ext_ctrl[16].id = V4L2_CID_MPEG_VIDEO_MAX_REF_PIC;
-        ext_ctrl[16].value = pH264Param->NumberReferenceFrames;
+        ext_ctrl[15].id = V4L2_CID_MPEG_VIDEO_H264_PROFILE;
+        ext_ctrl[15].value = pH264Param->ProfileIDC;
+        ext_ctrl[16].id = V4L2_CID_MPEG_VIDEO_H264_LEVEL;
+        ext_ctrl[16].value = pH264Param->LevelIDC;
         ext_ctrl[17].id = V4L2_CID_MPEG_MFC51_VIDEO_H264_NUM_REF_PIC_FOR_P;
         ext_ctrl[17].value = pH264Param->NumberRefForPframes;
         /*
@@ -354,99 +357,97 @@ static ExynosVideoErrorType MFC_Encoder_Set_EncParam (
         ext_ctrl[23].value = pH264Param->PictureInterlace;
         ext_ctrl[24].id = V4L2_CID_MPEG_VIDEO_H264_8X8_TRANSFORM;
         ext_ctrl[24].value = pH264Param->Transform8x8Mode;
-        ext_ctrl[25].id = V4L2_CID_MPEG_VIDEO_MB_RC_ENABLE;
-        ext_ctrl[25].value = pH264Param->EnableMBRateControl;
-        ext_ctrl[26].id = V4L2_CID_MPEG_MFC51_VIDEO_H264_RC_FRAME_RATE;
-        ext_ctrl[26].value = pH264Param->FrameRate;
-        ext_ctrl[27].id =  V4L2_CID_MPEG_VIDEO_H264_B_FRAME_QP;
-        ext_ctrl[27].value = pH264Param->FrameQp_B;
-        ext_ctrl[28].id =  V4L2_CID_MPEG_MFC51_VIDEO_H264_ADAPTIVE_RC_DARK;
-        ext_ctrl[28].value = pH264Param->DarkDisable;
-        ext_ctrl[29].id =  V4L2_CID_MPEG_MFC51_VIDEO_H264_ADAPTIVE_RC_SMOOTH;
-        ext_ctrl[29].value = pH264Param->SmoothDisable;
-        ext_ctrl[30].id =  V4L2_CID_MPEG_MFC51_VIDEO_H264_ADAPTIVE_RC_STATIC;
-        ext_ctrl[30].value = pH264Param->StaticDisable;
-        ext_ctrl[31].id =  V4L2_CID_MPEG_MFC51_VIDEO_H264_ADAPTIVE_RC_ACTIVITY;
-        ext_ctrl[31].value = pH264Param->ActivityDisable;
+        ext_ctrl[25].id = V4L2_CID_MPEG_MFC51_VIDEO_H264_RC_FRAME_RATE;
+        ext_ctrl[25].value = pH264Param->FrameRate;
+        ext_ctrl[26].id =  V4L2_CID_MPEG_VIDEO_H264_B_FRAME_QP;
+        ext_ctrl[26].value = pH264Param->FrameQp_B;
+        ext_ctrl[27].id =  V4L2_CID_MPEG_MFC51_VIDEO_H264_ADAPTIVE_RC_DARK;
+        ext_ctrl[27].value = pH264Param->DarkDisable;
+        ext_ctrl[28].id =  V4L2_CID_MPEG_MFC51_VIDEO_H264_ADAPTIVE_RC_SMOOTH;
+        ext_ctrl[28].value = pH264Param->SmoothDisable;
+        ext_ctrl[29].id =  V4L2_CID_MPEG_MFC51_VIDEO_H264_ADAPTIVE_RC_STATIC;
+        ext_ctrl[29].value = pH264Param->StaticDisable;
+        ext_ctrl[30].id =  V4L2_CID_MPEG_MFC51_VIDEO_H264_ADAPTIVE_RC_ACTIVITY;
+        ext_ctrl[30].value = pH264Param->ActivityDisable;
 
         /* doesn't have to be set */
-        ext_ctrl[32].id = V4L2_CID_MPEG_VIDEO_GOP_CLOSURE;
-        ext_ctrl[32].value = 0;
-        ext_ctrl[33].id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD;
-        ext_ctrl[33].value = 10;
-        ext_ctrl[34].id = V4L2_CID_MPEG_VIDEO_VBV_SIZE;
-        ext_ctrl[34].value = 0;
-        ext_ctrl[35].id = V4L2_CID_MPEG_VIDEO_HEADER_MODE;
-        ext_ctrl[35].value = 0; /* 0: seperated header, 1: header + first frame */
-        ext_ctrl[36].id =  V4L2_CID_MPEG_VIDEO_H264_VUI_SAR_ENABLE;
-        ext_ctrl[36].value = 0;
-        ext_ctrl[37].id = V4L2_CID_MPEG_VIDEO_H264_VUI_SAR_IDC;
-        ext_ctrl[37].value = V4L2_MPEG_VIDEO_H264_VUI_SAR_IDC_UNSPECIFIED;
-        ext_ctrl[38].id = V4L2_CID_MPEG_VIDEO_H264_VUI_EXT_SAR_WIDTH;
+        ext_ctrl[31].id = V4L2_CID_MPEG_VIDEO_GOP_CLOSURE;
+        ext_ctrl[31].value = 0;
+        ext_ctrl[32].id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD;
+        ext_ctrl[32].value = 10;
+        ext_ctrl[33].id = V4L2_CID_MPEG_VIDEO_VBV_SIZE;
+        ext_ctrl[33].value = 0;
+        ext_ctrl[34].id = V4L2_CID_MPEG_VIDEO_HEADER_MODE;
+        ext_ctrl[34].value = V4L2_MPEG_VIDEO_HEADER_MODE_SEPARATE; /* 0: seperated header, 1: header + first frame */
+        ext_ctrl[35].id =  V4L2_CID_MPEG_VIDEO_H264_VUI_SAR_ENABLE;
+        ext_ctrl[35].value = 0;
+        ext_ctrl[36].id = V4L2_CID_MPEG_VIDEO_H264_VUI_SAR_IDC;
+        ext_ctrl[36].value = V4L2_MPEG_VIDEO_H264_VUI_SAR_IDC_UNSPECIFIED;
+        ext_ctrl[37].id = V4L2_CID_MPEG_VIDEO_H264_VUI_EXT_SAR_WIDTH;
+        ext_ctrl[37].value = 0;
+        ext_ctrl[38].id =  V4L2_CID_MPEG_VIDEO_H264_VUI_EXT_SAR_HEIGHT;
         ext_ctrl[38].value = 0;
-        ext_ctrl[39].id =  V4L2_CID_MPEG_VIDEO_H264_VUI_EXT_SAR_HEIGHT;
-        ext_ctrl[39].value = 0;
 
         /* Initial parameters : Frame Skip */
         if (pInitParam->FrameSkip == V4L2_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE_LEVEL_LIMIT) {
-            ext_ctrl[40].id = V4L2_CID_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE;
-            ext_ctrl[40].value = V4L2_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE_LEVEL_LIMIT;
+            ext_ctrl[39].id = V4L2_CID_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE;
+            ext_ctrl[39].value = V4L2_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE_LEVEL_LIMIT;
         } else if (pInitParam->FrameSkip == V4L2_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE_BUF_LIMIT) {
-            ext_ctrl[40].id = V4L2_CID_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE;
-            ext_ctrl[40].value = V4L2_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE_BUF_LIMIT;
+            ext_ctrl[39].id = V4L2_CID_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE;
+            ext_ctrl[39].value = V4L2_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE_BUF_LIMIT;
         } else {
             /* ENC_FRAME_SKIP_MODE_DISABLE (default) */
-            ext_ctrl[40].id = V4L2_CID_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE;
-            ext_ctrl[40].value = V4L2_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE_DISABLED;
+            ext_ctrl[39].id = V4L2_CID_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE;
+            ext_ctrl[39].value = V4L2_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE_DISABLED;
         }
 
         /* SVC is not supported yet */
-        ext_ctrl[41].id =  V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING;
-        ext_ctrl[41].value = 0;
-        ext_ctrl[42].id =  V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_TYPE;
-        ext_ctrl[42].value = V4L2_MPEG_VIDEO_H264_HIERARCHICAL_CODING_B;
-        ext_ctrl[43].id =  V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER;
-        ext_ctrl[43].value = 3;
+        ext_ctrl[40].id =  V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING;
+        ext_ctrl[40].value = 0;
+        ext_ctrl[41].id =  V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_TYPE;
+        ext_ctrl[41].value = V4L2_MPEG_VIDEO_H264_HIERARCHICAL_CODING_B;
+        ext_ctrl[42].id =  V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER;
+        ext_ctrl[42].value = 3;
+        ext_ctrl[43].id =  V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_QP;
+        ext_ctrl[43].value = (0 << 16 | 0);
         ext_ctrl[44].id =  V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_QP;
-        ext_ctrl[44].value = (0 << 16 | 0);
+        ext_ctrl[44].value = (1 << 16 | 0);
         ext_ctrl[45].id =  V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_QP;
-        ext_ctrl[45].value = (1 << 16 | 0);
-        ext_ctrl[46].id =  V4L2_CID_MPEG_VIDEO_H264_HIERARCHICAL_CODING_LAYER_QP;
-        ext_ctrl[46].value = (2 << 16 | 0);
+        ext_ctrl[45].value = (2 << 16 | 0);
 
-        ext_ctrl[47].id =  V4L2_CID_MPEG_VIDEO_H264_SEI_FRAME_PACKING;
+        ext_ctrl[46].id =  V4L2_CID_MPEG_VIDEO_H264_SEI_FRAME_PACKING;
+        ext_ctrl[46].value = 0;
+        ext_ctrl[47].id =  V4L2_CID_MPEG_VIDEO_H264_SEI_FP_CURRENT_FRAME_0;
         ext_ctrl[47].value = 0;
-        ext_ctrl[48].id =  V4L2_CID_MPEG_VIDEO_H264_SEI_FP_CURRENT_FRAME_0;
-        ext_ctrl[48].value = 0;
-        ext_ctrl[49].id =  V4L2_CID_MPEG_VIDEO_H264_SEI_FP_ARRANGEMENT_TYPE;
-        ext_ctrl[49].value = V4L2_MPEG_VIDEO_H264_SEI_FP_TYPE_SIDE_BY_SIDE;
+        ext_ctrl[48].id =  V4L2_CID_MPEG_VIDEO_H264_SEI_FP_ARRANGEMENT_TYPE;
+        ext_ctrl[48].value = V4L2_MPEG_VIDEO_H264_SEI_FP_TYPE_SIDE_BY_SIDE;
 
         /* FMO is not supported yet */
-        ext_ctrl[50].id =  V4L2_CID_MPEG_VIDEO_H264_FMO;
-        ext_ctrl[50].value = 0;
-        ext_ctrl[51].id =  V4L2_CID_MPEG_VIDEO_H264_FMO_MAP_TYPE;
-        ext_ctrl[51].value = V4L2_MPEG_VIDEO_H264_FMO_MAP_TYPE_INTERLEAVED_SLICES;
-        ext_ctrl[52].id = V4L2_CID_MPEG_VIDEO_H264_FMO_SLICE_GROUP;
-        ext_ctrl[52].value = 4;
+        ext_ctrl[49].id =  V4L2_CID_MPEG_VIDEO_H264_FMO;
+        ext_ctrl[49].value = 0;
+        ext_ctrl[50].id =  V4L2_CID_MPEG_VIDEO_H264_FMO_MAP_TYPE;
+        ext_ctrl[50].value = V4L2_MPEG_VIDEO_H264_FMO_MAP_TYPE_INTERLEAVED_SLICES;
+        ext_ctrl[51].id = V4L2_CID_MPEG_VIDEO_H264_FMO_SLICE_GROUP;
+        ext_ctrl[51].value = 4;
+        ext_ctrl[52].id =  V4L2_CID_MPEG_VIDEO_H264_FMO_RUN_LENGTH;
+        ext_ctrl[52].value = (0 << 30 | 0);
         ext_ctrl[53].id =  V4L2_CID_MPEG_VIDEO_H264_FMO_RUN_LENGTH;
-        ext_ctrl[53].value = (0 << 30 | 0);
+        ext_ctrl[53].value = (1 << 30 | 0);
         ext_ctrl[54].id =  V4L2_CID_MPEG_VIDEO_H264_FMO_RUN_LENGTH;
-        ext_ctrl[54].value = (1 << 30 | 0);
+        ext_ctrl[54].value = (2 << 30 | 0);
         ext_ctrl[55].id =  V4L2_CID_MPEG_VIDEO_H264_FMO_RUN_LENGTH;
-        ext_ctrl[55].value = (2 << 30 | 0);
-        ext_ctrl[56].id =  V4L2_CID_MPEG_VIDEO_H264_FMO_RUN_LENGTH;
-        ext_ctrl[56].value = (3 << 30 | 0);
-        ext_ctrl[57].id =  V4L2_CID_MPEG_VIDEO_H264_FMO_CHANGE_DIRECTION;
-        ext_ctrl[57].value = V4L2_MPEG_VIDEO_H264_FMO_CHANGE_DIR_RIGHT;
-        ext_ctrl[58].id = V4L2_CID_MPEG_VIDEO_H264_FMO_CHANGE_RATE;
-        ext_ctrl[58].value = 0;
+        ext_ctrl[55].value = (3 << 30 | 0);
+        ext_ctrl[56].id =  V4L2_CID_MPEG_VIDEO_H264_FMO_CHANGE_DIRECTION;
+        ext_ctrl[56].value = V4L2_MPEG_VIDEO_H264_FMO_CHANGE_DIR_RIGHT;
+        ext_ctrl[57].id = V4L2_CID_MPEG_VIDEO_H264_FMO_CHANGE_RATE;
+        ext_ctrl[57].value = 0;
 
         /* ASO is not supported yet */
-        ext_ctrl[59].id =  V4L2_CID_MPEG_VIDEO_H264_ASO;
-        ext_ctrl[59].value = 0;
+        ext_ctrl[58].id =  V4L2_CID_MPEG_VIDEO_H264_ASO;
+        ext_ctrl[58].value = 0;
         for (i = 0; i < 32; i++) {
-            ext_ctrl[60 + i].id =  V4L2_CID_MPEG_VIDEO_H264_ASO_SLICE_ORDER;
-            ext_ctrl[60 + i].value = (i << 16 | 0);
+            ext_ctrl[59 + i].id =  V4L2_CID_MPEG_VIDEO_H264_ASO_SLICE_ORDER;
+            ext_ctrl[59 + i].value = (i << 16 | 0);
         }
         break;
 
@@ -454,70 +455,66 @@ static ExynosVideoErrorType MFC_Encoder_Set_EncParam (
         pMpeg4Param = &pEncParam->codecParam.mpeg4;
 
         /* common parameters but id is depends on codec */
-        ext_ctrl[7].id = V4L2_CID_MPEG_VIDEO_MPEG4_I_FRAME_QP;
-        ext_ctrl[7].value = pCommonParam->FrameQp;
-        ext_ctrl[8].id =  V4L2_CID_MPEG_VIDEO_MPEG4_P_FRAME_QP;
-        ext_ctrl[8].value = pCommonParam->FrameQp_P;
-        ext_ctrl[9].id =  V4L2_CID_MPEG_VIDEO_MPEG4_MAX_QP;
-        ext_ctrl[9].value = pCommonParam->QSCodeMax;
-        ext_ctrl[10].id = V4L2_CID_MPEG_VIDEO_MPEG4_MIN_QP;
-        ext_ctrl[10].value = pCommonParam->QSCodeMin;
-        ext_ctrl[11].id = V4L2_CID_MPEG_MFC51_VIDEO_RC_REACTION_COEFF;
-        ext_ctrl[11].value = pCommonParam->CBRPeriodRf;
+        ext_ctrl[8].id = V4L2_CID_MPEG_VIDEO_MPEG4_I_FRAME_QP;
+        ext_ctrl[8].value = pCommonParam->FrameQp;
+        ext_ctrl[9].id =  V4L2_CID_MPEG_VIDEO_MPEG4_P_FRAME_QP;
+        ext_ctrl[9].value = pCommonParam->FrameQp_P;
+        ext_ctrl[10].id =  V4L2_CID_MPEG_VIDEO_MPEG4_MAX_QP;
+        ext_ctrl[10].value = pCommonParam->QSCodeMax;
+        ext_ctrl[11].id = V4L2_CID_MPEG_VIDEO_MPEG4_MIN_QP;
+        ext_ctrl[11].value = pCommonParam->QSCodeMin;
+        ext_ctrl[12].id = V4L2_CID_MPEG_MFC51_VIDEO_RC_REACTION_COEFF;
+        ext_ctrl[12].value = pCommonParam->CBRPeriodRf;
 
         /* MPEG4 specific parameters */
         if (pCommonParam->SliceMode == 0) {
-            ext_ctrl[12].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
-            ext_ctrl[12].value = 1;  /* default */
-            ext_ctrl[13].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES;
-            ext_ctrl[13].value = 2800; /* based on MFC6.x */
+            ext_ctrl[13].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
+            ext_ctrl[13].value = 1;  /* default */
+            ext_ctrl[14].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES;
+            ext_ctrl[14].value = 2800; /* based on MFC6.x */
         } else if (pCommonParam->SliceMode == 1) {
-            ext_ctrl[12].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
-            ext_ctrl[12].value = pMpeg4Param->SliceArgument;
-            ext_ctrl[13].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES;
-            ext_ctrl[13].value = 2800; /* based on MFC6.x */
-        } else if (pCommonParam->SliceMode == 3) {
-            ext_ctrl[12].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
-            ext_ctrl[12].value = 1; /* default */
-            ext_ctrl[13].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES;
+            ext_ctrl[13].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
             ext_ctrl[13].value = pMpeg4Param->SliceArgument;
+            ext_ctrl[14].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES;
+            ext_ctrl[14].value = 2800; /* based on MFC6.x */
+        } else if (pCommonParam->SliceMode == 3) {
+            ext_ctrl[13].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
+            ext_ctrl[13].value = 1; /* default */
+            ext_ctrl[14].id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES;
+            ext_ctrl[14].value = pMpeg4Param->SliceArgument;
         }
 
-        ext_ctrl[14].id = V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE;
-        ext_ctrl[14].value = pMpeg4Param->ProfileIDC;
-        ext_ctrl[15].id = V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL;
-        ext_ctrl[15].value = pMpeg4Param->LevelIDC;
-        ext_ctrl[16].id = V4L2_CID_MPEG_VIDEO_MPEG4_QPEL;
-        ext_ctrl[16].value = pMpeg4Param->DisableQpelME;
+        ext_ctrl[15].id = V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE;
+        ext_ctrl[15].value = pMpeg4Param->ProfileIDC;
+        ext_ctrl[16].id = V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL;
+        ext_ctrl[16].value = pMpeg4Param->LevelIDC;
+        ext_ctrl[17].id = V4L2_CID_MPEG_VIDEO_MPEG4_QPEL;
+        ext_ctrl[17].value = pMpeg4Param->DisableQpelME;
 
         /*
          * It should be set using mpeg4Param->NumberBFrames after being handled by appl.
          */
-        ext_ctrl[17].id =  V4L2_CID_MPEG_VIDEO_B_FRAMES;
-        ext_ctrl[17].value = pMpeg4Param->NumberBFrames;
+        ext_ctrl[18].id =  V4L2_CID_MPEG_VIDEO_B_FRAMES;
+        ext_ctrl[18].value = pMpeg4Param->NumberBFrames;
 
-        ext_ctrl[18].id = V4L2_CID_MPEG_MFC51_VIDEO_MPEG4_VOP_TIME_RES;
-        ext_ctrl[18].value = pMpeg4Param->TimeIncreamentRes;
-        ext_ctrl[19].id = V4L2_CID_MPEG_MFC51_VIDEO_MPEG4_VOP_FRM_DELTA;
-        ext_ctrl[19].value = pMpeg4Param->VopTimeIncreament;
-        ext_ctrl[20].id =  V4L2_CID_MPEG_VIDEO_MPEG4_B_FRAME_QP;
-        ext_ctrl[20].value = pMpeg4Param->FrameQp_B;
-        ext_ctrl[21].id = V4L2_CID_MPEG_VIDEO_VBV_SIZE;
-        ext_ctrl[21].value = 0;
-        ext_ctrl[22].id = V4L2_CID_MPEG_VIDEO_HEADER_MODE;
+        ext_ctrl[19].id = V4L2_CID_MPEG_MFC51_VIDEO_MPEG4_VOP_TIME_RES;
+        ext_ctrl[19].value = pMpeg4Param->TimeIncreamentRes;
+        ext_ctrl[20].id = V4L2_CID_MPEG_MFC51_VIDEO_MPEG4_VOP_FRM_DELTA;
+        ext_ctrl[20].value = pMpeg4Param->VopTimeIncreament;
+        ext_ctrl[21].id =  V4L2_CID_MPEG_VIDEO_MPEG4_B_FRAME_QP;
+        ext_ctrl[21].value = pMpeg4Param->FrameQp_B;
+        ext_ctrl[22].id = V4L2_CID_MPEG_VIDEO_VBV_SIZE;
         ext_ctrl[22].value = 0;
-        ext_ctrl[23].id = V4L2_CID_MPEG_MFC51_VIDEO_RC_FIXED_TARGET_BIT;
-        ext_ctrl[23].value = 1;
-
-        /* MFC 6.x Only */
-        ext_ctrl[24].id = V4L2_CID_MPEG_VIDEO_MB_RC_ENABLE;
-        ext_ctrl[24].value = pMpeg4Param->EnableMBRateControl;
+        ext_ctrl[23].id = V4L2_CID_MPEG_VIDEO_HEADER_MODE;
+        ext_ctrl[23].value = V4L2_MPEG_VIDEO_HEADER_MODE_SEPARATE;
+        ext_ctrl[24].id = V4L2_CID_MPEG_MFC51_VIDEO_RC_FIXED_TARGET_BIT;
+        ext_ctrl[24].value = 1;
 
         /* Initial parameters : Frame Skip */
         if (pInitParam->FrameSkip == V4L2_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE_LEVEL_LIMIT) {
             ext_ctrl[25].id = V4L2_CID_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE;
             ext_ctrl[25].value = V4L2_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE_LEVEL_LIMIT;
-        } else if (pInitParam->FrameSkip == V4L2_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE_BUF_LIMIT) {
+        } else if (pInitParam->FrameSkip ==V4L2_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE_BUF_LIMIT) {
             ext_ctrl[25].id = V4L2_CID_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE;
             ext_ctrl[25].value = V4L2_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE_BUF_LIMIT;
         } else {
@@ -532,30 +529,26 @@ static ExynosVideoErrorType MFC_Encoder_Set_EncParam (
         pH263Param = &pEncParam->codecParam.h263;
 
         /* common parameters but id is depends on codec */
-        ext_ctrl[7].id = V4L2_CID_MPEG_VIDEO_H263_I_FRAME_QP;
-        ext_ctrl[7].value = pCommonParam->FrameQp;
-        ext_ctrl[8].id =  V4L2_CID_MPEG_VIDEO_H263_P_FRAME_QP;
-        ext_ctrl[8].value = pCommonParam->FrameQp_P;
-        ext_ctrl[9].id =  V4L2_CID_MPEG_VIDEO_H263_MAX_QP;
-        ext_ctrl[9].value = pCommonParam->QSCodeMax;
-        ext_ctrl[10].id = V4L2_CID_MPEG_VIDEO_H263_MIN_QP;
-        ext_ctrl[10].value = pCommonParam->QSCodeMin;
-        ext_ctrl[11].id = V4L2_CID_MPEG_MFC51_VIDEO_RC_REACTION_COEFF;
-        ext_ctrl[11].value = pCommonParam->CBRPeriodRf;
+        ext_ctrl[8].id = V4L2_CID_MPEG_VIDEO_H263_I_FRAME_QP;
+        ext_ctrl[8].value = pCommonParam->FrameQp;
+        ext_ctrl[9].id =  V4L2_CID_MPEG_VIDEO_H263_P_FRAME_QP;
+        ext_ctrl[9].value = pCommonParam->FrameQp_P;
+        ext_ctrl[10].id =  V4L2_CID_MPEG_VIDEO_H263_MAX_QP;
+        ext_ctrl[10].value = pCommonParam->QSCodeMax;
+        ext_ctrl[11].id = V4L2_CID_MPEG_VIDEO_H263_MIN_QP;
+        ext_ctrl[11].value = pCommonParam->QSCodeMin;
+        ext_ctrl[12].id = V4L2_CID_MPEG_MFC51_VIDEO_RC_REACTION_COEFF;
+        ext_ctrl[12].value = pCommonParam->CBRPeriodRf;
 
         /* H263 specific parameters */
-        ext_ctrl[12].id = V4L2_CID_MPEG_MFC51_VIDEO_H263_RC_FRAME_RATE;
-        ext_ctrl[12].value = pH263Param->FrameRate;
-        ext_ctrl[13].id = V4L2_CID_MPEG_VIDEO_VBV_SIZE;
-        ext_ctrl[13].value = 0;
-        ext_ctrl[14].id = V4L2_CID_MPEG_VIDEO_HEADER_MODE;
-        ext_ctrl[14].value = V4L2_MPEG_VIDEO_HEADER_MODE_SEPARATE;
-        ext_ctrl[15].id = V4L2_CID_MPEG_MFC51_VIDEO_RC_FIXED_TARGET_BIT;
-        ext_ctrl[15].value = 1;
-
-         /* MFC 6.x Only */
-        ext_ctrl[16].id = V4L2_CID_MPEG_VIDEO_MB_RC_ENABLE;
-        ext_ctrl[16].value = pH263Param->EnableMBRateControl;
+        ext_ctrl[13].id = V4L2_CID_MPEG_MFC51_VIDEO_H263_RC_FRAME_RATE;
+        ext_ctrl[13].value = pH263Param->FrameRate;
+        ext_ctrl[14].id = V4L2_CID_MPEG_VIDEO_VBV_SIZE;
+        ext_ctrl[14].value = 0;
+        ext_ctrl[15].id = V4L2_CID_MPEG_VIDEO_HEADER_MODE;
+        ext_ctrl[15].value = V4L2_MPEG_VIDEO_HEADER_MODE_SEPARATE;
+        ext_ctrl[16].id = V4L2_CID_MPEG_MFC51_VIDEO_RC_FIXED_TARGET_BIT;
+        ext_ctrl[16].value = 1;
 
         /* Initial parameters : Frame Skip */
         if (pInitParam->FrameSkip == V4L2_MPEG_MFC51_VIDEO_FRAME_SKIP_MODE_LEVEL_LIMIT) {
@@ -778,6 +771,51 @@ EXIT:
     return ret;
 }
 
+/*
+ * [Encoder Buffer OPS] Enable Cacheable (Input)
+ */
+static ExynosVideoErrorType MFC_Encoder_Enable_Cacheable_Inbuf(void *pHandle)
+{
+    ExynosVideoEncContext *pCtx = (ExynosVideoEncContext *)pHandle;
+    ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
+
+    if (pCtx == NULL) {
+        ALOGE("%s: Video context info must be supplied", __func__);
+        ret = VIDEO_ERROR_BADPARAM;
+        goto EXIT;
+    }
+
+    if (exynos_v4l2_s_ctrl(pCtx->hEnc, V4L2_CID_CACHEABLE, 2)) {
+        ret = VIDEO_ERROR_APIFAIL;
+        goto EXIT;
+    }
+
+EXIT:
+    return ret;
+}
+
+/*
+ * [Encoder Buffer OPS] Enable Cacheable (Output)
+ */
+static ExynosVideoErrorType MFC_Encoder_Enable_Cacheable_Outbuf(void *pHandle)
+{
+    ExynosVideoEncContext *pCtx = (ExynosVideoEncContext *)pHandle;
+    ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
+
+    if (pCtx == NULL) {
+        ALOGE("%s: Video context info must be supplied", __func__);
+        ret = VIDEO_ERROR_BADPARAM;
+        goto EXIT;
+    }
+
+    if (exynos_v4l2_s_ctrl(pCtx->hEnc, V4L2_CID_CACHEABLE, 1)) {
+        ret = VIDEO_ERROR_APIFAIL;
+        goto EXIT;
+    }
+
+EXIT:
+    return ret;
+}
 
 /*
  * [Encoder Buffer OPS] Set Shareable Buffer (Input)
@@ -1128,27 +1166,22 @@ static ExynosVideoErrorType MFC_Encoder_Setup_Inbuf(
     return ret;
 
 EXIT:
-    if (pCtx->bShareInbuf == VIDEO_FALSE) {
-        for (i = 0; i < pCtx->nInbufs; i++) {
-            for (j = 0; j < VIDEO_ENCODER_INBUF_PLANES; j++) {
-                pVideoPlane = &pCtx->pInbuf[i].planes[j];
-                if (pVideoPlane->addr == MAP_FAILED) {
-                    pVideoPlane->addr = NULL;
-                    break;
+    if ((pCtx != NULL) && (pCtx->pInbuf != NULL)) {
+        if (pCtx->bShareInbuf == VIDEO_FALSE) {
+            for (i = 0; i < pCtx->nInbufs; i++) {
+                for (j = 0; j < VIDEO_ENCODER_INBUF_PLANES; j++) {
+                    pVideoPlane = &pCtx->pInbuf[i].planes[j];
+                    if (pVideoPlane->addr == MAP_FAILED) {
+                        pVideoPlane->addr = NULL;
+                        break;
+                    }
+
+                    munmap(pVideoPlane->addr, pVideoPlane->allocSize);
                 }
             }
-            munmap(pVideoPlane->addr, pVideoPlane->allocSize);
-            pVideoPlane->allocSize = 0;
-            pVideoPlane->dataSize = 0;
+        }
 
-            pCtx->pInbuf[i].pGeometry = NULL;
-            pCtx->pInbuf[i].bQueued = VIDEO_FALSE;
-        }
-    } else {
-        for (i = 0; i < pCtx->nInbufs; i++) {
-            pCtx->pInbuf[i].pGeometry = NULL;
-            pCtx->pInbuf[i].bQueued = VIDEO_FALSE;
-        }
+        free(pCtx->pInbuf);
     }
 
     return ret;
@@ -1242,33 +1275,31 @@ static ExynosVideoErrorType MFC_Encoder_Setup_Outbuf(
             pCtx->pOutbuf[i].bQueued = VIDEO_FALSE;
         }
     } else {
-        pCtx->pOutbuf[i].pGeometry = &pCtx->outbufGeometry;
-        pCtx->pOutbuf[i].bQueued = VIDEO_FALSE;
+        for (i = 0; i < pCtx->nOutbufs; i++ ) {
+            pCtx->pOutbuf[i].pGeometry = &pCtx->outbufGeometry;
+            pCtx->pOutbuf[i].bQueued = VIDEO_FALSE;
+        }
     }
 
     return ret;
 
 EXIT:
-    if (pCtx->bShareOutbuf == VIDEO_FALSE) {
-        for (i = 0; i < pCtx->nOutbufs; i++) {
-            for (j = 0; j < VIDEO_ENCODER_OUTBUF_PLANES; j++) {
-                pVideoPlane = &pCtx->pOutbuf[i].planes[j];
-                if (pVideoPlane->addr == MAP_FAILED) {
-                    pVideoPlane->addr = NULL;
-                    break;
+    if ((pCtx != NULL) && (pCtx->pOutbuf != NULL)) {
+        if (pCtx->bShareOutbuf == VIDEO_FALSE) {
+            for (i = 0; i < pCtx->nOutbufs; i++) {
+                for (j = 0; j < VIDEO_ENCODER_OUTBUF_PLANES; j++) {
+                    pVideoPlane = &pCtx->pOutbuf[i].planes[j];
+                    if (pVideoPlane->addr == MAP_FAILED) {
+                        pVideoPlane->addr = NULL;
+                        break;
+                    }
+
+                    munmap(pVideoPlane->addr, pVideoPlane->allocSize);
                 }
-
-                munmap(pVideoPlane->addr, pVideoPlane->allocSize);
-                pVideoPlane->allocSize = 0;
-                pVideoPlane->dataSize = 0;
             }
-
-            pCtx->pOutbuf[i].pGeometry = NULL;
-            pCtx->pOutbuf[i].bQueued = VIDEO_FALSE;
         }
-    } else {
-        pCtx->pOutbuf[i].pGeometry = NULL;
-        pCtx->pOutbuf[i].bQueued = VIDEO_FALSE;
+
+        free(pCtx->pOutbuf);
     }
 
     return ret;
@@ -1288,10 +1319,13 @@ static ExynosVideoErrorType MFC_Encoder_Run_Inbuf(void *pHandle)
         goto EXIT;
     }
 
-    if (exynos_v4l2_streamon(pCtx->hEnc, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)) {
-        ALOGE("%s: Failed to streamon for input buffer", __func__);
-        ret = VIDEO_ERROR_APIFAIL;
-        goto EXIT;
+    if (pCtx->bStreamonInbuf == VIDEO_FALSE) {
+        if (exynos_v4l2_streamon(pCtx->hEnc, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)) {
+            ALOGE("%s: Failed to streamon for input buffer", __func__);
+            ret = VIDEO_ERROR_APIFAIL;
+            goto EXIT;
+        }
+        pCtx->bStreamonInbuf = VIDEO_TRUE;
     }
 
 EXIT:
@@ -1312,10 +1346,13 @@ static ExynosVideoErrorType MFC_Encoder_Run_Outbuf(void *pHandle)
         goto EXIT;
     }
 
-    if (exynos_v4l2_streamon(pCtx->hEnc, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)) {
-        ALOGE("%s: Failed to streamon for output buffer", __func__);
-        ret = VIDEO_ERROR_APIFAIL;
-        goto EXIT;
+    if (pCtx->bStreamonOutbuf == VIDEO_FALSE) {
+        if (exynos_v4l2_streamon(pCtx->hEnc, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)) {
+            ALOGE("%s: Failed to streamon for output buffer", __func__);
+            ret = VIDEO_ERROR_APIFAIL;
+            goto EXIT;
+        }
+        pCtx->bStreamonOutbuf = VIDEO_TRUE;
     }
 
 EXIT:
@@ -1336,10 +1373,13 @@ static ExynosVideoErrorType MFC_Encoder_Stop_Inbuf(void *pHandle)
         goto EXIT;
     }
 
-    if (exynos_v4l2_streamoff(pCtx->hEnc, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)) {
-        ALOGE("%s: Failed to streamoff for input buffer", __func__);
-        ret = VIDEO_ERROR_APIFAIL;
-        goto EXIT;
+    if (pCtx->bStreamonInbuf == VIDEO_TRUE) {
+        if (exynos_v4l2_streamoff(pCtx->hEnc, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)) {
+            ALOGE("%s: Failed to streamoff for input buffer", __func__);
+            ret = VIDEO_ERROR_APIFAIL;
+            goto EXIT;
+        }
+        pCtx->bStreamonInbuf = VIDEO_FALSE;
     }
 
 EXIT:
@@ -1360,10 +1400,13 @@ static ExynosVideoErrorType MFC_Encoder_Stop_Outbuf(void *pHandle)
         goto EXIT;
     }
 
-    if (exynos_v4l2_streamoff(pCtx->hEnc, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)) {
-        ALOGE("%s: Failed to streamoff for output buffer", __func__);
-        ret = VIDEO_ERROR_APIFAIL;
-        goto EXIT;
+    if (pCtx->bStreamonOutbuf == VIDEO_TRUE) {
+        if (exynos_v4l2_streamoff(pCtx->hEnc, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)) {
+            ALOGE("%s: Failed to streamoff for output buffer", __func__);
+            ret = VIDEO_ERROR_APIFAIL;
+            goto EXIT;
+        }
+        pCtx->bStreamonOutbuf = VIDEO_FALSE;
     }
 
 EXIT:
@@ -1623,6 +1666,13 @@ static ExynosVideoErrorType MFC_Encoder_Enqueue_Outbuf(
         goto EXIT;
     }
 
+    if (VIDEO_ENCODER_OUTBUF_PLANES < nPlanes) {
+        ALOGE("%s: Number of max planes : %d, nPlanes : %d", __func__,
+                                    VIDEO_ENCODER_OUTBUF_PLANES, nPlanes);
+        ret = VIDEO_ERROR_BADPARAM;
+        goto EXIT;
+    }
+
     memset(&buf, 0, sizeof(buf));
 
     buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
@@ -1633,7 +1683,6 @@ static ExynosVideoErrorType MFC_Encoder_Enqueue_Outbuf(
         index = MFC_Encoder_Find_Outbuf(pCtx, NULL);
     else
         index = MFC_Encoder_Find_Outbuf(pCtx, pBuffer[0]);
-
 
     if (index == -1) {
         ret = VIDEO_ERROR_NOBUFFERS;
@@ -1668,6 +1717,29 @@ EXIT:
 }
 
 /*
+ * [Encoder Buffer OPS] Enqueue All (Dst)
+ */
+static ExynosVideoErrorType MFC_Encoder_Enqueue_All_Outbuf(void *pHandle)
+{
+    ExynosVideoEncContext *pCtx = (ExynosVideoEncContext *)pHandle;
+    ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
+
+    int i;
+
+    if (pCtx == NULL) {
+        ALOGE("%s: Video context info must be supplied", __func__);
+        ret = VIDEO_ERROR_BADPARAM;
+        goto EXIT;
+    }
+
+    for (i = 0; i < pCtx->nOutbufs; i++)
+        MFC_Encoder_Enqueue_Outbuf(pCtx, NULL, NULL, 0, NULL);
+
+EXIT:
+    return ret;
+}
+
+/*
  * [Encoder Buffer OPS] Dequeue (Src)
  */
 static ExynosVideoBuffer *MFC_Encoder_Dequeue_Inbuf(void *pHandle)
@@ -1680,6 +1752,11 @@ static ExynosVideoBuffer *MFC_Encoder_Dequeue_Inbuf(void *pHandle)
     if (pCtx == NULL) {
         ALOGE("%s: Video context info must be supplied", __func__);
         pOutbuf = NULL;
+        goto EXIT;
+    }
+
+    if (pCtx->bStreamonInbuf == VIDEO_FALSE) {
+        ALOGE("%s: Input buffer stream is off", __func__);
         goto EXIT;
     }
 
@@ -1723,6 +1800,11 @@ static ExynosVideoBuffer *MFC_Encoder_Dequeue_Outbuf(void *pHandle)
         goto EXIT;
     }
 
+    if (pCtx->bStreamonOutbuf == VIDEO_FALSE) {
+        ALOGE("%s: Output buffer stream is off", __func__);
+        goto EXIT;
+    }
+
     if (MFC_Encoder_Wait_Outbuf(pCtx) != VIDEO_ERROR_NONE) {
         ALOGE("%s: Failed to poll for output buffer", __func__);
         pOutbuf = NULL;
@@ -1741,7 +1823,10 @@ static ExynosVideoBuffer *MFC_Encoder_Dequeue_Outbuf(void *pHandle)
         buf.memory = V4L2_MEMORY_MMAP;
 
     /* no error case for output buffer dequeue in encoder */
-    exynos_v4l2_dqbuf(pCtx->hEnc, &buf);
+    if (exynos_v4l2_dqbuf(pCtx->hEnc, &buf) < 0) {
+        ALOGE("%s: Failed to dequeue buffer for output", __func__);
+        goto EXIT;
+    }
 
     pOutbuf = &pCtx->pOutbuf[buf.index];
     pOutbuf->planes[0].dataSize = buf.m.planes[0].bytesused;
@@ -1769,30 +1854,6 @@ EXIT:
 }
 
 /*
- * [Encoder Buffer OPS] Enqueue All (Dst)
- */
-static ExynosVideoErrorType MFC_Encoder_Enqueue_All_Outbuf(void *pHandle)
-{
-    ExynosVideoEncContext *pCtx = (ExynosVideoEncContext *)pHandle;
-    ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
-
-    int i;
-
-    if (pCtx == NULL) {
-        ALOGE("%s: Video context info must be supplied", __func__);
-        ret = VIDEO_ERROR_BADPARAM;
-        goto EXIT;
-    }
-
-    for (i = 0; i < pCtx->nOutbufs; i++)
-        MFC_Encoder_Enqueue_Outbuf(pCtx, NULL, NULL, 0, NULL);
-
-EXIT:
-    return ret;
-}
-
-
-/*
  * [Encoder OPS] Common
  */
 static ExynosVideoEncOps defEncOps = {
@@ -1814,6 +1875,7 @@ static ExynosVideoEncOps defEncOps = {
  */
 static ExynosVideoEncBufferOps defInbufOps = {
     .nSize = 0,
+    .Enable_Cacheable = MFC_Encoder_Enable_Cacheable_Inbuf,
     .Set_Shareable = MFC_Encoder_Set_Shareable_Inbuf,
     .Get_BufferInfo = MFC_Encoder_Get_BufferInfo_Inbuf,
     .Set_Geometry = MFC_Encoder_Set_Geometry_Inbuf,
@@ -1831,6 +1893,7 @@ static ExynosVideoEncBufferOps defInbufOps = {
  */
 static ExynosVideoEncBufferOps defOutbufOps = {
     .nSize = 0,
+    .Enable_Cacheable = MFC_Encoder_Enable_Cacheable_Outbuf,
     .Set_Shareable = MFC_Encoder_Set_Shareable_Outbuf,
     .Get_BufferInfo = MFC_Encoder_Get_BufferInfo_Outbuf,
     .Set_Geometry = MFC_Encoder_Set_Geometry_Outbuf,

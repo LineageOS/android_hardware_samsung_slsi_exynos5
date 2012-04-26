@@ -13,12 +13,18 @@ LOCAL_SRC_FILES := \
 	Exynos_OSAL_Memory.c \
 	Exynos_OSAL_Semaphore.c \
 	Exynos_OSAL_Library.c \
-	Exynos_OSAL_Log.c
+	Exynos_OSAL_Log.c \
+	Exynos_OSAL_SharedMemory.c
+
 
 LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE := libExynosOMX_OSAL
 
 LOCAL_CFLAGS :=
+
+ifeq ($(BOARD_USE_S3D_SUPPORT), true)
+LOCAL_CFLAGS += -DS3D_SUPPORT
+endif
 
 LOCAL_STATIC_LIBRARIES := liblog libcutils
 

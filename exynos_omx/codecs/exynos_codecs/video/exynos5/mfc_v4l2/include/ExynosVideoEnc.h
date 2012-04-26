@@ -42,6 +42,8 @@ typedef struct _ExynosVideoEncContext {
     ExynosVideoGeometry outbufGeometry;
     int nInbufs;
     int nOutbufs;
+    ExynosVideoBoolType bStreamonInbuf;
+    ExynosVideoBoolType bStreamonOutbuf;
     void *pPrivate;
 } ExynosVideoEncContext;
 

@@ -94,6 +94,14 @@ typedef struct _EXYNOS_OMX_VIDEODEC_COMPONENT
     /* CSC handle */
     OMX_PTR csc_handle;
     OMX_U32 csc_set_format;
+
+    /* For DRM Play */
+    OMX_PTR  hCscCopy;
+    OMX_BOOL bSetCscCopyFormat;
+    OMX_BOOL bDRMPlayerMode;
+
+    /* Shared Memory Handle */
+    OMX_HANDLETYPE hSharedMemory;
 } EXYNOS_OMX_VIDEODEC_COMPONENT;
 
 

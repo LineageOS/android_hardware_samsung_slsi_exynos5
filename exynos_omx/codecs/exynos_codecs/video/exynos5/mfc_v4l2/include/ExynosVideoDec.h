@@ -31,6 +31,10 @@
 #define VIDEO_DECODER_OUTBUF_PLANES     2
 #define VIDEO_DECODER_POLL_TIMEOUT      25
 
+#define OPERATE_BIT(x, mask, shift)     ((x & (mask << shift)) >> shift)
+#define FRAME_PACK_SEI_INFO_NUM         4
+
+
 typedef struct _ExynosVideoDecContext {
     int hDec;
     ExynosVideoBoolType bShareInbuf;

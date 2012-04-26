@@ -146,6 +146,20 @@ OMX_ERRORTYPE Exynos_OSAL_LockANBHandle(
     case OMX_COLOR_FormatYUV420Planar:
     case OMX_COLOR_FormatYUV420SemiPlanar:
     case OMX_SEC_COLOR_FormatANBYUV420SemiPlanar:
+#ifdef S3D_SUPPORT
+    case OMX_SEC_COLOR_FormatNV12Tiled_SBS_LR:
+    case OMX_SEC_COLOR_FormatNV12Tiled_SBS_RL:
+    case OMX_SEC_COLOR_FormatNV12Tiled_TB_LR:
+    case OMX_SEC_COLOR_FormatNV12Tiled_TB_RL:
+    case OMX_SEC_COLOR_FormatYUV420SemiPlanar_SBS_LR:
+    case OMX_SEC_COLOR_FormatYUV420SemiPlanar_SBS_RL:
+    case OMX_SEC_COLOR_FormatYUV420SemiPlanar_TB_LR:
+    case OMX_SEC_COLOR_FormatYUV420SemiPlanar_TB_RL:
+    case OMX_SEC_COLOR_FormatYUV420Planar_SBS_LR:
+    case OMX_SEC_COLOR_FormatYUV420Planar_SBS_RL:
+    case OMX_SEC_COLOR_FormatYUV420Planar_TB_LR:
+    case OMX_SEC_COLOR_FormatYUV420Planar_TB_RL:
+#endif
         usage = GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_YUV_ADDR;
         break;
     default:

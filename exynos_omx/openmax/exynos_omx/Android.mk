@@ -19,6 +19,7 @@ include $(EXYNOS_OMX_COMPONENT)/video/dec/vp8/Android.mk
 
 include $(EXYNOS_OMX_COMPONENT)/video/enc/Android.mk
 include $(EXYNOS_OMX_COMPONENT)/video/enc/h264/Android.mk
+include $(EXYNOS_OMX_COMPONENT)/video/enc/mpeg4/Android.mk
 
 ifeq ($(BOARD_USE_ALP_AUDIO), true)
 include $(EXYNOS_OMX_COMPONENT)/audio/dec/Android.mk

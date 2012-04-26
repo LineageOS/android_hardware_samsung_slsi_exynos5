@@ -43,7 +43,7 @@
 #include "Exynos_OSAL_Android.h"
 #endif
 
-/* To use CSC_METHOD_PREFER_HW or CSC_METHOD_HW in EXYNOS OMX, gralloc should allocate physical memory using FIMC */
+/* To use CSC_METHOD_HW in EXYNOS OMX, gralloc should allocate physical memory using FIMC */
 /* It means GRALLOC_USAGE_HW_FIMC1 should be set on Native Window usage */
 #include "csc.h"
 
@@ -56,7 +56,7 @@
 
 //#define FULL_FRAME_SEARCH /* Full frame search not support*/
 
-static int Check_VP8_Frame(
+int Check_Vp8_Frame(
     OMX_U8   *pInputStream,
     int       buffSize,
     OMX_U32   flag,
@@ -106,7 +106,7 @@ static int Check_VP8_Frame(
     return buffSize;
 }
 
-OMX_BOOL Check_VP8_StartCode(
+static OMX_BOOL Check_Vp8_StartCode(
     OMX_U8     *pInputStream,
     OMX_U32     streamSize)
 {
@@ -127,7 +127,7 @@ OMX_BOOL Check_VP8_StartCode(
     return OMX_TRUE;
 }
 
-OMX_ERRORTYPE Exynos_MFC_VP8Dec_GetParameter(
+OMX_ERRORTYPE Exynos_Vp8Dec_GetParameter(
     OMX_IN OMX_HANDLETYPE hComponent,
     OMX_IN OMX_INDEXTYPE  nParamIndex,
     OMX_INOUT OMX_PTR     pComponentParameterStructure)
@@ -206,7 +206,7 @@ EXIT:
     return ret;
 }
 
-OMX_ERRORTYPE Exynos_MFC_VP8Dec_SetParameter(
+OMX_ERRORTYPE Exynos_Vp8Dec_SetParameter(
     OMX_IN OMX_HANDLETYPE hComponent,
     OMX_IN OMX_INDEXTYPE  nIndex,
     OMX_IN OMX_PTR        pComponentParameterStructure)
@@ -374,7 +374,7 @@ EXIT:
     return ret;
 }
 
-OMX_ERRORTYPE Exynos_MFC_VP8Dec_GetConfig(
+OMX_ERRORTYPE Exynos_Vp8Dec_GetConfig(
     OMX_HANDLETYPE hComponent,
     OMX_INDEXTYPE  nIndex,
     OMX_PTR        pComponentConfigStructure)
@@ -422,7 +422,7 @@ EXIT:
     return ret;
 }
 
-OMX_ERRORTYPE Exynos_MFC_VP8Dec_SetConfig(
+OMX_ERRORTYPE Exynos_Vp8Dec_SetConfig(
     OMX_HANDLETYPE hComponent,
     OMX_INDEXTYPE  nIndex,
     OMX_PTR        pComponentConfigStructure)
@@ -470,7 +470,7 @@ EXIT:
     return ret;
 }
 
-OMX_ERRORTYPE Exynos_MFC_VP8Dec_GetExtensionIndex(
+OMX_ERRORTYPE Exynos_Vp8Dec_GetExtensionIndex(
     OMX_IN  OMX_HANDLETYPE  hComponent,
     OMX_IN  OMX_STRING      cParameterName,
     OMX_OUT OMX_INDEXTYPE   *pIndexType)
@@ -522,7 +522,7 @@ EXIT:
     return ret;
 }
 
-OMX_ERRORTYPE Exynos_MFC_VP8Dec_ComponentRoleEnum(
+OMX_ERRORTYPE Exynos_Vp8Dec_ComponentRoleEnum(
     OMX_HANDLETYPE hComponent,
     OMX_U8        *cRole,
     OMX_U32        nIndex)
@@ -550,7 +550,7 @@ EXIT:
     return ret;
 }
 
-OMX_ERRORTYPE Exynos_MFC_DecodeThread(
+static OMX_ERRORTYPE Exynos_Vp8Dec_DecodeThread(
     OMX_HANDLETYPE hComponent)
 {
     OMX_ERRORTYPE                  ret              = OMX_ErrorNone;
@@ -577,19 +577,6 @@ OMX_ERRORTYPE Exynos_MFC_DecodeThread(
             Exynos_OSAL_PerfStart(PERF_ID_DEC);
 #endif
             if (pVideoDec->NBDecThread.oneFrameSize > 0) {
-                /* queue work for input buffer */
-                pInbufOps->Enqueue(pVp8Dec->hMFCVp8Handle.hMFCHandle,
-                                  (unsigned char **)&pVp8Dec->hMFCVp8Handle.pMFCStreamBuffer,
-                                  (unsigned int *)&pVideoDec->NBDecThread.oneFrameSize,
-                                   1, NULL);
-
-                pVideoDec->indexInputBuffer++;
-                pVideoDec->indexInputBuffer %= MFC_INPUT_BUFFER_NUM_MAX;
-                pVp8Dec->hMFCVp8Handle.pMFCStreamBuffer    = pVideoDec->MFCDecInputBuffer[pVideoDec->indexInputBuffer].VirAddr;
-                pVp8Dec->hMFCVp8Handle.pMFCStreamPhyBuffer = pVideoDec->MFCDecInputBuffer[pVideoDec->indexInputBuffer].PhyAddr;
-                pExynosComponent->processData[INPUT_PORT_INDEX].dataBuffer = pVideoDec->MFCDecInputBuffer[pVideoDec->indexInputBuffer].VirAddr;
-                pExynosComponent->processData[INPUT_PORT_INDEX].allocSize = pVideoDec->MFCDecInputBuffer[pVideoDec->indexInputBuffer].bufferSize;
-
                 pInbufOps->Dequeue(pVp8Dec->hMFCVp8Handle.hMFCHandle);
                 pVideoDec->pOutbuf = pOutbufOps->Dequeue(pVp8Dec->hMFCVp8Handle.hMFCHandle);
             }
@@ -610,7 +597,7 @@ EXIT:
 }
 
 /* MFC Init */
-OMX_ERRORTYPE Exynos_MFC_VP8Dec_Init(
+OMX_ERRORTYPE Exynos_Vp8Dec_Init(
     OMX_COMPONENTTYPE *pOMXComponent)
 {
     OMX_ERRORTYPE                  ret               = OMX_ErrorNone;
@@ -643,13 +630,23 @@ OMX_ERRORTYPE Exynos_MFC_VP8Dec_Init(
     pExynosComponent->bSaveFlagEOS = OMX_FALSE;
 
     /* alloc ops structure */
-    pDecOps = (ExynosVideoDecOps *)malloc(sizeof(*pDecOps));
-    pInbufOps = (ExynosVideoDecBufferOps *)malloc(sizeof(*pInbufOps));
-    pOutbufOps = (ExynosVideoDecBufferOps *)malloc(sizeof(*pOutbufOps));
+    pDecOps = (ExynosVideoDecOps *)Exynos_OSAL_Malloc(sizeof(*pDecOps));
+    pInbufOps = (ExynosVideoDecBufferOps *)Exynos_OSAL_Malloc(sizeof(*pInbufOps));
+    pOutbufOps = (ExynosVideoDecBufferOps *)Exynos_OSAL_Malloc(sizeof(*pOutbufOps));
 
     if ((pDecOps == NULL) || (pInbufOps == NULL) || (pOutbufOps == NULL)) {
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to allocate decoder ops buffer");
         ret = OMX_ErrorInsufficientResources;
+
+        if (pDecOps)
+            Exynos_OSAL_Free(pDecOps);
+
+        if (pInbufOps)
+            Exynos_OSAL_Free(pInbufOps);
+
+        if (pOutbufOps)
+            Exynos_OSAL_Free(pOutbufOps);
+
         goto EXIT;
     }
 
@@ -707,6 +704,12 @@ OMX_ERRORTYPE Exynos_MFC_VP8Dec_Init(
         }
     }
 
+    /* cacheable for source */
+    if (pInbufOps->Enable_Cacheable) {
+        if (pInbufOps->Enable_Cacheable(pVp8Dec->hMFCVp8Handle.hMFCHandle) != VIDEO_ERROR_NONE)
+            Exynos_OSAL_Log(EXYNOS_LOG_WARNING, "Failed to enable cacheable property for input buffer");
+    }
+
     /* setup input buffer */
     if (pInbufOps->Setup(pVp8Dec->hMFCVp8Handle.hMFCHandle, MFC_INPUT_BUFFER_NUM_MAX) != VIDEO_ERROR_NONE) {
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to setup input buffer");
@@ -741,7 +744,7 @@ OMX_ERRORTYPE Exynos_MFC_VP8Dec_Init(
     Exynos_OSAL_SemaphoreCreate(&(pVideoDec->NBDecThread.hDecFrameStart));
     Exynos_OSAL_SemaphoreCreate(&(pVideoDec->NBDecThread.hDecFrameEnd));
     if (OMX_ErrorNone == Exynos_OSAL_ThreadCreate(&pVideoDec->NBDecThread.hNBDecodeThread,
-                                                Exynos_MFC_DecodeThread,
+                                                Exynos_Vp8Dec_DecodeThread,
                                                 pOMXComponent)) {
         pVp8Dec->hMFCVp8Handle.returnCodec = VIDEO_TRUE;
     }
@@ -758,15 +761,24 @@ OMX_ERRORTYPE Exynos_MFC_VP8Dec_Init(
 
     pExynosComponent->getAllDelayBuffer = OMX_FALSE;
 
-#ifdef USE_ANB
+#if defined(USE_ANB)
 #if defined(USE_CSC_FIMC) || defined(USE_CSC_GSCALER)
     if (pExynosOutputPort->bIsANBEnabled == OMX_TRUE) {
-        csc_method = CSC_METHOD_PREFER_HW;
+        csc_method = CSC_METHOD_HW;
     }
 #endif
 #endif
-    pVideoDec->csc_handle = csc_init(&csc_method);
-    pVideoDec->csc_set_format = OMX_FALSE;
+
+    if (OMX_SEC_COLOR_FormatNV12TPhysicalAddress !=
+        pExynosOutputPort->portDefinition.format.video.eColorFormat) {
+        pVideoDec->csc_handle = csc_init(csc_method);
+        pVideoDec->csc_set_format = OMX_FALSE;
+#ifdef USE_CSC_GSCALER
+        if (CSC_METHOD_HW == csc_method) {
+            csc_set_hw_property(pVideoDec->csc_handle, CSC_HW_PROPERTY_FIXED_NODE, 1);
+        }
+#endif
+    }
 
 EXIT:
     FunctionOut();
@@ -775,7 +787,7 @@ EXIT:
 }
 
 /* MFC Terminate */
-OMX_ERRORTYPE Exynos_MFC_VP8Dec_Terminate(
+OMX_ERRORTYPE Exynos_Vp8Dec_Terminate(
     OMX_COMPONENTTYPE *pOMXComponent)
 {
     OMX_ERRORTYPE                  ret              = OMX_ErrorNone;
@@ -824,9 +836,9 @@ OMX_ERRORTYPE Exynos_MFC_VP8Dec_Terminate(
         pOutbufOps->Stop(hMFCHandle);
         pDecOps->Finalize(hMFCHandle);
 
-        free(pInbufOps);
-        free(pOutbufOps);
-        free(pDecOps);
+        Exynos_OSAL_Free(pInbufOps);
+        Exynos_OSAL_Free(pOutbufOps);
+        Exynos_OSAL_Free(pDecOps);
 
         pVp8Dec->hMFCVp8Handle.hMFCHandle = NULL;
     }
@@ -842,7 +854,7 @@ EXIT:
     return ret;
 }
 
-OMX_ERRORTYPE Exynos_MFC_VP8_Decode_Configure(
+static OMX_ERRORTYPE Exynos_Vp8Dec_Configure(
     OMX_COMPONENTTYPE   *pOMXComponent,
     EXYNOS_OMX_DATA     *pInputData,
     EXYNOS_OMX_DATA     *pOutputData)
@@ -890,6 +902,14 @@ OMX_ERRORTYPE Exynos_MFC_VP8_Decode_Configure(
         }
     }
 
+    /* cacheable for dest */
+    if (pExynosOutputPort->portDefinition.format.video.eColorFormat != OMX_SEC_COLOR_FormatNV12TPhysicalAddress) {
+        if (pOutbufOps->Enable_Cacheable) {
+            if (pOutbufOps->Enable_Cacheable(hMFCHandle) != VIDEO_ERROR_NONE)
+                Exynos_OSAL_Log(EXYNOS_LOG_WARNING, "Failed to enable cacheable property for output buffer");
+        }
+    }
+
     /* input buffer enqueue for header parsing */
     if (pInbufOps->Enqueue(hMFCHandle,
                           (unsigned char **)&pVp8Dec->hMFCVp8Handle.pMFCStreamBuffer,
@@ -934,16 +954,6 @@ OMX_ERRORTYPE Exynos_MFC_VP8_Decode_Configure(
              OMX_DirOutput, /* This is the port index */
              0,
              NULL);
-    }
-
-    /* should be done before prepare output buffer */
-    if (pExynosOutputPort->portDefinition.format.video.eColorFormat != OMX_SEC_COLOR_FormatNV12TPhysicalAddress) {
-        if (pVideoDec->pDecOps->Enable_Cacheable) {
-            if (pVideoDec->pDecOps->Enable_Cacheable(hMFCHandle) != VIDEO_ERROR_NONE) {
-                ret = OMX_ErrorInsufficientResources;
-                goto EXIT;
-            }
-        }
     }
 
     /* get dpb count */
@@ -994,7 +1004,9 @@ EXIT:
     FunctionOut();
     return ret;
 }
-OMX_ERRORTYPE Exynos_MFC_VP8_Decode_Nonblock(
+
+/* nonblock */
+static OMX_ERRORTYPE Exynos_Vp8Dec_Decode(
     OMX_COMPONENTTYPE   *pOMXComponent,
     EXYNOS_OMX_DATA     *pInputData,
     EXYNOS_OMX_DATA     *pOutputData)
@@ -1015,13 +1027,14 @@ OMX_ERRORTYPE Exynos_MFC_VP8_Decode_Nonblock(
     ExynosVideoDecBufferOps       *pInbufOps         = pVideoDec->pInbufOps;
     ExynosVideoDecBufferOps       *pOutbufOps        = pVideoDec->pOutbufOps;
 
-    OMX_PTR outputYPhyAddr, outputCPhyAddr, outputYVirAddr, outputCVirAddr;
+    OMX_PTR outputPhyAddr[2], outputVirAddr[2];
+    unsigned int outputDataSize[2];
     int bufWidth, bufHeight, outputImgWidth, outputImgHeight;
 
     FunctionIn();
 
     if (pVp8Dec->hMFCVp8Handle.bConfiguredMFC == OMX_FALSE) {
-        ret = Exynos_MFC_VP8_Decode_Configure(pOMXComponent, pInputData, pOutputData);
+        ret = Exynos_Vp8Dec_Configure(pOMXComponent, pInputData, pOutputData);
         goto EXIT;
     }
 
@@ -1048,8 +1061,12 @@ OMX_ERRORTYPE Exynos_MFC_VP8_Decode_Nonblock(
 
         if (pVideoDec->pOutbuf != NULL) {
             status = pVideoDec->pOutbuf->displayStatus;
-            outputYVirAddr = pVideoDec->pOutbuf->planes[0].addr;
-            outputCVirAddr = pVideoDec->pOutbuf->planes[1].addr;
+            outputVirAddr[0] = pVideoDec->pOutbuf->planes[0].addr;
+            outputVirAddr[1] = pVideoDec->pOutbuf->planes[1].addr;
+            outputDataSize[0] = pVideoDec->pOutbuf->planes[0].dataSize;
+            outputDataSize[1] = pVideoDec->pOutbuf->planes[1].dataSize;
+        } else {
+            status = VIDEO_FRAME_STATUS_DECODING_ONLY;
         }
 
         outputImgWidth = pExynosInputPort->portDefinition.format.video.nFrameWidth;
@@ -1065,10 +1082,8 @@ OMX_ERRORTYPE Exynos_MFC_VP8_Decode_Nonblock(
             pOutputData->timeStamp = pInputData->timeStamp;
             pOutputData->nFlags = pInputData->nFlags;
         } else {
-            /* For timestamp correction. if mfc support frametype detect */
-            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "disp_pic_frame_type: %d", pVideoDec->pOutbuf->frameType);
 #ifdef NEED_TIMESTAMP_REORDER
-            if (pVideoDec->pOutbuf->frameType == VIDEO_FRAME_I) {
+            if ((pVideoDec->pOutbuf != NULL) && (pVideoDec->pOutbuf->frameType == VIDEO_FRAME_I)) {
                 pOutputData->timeStamp = pExynosComponent->timeStamp[indexTimestamp];
                 pOutputData->nFlags = pExynosComponent->nFlags[indexTimestamp];
                 pVp8Dec->hMFCVp8Handle.outputIndexTimestamp = indexTimestamp;
@@ -1158,7 +1173,7 @@ OMX_ERRORTYPE Exynos_MFC_VP8_Decode_Nonblock(
         oneFrameSize = pVideoDec->MFCDecInputBuffer[pVideoDec->indexInputBuffer].dataSize;
     }
 
-    if ((Check_VP8_StartCode(pInputData->dataBuffer, oneFrameSize) == OMX_TRUE) &&
+    if ((Check_Vp8_StartCode(pInputData->dataBuffer, oneFrameSize) == OMX_TRUE) &&
         ((pOutputData->nFlags & OMX_BUFFERFLAG_EOS) != OMX_BUFFERFLAG_EOS)) {
         if ((ret != OMX_ErrorInputDataDecodeYet) || (pExynosComponent->getAllDelayBuffer == OMX_TRUE)) {
             pDecOps->Set_FrameTag(hMFCHandle, pVp8Dec->hMFCVp8Handle.indexTimestamp);
@@ -1169,12 +1184,24 @@ OMX_ERRORTYPE Exynos_MFC_VP8_Decode_Nonblock(
         pVideoDec->MFCDecInputBuffer[pVideoDec->indexInputBuffer].dataSize = oneFrameSize;
         pVideoDec->NBDecThread.oneFrameSize = oneFrameSize;
 
+        pInbufOps->Enqueue(pVp8Dec->hMFCVp8Handle.hMFCHandle,
+                          (unsigned char **)&pVp8Dec->hMFCVp8Handle.pMFCStreamBuffer,
+                          (unsigned int *)&pVideoDec->NBDecThread.oneFrameSize,
+                           1, NULL);
+
         /* mfc decode start */
         Exynos_OSAL_SemaphorePost(pVideoDec->NBDecThread.hDecFrameStart);
         pVideoDec->NBDecThread.bDecoderRun = OMX_TRUE;
         pVp8Dec->hMFCVp8Handle.returnCodec = VIDEO_TRUE;
 
         Exynos_OSAL_SleepMillisec(0);
+
+        pVideoDec->indexInputBuffer++;
+        pVideoDec->indexInputBuffer %= MFC_INPUT_BUFFER_NUM_MAX;
+        pVp8Dec->hMFCVp8Handle.pMFCStreamBuffer    = pVideoDec->MFCDecInputBuffer[pVideoDec->indexInputBuffer].VirAddr;
+        pVp8Dec->hMFCVp8Handle.pMFCStreamPhyBuffer = pVideoDec->MFCDecInputBuffer[pVideoDec->indexInputBuffer].PhyAddr;
+        pExynosComponent->processData[INPUT_PORT_INDEX].dataBuffer = pVideoDec->MFCDecInputBuffer[pVideoDec->indexInputBuffer].VirAddr;
+        pExynosComponent->processData[INPUT_PORT_INDEX].allocSize = pVideoDec->MFCDecInputBuffer[pVideoDec->indexInputBuffer].bufferSize;
 
         if ((pVideoDec->bFirstFrame == OMX_TRUE) &&
             (pExynosComponent->bSaveFlagEOS == OMX_TRUE) &&
@@ -1201,8 +1228,8 @@ OMX_ERRORTYPE Exynos_MFC_VP8_Decode_Nonblock(
         int          height     = outputImgHeight;
         int          imageSize  = outputImgWidth * outputImgHeight;
 
-        pSrcBuf[0] = outputYVirAddr;
-        pSrcBuf[1] = outputCVirAddr;
+        pSrcBuf[0] = outputVirAddr[0];
+        pSrcBuf[1] = outputVirAddr[1];
 
         pYUVBuf[0]  = (unsigned char *)pOutputBuf;
         pYUVBuf[1]  = (unsigned char *)pOutputBuf + imageSize;
@@ -1220,10 +1247,10 @@ OMX_ERRORTYPE Exynos_MFC_VP8_Decode_Nonblock(
         if ((pVideoDec->bThumbnailMode == OMX_FALSE) &&
             (pExynosOutputPort->portDefinition.format.video.eColorFormat == OMX_SEC_COLOR_FormatNV12TPhysicalAddress)) {
             /* if use Post copy address structure */
-            Exynos_OSAL_Memcpy(pYUVBuf[0], &(outputYPhyAddr), sizeof(outputYPhyAddr));
-            Exynos_OSAL_Memcpy((unsigned char *)pYUVBuf[0] + (sizeof(void *) * 1), &(outputCPhyAddr), sizeof(outputCPhyAddr));
-            Exynos_OSAL_Memcpy((unsigned char *)pYUVBuf[0] + (sizeof(void *) * 2), &(outputYVirAddr), sizeof(outputYVirAddr));
-            Exynos_OSAL_Memcpy((unsigned char *)pYUVBuf[0] + (sizeof(void *) * 3), &(outputCVirAddr), sizeof(outputCVirAddr));
+            Exynos_OSAL_Memcpy(pYUVBuf[0], &(outputPhyAddr[0]), sizeof(outputPhyAddr[0]));
+            Exynos_OSAL_Memcpy((unsigned char *)pYUVBuf[0] + (sizeof(void *) * 1), &(outputPhyAddr[1]), sizeof(outputPhyAddr[1]));
+            Exynos_OSAL_Memcpy((unsigned char *)pYUVBuf[0] + (sizeof(void *) * 2), &(outputVirAddr[0]), sizeof(outputVirAddr[0]));
+            Exynos_OSAL_Memcpy((unsigned char *)pYUVBuf[0] + (sizeof(void *) * 3), &(outputVirAddr[1]), sizeof(outputVirAddr[1]));
             pOutputData->dataLen = (width * height * 3) / 2;
         } else {
             Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "YUV420 SP/P Output mode");
@@ -1232,8 +1259,8 @@ OMX_ERRORTYPE Exynos_MFC_VP8_Decode_Nonblock(
 #endif
             switch (pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX].portDefinition.format.video.eColorFormat) {
             case OMX_SEC_COLOR_FormatNV12Tiled:
-                Exynos_OSAL_Memcpy(pOutputBuf, outputYVirAddr, FrameBufferYSize);
-                Exynos_OSAL_Memcpy((unsigned char *)pOutputBuf + FrameBufferYSize, outputCVirAddr, FrameBufferUVSize);
+                csc_src_color_format = omx_2_hal_pixel_format((unsigned int)OMX_SEC_COLOR_FormatNV12Tiled);
+                csc_dst_color_format = omx_2_hal_pixel_format((unsigned int)OMX_SEC_COLOR_FormatNV12Tiled);
                 pOutputData->dataLen = FrameBufferYSize + FrameBufferUVSize;
                 break;
             case OMX_COLOR_FormatYUV420SemiPlanar:
@@ -1251,9 +1278,10 @@ OMX_ERRORTYPE Exynos_MFC_VP8_Decode_Nonblock(
             csc_get_method(pVideoDec->csc_handle, &csc_method);
 #ifdef ENABLE_PHYSICAL_ADDRESS
             if ((pExynosOutputPort->bIsANBEnabled == OMX_TRUE) && (csc_method == CSC_METHOD_HW)) {
+                csc_src_color_format = omx_2_hal_pixel_format((unsigned int)OMX_SEC_COLOR_FormatNV12TPhysicalAddress);
                 Exynos_OSAL_GetPhysANB(pOutputData->dataBuffer, pYUVBuf);
-                pSrcBuf[0] = outputYPhyAddr;
-                pSrcBuf[1] = outputCPhyAddr;
+                pSrcBuf[0] = outputPhyAddr[0];
+                pSrcBuf[1] = outputPhyAddr[1];
             }
 #endif
             if (pVideoDec->csc_set_format == OMX_FALSE) {
@@ -1302,8 +1330,10 @@ OMX_ERRORTYPE Exynos_MFC_VP8_Decode_Nonblock(
             Exynos_OSAL_UnlockANB(pOutputData->dataBuffer);
         }
 #endif
-        /* enqueue all available output buffers */
-        pOutbufOps->Enqueue_All(hMFCHandle);
+        pOutbufOps->Enqueue(pVp8Dec->hMFCVp8Handle.hMFCHandle,
+                               (unsigned char **)&outputVirAddr,
+                               (unsigned int *)&outputDataSize,
+                                2, NULL);
     } else {
         pOutputData->dataLen = 0;
     }
@@ -1315,7 +1345,7 @@ EXIT:
 }
 
 /* MFC Decode */
-OMX_ERRORTYPE Exynos_MFC_VP8Dec_bufferProcess(
+OMX_ERRORTYPE Exynos_Vp8Dec_BufferProcess(
     OMX_COMPONENTTYPE   *pOMXComponent,
     EXYNOS_OMX_DATA     *pInputData,
     EXYNOS_OMX_DATA     *pOutputData)
@@ -1339,7 +1369,7 @@ OMX_ERRORTYPE Exynos_MFC_VP8Dec_bufferProcess(
         goto EXIT;
     }
 
-    ret = Exynos_MFC_VP8_Decode_Nonblock(pOMXComponent, pInputData, pOutputData);
+    ret = Exynos_Vp8Dec_Decode(pOMXComponent, pInputData, pOutputData);
     if (ret != OMX_ErrorNone) {
         if (ret == OMX_ErrorInputDataDecodeYet) {
             pOutputData->usedDataLen = 0;
@@ -1474,18 +1504,18 @@ OSCL_EXPORT_REF OMX_ERRORTYPE Exynos_OMX_ComponentInit(
     pExynosPort->portDefinition.format.video.eColorFormat = OMX_COLOR_FormatYUV420Planar;
     pExynosPort->portDefinition.bEnabled = OMX_TRUE;
 
-    pOMXComponent->GetParameter      = &Exynos_MFC_VP8Dec_GetParameter;
-    pOMXComponent->SetParameter      = &Exynos_MFC_VP8Dec_SetParameter;
-    pOMXComponent->GetConfig         = &Exynos_MFC_VP8Dec_GetConfig;
-    pOMXComponent->SetConfig         = &Exynos_MFC_VP8Dec_SetConfig;
-    pOMXComponent->GetExtensionIndex = &Exynos_MFC_VP8Dec_GetExtensionIndex;
-    pOMXComponent->ComponentRoleEnum = &Exynos_MFC_VP8Dec_ComponentRoleEnum;
+    pOMXComponent->GetParameter      = &Exynos_Vp8Dec_GetParameter;
+    pOMXComponent->SetParameter      = &Exynos_Vp8Dec_SetParameter;
+    pOMXComponent->GetConfig         = &Exynos_Vp8Dec_GetConfig;
+    pOMXComponent->SetConfig         = &Exynos_Vp8Dec_SetConfig;
+    pOMXComponent->GetExtensionIndex = &Exynos_Vp8Dec_GetExtensionIndex;
+    pOMXComponent->ComponentRoleEnum = &Exynos_Vp8Dec_ComponentRoleEnum;
     pOMXComponent->ComponentDeInit   = &Exynos_OMX_ComponentDeinit;
 
-    pExynosComponent->exynos_mfc_componentInit      = &Exynos_MFC_VP8Dec_Init;
-    pExynosComponent->exynos_mfc_componentTerminate = &Exynos_MFC_VP8Dec_Terminate;
-    pExynosComponent->exynos_mfc_bufferProcess      = &Exynos_MFC_VP8Dec_bufferProcess;
-    pExynosComponent->exynos_checkInputFrame        = &Check_VP8_Frame;
+    pExynosComponent->exynos_mfc_componentInit      = &Exynos_Vp8Dec_Init;
+    pExynosComponent->exynos_mfc_componentTerminate = &Exynos_Vp8Dec_Terminate;
+    pExynosComponent->exynos_mfc_bufferProcess      = &Exynos_Vp8Dec_BufferProcess;
+    pExynosComponent->exynos_checkInputFrame        = &Check_Vp8_Frame;
 
     pExynosComponent->currentState = OMX_StateLoaded;
 

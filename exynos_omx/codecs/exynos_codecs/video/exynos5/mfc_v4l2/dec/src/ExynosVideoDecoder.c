@@ -76,7 +76,7 @@ static unsigned int __CodingType_To_V4L2PixelFormat(ExynosVideoCodingType coding
         pixelformat = V4L2_PIX_FMT_VC1_ANNEX_L;
         break;
     case VIDEO_CODING_MPEG2:
-        pixelformat = V4L2_PIX_FMT_MPEG1;
+        pixelformat = V4L2_PIX_FMT_MPEG2;
         break;
     default:
         pixelformat = V4L2_PIX_FMT_H264;
@@ -282,29 +282,6 @@ EXIT:
 }
 
 /*
- * [Decoder OPS] Set Cacheable
- */
-static ExynosVideoErrorType MFC_Decoder_Enable_Cacheable(void *pHandle)
-{
-    ExynosVideoDecContext *pCtx = (ExynosVideoDecContext *)pHandle;
-    ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
-
-    if (pCtx == NULL) {
-        ALOGE("%s: Video context info must be supplied", __func__);
-        ret = VIDEO_ERROR_BADPARAM;
-        goto EXIT;
-    }
-
-    if (exynos_v4l2_s_ctrl(pCtx->hDec, V4L2_CID_CACHEABLE, 1)) {
-        ret = VIDEO_ERROR_APIFAIL;
-        goto EXIT;
-    }
-
-EXIT:
-    return ret;
-}
-
-/*
  * [Decoder OPS] Set Display Delay
  */
 static ExynosVideoErrorType MFC_Decoder_Set_DisplayDelay(
@@ -390,6 +367,140 @@ static ExynosVideoErrorType MFC_Decoder_Enable_SliceMode(void *pHandle)
     }
 
     if (exynos_v4l2_s_ctrl(pCtx->hDec, V4L2_CID_MPEG_VIDEO_DECODER_SLICE_INTERFACE, 1)) {
+        ret = VIDEO_ERROR_APIFAIL;
+        goto EXIT;
+    }
+
+EXIT:
+    return ret;
+}
+
+/*
+ * [Decoder OPS] Enable SEI Parsing
+ */
+static ExynosVideoErrorType MFC_Decoder_Enable_SEIParsing(void *pHandle)
+{
+    ExynosVideoDecContext *pCtx = (ExynosVideoDecContext *)pHandle;
+    ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
+
+    if (pCtx == NULL) {
+        ALOGE("%s: Video context info must be supplied", __func__);
+        ret = VIDEO_ERROR_BADPARAM;
+        goto EXIT;
+    }
+
+    if (exynos_v4l2_s_ctrl(pCtx->hDec, V4L2_CID_MPEG_VIDEO_H264_SEI_FRAME_PACKING, 1)) {
+        ret = VIDEO_ERROR_APIFAIL;
+        goto EXIT;
+    }
+
+EXIT:
+    return ret;
+}
+
+/*
+ * [Decoder OPS] Get Frame Packing information
+ */
+static ExynosVideoErrorType MFC_Decoder_Get_FramePackingInfo(
+    void                    *pHandle,
+    ExynosVideoFramePacking *pFramePacking)
+{
+    ExynosVideoDecContext   *pCtx = (ExynosVideoDecContext *)pHandle;
+    ExynosVideoErrorType     ret  = VIDEO_ERROR_NONE;
+
+    struct v4l2_ext_control  ext_ctrl[FRAME_PACK_SEI_INFO_NUM];
+    struct v4l2_ext_controls ext_ctrls;
+
+    int seiAvailable, seiInfo, seiGridPos, i;
+    unsigned int seiArgmtId;
+
+
+    if (pCtx == NULL) {
+        ALOGE("%s: Video context info must be supplied", __func__);
+        ret = VIDEO_ERROR_BADPARAM;
+        goto EXIT;
+    }
+
+    memset(pFramePacking, 0, sizeof(*pFramePacking));
+    memset(ext_ctrl, 0, (sizeof(struct v4l2_ext_control) * FRAME_PACK_SEI_INFO_NUM));
+
+    ext_ctrls.ctrl_class = V4L2_CTRL_CLASS_MPEG;
+    ext_ctrls.count = FRAME_PACK_SEI_INFO_NUM;
+    ext_ctrls.controls = ext_ctrl;
+    ext_ctrl[0].id =  V4L2_CID_MPEG_VIDEO_H264_SEI_FP_AVAIL;
+    ext_ctrl[1].id =  V4L2_CID_MPEG_VIDEO_H264_SEI_FP_ARRGMENT_ID;
+    ext_ctrl[2].id =  V4L2_CID_MPEG_VIDEO_H264_SEI_FP_INFO;
+    ext_ctrl[3].id =  V4L2_CID_MPEG_VIDEO_H264_SEI_FP_GRID_POS;
+
+    if (exynos_v4l2_g_ext_ctrl(pCtx->hDec, &ext_ctrls)) {
+        ret = VIDEO_ERROR_APIFAIL;
+        goto EXIT;
+    }
+
+    seiAvailable = ext_ctrl[0].value;
+    seiArgmtId = ext_ctrl[1].value;
+    seiInfo = ext_ctrl[2].value;
+    seiGridPos = ext_ctrl[3].value;
+
+    pFramePacking->available = seiAvailable;
+    pFramePacking->arrangement_id = seiArgmtId;
+
+    pFramePacking->arrangement_cancel_flag = OPERATE_BIT(seiInfo, 0x1, 0);
+    pFramePacking->arrangement_type = OPERATE_BIT(seiInfo, 0x3f, 1);
+    pFramePacking->quincunx_sampling_flag = OPERATE_BIT(seiInfo, 0x1, 8);
+    pFramePacking->content_interpretation_type = OPERATE_BIT(seiInfo, 0x3f, 9);
+    pFramePacking->spatial_flipping_flag = OPERATE_BIT(seiInfo, 0x1, 15);
+    pFramePacking->frame0_flipped_flag = OPERATE_BIT(seiInfo, 0x1, 16);
+    pFramePacking->field_views_flag = OPERATE_BIT(seiInfo, 0x1, 17);
+    pFramePacking->current_frame_is_frame0_flag = OPERATE_BIT(seiInfo, 0x1, 18);
+
+    pFramePacking->frame0_grid_pos_x = OPERATE_BIT(seiGridPos, 0xf, 0);
+    pFramePacking->frame0_grid_pos_y = OPERATE_BIT(seiGridPos, 0xf, 4);
+    pFramePacking->frame1_grid_pos_x = OPERATE_BIT(seiGridPos, 0xf, 8);
+    pFramePacking->frame1_grid_pos_y = OPERATE_BIT(seiGridPos, 0xf, 12);
+
+EXIT:
+    return ret;
+}
+
+/*
+ * [Decoder Buffer OPS] Enable Cacheable (Input)
+ */
+static ExynosVideoErrorType MFC_Decoder_Enable_Cacheable_Inbuf(void *pHandle)
+{
+    ExynosVideoDecContext *pCtx = (ExynosVideoDecContext *)pHandle;
+    ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
+
+    if (pCtx == NULL) {
+        ALOGE("%s: Video context info must be supplied", __func__);
+        ret = VIDEO_ERROR_BADPARAM;
+        goto EXIT;
+    }
+
+    if (exynos_v4l2_s_ctrl(pCtx->hDec, V4L2_CID_CACHEABLE, 2)) {
+        ret = VIDEO_ERROR_APIFAIL;
+        goto EXIT;
+    }
+
+EXIT:
+    return ret;
+}
+
+/*
+ * [Decoder Buffer OPS] Enable Cacheable (Output)
+ */
+static ExynosVideoErrorType MFC_Decoder_Enable_Cacheable_Outbuf(void *pHandle)
+{
+    ExynosVideoDecContext *pCtx = (ExynosVideoDecContext *)pHandle;
+    ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
+
+    if (pCtx == NULL) {
+        ALOGE("%s: Video context info must be supplied", __func__);
+        ret = VIDEO_ERROR_BADPARAM;
+        goto EXIT;
+    }
+
+    if (exynos_v4l2_s_ctrl(pCtx->hDec, V4L2_CID_CACHEABLE, 1)) {
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
@@ -707,21 +818,20 @@ static ExynosVideoErrorType MFC_Decoder_Setup_Inbuf(
     return ret;
 
 EXIT:
-    if (pCtx->bShareInbuf == VIDEO_FALSE) {
-        for (i = 0; i < pCtx->nInbufs; i++) {
-            pVideoPlane = &pCtx->pInbuf[i].planes[0];
-            if (pVideoPlane->addr == MAP_FAILED) {
-                pVideoPlane->addr = NULL;
-                break;
+    if ((pCtx != NULL) && (pCtx->pInbuf != NULL)) {
+        if (pCtx->bShareInbuf == VIDEO_FALSE) {
+            for (i = 0; i < pCtx->nInbufs; i++) {
+                pVideoPlane = &pCtx->pInbuf[i].planes[0];
+                if (pVideoPlane->addr == MAP_FAILED) {
+                    pVideoPlane->addr = NULL;
+                    break;
+                }
+
+                munmap(pVideoPlane->addr, pVideoPlane->allocSize);
             }
-
-            munmap(pVideoPlane->addr, pVideoPlane->allocSize);
-            pVideoPlane->allocSize = 0;
-            pVideoPlane->dataSize = 0;
-
-            pCtx->pInbuf[i].pGeometry = NULL;
-            pCtx->pInbuf[i].bQueued = VIDEO_FALSE;
         }
+
+        free(pCtx->pInbuf);
     }
 
     return ret;
@@ -818,23 +928,22 @@ static ExynosVideoErrorType MFC_Decoder_Setup_Outbuf(
     return ret;
 
 EXIT:
-    if (pCtx->bShareOutbuf == VIDEO_FALSE) {
-        for (i = 0; i < pCtx->nOutbufs; i++) {
-            for (j = 0; j < VIDEO_DECODER_OUTBUF_PLANES; j++) {
-                pVideoPlane = &pCtx->pOutbuf[i].planes[j];
-                if (pVideoPlane->addr == MAP_FAILED) {
-                    pVideoPlane->addr = NULL;
-                    break;
+    if ((pCtx != NULL) && (pCtx->pOutbuf != NULL)) {
+        if (pCtx->bShareOutbuf == VIDEO_FALSE) {
+            for (i = 0; i < pCtx->nOutbufs; i++) {
+                for (j = 0; j < VIDEO_DECODER_OUTBUF_PLANES; j++) {
+                    pVideoPlane = &pCtx->pOutbuf[i].planes[j];
+                    if (pVideoPlane->addr == MAP_FAILED) {
+                        pVideoPlane->addr = NULL;
+                        break;
+                    }
+
+                    munmap(pVideoPlane->addr, pVideoPlane->allocSize);
                 }
-
-                munmap(pVideoPlane->addr, pVideoPlane->allocSize);
-                pVideoPlane->allocSize = 0;
-                pVideoPlane->dataSize = 0;
             }
-
-            pCtx->pOutbuf[i].pGeometry = NULL;
-            pCtx->pOutbuf[i].bQueued = VIDEO_FALSE;
         }
+
+        free(pCtx->pOutbuf);
     }
 
     return ret;
@@ -1087,6 +1196,13 @@ static ExynosVideoErrorType MFC_Decoder_Enqueue_Inbuf(
         goto EXIT;
     }
 
+    if (VIDEO_DECODER_INBUF_PLANES < nPlanes) {
+        ALOGE("%s: Number of max planes : %d, nPlanes : %d", __func__,
+                                    VIDEO_DECODER_INBUF_PLANES, nPlanes);
+        ret = VIDEO_ERROR_BADPARAM;
+        goto EXIT;
+    }
+
     memset(&buf, 0, sizeof(buf));
 
     buf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
@@ -1185,7 +1301,7 @@ static ExynosVideoErrorType MFC_Decoder_Enqueue_Outbuf(
         buf.memory = V4L2_MEMORY_MMAP;
     }
 
-    if (exynos_v4l2_qbuf(pCtx->hDec, &buf)) {
+    if ((pCtx->pOutbuf[buf.index].bQueued == VIDEO_FALSE) && exynos_v4l2_qbuf(pCtx->hDec, &buf)) {
         ALOGE("%s: Failed to enqueue output buffer", __func__);
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
@@ -1358,7 +1474,6 @@ static ExynosVideoDecOps defDecOps = {
     .nSize = 0,
     .Init = MFC_Decoder_Init,
     .Finalize = MFC_Decoder_Finalize,
-    .Enable_Cacheable = MFC_Decoder_Enable_Cacheable,
     .Set_DisplayDelay = MFC_Decoder_Set_DisplayDelay,
     .Enable_PackedPB = MFC_Decoder_Enable_PackedPB,
     .Enable_LoopFilter = MFC_Decoder_Enable_LoopFilter,
@@ -1366,6 +1481,8 @@ static ExynosVideoDecOps defDecOps = {
     .Get_ActualBufferCount = MFC_Decoder_Get_ActualBufferCount,
     .Set_FrameTag = MFC_Decoder_Set_FrameTag,
     .Get_FrameTag = MFC_Decoder_Get_FrameTag,
+    .Enable_SEIParsing = MFC_Decoder_Enable_SEIParsing,
+    .Get_FramePackingInfo = MFC_Decoder_Get_FramePackingInfo,
 };
 
 /*
@@ -1373,6 +1490,7 @@ static ExynosVideoDecOps defDecOps = {
  */
 static ExynosVideoDecBufferOps defInbufOps = {
     .nSize = 0,
+    .Enable_Cacheable = MFC_Decoder_Enable_Cacheable_Inbuf,
     .Set_Shareable = MFC_Decoder_Set_Shareable_Inbuf,
     .Get_BufferInfo = MFC_Decoder_Get_BufferInfo_Inbuf,
     .Set_Geometry = MFC_Decoder_Set_Geometry_Inbuf,
@@ -1390,6 +1508,7 @@ static ExynosVideoDecBufferOps defInbufOps = {
  */
 static ExynosVideoDecBufferOps defOutbufOps = {
     .nSize = 0,
+    .Enable_Cacheable = MFC_Decoder_Enable_Cacheable_Outbuf,
     .Set_Shareable = MFC_Decoder_Set_Shareable_Outbuf,
     .Get_BufferInfo = MFC_Decoder_Get_BufferInfo_Outbuf,
     .Set_Geometry = MFC_Decoder_Set_Geometry_Outbuf,
