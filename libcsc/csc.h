@@ -45,9 +45,13 @@ typedef enum _CSC_ERRORCODE {
 
 typedef enum _CSC_METHOD {
     CSC_METHOD_SW = 0,
-    CSC_METHOD_HW,
-    CSC_METHOD_PREFER_HW
+    CSC_METHOD_HW
 } CSC_METHOD;
+
+typedef enum _CSC_HW_PROPERTY_TYPE {
+    CSC_HW_PROPERTY_FIXED_NODE = 0,
+    CSC_HW_PROPERTY_MODE_DRM,
+} CSC_HW_PROPERTY_TYPE;
 
 /*
  * change hal pixel format to omx pixel format
@@ -80,7 +84,7 @@ unsigned int omx_2_hal_pixel_format(
  *   csc handle
  */
 void *csc_init(
-    CSC_METHOD *method);
+    CSC_METHOD method);
 
 /*
  * Deinit CSC handle
@@ -109,6 +113,26 @@ CSC_ERRORCODE csc_deinit(
 CSC_ERRORCODE csc_get_method(
     void           *handle,
     CSC_METHOD     *method);
+
+/*
+ * Set hw property
+ *
+ * @param handle
+ *   CSC handle[in]
+ *
+ * @param property
+ *   csc hw property[in]
+ *
+ * @param value
+ *   csc hw property value[in]
+ *
+ * @return
+ *   csc handle
+ */
+CSC_ERRORCODE csc_set_hw_property(
+    void                *handle,
+    CSC_HW_PROPERTY_TYPE property,
+    int                  value);
 
 /*
  * Get source format.

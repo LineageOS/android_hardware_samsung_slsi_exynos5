@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <utils/Log.h>
+#include <system/graphics.h>
 
 #include "csc.h"
 #include "exynos_format.h"
@@ -44,11 +45,11 @@
 #include "SEC_OMX_Def.h"
 #endif
 
-#ifdef USE_FIMC
+#ifdef ENABLE_FIMC
 #include "hwconverter_wrapper.h"
 #endif
 
-#ifdef USE_GSCALER
+#ifdef ENABLE_GSCALER
 #include "exynos_gscaler.h"
 #endif
 
@@ -78,12 +79,18 @@ typedef struct _CSC_FORMAT {
     unsigned int crop_height;
     unsigned int color_format;
     unsigned int cacheable;
+    unsigned int mode_drm;
 } CSC_FORMAT;
 
 typedef struct _CSC_BUFFER {
     unsigned char *planes[CSC_MAX_PLANES];
     int ion_fd;
 } CSC_BUFFER;
+
+typedef struct _CSC_HW_PROPERTY {
+    int fixed_node;
+    int mode_drm;
+} CSC_HW_PROPERTY;
 
 typedef struct _CSC_HANDLE {
     CSC_FORMAT      dst_format;
@@ -93,6 +100,7 @@ typedef struct _CSC_HANDLE {
     CSC_METHOD      csc_method;
     CSC_HW_TYPE     csc_hw_type;
     void           *csc_hw_handle;
+    CSC_HW_PROPERTY hw_property;
 } CSC_HANDLE;
 
 /* source is RGB888 */
@@ -274,90 +282,83 @@ static CSC_ERRORCODE conv_hw(
     CSC_HANDLE *handle)
 {
     CSC_ERRORCODE ret = CSC_ErrorNone;
-
     switch (handle->csc_hw_type) {
-#ifdef USE_FIMC
+#ifdef ENABLE_FIMC
     case CSC_HW_TYPE_FIMC:
     {
         void *src_addr[3];
         void *dst_addr[3];
-        OMX_COLOR_FORMATTYPE omx_format;
+        OMX_COLOR_FORMATTYPE src_omx_format;
+        OMX_COLOR_FORMATTYPE dst_omx_format;
         src_addr[0] = handle->src_buffer.planes[CSC_Y_PLANE];
         src_addr[1] = handle->src_buffer.planes[CSC_UV_PLANE];
         dst_addr[0] = handle->dst_buffer.planes[CSC_Y_PLANE];
         dst_addr[1] = handle->dst_buffer.planes[CSC_U_PLANE];
         dst_addr[2] = handle->dst_buffer.planes[CSC_V_PLANE];
-        omx_format = hal_2_omx_pixel_format(handle->dst_format.color_format);
+        src_omx_format = hal_2_omx_pixel_format(handle->src_format.color_format);
+        dst_omx_format = hal_2_omx_pixel_format(handle->dst_format.color_format);
         csc_hwconverter_convert_nv12t(
             handle->csc_hw_handle,
             dst_addr,
             src_addr,
             handle->dst_format.width,
             handle->dst_format.height,
-            omx_format);
+            dst_omx_format,
+            src_omx_format);
         break;
     }
 #endif
-#ifdef USE_GSCALER
+#ifdef ENABLE_GSCALER
     case CSC_HW_TYPE_GSCALER:
-        exynos_gsc_convert(handle->csc_hw_handle);
+        if (exynos_gsc_convert(handle->csc_hw_handle) != 0) {
+            ALOGE("%s:: exynos_gsc_convert() fail", __func__);
+            ret = CSC_Error;
+        }
         break;
 #endif
     default:
-        ALOGE("%s:: unsupported csc_hw_type", __func__);
+        ALOGE("%s:: unsupported csc_hw_type(%d)", __func__, handle->csc_hw_type);
+        ret = CSC_ErrorNotImplemented;
         break;
     }
 
-    return CSC_ErrorNotImplemented;
+    return ret;
 }
 
-void *csc_init(
-    CSC_METHOD *method)
+static CSC_ERRORCODE csc_init_hw(
+    void *handle)
 {
     CSC_HANDLE *csc_handle;
-    csc_handle = (CSC_HANDLE *)malloc(sizeof(CSC_HANDLE));
-    if (csc_handle == NULL)
-        return NULL;
+    CSC_ERRORCODE ret = CSC_ErrorNone;
 
-    memset(csc_handle, 0, sizeof(CSC_HANDLE));
-
-    csc_handle->csc_method = *method;
-
-    if (csc_handle->csc_method == CSC_METHOD_HW ||
-        csc_handle->csc_method == CSC_METHOD_PREFER_HW) {
-#ifdef USE_FIMC
+    csc_handle = (CSC_HANDLE *)handle;
+    if (csc_handle->csc_method == CSC_METHOD_HW) {
+#ifdef ENABLE_FIMC
         csc_handle->csc_hw_type = CSC_HW_TYPE_FIMC;
 #endif
-#ifdef USE_GSCALER
+#ifdef ENABLE_GSCALER
         csc_handle->csc_hw_type = CSC_HW_TYPE_GSCALER;
 #endif
         switch (csc_handle->csc_hw_type) {
-#ifdef USE_FIMC
+#ifdef ENABLE_FIMC
         case CSC_HW_TYPE_FIMC:
             csc_handle->csc_hw_handle = csc_hwconverter_open();
-            ALOGD("%s:: CSC_HW_TYPE_FIMC", __func__);
+            ALOGV("%s:: CSC_HW_TYPE_FIMC", __func__);
             break;
 #endif
-#ifdef USE_GSCALER
+#ifdef ENABLE_GSCALER
         case CSC_HW_TYPE_GSCALER:
+            if (csc_handle->hw_property.fixed_node >= 0)
+                csc_handle->csc_hw_handle = exynos_gsc_create_exclusive(csc_handle->hw_property.fixed_node, GSC_M2M_MODE, 0);
+            else
             csc_handle->csc_hw_handle = exynos_gsc_create();
-            ALOGD("%s:: CSC_HW_TYPE_GSCALER", __func__);
+            ALOGV("%s:: CSC_HW_TYPE_GSCALER", __func__);
             break;
 #endif
         default:
             ALOGE("%s:: unsupported csc_hw_type, csc use sw", __func__);
             csc_handle->csc_hw_handle == NULL;
             break;
-        }
-    }
-
-    if (csc_handle->csc_method == CSC_METHOD_PREFER_HW) {
-        if (csc_handle->csc_hw_handle == NULL) {
-            csc_handle->csc_method = CSC_METHOD_SW;
-            *method = CSC_METHOD_SW;
-        } else {
-            csc_handle->csc_method = CSC_METHOD_HW;
-            *method = CSC_METHOD_HW;
         }
     }
 
@@ -369,7 +370,111 @@ void *csc_init(
         }
     }
 
-    ALOGD("%s:: CSC_METHOD=%d", __func__, csc_handle->csc_method);
+    ALOGV("%s:: CSC_METHOD=%d", __func__, csc_handle->csc_method);
+
+    return ret;
+}
+
+static CSC_ERRORCODE csc_set_format(
+    void *handle)
+{
+    CSC_HANDLE *csc_handle;
+    CSC_ERRORCODE ret = CSC_ErrorNone;
+
+    if (handle == NULL)
+        return CSC_ErrorNotInit;
+
+    csc_handle = (CSC_HANDLE *)handle;
+    if (csc_handle->csc_method == CSC_METHOD_HW) {
+        switch (csc_handle->csc_hw_type) {
+        case CSC_HW_TYPE_FIMC:
+            break;
+#ifdef ENABLE_GSCALER
+        case CSC_HW_TYPE_GSCALER:
+            exynos_gsc_set_src_format(
+                csc_handle->csc_hw_handle,
+                ALIGN(csc_handle->src_format.width, GSCALER_IMG_ALIGN),
+                ALIGN(csc_handle->src_format.height, GSCALER_IMG_ALIGN),
+                csc_handle->src_format.crop_left,
+                csc_handle->src_format.crop_top,
+                ALIGN(csc_handle->src_format.crop_width, GSCALER_IMG_ALIGN),
+                ALIGN(csc_handle->src_format.crop_height, GSCALER_IMG_ALIGN),
+                HAL_PIXEL_FORMAT_2_V4L2_PIX(csc_handle->src_format.color_format),
+                csc_handle->src_format.cacheable,
+                csc_handle->hw_property.mode_drm);
+
+            exynos_gsc_set_dst_format(
+                csc_handle->csc_hw_handle,
+                ALIGN(csc_handle->dst_format.width, GSCALER_IMG_ALIGN),
+                ALIGN(csc_handle->dst_format.height, GSCALER_IMG_ALIGN),
+                csc_handle->dst_format.crop_left,
+                csc_handle->dst_format.crop_top,
+                ALIGN(csc_handle->dst_format.crop_width, GSCALER_IMG_ALIGN),
+                ALIGN(csc_handle->dst_format.crop_height, GSCALER_IMG_ALIGN),
+                HAL_PIXEL_FORMAT_2_V4L2_PIX(csc_handle->dst_format.color_format),
+                csc_handle->dst_format.cacheable,
+                csc_handle->hw_property.mode_drm);
+            break;
+#endif
+        default:
+            ALOGE("%s:: unsupported csc_hw_type", __func__);
+            break;
+        }
+    }
+
+    return ret;
+}
+
+static CSC_ERRORCODE csc_set_buffer(
+    void *handle)
+{
+    CSC_HANDLE *csc_handle;
+    CSC_ERRORCODE ret = CSC_ErrorNone;
+    void *src_addr[3] = {NULL, };
+    void *dst_addr[3] = {NULL, };
+
+    if (handle == NULL)
+        return CSC_ErrorNotInit;
+
+    csc_handle = (CSC_HANDLE *)handle;
+    if (csc_handle->csc_method == CSC_METHOD_HW) {
+        src_addr[0] = csc_handle->src_buffer.planes[CSC_Y_PLANE];
+        src_addr[1] = csc_handle->src_buffer.planes[CSC_U_PLANE];
+        src_addr[2] = csc_handle->src_buffer.planes[CSC_V_PLANE];
+        dst_addr[0] = csc_handle->dst_buffer.planes[CSC_Y_PLANE];
+        dst_addr[1] = csc_handle->dst_buffer.planes[CSC_U_PLANE];
+        dst_addr[2] = csc_handle->dst_buffer.planes[CSC_V_PLANE];
+
+        switch (csc_handle->csc_hw_type) {
+        case CSC_HW_TYPE_FIMC:
+            break;
+#ifdef ENABLE_GSCALER
+        case CSC_HW_TYPE_GSCALER:
+            exynos_gsc_set_src_addr(csc_handle->csc_hw_handle, src_addr);
+            exynos_gsc_set_dst_addr(csc_handle->csc_hw_handle, dst_addr);
+            break;
+#endif
+        default:
+            ALOGE("%s:: unsupported csc_hw_type", __func__);
+            break;
+        }
+    }
+
+    return ret;
+}
+
+void *csc_init(
+    CSC_METHOD method)
+{
+    CSC_HANDLE *csc_handle;
+    csc_handle = (CSC_HANDLE *)malloc(sizeof(CSC_HANDLE));
+    if (csc_handle == NULL)
+        return NULL;
+
+    memset(csc_handle, 0, sizeof(CSC_HANDLE));
+    csc_handle->hw_property.fixed_node = -1;
+    csc_handle->hw_property.mode_drm = 0;
+    csc_handle->csc_method = method;
 
     return (void *)csc_handle;
 }
@@ -383,12 +488,12 @@ CSC_ERRORCODE csc_deinit(
     csc_handle = (CSC_HANDLE *)handle;
     if (csc_handle->csc_method == CSC_METHOD_HW) {
         switch (csc_handle->csc_hw_type) {
-#ifdef USE_FIMC
+#ifdef ENABLE_FIMC
         case CSC_HW_TYPE_FIMC:
             csc_hwconverter_close(csc_handle->csc_hw_handle);
             break;
 #endif
-#ifdef USE_GSCALER
+#ifdef ENABLE_GSCALER
         case CSC_HW_TYPE_GSCALER:
             exynos_gsc_destroy(csc_handle->csc_hw_handle);
             break;
@@ -419,6 +524,33 @@ CSC_ERRORCODE csc_get_method(
 
     csc_handle = (CSC_HANDLE *)handle;
     *method = csc_handle->csc_method;
+
+    return ret;
+}
+
+CSC_ERRORCODE csc_set_hw_property(
+    void                *handle,
+    CSC_HW_PROPERTY_TYPE property,
+    int                  value)
+{
+    CSC_HANDLE *csc_handle;
+    CSC_ERRORCODE ret = CSC_ErrorNone;
+
+    if (handle == NULL)
+        return CSC_ErrorNotInit;
+
+    csc_handle = (CSC_HANDLE *)handle;
+    switch (property) {
+    case CSC_HW_PROPERTY_FIXED_NODE:
+        csc_handle->hw_property.fixed_node = value;
+        break;
+    case CSC_HW_PROPERTY_MODE_DRM:
+        csc_handle->hw_property.mode_drm = value;
+        break;
+    default:
+        ALOGE("%s:: not supported hw property", __func__);
+        ret = CSC_ErrorUnsupportFormat;
+    }
 
     return ret;
 }
@@ -480,30 +612,6 @@ CSC_ERRORCODE csc_set_src_format(
     csc_handle->src_format.color_format = color_format;
     csc_handle->src_format.cacheable = cacheable;
 
-    if (csc_handle->csc_method == CSC_METHOD_HW) {
-        switch (csc_handle->csc_hw_type) {
-        case CSC_HW_TYPE_FIMC:
-            break;
-#ifdef USE_GSCALER
-        case CSC_HW_TYPE_GSCALER:
-            exynos_gsc_set_src_format(
-                csc_handle->csc_hw_handle,
-                ALIGN(csc_handle->src_format.width, GSCALER_IMG_ALIGN),
-                ALIGN(csc_handle->src_format.height, GSCALER_IMG_ALIGN),
-                csc_handle->src_format.crop_left,
-                csc_handle->src_format.crop_top,
-                ALIGN(csc_handle->src_format.crop_width, GSCALER_IMG_ALIGN),
-                ALIGN(csc_handle->src_format.crop_height, GSCALER_IMG_ALIGN),
-                HAL_PIXEL_FORMAT_2_V4L2_PIX(csc_handle->src_format.color_format),
-                csc_handle->src_format.cacheable);
-            break;
-#endif
-        default:
-            ALOGE("%s:: unsupported csc_hw_type", __func__);
-            break;
-        }
-    }
-
     return ret;
 }
 
@@ -564,30 +672,6 @@ CSC_ERRORCODE csc_set_dst_format(
     csc_handle->dst_format.color_format = color_format;
     csc_handle->dst_format.cacheable = cacheable;
 
-    if (csc_handle->csc_method == CSC_METHOD_HW) {
-        switch (csc_handle->csc_hw_type) {
-        case CSC_HW_TYPE_FIMC:
-            break;
-#ifdef USE_GSCALER
-        case CSC_HW_TYPE_GSCALER:
-            exynos_gsc_set_dst_format(
-                csc_handle->csc_hw_handle,
-                ALIGN(csc_handle->dst_format.width, GSCALER_IMG_ALIGN),
-                ALIGN(csc_handle->dst_format.height, GSCALER_IMG_ALIGN),
-                csc_handle->dst_format.crop_left,
-                csc_handle->dst_format.crop_top,
-                ALIGN(csc_handle->dst_format.crop_width, GSCALER_IMG_ALIGN),
-                ALIGN(csc_handle->dst_format.crop_height, GSCALER_IMG_ALIGN),
-                HAL_PIXEL_FORMAT_2_V4L2_PIX(csc_handle->dst_format.color_format),
-                csc_handle->dst_format.cacheable);
-            break;
-#endif
-        default:
-            ALOGE("%s:: unsupported csc_hw_type", __func__);
-            break;
-        }
-    }
-
     return ret;
 }
 
@@ -609,25 +693,6 @@ CSC_ERRORCODE csc_set_src_buffer(
     csc_handle->src_buffer.planes[CSC_Y_PLANE] = y;
     csc_handle->src_buffer.planes[CSC_U_PLANE] = u;
     csc_handle->src_buffer.planes[CSC_V_PLANE] = v;
-
-    if (csc_handle->csc_method == CSC_METHOD_HW) {
-        addr[0] = csc_handle->src_buffer.planes[CSC_Y_PLANE];
-        addr[1] = csc_handle->src_buffer.planes[CSC_U_PLANE];
-        addr[2] = csc_handle->src_buffer.planes[CSC_V_PLANE];
-
-        switch (csc_handle->csc_hw_type) {
-        case CSC_HW_TYPE_FIMC:
-            break;
-#ifdef USE_GSCALER
-        case CSC_HW_TYPE_GSCALER:
-            exynos_gsc_set_src_addr(csc_handle->csc_hw_handle, addr);
-            break;
-#endif
-        default:
-            ALOGE("%s:: unsupported csc_hw_type", __func__);
-            break;
-        }
-    }
 
     return ret;
 }
@@ -651,25 +716,6 @@ CSC_ERRORCODE csc_set_dst_buffer(
     csc_handle->dst_buffer.planes[CSC_U_PLANE] = u;
     csc_handle->dst_buffer.planes[CSC_V_PLANE] = v;
 
-    if (csc_handle->csc_method == CSC_METHOD_HW) {
-        addr[0] = csc_handle->dst_buffer.planes[CSC_Y_PLANE];
-        addr[1] = csc_handle->dst_buffer.planes[CSC_U_PLANE];
-        addr[2] = csc_handle->dst_buffer.planes[CSC_V_PLANE];
-
-        switch (csc_handle->csc_hw_type) {
-        case CSC_HW_TYPE_FIMC:
-            break;
-#ifdef USE_GSCALER
-        case CSC_HW_TYPE_GSCALER:
-            exynos_gsc_set_dst_addr(csc_handle->csc_hw_handle, addr);
-            break;
-#endif
-        default:
-            ALOGE("%s:: unsupported csc_hw_type", __func__);
-            break;
-        }
-    }
-
     return ret;
 }
 
@@ -681,6 +727,13 @@ CSC_ERRORCODE csc_convert(
 
     if (csc_handle == NULL)
         return CSC_ErrorNotInit;
+
+    if ((csc_handle->csc_method == CSC_METHOD_HW) &&
+        (csc_handle->csc_hw_handle == NULL))
+        csc_init_hw(handle);
+
+    csc_set_format(csc_handle);
+    csc_set_buffer(csc_handle);
 
     if (csc_handle->csc_method == CSC_METHOD_HW)
         ret = conv_hw(csc_handle);

@@ -8,9 +8,10 @@ LOCAL_SRC_FILES := \
     csc_helper.c
 
 LOCAL_C_INCLUDES := \
+    system/core/include \
     $(LOCAL_PATH)/../exynos_omx/openmax/$(OMX_NAME)_omx/include/khronos \
     $(LOCAL_PATH)/../exynos_omx/openmax/$(OMX_NAME)_omx/include/$(OMX_NAME) \
-    $(LOCAL_PATH)/../include
+    hardware/samsung_slsi/exynos5/include
 
 LOCAL_CFLAGS := \
     -DUSE_SAMSUNG_COLORFORMAT \
@@ -30,6 +31,7 @@ LOCAL_SRC_FILES := \
 	csc.c
 
 LOCAL_C_INCLUDES := \
+    hardware/samsung_slsi/exynos5/include \
 	$(LOCAL_PATH)/../exynos_omx/openmax/$(OMX_NAME)_omx/include/khronos \
 	$(LOCAL_PATH)/../exynos_omx/openmax/$(OMX_NAME)_omx/include/$(OMX_NAME) \
 	$(LOCAL_PATH)/../libexynosutils
@@ -50,7 +52,7 @@ LOCAL_CFLAGS += -DUSE_SAMSUNG_COLORFORMAT
 
 LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH)/../include
-LOCAL_CFLAGS += -DUSE_GSCALER
+LOCAL_CFLAGS += -DENABLE_GSCALER
 LOCAL_SHARED_LIBRARIES += libexynosgscaler
 
 LOCAL_CFLAGS += -DUSE_ION
