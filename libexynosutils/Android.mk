@@ -24,7 +24,8 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../include
 LOCAL_C_INCLUDES += framework/base/include
 
-LOCAL_SRC_FILES := ExynosMutex.cpp
+LOCAL_SRC_FILES := ExynosMutex.cpp \
+		   Exynos_log.c
 
 LOCAL_MODULE_TAGS := eng
 LOCAL_MODULE := libexynosutils

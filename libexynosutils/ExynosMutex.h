@@ -26,19 +26,6 @@
  *
  */
 
-/**
- * @page ExynosMutex
- *
- * @section Introduction
- * ExynosMutex is for locking and making thread-safe operation
- *
- * @section Copyright
- *  Copyright (c) 2008-2011 Samsung Electronics Co., Ltd.All rights reserved. \n
- *  Proprietary and Confidential
- *
- * @image html samsung.png
- */
-
 #ifndef __EXYNOS_MUTEX_H__
 #define __EXYNOS_MUTEX_H__
 
@@ -58,17 +45,21 @@ public:
         TYPE_MAX,
     };
 
-    enum STATUS {
-        STATUS_NOT_CREATED = 0,
-        STATUS_CREATED
-    };
-
 public:
-    //! Constructor
-    ExynosMutex(int type, char* name);
+    //! Constructor.
+    ExynosMutex();
 
     //! Destructor
     virtual ~ExynosMutex();
+
+    //! Create Mutex
+    bool create(int type, char* name);
+
+    //! Destroy Mutex
+    void destroy(void);
+
+    //! Get Mutex created status
+    bool getCreatedStatus(void);
 
     //! Lock Mutex
     bool lock(void);
@@ -82,11 +73,9 @@ public:
     //! Get Mutex type
     int getType(void);
 
-    //! Get Mutex created status
-    int getCreatedStatus(void);
-
 private:
     void *m_mutex;
+    bool  m_flagCreate;
 
     int   m_type;
     char  m_name[128];
@@ -121,11 +110,6 @@ enum EXYNOS_MUTEX_TYPE {
     EXYNOS_MUTEX_TYPE_MAX,
 };
 
-enum EXYNOS_MUTEX_STATUS {
-    EXYNOS_MUTEX_STATUS_NOT_CREATED = 0,
-    EXYNOS_MUTEX_STATUS_CREATED
-};
-
 void *exynos_mutex_create(
     int   type,
     char *name);
@@ -145,7 +129,7 @@ bool exynos_mutex_trylock(
 int exynos_mutex_type(
     void *handle);
 
-int exynos_mutex_get_created_status(
+bool exynos_mutex_get_created_status(
     void *handle);
 
 #ifdef __cplusplus

@@ -42,12 +42,28 @@ using namespace android;
 
 //#define EXYNOS_MUTEX_DEBUG
 
-ExynosMutex::ExynosMutex(
-    int type,
-    char* name)
+ExynosMutex::ExynosMutex()
 {
-    int androidMutexType = 0;
     m_mutex = NULL;
+    m_flagCreate = false;
+    m_type = TYPE_BASE;
+}
+
+ExynosMutex::~ExynosMutex()
+{
+    if (m_flagCreate == true)
+        this->destroy();
+}
+
+bool ExynosMutex::create(int type, char* name)
+{
+    if (m_flagCreate == true) {
+        ALOGE("%s::Already created", __func__);
+        return false;
+    }
+
+    int androidMutexType = 0;
+
     m_type = TYPE_BASE;
 
     switch (type) {
@@ -59,36 +75,52 @@ ExynosMutex::ExynosMutex(
         break;
     default:
         ALOGE("%s::unmatched type(%d) fail", __func__, type);
-        break;
+        return false;
     }
 
     m_mutex = new Mutex(androidMutexType, name);
     if (m_mutex == NULL) {
         ALOGE("%s::Mutex create fail", __func__);
+        return false;
     }
 
     m_type = type;
     strcpy(m_name, name);
+
+    m_flagCreate = true;
+
+    return true;
 }
 
-ExynosMutex::~ExynosMutex()
+void ExynosMutex::destroy(void)
 {
+    if (m_flagCreate == false) {
+        ALOGE("%s::Not yet created", __func__);
+        return;
+    }
+
     if (m_mutex)
         delete ((Mutex *)m_mutex);
     m_mutex = NULL;
+
+    m_flagCreate = false;
 }
 
-bool ExynosMutex::lock(
-    void)
+bool ExynosMutex::getCreatedStatus(void)
 {
+    return m_flagCreate;
+}
+
+bool ExynosMutex::lock(void)
+{
+    if (m_flagCreate == false) {
+        ALOGE("%s::Not yet created", __func__);
+        return false;
+    }
+
 #ifdef EXYNOS_MUTEX_DEBUG
     ALOGD("%s::%s'lock() start", __func__, m_name);
 #endif
-
-    if (m_mutex == NULL) {
-        ALOGE("%s::Mutex create fail", __func__);
-        return false;
-    }
 
     if (((Mutex *)m_mutex)->lock() != 0) {
         ALOGE("%s::m_core->lock() fail", __func__);
@@ -102,17 +134,16 @@ bool ExynosMutex::lock(
     return true;
 }
 
-bool ExynosMutex::unLock(
-    void)
+bool ExynosMutex::unLock(void)
 {
+    if (m_flagCreate == false) {
+        ALOGE("%s::Not yet created", __func__);
+        return false;
+    }
+
 #ifdef EXYNOS_MUTEX_DEBUG
     ALOGD("%s::%s'unlock() start", __func__, m_name);
 #endif
-
-    if (m_mutex == NULL) {
-        ALOGE("%s::Mutex create fail", __func__);
-        return false;
-    }
 
     ((Mutex *)m_mutex)->unlock();
 
@@ -123,19 +154,18 @@ bool ExynosMutex::unLock(
     return true;
 }
 
-bool ExynosMutex::tryLock(
-    void)
+bool ExynosMutex::tryLock(void)
 {
+    if (m_flagCreate == false) {
+        ALOGE("%s::Not yet created", __func__);
+        return false;
+    }
+
     int ret = 0;
 
 #ifdef EXYNOS_MUTEX_DEBUG
     ALOGD("%s::%s'trylock() start", __func__, m_name);
 #endif
-
-    if (m_mutex == NULL) {
-        ALOGE("%s::Mutex create fail", __func__);
-        return false;
-    }
 
     ret = ((Mutex *)m_mutex)->tryLock();
 
@@ -146,26 +176,22 @@ bool ExynosMutex::tryLock(
     return (ret == 0) ? true : false;
 }
 
-int ExynosMutex::getType(
-    void)
+int ExynosMutex::getType(void)
 {
     return m_type;
-}
-
-int ExynosMutex::getCreatedStatus(
-    void)
-{
-    if (m_mutex == NULL)
-        return STATUS_NOT_CREATED;
-    else
-        return STATUS_CREATED;
 }
 
 void *exynos_mutex_create(
     int type,
     char *name)
 {
-    ExynosMutex *mutex = new ExynosMutex(type, name);
+    ExynosMutex *mutex = new ExynosMutex();
+
+    if (mutex->create(type, name) == false) {
+        ALOGE("%s::mutex->create() fail", __func__);
+        delete mutex;
+        mutex = NULL;
+    }
 
     return (void*)mutex;
 }
@@ -177,6 +203,9 @@ bool exynos_mutex_destroy(
         ALOGE("%s::handle is null", __func__);
         return false;
     }
+
+    if (((ExynosMutex *)handle)->getCreatedStatus() == true)
+        ((ExynosMutex *)handle)->destroy();
 
     delete (ExynosMutex *)handle;
 
@@ -230,7 +259,7 @@ int exynos_mutex_get_type(
     return ((ExynosMutex *)handle)->getType();
 }
 
-int exynos_mutex_get_created_status(
+bool exynos_mutex_get_created_status(
     void *handle)
 {
     if (handle == NULL) {
