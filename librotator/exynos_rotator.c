@@ -641,7 +641,7 @@ err:
             exynos_mutex_unlock(rotator_handle->cur_obj_mutex);
 
         if ((rotator_handle->obj_mutex != NULL) &&
-            (exynos_mutex_get_created_status(rotator_handle->obj_mutex) == EXYNOS_MUTEX_STATUS_CREATED)) {
+            (exynos_mutex_get_created_status(rotator_handle->obj_mutex) == true)) {
             if (exynos_mutex_destroy(rotator_handle->obj_mutex) == false)
                 ALOGE("%s::exynos_mutex_destroy() fail", __func__);
         }
@@ -674,7 +674,7 @@ void exynos_rotator_destroy(
     exynos_mutex_unlock(rotator_handle->cur_obj_mutex);
 
     if ((rotator_handle->obj_mutex != NULL) &&
-        (exynos_mutex_get_created_status(rotator_handle->obj_mutex) == EXYNOS_MUTEX_STATUS_CREATED)) {
+        (exynos_mutex_get_created_status(rotator_handle->obj_mutex) == true)) {
         if (exynos_mutex_destroy(rotator_handle->obj_mutex) == false)
             ALOGE("%s::exynos_mutex_destroy() fail", __func__);
     }
@@ -921,6 +921,22 @@ int exynos_rotator_convert(
     if (exynos_v4l2_dqbuf(rotator_handle->rotator_fd, &rotator_handle->dst.buffer) < 0) {
         ALOGE("%s::exynos_v4l2_dqbuf(dst) fail", __func__);
         goto done;
+    }
+
+    if (rotator_handle->src.stream_on == true) {
+        if (exynos_v4l2_streamoff(rotator_handle->rotator_fd, rotator_handle->src.buf_type) < 0) {
+            ALOGE("%s::exynos_v4l2_streamon(src) fail", __func__);
+            goto done;
+        }
+        rotator_handle->src.stream_on = false;
+    }
+
+    if (rotator_handle->dst.stream_on == true) {
+        if (exynos_v4l2_streamoff(rotator_handle->rotator_fd, rotator_handle->dst.buf_type) < 0) {
+            ALOGE("%s::exynos_v4l2_streamon(dst) fail", __func__);
+            goto done;
+        }
+        rotator_handle->dst.stream_on = false;
     }
 
     ret = 0;
