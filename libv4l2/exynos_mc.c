@@ -214,11 +214,12 @@ static int __media_get_media_fd(const char *filename, struct media_device *media
 
 static int __media_enum_entities(struct media_device *media)
 {
-    struct media_entity *entity;
+    struct media_entity *entity, *temp_entity;
     unsigned int size;
     __u32 id;
     int ret;
-    entity = (struct media_entity*)calloc(1,  sizeof(struct media_entity));
+
+    temp_entity = entity = (struct media_entity*)calloc(1,  sizeof(struct media_entity));
     for (id = 0, ret = 0; ; id = entity->info.id) {
         size = (media->entities_count + 1) * sizeof(*media->entities);
         media->entities = (struct media_entity*)realloc(media->entities, size);
@@ -261,6 +262,7 @@ static int __media_enum_entities(struct media_device *media)
         if (ret < 0)
             ALOGE("media_get_devname failed");
     }
+    free(temp_entity);
 
     return ret;
 }
@@ -403,7 +405,6 @@ struct media_entity *exynos_media_get_entity_by_name(struct media_device *media,
     unsigned int i;
     struct media_entity *entity;
 
-    entity = (struct media_entity*)calloc(1,  sizeof(struct media_entity));
     for (i = 0; i < media->entities_count; ++i) {
         entity = &media->entities[i];
 

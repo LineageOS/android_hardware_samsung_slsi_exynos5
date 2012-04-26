@@ -28,6 +28,7 @@
  */
 
 #include <stdio.h>
+#include <errno.h>
 #include <stdarg.h>
 #include <fcntl.h>
 #include <string.h>
@@ -40,8 +41,18 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "libexynosv4l2"
 #include <utils/Log.h>
+#include "Exynos_log.h"
 
 #define VIDEODEV_MINOR_MAX 63
+
+//#define EXYNOS_V4L2_TRACE 0
+#ifdef EXYNOS_V4L2_TRACE
+#define Exynos_v4l2_In() Exynos_Log(EXYNOS_DEV_LOG_DEBUG, LOG_TAG, "%s In , Line: %d", __FUNCTION__, __LINE__)
+#define Exynos_v4l2_Out() Exynos_Log(EXYNOS_DEV_LOG_DEBUG, LOG_TAG, "%s Out , Line: %d", __FUNCTION__, __LINE__)
+#else
+#define Exynos_v4l2_In() ((void *)0)
+#define Exynos_v4l2_Out() ((void *)0)
+#endif
 
 static bool __v4l2_check_buf_type(enum v4l2_buf_type type)
 {
@@ -82,9 +93,13 @@ int exynos_v4l2_open(const char *filename, int oflag, ...)
     va_list ap;
     int fd;
 
+    Exynos_v4l2_In();
+
     va_start(ap, oflag);
     fd = __v4l2_open(filename, oflag, ap);
     va_end(ap);
+
+    Exynos_v4l2_Out();
 
     return fd;
 }
@@ -98,6 +113,8 @@ int exynos_v4l2_open_devname(const char *devname, int oflag, ...)
     FILE *stream_fd;
     char filename[64], name[64];
     int minor, size, i = 0;
+
+    Exynos_v4l2_In();
 
     do {
         if (i > VIDEODEV_MINOR_MAX)
@@ -114,7 +131,7 @@ int exynos_v4l2_open_devname(const char *devname, int oflag, ...)
             /* open sysfs entry */
             sprintf(filename, "/sys/class/video4linux/video%d/name", minor);
             stream_fd = fopen(filename, "r");
-            if (stream_fd < 0) {
+            if (stream_fd == NULL) {
                 ALOGE("failed to open sysfs entry for videodev");
                 continue;   /* try next */
             }
@@ -150,6 +167,8 @@ int exynos_v4l2_open_devname(const char *devname, int oflag, ...)
         ALOGE("no video device found");
     }
 
+    Exynos_v4l2_Out();
+
     return fd;
 }
 
@@ -157,10 +176,14 @@ int exynos_v4l2_close(int fd)
 {
     int ret = -1;
 
+    Exynos_v4l2_In();
+
     if (fd < 0)
         ALOGE("%s: invalid fd: %d", __func__, fd);
     else
         ret = close(fd);
+
+    Exynos_v4l2_Out();
 
     return ret;
 }
@@ -169,6 +192,8 @@ bool exynos_v4l2_enuminput(int fd, int index, char *input_name_buf)
 {
     int ret = -1;
     struct v4l2_input input;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -186,6 +211,8 @@ bool exynos_v4l2_enuminput(int fd, int index, char *input_name_buf)
 
     strcpy(input_name_buf, (const char *)input.name);
 
+    Exynos_v4l2_Out();
+
     return true;
 }
 
@@ -193,6 +220,8 @@ int exynos_v4l2_s_input(int fd, int index)
 {
     int ret = -1;
     struct v4l2_input input;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -207,6 +236,8 @@ int exynos_v4l2_s_input(int fd, int index)
         return ret;
     }
 
+    Exynos_v4l2_Out();
+
     return ret;
 }
 
@@ -214,6 +245,8 @@ bool exynos_v4l2_querycap(int fd, unsigned int need_caps)
 {
     struct v4l2_capability cap;
     int ret;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -242,6 +275,8 @@ bool exynos_v4l2_querycap(int fd, unsigned int need_caps)
         return false;
     }
 
+    Exynos_v4l2_Out();
+
     return true;
 }
 
@@ -249,6 +284,8 @@ bool exynos_v4l2_enum_fmt(int fd, enum v4l2_buf_type type, unsigned int fmt)
 {
     struct v4l2_fmtdesc fmtdesc;
     int found = 0;
+
+    Exynos_v4l2_In();
 
     fmtdesc.type = type;
     fmtdesc.index = 0;
@@ -268,12 +305,16 @@ bool exynos_v4l2_enum_fmt(int fd, enum v4l2_buf_type type, unsigned int fmt)
         return false;
     }
 
+    Exynos_v4l2_Out();
+
     return true;
 }
 
 int exynos_v4l2_g_fmt(int fd, struct v4l2_format *fmt)
 {
     int ret = -1;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -296,12 +337,16 @@ int exynos_v4l2_g_fmt(int fd, struct v4l2_format *fmt)
         return ret;
     }
 
+    Exynos_v4l2_Out();
+
     return ret;
 }
 
 static int __v4l2_s_fmt(int fd, unsigned int request, struct v4l2_format *fmt)
 {
     int ret = -1;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -328,6 +373,8 @@ static int __v4l2_s_fmt(int fd, unsigned int request, struct v4l2_format *fmt)
         }
     }
 
+    Exynos_v4l2_Out();
+
     return ret;
 }
 
@@ -345,6 +392,8 @@ int exynos_v4l2_reqbufs(int fd, struct v4l2_requestbuffers *req)
 {
     int ret = -1;
     unsigned int count;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -378,12 +427,16 @@ int exynos_v4l2_reqbufs(int fd, struct v4l2_requestbuffers *req)
         ALOGW("number of buffers had been changed: %d => %d", count, req->count);
     }
 
+    Exynos_v4l2_Out();
+
     return ret;
 }
 
 int exynos_v4l2_querybuf(int fd, struct v4l2_buffer *buf)
 {
     int ret = -1;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -411,12 +464,16 @@ int exynos_v4l2_querybuf(int fd, struct v4l2_buffer *buf)
         return ret;
     }
 
+    Exynos_v4l2_Out();
+
     return ret;
 }
 
 int exynos_v4l2_qbuf(int fd, struct v4l2_buffer *buf)
 {
     int ret = -1;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -444,12 +501,16 @@ int exynos_v4l2_qbuf(int fd, struct v4l2_buffer *buf)
         return ret;
     }
 
+    Exynos_v4l2_Out();
+
     return ret;
 }
 
 int exynos_v4l2_dqbuf(int fd, struct v4l2_buffer *buf)
 {
     int ret = -1;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -477,12 +538,16 @@ int exynos_v4l2_dqbuf(int fd, struct v4l2_buffer *buf)
         return ret;
     }
 
+    Exynos_v4l2_Out();
+
     return ret;
 }
 
 int exynos_v4l2_streamon(int fd, enum v4l2_buf_type type)
 {
     int ret = -1;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -500,12 +565,16 @@ int exynos_v4l2_streamon(int fd, enum v4l2_buf_type type)
         return ret;
     }
 
+    Exynos_v4l2_Out();
+
     return ret;
 }
 
 int exynos_v4l2_streamoff(int fd, enum v4l2_buf_type type)
 {
     int ret = -1;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -523,12 +592,16 @@ int exynos_v4l2_streamoff(int fd, enum v4l2_buf_type type)
         return ret;
     }
 
+    Exynos_v4l2_Out();
+
     return ret;
 }
 
 int exynos_v4l2_cropcap(int fd, struct v4l2_cropcap *crop)
 {
     int ret = -1;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -551,12 +624,16 @@ int exynos_v4l2_cropcap(int fd, struct v4l2_cropcap *crop)
         return ret;
     }
 
+    Exynos_v4l2_Out();
+
     return ret;
 }
 
 int exynos_v4l2_g_crop(int fd, struct v4l2_crop *crop)
 {
     int ret = -1;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -579,12 +656,16 @@ int exynos_v4l2_g_crop(int fd, struct v4l2_crop *crop)
         return ret;
     }
 
+    Exynos_v4l2_Out();
+
     return ret;
 }
 
 int exynos_v4l2_s_crop(int fd, struct v4l2_crop *crop)
 {
     int ret = -1;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -607,6 +688,8 @@ int exynos_v4l2_s_crop(int fd, struct v4l2_crop *crop)
         return ret;
     }
 
+    Exynos_v4l2_Out();
+
     return ret;
 }
 
@@ -614,6 +697,8 @@ int exynos_v4l2_g_ctrl(int fd, unsigned int id, int *value)
 {
     int ret = -1;
     struct v4l2_control ctrl;
+
+    Exynos_v4l2_In();
 
     ctrl.id = id;
 
@@ -630,6 +715,8 @@ int exynos_v4l2_g_ctrl(int fd, unsigned int id, int *value)
 
     *value = ctrl.value;
 
+    Exynos_v4l2_Out();
+
     return ret;
 }
 
@@ -637,6 +724,8 @@ int exynos_v4l2_s_ctrl(int fd, unsigned int id, int value)
 {
     int ret = -1;
     struct v4l2_control ctrl;
+
+    Exynos_v4l2_In();
 
     ctrl.id = id;
     ctrl.value = value;
@@ -652,12 +741,16 @@ int exynos_v4l2_s_ctrl(int fd, unsigned int id, int value)
         return ret;
     }
 
+    Exynos_v4l2_Out();
+
     return ret;
 }
 
 int exynos_v4l2_g_parm(int fd, struct v4l2_streamparm *streamparm)
 {
     int ret = -1;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -675,12 +768,16 @@ int exynos_v4l2_g_parm(int fd, struct v4l2_streamparm *streamparm)
         return ret;
     }
 
+    Exynos_v4l2_Out();
+
     return ret;
 }
 
 int exynos_v4l2_s_parm(int fd, struct v4l2_streamparm *streamparm)
 {
     int ret = -1;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -698,12 +795,16 @@ int exynos_v4l2_s_parm(int fd, struct v4l2_streamparm *streamparm)
         return ret;
     }
 
+    Exynos_v4l2_Out();
+
     return ret;
 }
 
 int exynos_v4l2_g_ext_ctrl(int fd, struct v4l2_ext_controls *ctrl)
 {
     int ret = -1;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -719,12 +820,16 @@ int exynos_v4l2_g_ext_ctrl(int fd, struct v4l2_ext_controls *ctrl)
     if (ret)
         ALOGE("failed to ioctl: VIDIOC_G_EXT_CTRLS (%d)", ret);
 
+    Exynos_v4l2_Out();
+
     return ret;
 }
 
 int exynos_v4l2_s_ext_ctrl(int fd, struct v4l2_ext_controls *ctrl)
 {
     int ret = -1;
+
+    Exynos_v4l2_In();
 
     if (fd < 0) {
         ALOGE("%s: invalid fd: %d", __func__, fd);
@@ -739,6 +844,8 @@ int exynos_v4l2_s_ext_ctrl(int fd, struct v4l2_ext_controls *ctrl)
     ret = ioctl(fd, VIDIOC_S_EXT_CTRLS, ctrl);
     if (ret)
         ALOGE("failed to ioctl: VIDIOC_S_EXT_CTRLS (%d)", ret);
+
+    Exynos_v4l2_Out();
 
     return ret;
 }

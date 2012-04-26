@@ -92,7 +92,7 @@ int exynos_subdev_open_devname(const char *devname, int oflag, ...)
             /* open sysfs entry */
             sprintf(filename, "/sys/class/video4linux/v4l-subdev%d/name", minor);
             stream_fd = fopen(filename, "r");
-            if (stream_fd < 0) {
+            if (stream_fd == NULL) {
                 ALOGE("failed to open sysfs entry for subdev");
                 continue;   /* try next */
             }
