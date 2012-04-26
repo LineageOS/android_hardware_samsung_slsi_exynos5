@@ -19,7 +19,7 @@
 #define __EXYNOS_JPEG_BASE_H__
 
 #include "videodev2.h"
-#include "videodev2_exynos.h"
+#include "videodev2_exynos_media.h"
 
 //#define JPEG_DEC_BYTE_ALIGN     (8)
 

@@ -21,7 +21,7 @@
 #define _S5P_FIMC_H_
 
 #include "videodev2.h"
-#include "videodev2_exynos.h"
+#include "videodev2_exynos_media.h"
 
 /*
  * G E N E R A L S

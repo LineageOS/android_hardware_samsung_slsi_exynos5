@@ -1,13 +1,30 @@
+/*
+ * Copyright (C) 2012 Samsung Electronics Co., Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #ifndef _LIB_ION_H_
 #define _LIB_ION_H_
 
 #include <unistd.h> /* size_t */
 
-#define ION_HEAP_SYSTEM_MASK		(1 << 0)
-#define ION_HEAP_SYSTEM_CONTIG_MASK	(1 << 1)
-#define ION_HEAP_EXYNOS_MASK		(1 << 4)
-#define ION_HEAP_EXYNOS_CONTIG_MASK	(1 << 5)
-
+#define ION_HEAP_SYSTEM_MASK            (1 << 0)
+#define ION_HEAP_SYSTEM_CONTIG_MASK     (1 << 1)
+#define ION_HEAP_EXYNOS_CONTIG_MASK     (1 << 4)
+#define ION_HEAP_EXYNOS_MASK            (1 << 5)
+#define ION_EXYNOS_VIDEO_MASK           (1 << 29)
+#define ION_HEAP_EXYNOS_VIDEO_MASK      (ION_EXYNOS_VIDEO_MASK|ION_HEAP_EXYNOS_CONTIG_MASK)
 /* ION_MSYNC_FLAGS
  * values of @flags parameter to ion_msync()
  *
@@ -23,11 +40,11 @@
  * Otherwise, ion_msync() will not effect.
  */
 enum ION_MSYNC_FLAGS {
-	IMSYNC_DEV_TO_READ = 0,
-	IMSYNC_DEV_TO_WRITE = 1,
-	IMSYNC_DEV_TO_RW = 2,
-	IMSYNC_SYNC_FOR_DEV = 0x10000,
-	IMSYNC_SYNC_FOR_CPU = 0x20000,
+    IMSYNC_DEV_TO_READ = 0,
+    IMSYNC_DEV_TO_WRITE = 1,
+    IMSYNC_DEV_TO_RW = 2,
+    IMSYNC_SYNC_FOR_DEV = 0x10000,
+    IMSYNC_SYNC_FOR_CPU = 0x20000,
 };
 
 #ifdef __cplusplus
@@ -91,7 +108,7 @@ void ion_client_destroy(ion_client client);
  *          See the description of ion_buffer above for detailed information.
  */
 ion_buffer ion_alloc(ion_client client, size_t len, size_t align,
-		     unsigned int flags);
+                     unsigned int flags);
 
 /* ion_free() - Frees an existing buffer that is allocated by ION
  * @buffer: An ion_buffer of the buffer to be released.
@@ -136,7 +153,7 @@ int ion_unmap(void *addr, size_t len);
  * Note that @offset + @size must not exceed the size of @buffer.
  */
 int ion_msync(ion_client client, ion_buffer buffer, long flags,
-		size_t size, off_t offset);
+              size_t size, off_t offset);
 
 #ifdef __cplusplus
 }

@@ -42,7 +42,7 @@ extern "C" {
 /* V4L2 */
 #include <stdbool.h>
 #include "videodev2.h" /* vendor specific videodev2.h */
-#include "videodev2_exynos.h"
+#include "videodev2_exynos_media.h"
 
 /*! \ingroup exynos_v4l2 */
 int exynos_v4l2_open(const char *filename, int oflag, ...);

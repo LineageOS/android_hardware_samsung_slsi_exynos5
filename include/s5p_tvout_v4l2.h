@@ -20,7 +20,7 @@
 #include <linux/fb.h>
 
 #include "videodev2.h"
-#include "videodev2_exynos.h"
+#include "videodev2_exynos_media.h"
 
 #ifdef __cplusplus
 extern "C" {

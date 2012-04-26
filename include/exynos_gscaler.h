@@ -44,12 +44,23 @@
  * \brief API for gscaler
  * \addtogroup Exynos
  */
+#include "Exynos_log.h"
 
 #ifndef EXYNOS_GSCALER_H_
 #define EXYNOS_GSCALER_H_
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+//#define EXYNOS_GSC_TRACE 0
+#ifdef EXYNOS_GSC_TRACE
+#define EXYNOS_GSC_LOG_TAG "Exynos_gscaler"
+#define Exynos_gsc_In() Exynos_Log(EXYNOS_DEV_LOG_DEBUG, EXYNOS_GSC_LOG_TAG, "%s In , Line: %d", __FUNCTION__, __LINE__)
+#define Exynos_gsc_Out() Exynos_Log(EXYNOS_DEV_LOG_DEBUG, EXYNOS_GSC_LOG_TAG, "%s Out , Line: %d", __FUNCTION__, __LINE__)
+#else
+#define Exynos_gsc_In() ((void *)0)
+#define Exynos_gsc_Out() ((void *)0)
 #endif
 
 typedef struct {
@@ -64,7 +75,9 @@ typedef struct {
     uint32_t uaddr;
     uint32_t vaddr;
     uint32_t rot;
-} exnos_img;
+    uint32_t cacheable;
+    uint32_t drmMode;
+} exynos_gsc_img;
 
 /*
  * Create libgscaler handle.
@@ -143,6 +156,9 @@ void exynos_gsc_destroy(
  * \param cacheable
  *   ccacheable[in]
  *
+ * \param mode_drm
+ *   mode_drm[in]
+ *
  * \return
  *   error code
  */
@@ -155,7 +171,8 @@ int exynos_gsc_set_src_format(
     unsigned int crop_width,
     unsigned int crop_height,
     unsigned int v4l2_colorformat,
-    unsigned int cacheable);
+    unsigned int cacheable,
+    unsigned int mode_drm);
 
 /*!
  * Set destination format.
@@ -189,6 +206,9 @@ int exynos_gsc_set_src_format(
  * \param cacheable
  *   ccacheable[in]
  *
+ * \param mode_drm
+ *   mode_drm[in]
+ *
  * \return
  *   error code
  */
@@ -201,7 +221,8 @@ int exynos_gsc_set_dst_format(
     unsigned int crop_width,
     unsigned int crop_height,
     unsigned int v4l2_colorformat,
-    unsigned int cacheable);
+    unsigned int cacheable,
+    unsigned int mode_drm);
 
 /*!
  * Set rotation.
@@ -322,8 +343,8 @@ It configures the GSC for given config
 */
 int exynos_gsc_config_exclusive(
     void *handle,
-    exnos_img *src_img,
-    exnos_img *dst_img);
+    exynos_gsc_img *src_img,
+    exynos_gsc_img *dst_img);
 
 /*
 *api for GSC-OUT run.
@@ -332,8 +353,8 @@ It should be called after configuring the GSC.
 */
 int exynos_gsc_run_exclusive(
     void *handle,
-    exnos_img *src_img,
-    exnos_img *dst_img);
+    exynos_gsc_img *src_img,
+    exynos_gsc_img *dst_img);
 
 /*
 *api for GSC stop.
@@ -356,6 +377,12 @@ enum {
     GSC_OUT_TV,
     GSC_RESERVED,
 };
+
+enum {
+    GSC_DONE_CNG_CFG = 0,
+    GSC_NEED_CNG_CFG,
+};
+
 #ifdef __cplusplus
 }
 #endif
