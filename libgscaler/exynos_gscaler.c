@@ -110,10 +110,14 @@ static unsigned int m_gsc_get_plane_size(
     /* 2 planes */
     case V4L2_PIX_FMT_NV12M:
     case V4L2_PIX_FMT_NV21:
+        plane_size[0] = width * height;
+        plane_size[1] = width * (height / 2);
+        plane_size[2] = 0;
+        break;
     case V4L2_PIX_FMT_NV16:
     case V4L2_PIX_FMT_NV61:
         plane_size[0] = width * height;
-        plane_size[1] = width * (height / 2);
+        plane_size[1] = width * height;
         plane_size[2] = 0;
         break;
     case V4L2_PIX_FMT_NV12MT_16X16:
@@ -236,17 +240,10 @@ static bool m_exynos_gsc_check_dst_size(
     unsigned int *new_crop_w;
     unsigned int *new_crop_h;
 
-    if (rotation == 90 || rotation == 270) {
-        new_w = h;
-        new_h = w;
-        new_crop_w = crop_h;
-        new_crop_h = crop_w;
-    } else {
         new_w = w;
         new_h = h;
         new_crop_w = crop_w;
         new_crop_h = crop_h;
-    }
 
     if (*w < GSC_MIN_W_SIZE || *h < GSC_MIN_H_SIZE) {
         ALOGE("%s::too small size (w : %d < %d) (h : %d < %d)",
@@ -298,7 +295,7 @@ static int m_exynos_gsc_output_create(
     int dev_num,
     int out_mode)
 {
-    struct media_device *media0 = gsc_handle->media0;
+    struct media_device *media0;
     struct media_entity *gsc_sd_entity;
     struct media_entity *gsc_vd_entity;
     struct media_entity *sink_sd_entity;
@@ -308,7 +305,9 @@ static int m_exynos_gsc_output_create(
     unsigned int cap;
     int         i;
     int         fd = 0;
-ALOGE("######%s:start", __func__);
+
+    Exynos_gsc_In();
+
     if ((out_mode != GSC_OUT_FIMD) &&
         (out_mode != GSC_OUT_TV))
         return -1;
@@ -333,7 +332,7 @@ ALOGE("######%s:start", __func__);
     else
         sprintf(devname, PFX_MXR_ENTITY, 0);
 
-    sink_sd_entity = exynos_media_get_entity_by_name(media0, devname, strlen(devname));    
+    sink_sd_entity = exynos_media_get_entity_by_name(media0, devname, strlen(devname));
     sink_sd_entity->fd = exynos_subdev_open_devname(devname, O_RDWR);
     if ( sink_sd_entity->fd < 0) {
         ALOGE("%s:: failed to open sink subdev node", __func__);
@@ -393,7 +392,10 @@ ALOGE("######%s:start", __func__);
     gsc_handle->gsc_sd_entity = gsc_sd_entity;
     gsc_handle->gsc_vd_entity = gsc_vd_entity;
     gsc_handle->sink_sd_entity = sink_sd_entity;
-ALOGE("&&&&&&&&&%s:end", __func__);
+    gsc_handle->media0 = media0;
+
+    Exynos_gsc_Out();
+
     return 0;
 
 gsc_output_err:
@@ -402,13 +404,15 @@ gsc_output_err:
 
 }
 
-static int m_exynos_gsc_create(
+static int m_exynos_gsc_m2m_create(
     int dev)
 {
     int          fd = 0;
     int          video_node_num;
     unsigned int cap;
     char         node[32];
+
+    Exynos_gsc_In();
 
     switch(dev) {
     case 0:
@@ -447,14 +451,19 @@ static int m_exynos_gsc_create(
         fd = 0;
         return -1;
     }
+
+    Exynos_gsc_Out();
+
     return fd;
 }
 
 
-static bool m_exnos_gsc_out_destroy(struct GSC_HANDLE *gsc_handle)
+static bool m_exynos_gsc_out_destroy(struct GSC_HANDLE *gsc_handle)
 {
     struct media_link * links;
     int i;
+
+    Exynos_gsc_In();
 
     if (gsc_handle == NULL) {
         ALOGE("%s::gsc_handle is NULL", __func__);
@@ -468,7 +477,7 @@ static bool m_exnos_gsc_out_destroy(struct GSC_HANDLE *gsc_handle)
             gsc_handle->src.stream_on = false;
     }
 
-    /* unlink : gscaler-out --> mixer0 */
+    /* unlink : gscaler-out --> fimd */
         for (i = 0; i < (int) gsc_handle->gsc_sd_entity->num_links; i++) {
             links = &gsc_handle->gsc_sd_entity->links[i];
 
@@ -487,6 +496,8 @@ static bool m_exnos_gsc_out_destroy(struct GSC_HANDLE *gsc_handle)
         gsc_handle->gsc_vd_entity->fd = -1;
         gsc_handle->gsc_vd_entity->fd = -1;
 
+        Exynos_gsc_Out();
+
         return true;
 
 }
@@ -494,6 +505,8 @@ static bool m_exnos_gsc_out_destroy(struct GSC_HANDLE *gsc_handle)
 static bool m_exynos_gsc_destroy(
     struct GSC_HANDLE *gsc_handle)
 {
+    Exynos_gsc_In();
+
     if (gsc_handle->src.stream_on == true) {
         if (exynos_v4l2_streamoff(gsc_handle->gsc_fd, gsc_handle->src.buf_type) < 0)
             ALOGE("%s::exynos_v4l2_streamoff() fail", __func__);
@@ -512,6 +525,8 @@ static bool m_exynos_gsc_destroy(
         close(gsc_handle->gsc_fd);
     gsc_handle->gsc_fd = 0;
 
+    Exynos_gsc_Out();
+
     return true;
 }
 
@@ -522,17 +537,14 @@ bool m_exynos_gsc_find_and_trylock_and_create(
     bool         flag_find_new_gsc = false;
     unsigned int total_sleep_time  = 0;
 
+    Exynos_gsc_In();
+
     do {
         for (i = 0; i < NUM_OF_GSC_HW; i++) {
             // HACK : HWComposer, HDMI uses gscaler with their own code.
             //        So, This obj_mutex cannot defense their open()
-#if 0
-            if (i == 2 || i == 3)
+            if (i == 0 || i == 3)
                 continue;
-#else
-             if (i == 3)
-                continue;
-#endif
 
             if (exynos_mutex_trylock(gsc_handle->obj_mutex[i]) == true) {
 
@@ -540,7 +552,7 @@ bool m_exynos_gsc_find_and_trylock_and_create(
                 m_exynos_gsc_destroy(gsc_handle);
 
                 // create new one.
-                gsc_handle->gsc_fd = m_exynos_gsc_create(i);
+                gsc_handle->gsc_fd = m_exynos_gsc_m2m_create(i);
                 if (gsc_handle->gsc_fd < 0) {
                     gsc_handle->gsc_fd = 0;
                     exynos_mutex_unlock(gsc_handle->obj_mutex[i]);
@@ -571,6 +583,8 @@ bool m_exynos_gsc_find_and_trylock_and_create(
     if (flag_find_new_gsc == false)
         ALOGE("%s::we don't have no available gsc.. fail", __func__);
 
+    Exynos_gsc_Out();
+
     return flag_find_new_gsc;
 }
 
@@ -579,6 +593,8 @@ static bool m_exynos_gsc_set_format(
     struct gsc_info *info,
     bool             force)
 {
+    Exynos_gsc_In();
+
     struct v4l2_requestbuffers req_buf;
     int                        plane_count;
 
@@ -680,7 +696,7 @@ set_hw:
         ALOGE("%s::exynos_v4l2_s_ctrl(V4L2_CID_HFLIP) fail", __func__);
         return false;
     }
-
+    info->format.type = info->buf_type;
     info->format.fmt.pix_mp.width       = info->width;
     info->format.fmt.pix_mp.height      = info->height;
     info->format.fmt.pix_mp.pixelformat = info->v4l2_colorformat;
@@ -715,6 +731,8 @@ set_hw:
         ALOGE("%s::exynos_v4l2_reqbufs() fail", __func__);
         return false;
     }
+
+    Exynos_gsc_Out();
 
     return true;
 }
@@ -757,6 +775,8 @@ void *exynos_gsc_create(
     int i     = 0;
     int op_id = 0;
     char mutex_name[32];
+
+    Exynos_gsc_In();
 
     struct GSC_HANDLE *gsc_handle = (struct GSC_HANDLE *)malloc(sizeof(struct GSC_HANDLE));
     if (gsc_handle == NULL) {
@@ -820,7 +840,7 @@ err:
 
         for (i = 0; i < NUM_OF_GSC_HW; i++) {
             if ((gsc_handle->obj_mutex[i] != NULL) &&
-                (exynos_mutex_get_created_status(gsc_handle->obj_mutex[i]) == EXYNOS_MUTEX_STATUS_CREATED)) {
+                (exynos_mutex_get_created_status(gsc_handle->obj_mutex[i]) == true)) {
                 if (exynos_mutex_destroy(gsc_handle->obj_mutex[i]) == false)
                     ALOGE("%s::exynos_mutex_destroy() fail", __func__);
             }
@@ -834,6 +854,8 @@ err:
 
         free(gsc_handle);
     }
+
+    Exynos_gsc_Out();
 
     return NULL;
 }
@@ -913,7 +935,9 @@ void *exynos_gsc_create_exclusive(
     unsigned int total_sleep_time  = 0;
     bool    gsc_flag = false;
     int ret = 0;
-ALOGE("######%s:start", __func__);
+
+    Exynos_gsc_In();
+
     if ((dev_num < 0) || (dev_num >= NUM_OF_GSC_HW)) {
         ALOGE("%s::fail:: dev_num is not valid(%d) ", __func__, dev_num);
         return NULL;
@@ -929,14 +953,8 @@ ALOGE("######%s:start", __func__);
         ALOGE("%s::malloc(struct GSC_HANDLE) fail", __func__);
         goto err;
     }
-#if 0
-    if (dev_num == 2) {
-        ALOGE("%s::dev_num 2 is already used by HWC", __func__);
-        goto err;
-    }
-#endif
     memset(gsc_handle, 0, sizeof(struct GSC_HANDLE));
-    gsc_handle->gsc_fd = -1;    
+    gsc_handle->gsc_fd = -1;
     gsc_handle->gsc_mode = mode;
 
     gsc_handle->src.buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
@@ -971,11 +989,11 @@ ALOGE("######%s:start", __func__);
     do {
         if (exynos_mutex_trylock(gsc_handle->cur_obj_mutex) == true) {
             if (mode == GSC_M2M_MODE) {
-            gsc_handle->gsc_fd = m_exynos_gsc_create(dev_num);
-            if (gsc_handle->gsc_fd < 0) {
-                ALOGE("%s::m_exynos_gsc_create(%i) fail", __func__, dev_num);
-                goto err;
-            }
+                gsc_handle->gsc_fd = m_exynos_gsc_m2m_create(dev_num);
+                if (gsc_handle->gsc_fd < 0) {
+                    ALOGE("%s::m_exynos_gsc_m2m_create(%i) fail", __func__, dev_num);
+                    goto err;
+                }
             } else if (mode == GSC_OUTPUT_MODE) {
                 ret = m_exynos_gsc_output_create(gsc_handle, dev_num, out_mode);
                 if (ret < 0) {
@@ -985,7 +1003,7 @@ ALOGE("######%s:start", __func__);
             }
             /*else
                 gsc_handle->gsc_fd = m_exynos_gsc_capture_create(dev_num);*/
-            
+
             gsc_flag = true;
             break;
         }
@@ -995,9 +1013,10 @@ ALOGE("######%s:start", __func__);
     } while(total_sleep_time < MAX_GSC_WAITING_TIME_FOR_TRYLOCK);
 
     exynos_mutex_unlock(gsc_handle->op_mutex);
-ALOGE("&&&&&&&&&%s:end", __func__);
-    if (gsc_flag == true)
-    return (void *)gsc_handle;
+    if (gsc_flag == true) {
+        Exynos_gsc_Out();
+        return (void *)gsc_handle;
+        }
 
 err:
     if (gsc_handle) {
@@ -1008,7 +1027,7 @@ err:
 
         for (i = 0; i < NUM_OF_GSC_HW; i++) {
             if ((gsc_handle->obj_mutex[i] != NULL) &&
-                (exynos_mutex_get_created_status(gsc_handle->obj_mutex[i]) == EXYNOS_MUTEX_STATUS_CREATED)) {
+                (exynos_mutex_get_created_status(gsc_handle->obj_mutex[i]) == true)) {
                 if (exynos_mutex_destroy(gsc_handle->obj_mutex[i]) == false)
                     ALOGE("%s::exynos_mutex_destroy() fail", __func__);
             }
@@ -1023,6 +1042,8 @@ err:
         free(gsc_handle);
     }
 
+    Exynos_gsc_Out();
+
     return NULL;
 }
 
@@ -1031,6 +1052,8 @@ void exynos_gsc_destroy(
 {
     int i = 0;
     struct GSC_HANDLE *gsc_handle = (struct GSC_HANDLE *)handle;
+
+    Exynos_gsc_In();
 
     if (handle == NULL) {
         ALOGE("%s::handle == NULL() fail", __func__);
@@ -1043,15 +1066,15 @@ void exynos_gsc_destroy(
         exynos_mutex_lock(gsc_handle->cur_obj_mutex);
 
     if (gsc_handle->gsc_mode == GSC_OUTPUT_MODE)
-        m_exnos_gsc_out_destroy(gsc_handle);
-    else        
-    m_exynos_gsc_destroy(gsc_handle);
+        m_exynos_gsc_out_destroy(gsc_handle);
+    else
+        m_exynos_gsc_destroy(gsc_handle);
 
     exynos_mutex_unlock(gsc_handle->cur_obj_mutex);
 
     for (i = 0; i < NUM_OF_GSC_HW; i++) {
         if ((gsc_handle->obj_mutex[i] != NULL) &&
-            (exynos_mutex_get_created_status(gsc_handle->obj_mutex[i]) == EXYNOS_MUTEX_STATUS_CREATED)) {
+            (exynos_mutex_get_created_status(gsc_handle->obj_mutex[i]) == true)) {
             if (exynos_mutex_destroy(gsc_handle->obj_mutex[i]) == false)
                 ALOGE("%s::exynos_mutex_destroy(obj_mutex) fail", __func__);
         }
@@ -1064,6 +1087,9 @@ void exynos_gsc_destroy(
 
     if (gsc_handle)
         free(gsc_handle);
+
+    Exynos_gsc_Out();
+
 }
 
 int exynos_gsc_set_src_format(
@@ -1075,8 +1101,11 @@ int exynos_gsc_set_src_format(
     unsigned int crop_width,
     unsigned int crop_height,
     unsigned int v4l2_colorformat,
-    unsigned int cacheable)
+    unsigned int cacheable,
+    unsigned int mode_drm)
 {
+    Exynos_gsc_In();
+
     struct GSC_HANDLE *gsc_handle;
     gsc_handle = (struct GSC_HANDLE *)handle;
 
@@ -1095,6 +1124,7 @@ int exynos_gsc_set_src_format(
     gsc_handle->src.crop_height      = crop_height;
     gsc_handle->src.v4l2_colorformat = v4l2_colorformat;
     gsc_handle->src.cacheable        = cacheable;
+    gsc_handle->src.mode_drm         = mode_drm;
 
     if (gsc_handle->flag_exclusive_open == true) {
         if (m_exynos_gsc_set_format(gsc_handle->gsc_fd, &gsc_handle->src, false) == false) {
@@ -1103,6 +1133,8 @@ int exynos_gsc_set_src_format(
     }
 
     exynos_mutex_unlock(gsc_handle->op_mutex);
+
+    Exynos_gsc_Out();
 
     return 0;
 }
@@ -1116,8 +1148,11 @@ int exynos_gsc_set_dst_format(
     unsigned int crop_width,
     unsigned int crop_height,
     unsigned int v4l2_colorformat,
-    unsigned int cacheable)
+    unsigned int cacheable,
+    unsigned int mode_drm)
 {
+    Exynos_gsc_In();
+
     struct GSC_HANDLE *gsc_handle;
     gsc_handle = (struct GSC_HANDLE *)handle;
 
@@ -1136,6 +1171,7 @@ int exynos_gsc_set_dst_format(
     gsc_handle->dst.crop_height      = crop_height;
     gsc_handle->dst.v4l2_colorformat = v4l2_colorformat;
     gsc_handle->dst.cacheable        = cacheable;
+    gsc_handle->dst.mode_drm         = mode_drm;
 
     if (gsc_handle->flag_exclusive_open == true) {
         if (m_exynos_gsc_set_format(gsc_handle->gsc_fd, &gsc_handle->dst, false) == false) {
@@ -1145,6 +1181,22 @@ int exynos_gsc_set_dst_format(
 
     exynos_mutex_unlock(gsc_handle->op_mutex);
 
+    Exynos_gsc_Out();
+    return 0;
+}
+
+static int exynos_gsc_ctrl_sysmmu(
+    int fd,
+    int flag)
+{
+    int sys_mmu_flag = flag ^ 1;
+
+#if 0 //it will be enabled later
+    if (exynos_v4l2_s_ctrl(fd, V4L2_CID_USE_SYSMMU, sys_mmu_flag) < 0) {
+        ALOGE("%s::exynos_v4l2_s_ctrl(V4L2_CID_USE_SYSMMU) fail", __func__);
+        return -1;
+    }
+#endif
     return 0;
 }
 
@@ -1193,6 +1245,8 @@ int exynos_gsc_set_src_addr(
     struct GSC_HANDLE *gsc_handle;
     gsc_handle = (struct GSC_HANDLE *)handle;
 
+    Exynos_gsc_In();
+
     if (handle == NULL) {
         ALOGE("%s::handle == NULL() fail", __func__);
         return -1;
@@ -1212,6 +1266,8 @@ int exynos_gsc_set_src_addr(
 
     exynos_mutex_unlock(gsc_handle->op_mutex);
 
+    Exynos_gsc_Out();
+
     return 0;
 }
 
@@ -1221,6 +1277,8 @@ int exynos_gsc_set_dst_addr(
 {
     struct GSC_HANDLE *gsc_handle;
     gsc_handle = (struct GSC_HANDLE *)handle;
+
+    Exynos_gsc_In();
 
     if (handle == NULL) {
         ALOGE("%s::handle == NULL() fail", __func__);
@@ -1240,6 +1298,8 @@ int exynos_gsc_set_dst_addr(
     }
 
     exynos_mutex_unlock(gsc_handle->op_mutex);
+
+    Exynos_gsc_Out();
 
     return 0;
 }
@@ -1281,16 +1341,14 @@ static void rotateValueHAL2GSC(unsigned int transform,
     default:
         break;
     }
-    
-
 }
 
 static bool get_plane_size(int V4L2_PIX,
     unsigned int * size,
     unsigned int frame_size,
-    unsigned int src_planes)
+    int src_planes)
 {
-    unsigned int frame_ratio = 1;    
+    unsigned int frame_ratio = 1;
     int src_bpp    = get_yuv_bpp(V4L2_PIX);
 
     src_planes = (src_planes == -1) ? 1 : src_planes;
@@ -1344,9 +1402,59 @@ static bool get_plane_size(int V4L2_PIX,
     return true;
 }
 
+int exynos_gsc_m2m_config(void *handle,
+    exynos_gsc_img *src_img,
+    exynos_gsc_img *dst_img)
+{
+    struct GSC_HANDLE *gsc_handle;
+    int32_t      src_color_space;
+    int32_t      dst_color_space;
+    int ret;
+    unsigned int rotate;
+    unsigned int hflip;
+    unsigned int vflip;
+
+    Exynos_gsc_In();
+
+    gsc_handle = (struct GSC_HANDLE *)handle;
+     if (gsc_handle == NULL) {
+        ALOGE("%s::gsc_handle == NULL() fail", __func__);
+        return -1;
+    }
+
+    src_color_space = HAL_PIXEL_FORMAT_2_V4L2_PIX(src_img->format);
+    dst_color_space = HAL_PIXEL_FORMAT_2_V4L2_PIX(dst_img->format);
+    rotateValueHAL2GSC(dst_img->rot, &rotate, &hflip, &vflip);
+    exynos_gsc_set_rotation(gsc_handle, rotate, hflip, vflip);
+
+    ret = exynos_gsc_set_src_format(gsc_handle,  src_img->fw, src_img->fh,
+                                  src_img->x, src_img->y, src_img->w, src_img->h,
+                                  src_color_space, src_img->cacheable, src_img->drmMode);
+    if (ret < 0) {
+        ALOGE("%s: fail: exynos_gsc_set_src_format [fw %d fh %d x %d y %d w %d h %d f %x rot %d]",
+            __func__, src_img->fw, src_img->fh, src_img->x, src_img->y, src_img->w, src_img->h,
+            src_color_space, src_img->rot);
+        return -1;
+    }
+
+    ret = exynos_gsc_set_dst_format(gsc_handle, dst_img->fw, dst_img->fh,
+                                  dst_img->x, dst_img->y, dst_img->w, dst_img->h,
+                                  dst_color_space, dst_img->cacheable, src_img->drmMode);
+    if (ret < 0) {
+        ALOGE("%s: fail: exynos_gsc_set_dst_format [fw %d fh %d x %d y %d w %d h %d f %x rot %d]",
+            __func__, dst_img->fw, dst_img->fh, dst_img->x, dst_img->y, dst_img->w, dst_img->h,
+            src_color_space, dst_img->rot);
+        return -1;
+    }
+
+    Exynos_gsc_Out();
+
+    return 0;
+}
+
 int exynos_gsc_out_config(void *handle,
-    exnos_img *src_img,
-    exnos_img *dst_img)
+    exynos_gsc_img *src_img,
+    exynos_gsc_img *dst_img)
 {
     struct GSC_HANDLE *gsc_handle;
     struct v4l2_format  fmt;
@@ -1364,21 +1472,22 @@ int exynos_gsc_out_config(void *handle,
     int32_t      src_color_space;
     int32_t      dst_color_space;
     int32_t      src_planes;
-ALOGE("######%s:start", __func__);
+
     gsc_handle = (struct GSC_HANDLE *)handle;
      if (gsc_handle == NULL) {
         ALOGE("%s::gsc_handle == NULL() fail", __func__);
         return -1;
     }
 
+    Exynos_gsc_In();
+
      if (gsc_handle->src.stream_on != false) {
         ALOGE("Error: Src is already streamed on !!!!");
         return -1;
      }
 
-  //  exynos_mutex_lock(gsc_handle->op_mutex);
-    memcpy(&gsc_handle->src_img, src_img, sizeof(exnos_img));
-    memcpy(&gsc_handle->dst_img, dst_img, sizeof(exnos_img));
+    memcpy(&gsc_handle->src_img, src_img, sizeof(exynos_gsc_img));
+    memcpy(&gsc_handle->dst_img, dst_img, sizeof(exynos_gsc_img));
     src_color_space = HAL_PIXEL_FORMAT_2_V4L2_PIX(src_img->format);
     dst_color_space = HAL_PIXEL_FORMAT_2_V4L2_PIX(dst_img->format);
     src_planes = get_yuv_planes(src_color_space);
@@ -1405,21 +1514,12 @@ ALOGE("######%s:start", __func__);
     /*set: src v4l2_buffer*/
     gsc_handle->src.src_buf_idx = 0;
     gsc_handle->src.qbuf_cnt = 0;
-    for (i = 0; i < MAX_BUFFERS_GSCALER_OUT; i++) {
-        gsc_handle->src.src_buf[i].type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-        gsc_handle->src.src_buf[i].memory = V4L2_MEMORY_USERPTR;
-        gsc_handle->src.src_buf[i].length = src_planes;      
-    }
-
     /* set format: src pad of GSC sub-dev*/
     sd_fmt.pad   = GSCALER_SUBDEV_PAD_SOURCE;
     sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
     sd_fmt.format.width  = gsc_handle->dst_img.fw;
     sd_fmt.format.height = gsc_handle->dst_img.fh;
-//    sd_fmt.format.width  = gsc_handle->dst_img.w;
-//    sd_fmt.format.height = gsc_handle->dst_img.h;
     sd_fmt.format.code   = V4L2_MBUS_FMT_YUV8_1X24;
-
     if (exynos_subdev_s_fmt(gsc_handle->gsc_sd_entity->fd, &sd_fmt) < 0) {
             ALOGE("%s::GSC subdev set format failed", __func__);
             return -1;
@@ -1443,13 +1543,10 @@ ALOGE("######%s:start", __func__);
         sd_fmt.pad   = FIMD_SUBDEV_PAD_SINK;
     else
         sd_fmt.pad   = MIXER_V_SUBDEV_PAD_SINK;
-    
-    
+
     sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-  //  sd_fmt.format.width  = gsc_handle->dst_img.fw;// 
-  //  sd_fmt.format.height = gsc_handle->dst_img.fh;//
-    sd_fmt.format.width  = gsc_handle->dst_img.w; //gsc_handle->dst_img.fw;// 
-    sd_fmt.format.height = gsc_handle->dst_img.h;//gsc_handle->dst_img.fh;//
+    sd_fmt.format.width  = gsc_handle->dst_img.w;
+    sd_fmt.format.height = gsc_handle->dst_img.h;
     sd_fmt.format.code   = V4L2_MBUS_FMT_YUV8_1X24;
     if (exynos_subdev_s_fmt(gsc_handle->sink_sd_entity->fd, &sd_fmt) < 0) {
         ALOGE("%s::sink:set format failed (PAD=%d)", __func__, sd_fmt.pad);
@@ -1473,22 +1570,22 @@ ALOGE("######%s:start", __func__);
     }
 
     /*set GSC ctrls */
-    if (exynos_v4l2_s_ctrl(gsc_handle->gsc_vd_entity->fd, V4L2_CID_ROTATE, rotate) < 0) { 
+    if (exynos_v4l2_s_ctrl(gsc_handle->gsc_vd_entity->fd, V4L2_CID_ROTATE, rotate) < 0) {
         ALOGE("%s:: exynos_v4l2_s_ctrl (V4L2_CID_ROTATE: %d) failed", __func__,  rotate);
         return -1;
     }
 
-    if (exynos_v4l2_s_ctrl(gsc_handle->gsc_vd_entity->fd, V4L2_CID_HFLIP, hflip) < 0) { 
+    if (exynos_v4l2_s_ctrl(gsc_handle->gsc_vd_entity->fd, V4L2_CID_HFLIP, hflip) < 0) {
         ALOGE("%s:: exynos_v4l2_s_ctrl (V4L2_CID_HFLIP: %d) failed", __func__,  hflip);
         return -1;
     }
 
-    if (exynos_v4l2_s_ctrl(gsc_handle->gsc_vd_entity->fd, V4L2_CID_VFLIP, vflip) < 0) { 
+    if (exynos_v4l2_s_ctrl(gsc_handle->gsc_vd_entity->fd, V4L2_CID_VFLIP, vflip) < 0) {
         ALOGE("%s:: exynos_v4l2_s_ctrl (V4L2_CID_VFLIP: %d) failed", __func__,  vflip);
         return -1;
     }
 
-     if (exynos_v4l2_s_ctrl(gsc_handle->gsc_vd_entity->fd, V4L2_CID_CACHEABLE, 1) < 0) { 
+     if (exynos_v4l2_s_ctrl(gsc_handle->gsc_vd_entity->fd, V4L2_CID_CACHEABLE, 1) < 0) {
         ALOGE("%s:: exynos_v4l2_s_ctrl (V4L2_CID_CACHEABLE: 1) failed", __func__);
         return -1;
     }
@@ -1500,7 +1597,7 @@ ALOGE("######%s:start", __func__);
     fmt.fmt.pix_mp.pixelformat    = src_color_space;
     fmt.fmt.pix_mp.field              = V4L2_FIELD_NONE;
     fmt.fmt.pix_mp.num_planes   = src_planes;
- 
+
     if (exynos_v4l2_s_fmt(gsc_handle->gsc_vd_entity->fd, &fmt) < 0) {
             ALOGE("%s::videodev set format failed", __func__);
             return -1;
@@ -1517,7 +1614,7 @@ ALOGE("######%s:start", __func__);
         ALOGE("%s::videodev set crop failed", __func__);
         return -1;
     }
-    
+
     reqbuf.type   = fmt.type;
     reqbuf.memory = V4L2_MEMORY_USERPTR;
     reqbuf.count  = MAX_BUFFERS_GSCALER_OUT;
@@ -1526,7 +1623,9 @@ ALOGE("######%s:start", __func__);
         ALOGE("%s::request buffers failed", __func__);
         return -1;
     }
-ALOGE("&&&&&&&&&%s:end", __func__);
+
+    Exynos_gsc_Out();
+
     return 0;
 }
 
@@ -1542,7 +1641,6 @@ int exynos_gsc_out_run(void *handle,
     int32_t      src_planes;
     int             i;
     unsigned int plane_size[NUM_OF_GSC_PLANES];
-    ALOGE("######%s:start", __func__);
 
     gsc_handle = (struct GSC_HANDLE *)handle;
     if (handle == NULL) {
@@ -1578,7 +1676,6 @@ int exynos_gsc_out_run(void *handle,
         buf.m.planes[i].m.userptr = (unsigned long)gsc_handle->src.addr[i];
         buf.m.planes[i].length    = plane_size[i];
         buf.m.planes[i].bytesused = plane_size[i];
-        ALOGE("####plane-%d:ADDR %x length %d ", i, buf.m.planes[i].m.userptr, buf.m.planes[i].length);
     }
 
     /* Queue the buf */
@@ -1591,9 +1688,13 @@ int exynos_gsc_out_run(void *handle,
     gsc_handle->src.qbuf_cnt++;
 
     if (gsc_handle->src.stream_on == false) {
-        /* stream on after queing the second buffer */
-        /* to do: below logic should be changed to handle the single frame videos */
+        /* stream on after queing the second buffer
+            to do: below logic should be changed to handle the single frame videos */
+#ifndef GSC_OUT_DELAYED_STREAMON
+        if (gsc_handle->src.src_buf_idx == (MAX_BUFFERS_GSCALER_OUT - 2)) {
+#else
         if (gsc_handle->src.src_buf_idx == (MAX_BUFFERS_GSCALER_OUT - 1)) {
+#endif
             if (exynos_v4l2_streamon(gsc_handle->gsc_vd_entity->fd, buf.type) < 0) {
                 ALOGE("%s::stream on failed", __func__);
                 return -1;
@@ -1601,12 +1702,15 @@ int exynos_gsc_out_run(void *handle,
             gsc_handle->src.stream_on = true;
         }
         gsc_handle->src.src_buf_idx = gsc_handle->src.src_buf_idx % MAX_BUFFERS_GSCALER_OUT;
-        ALOGE("&&&&&&&&&%s:end", __func__);
+#ifndef GSC_OUT_DMA_BLOCKING
         return 0;
+#endif
     }
-    
+
+    if (gsc_handle->src.qbuf_cnt < MAX_BUFFERS_GSCALER_OUT)
+        return 0;
+
     gsc_handle->src.src_buf_idx = gsc_handle->src.src_buf_idx % MAX_BUFFERS_GSCALER_OUT;
-    ALOGE("$$$$$$$$%s:exynos_v4l2_dqbuf:Start: src_buf_idx %d", __func__, gsc_handle->src.src_buf_idx);
     for (i = 0; i < MAX_BUFFERS_GSCALER_OUT; i++)
         memset(&planes[i], 0, sizeof(struct v4l2_plane));
 
@@ -1621,10 +1725,7 @@ int exynos_gsc_out_run(void *handle,
             gsc_handle->src.src_buf_idx, MAX_BUFFERS_GSCALER_OUT);
         return -1;
      }
-     gsc_handle->src.qbuf_cnt--;
-ALOGE("&&&&&&&&&222222%s:exynos_v4l2_dqbuf(idx %d)::end", __func__, buf.index);
-     return 0;   
-
+     return 0;
 }
 
 int exynos_gsc_out_stop(void *handle)
@@ -1635,55 +1736,31 @@ int exynos_gsc_out_stop(void *handle)
     struct v4l2_plane  planes[NUM_OF_GSC_PLANES];
     int i;
 
+    Exynos_gsc_In();
+
     gsc_handle = (struct GSC_HANDLE *)handle;
-    ALOGE("######%s:start", __func__);
     if (handle == NULL) {
         ALOGE("%s::handle == NULL() fail", __func__);
         return -1;
     }
-    
+
     if (gsc_handle->src.stream_on == false) {
         /* to handle special scenario.*/
-#if 0   //to do      
-        if (gsc_handle->src.qbuf_cnt > 0) {
-            //some buffers are already queued to driver.
-            if (exynos_v4l2_streamon(gsc_handle->gsc_vd_entity->fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) < 0) {
-                return 0;
-            }
-           
-            for (i = 0; i < MAX_BUFFERS_GSCALER_OUT; i++)
-            memset(&planes[i], 0, sizeof(struct v4l2_plane));
-
-            buf.type     = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-            buf.memory   = V4L2_MEMORY_USERPTR;
-            buf.length   = 2;
-            buf.m.planes = planes;
-            /* DeQueue a buf */
-             if (exynos_v4l2_dqbuf(gsc_handle->gsc_vd_entity->fd, &buf) < 0) {
-                ALOGE("%s::dequeue buffer failed (index=%d)(mSrcBufNum=%d)", __func__,
-                    gsc_handle->src.src_buf_idx, MAX_BUFFERS_GSCALER_OUT);
-                return -1;
-             }
-            
-        }
-        else
-#endif 
-            {
             gsc_handle->src.src_buf_idx = 0;
+        gsc_handle->src.qbuf_cnt = 0;
             ALOGD("%s::GSC is already stopped", __func__);
-            return 0;
-        }
+        goto SKIP_STREAMOFF;
     }
     gsc_handle->src.src_buf_idx = 0;
     gsc_handle->src.qbuf_cnt = 0;
-    gsc_handle->src.stream_on = false;    
+    gsc_handle->src.stream_on = false;
 
     if (exynos_v4l2_streamoff(gsc_handle->gsc_vd_entity->fd,
                                 V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) < 0) {
         ALOGE("%s::stream off failed", __func__);
         return -1;
     }
-
+SKIP_STREAMOFF:
     /* Clear Buffer */
     /*todo: support for other buffer type & memory */
     reqbuf.type   = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
@@ -1694,11 +1771,12 @@ int exynos_gsc_out_stop(void *handle)
         ALOGE("%s::request buffers failed", __func__);
         return -1;
     }
-ALOGE("&&&&&&&&&%s:end", __func__);
+
+    Exynos_gsc_Out();
+
     return 0;
 }
 
-//int exynos_gsc_m2m_run(
 int exynos_gsc_convert(
     void *handle)
 {
@@ -1706,6 +1784,8 @@ int exynos_gsc_convert(
     int ret    = -1;
     int i      = 0;
     gsc_handle = (struct GSC_HANDLE *)handle;
+
+    Exynos_gsc_In();
 
     if (handle == NULL) {
         ALOGE("%s::handle == NULL() fail", __func__);
@@ -1805,17 +1885,59 @@ done:
 
     exynos_mutex_unlock(gsc_handle->op_mutex);
 
+    Exynos_gsc_Out();
+
     return ret;
 }
 
-int exynos_gsc_config_exclusive(void *handle,
-    exnos_img *src_img,
-    exnos_img *dst_img)
+int exynos_gsc_m2m_run(void *handle,
+    exynos_gsc_img *src_img,
+    exynos_gsc_img *dst_img)
 {
+    void *addr[3] = {NULL, NULL, NULL};
+    int ret = 0;
+
+    Exynos_gsc_In();
+
+    addr[0] = (void *)src_img->yaddr;
+    addr[1] = (void *)src_img->uaddr;
+    addr[2] = (void *)src_img->vaddr;
+
+    ret = exynos_gsc_set_src_addr(handle, addr);
+    if (ret < 0) {
+        ALOGE("%s::fail: exynos_gsc_set_src_addr[%x %x %x]", __func__,
+            (unsigned int)addr[0], (unsigned int)addr[1], (unsigned int)addr[2]);
+    }
+
+    addr[0] = (void *)dst_img->yaddr;
+    addr[1] = (void *)dst_img->uaddr;
+    addr[2] = (void *)dst_img->vaddr;
+    ret = exynos_gsc_set_dst_addr(handle, addr);
+    if (ret < 0) {
+        ALOGE("%s::fail: exynos_gsc_set_dst_addr[%x %x %x]", __func__,
+            (unsigned int)addr[0], (unsigned int)addr[1], (unsigned int)addr[2]);
+    }
+
+    ret = exynos_gsc_convert(handle);
+     if (ret < 0) {
+        ALOGE("%s::fail: exynos_gsc_convert", __func__);
+    }
+
+    Exynos_gsc_Out();
+
+    return 0;
+}
+
+int exynos_gsc_config_exclusive(void *handle,
+    exynos_gsc_img *src_img,
+    exynos_gsc_img *dst_img)
+{
+
+    Exynos_gsc_In();
+
      struct GSC_HANDLE *gsc_handle;
     int ret = 0;
     gsc_handle = (struct GSC_HANDLE *)handle;
-    ALOGE("######%s:start", __func__);
     if (handle == NULL) {
         ALOGE("%s::handle == NULL() fail", __func__);
         return -1;
@@ -1823,7 +1945,7 @@ int exynos_gsc_config_exclusive(void *handle,
 
     switch (gsc_handle->gsc_mode) {
     case GSC_M2M_MODE:
-        //to do
+        ret = exynos_gsc_m2m_config(handle, src_img, dst_img);
         break;
     case GSC_OUTPUT_MODE:
         ret = exynos_gsc_out_config(handle, src_img, dst_img);
@@ -1834,18 +1956,20 @@ int exynos_gsc_config_exclusive(void *handle,
     default:
         break;
     }
+
+    Exynos_gsc_Out();
+
     return ret;
 
 }
 
 int exynos_gsc_run_exclusive(void *handle,
-    exnos_img *src_img,
-    exnos_img *dst_img)
+    exynos_gsc_img *src_img,
+    exynos_gsc_img *dst_img)
 {
     struct GSC_HANDLE *gsc_handle;
     int ret = 0;
     gsc_handle = (struct GSC_HANDLE *)handle;
-    ALOGE("######%s:start", __func__);
     if (handle == NULL) {
         ALOGE("%s::handle == NULL() fail", __func__);
         return -1;
@@ -1853,7 +1977,7 @@ int exynos_gsc_run_exclusive(void *handle,
 
     switch (gsc_handle->gsc_mode) {
     case GSC_M2M_MODE:
-        ret = exynos_gsc_convert(handle);
+        ret = exynos_gsc_m2m_run(handle, src_img, dst_img);
         break;
     case GSC_OUTPUT_MODE:
         ret = exynos_gsc_out_run(handle, src_img->yaddr,
@@ -1873,7 +1997,9 @@ int exynos_gsc_stop_exclusive(void *handle)
     struct GSC_HANDLE *gsc_handle;
     int ret = 0;
     gsc_handle = (struct GSC_HANDLE *)handle;
-    ALOGE("######%s:start", __func__);
+
+    Exynos_gsc_In();
+
     if (handle == NULL) {
         ALOGE("%s::handle == NULL() fail", __func__);
         return -1;
@@ -1890,12 +2016,13 @@ int exynos_gsc_stop_exclusive(void *handle)
         //to do
         break;
     default:
-        break; 
+        break;
     }
-    return ret;
-    
-}
 
+    Exynos_gsc_Out();
+
+    return ret;
+}
 
 int exynos_gsc_connect(
     void *handle,
@@ -1904,6 +2031,8 @@ int exynos_gsc_connect(
     struct GSC_HANDLE *gsc_handle;
     int ret    = -1;
     gsc_handle = (struct GSC_HANDLE *)handle;
+
+    Exynos_gsc_In();
 
     if (handle == NULL) {
         ALOGE("%s::handle == NULL() fail", __func__);
@@ -1923,6 +2052,8 @@ int exynos_gsc_connect(
 
     ret = 0;
 
+    Exynos_gsc_Out();
+
 done:
     exynos_mutex_unlock(gsc_handle->op_mutex);
 
@@ -1936,6 +2067,8 @@ int exynos_gsc_disconnect(
     struct GSC_HANDLE *gsc_handle;
     gsc_handle = (struct GSC_HANDLE *)handle;
 
+    Exynos_gsc_In();
+
     if (handle == NULL) {
         ALOGE("%s::handle == NULL() fail", __func__);
         return -1;
@@ -1948,6 +2081,8 @@ int exynos_gsc_disconnect(
     exynos_mutex_unlock(gsc_handle->cur_obj_mutex);
 
     exynos_mutex_unlock(gsc_handle->op_mutex);
+
+    Exynos_gsc_Out();
 
     return 0;
 }

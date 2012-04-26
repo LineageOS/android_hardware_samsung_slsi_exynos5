@@ -69,6 +69,8 @@ extern "C" {
 #define GSC_SD_PAD_SINK	0
 #define GSC_SD_PAD_SOURCE	1
 #define GSC_OUT_PAD_SINK	0
+//#define GSC_OUT_DMA_BLOCKING
+//#define GSC_OUT_DELAYED_STREAMON
 
 #define GSC_VERSION GSC_EVT1
 
@@ -92,6 +94,7 @@ struct gsc_info {
     unsigned int       crop_height;
     unsigned int       v4l2_colorformat;
     unsigned int       cacheable;
+    unsigned int       mode_drm;
 
     int                rotation;
     int                flip_horizontal;
@@ -105,18 +108,16 @@ struct gsc_info {
     struct v4l2_buffer buffer;
     struct v4l2_plane  planes[NUM_OF_GSC_PLANES];
     struct v4l2_crop   crop;
-    struct v4l2_buffer src_buf[MAX_BUFFERS];
     int             src_buf_idx;
     int             qbuf_cnt;
-    //ExynosBuffer    src_buf[MAX_BUFFERS];
 };
 
 struct GSC_HANDLE {
     int              gsc_fd;
     struct gsc_info  src;
     struct gsc_info  dst;
-    exnos_img   src_img;
-    exnos_img   dst_img;        
+    exynos_gsc_img   src_img;
+    exynos_gsc_img   dst_img;
     void            *op_mutex;
     void            *obj_mutex[NUM_OF_GSC_HW];
     void            *cur_obj_mutex;
@@ -128,10 +129,9 @@ struct GSC_HANDLE {
     struct media_entity *sink_sd_entity;
     int     gsc_mode;
     int     out_mode;
-    
-    
 };
 
+extern int exynos_gsc_out_stop(void *handle);
 #ifdef __cplusplus
 }
 #endif
