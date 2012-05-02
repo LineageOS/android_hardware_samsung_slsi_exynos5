@@ -16,7 +16,7 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH) \
-	$(LOCAL_PATH)/../include
+	hardware/samsung_slsi/exynos5/include
 
 LOCAL_SRC_FILES:= \
 	ExynosJpegBase.cpp \
@@ -25,12 +25,10 @@ LOCAL_SRC_FILES:= \
 
 LOCAL_SHARED_LIBRARIES :=    \
 	libcutils	\
-	libion
-
-#LOCAL_STATIC_LIBRARIES := \
+	libion_exynos
 
 LOCAL_MODULE:= libhwjpeg
 
-LOCAL_MODULE_TAGS := eng
+LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)
