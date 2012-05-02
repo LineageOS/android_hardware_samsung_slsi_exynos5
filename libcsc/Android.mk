@@ -7,6 +7,8 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
     csc_helper.c
 
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+
 LOCAL_C_INCLUDES := \
     system/core/include \
     $(LOCAL_PATH)/../exynos_omx/openmax/$(OMX_NAME)_omx/include/khronos \
@@ -35,6 +37,8 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/../exynos_omx/openmax/$(OMX_NAME)_omx/include/khronos \
 	$(LOCAL_PATH)/../exynos_omx/openmax/$(OMX_NAME)_omx/include/$(OMX_NAME) \
 	$(LOCAL_PATH)/../libexynosutils
+
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 
 LOCAL_CFLAGS :=
 
