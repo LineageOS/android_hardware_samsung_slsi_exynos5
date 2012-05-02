@@ -37,12 +37,11 @@
 #include <utils/RefBase.h>
 #include <binder/MemoryBase.h>
 #include <binder/MemoryHeapBase.h>
-#include <binder/MemoryHeapBaseIon.h>
 #include <hardware/camera.h>
 #include <hardware/gralloc.h>
 #include <camera/Camera.h>
 #include <camera/CameraParameters.h>
-#include <media/stagefright/MetadataBufferType.h>
+#include <media/hardware/MetadataBufferType.h>
 
 #include "gralloc_priv.h"
 

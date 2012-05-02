@@ -93,7 +93,7 @@ ExynosCameraHWInterface::ExynosCameraHWInterface(int cameraId, camera_device_t *
           m_halDevice(dev),
           m_numOfAvailableVideoBuf(0)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     int ret = 0;
 
     m_previewWindow = NULL;
@@ -152,11 +152,11 @@ ExynosCameraHWInterface::ExynosCameraHWInterface(int cameraId, camera_device_t *
     if (!m_grallocHal) {
         ret = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, (const hw_module_t **)&m_grallocHal);
         if (ret)
-            LOGE("ERR(%s):Fail on loading gralloc HAL", __func__);
+            ALOGE("ERR(%s):Fail on loading gralloc HAL", __func__);
     }
 
     if (m_secCamera->create(cameraId) == false) {
-        LOGE("ERR(%s):Fail on m_secCamera->create(%d)", __func__, cameraId);
+        ALOGE("ERR(%s):Fail on m_secCamera->create(%d)", __func__, cameraId);
         return;
     }
 
@@ -166,15 +166,15 @@ ExynosCameraHWInterface::ExynosCameraHWInterface(int cameraId, camera_device_t *
 
     m_exynosPreviewCSC = csc_init(cscMethod);
     if (m_exynosPreviewCSC == NULL)
-        LOGE("ERR(%s):csc_init() fail", __func__);
+        ALOGE("ERR(%s):csc_init() fail", __func__);
 
     m_exynosPictureCSC = csc_init(cscMethod);
     if (m_exynosPictureCSC == NULL)
-        LOGE("ERR(%s):csc_init() fail", __func__);
+        ALOGE("ERR(%s):csc_init() fail", __func__);
 
     m_exynosVideoCSC = csc_init(cscMethod);
     if (m_exynosVideoCSC == NULL)
-        LOGE("ERR(%s):csc_init() fail", __func__);
+        ALOGE("ERR(%s):csc_init() fail", __func__);
 
     m_previewThread   = new PreviewThread(this);
     m_videoThread     = new VideoThread(this);
@@ -190,32 +190,32 @@ ExynosCameraHWInterface::~ExynosCameraHWInterface()
 status_t ExynosCameraHWInterface::setPreviewWindow(preview_stream_ops *w)
 {
     m_previewWindow = w;
-    LOGV("DEBUG(%s):m_previewWindow %p", __func__, m_previewWindow);
+    ALOGV("DEBUG(%s):m_previewWindow %p", __func__, m_previewWindow);
 
     if (m_previewWindow == NULL) {
-        LOGV("DEBUG(%s):preview window is NULL!", __func__);
+        ALOGV("DEBUG(%s):preview window is NULL!", __func__);
         return OK;
     }
 
     m_previewLock.lock();
 
     if (m_previewRunning == true && m_previewStartDeferred == false) {
-        LOGV("DEBUG(%s):stop preview (window change)", __func__);
+        ALOGV("DEBUG(%s):stop preview (window change)", __func__);
         m_stopPreviewInternal();
     }
 
     if (m_previewWindow->get_min_undequeued_buffer_count(m_previewWindow, &m_minUndequeuedBufs) != 0) {
-        LOGE("ERR(%s):could not retrieve min undequeued buffer count", __func__);
+        ALOGE("ERR(%s):could not retrieve min undequeued buffer count", __func__);
         return INVALID_OPERATION;
     }
 
     if (NUM_OF_PREVIEW_BUF <= m_minUndequeuedBufs) {
-        LOGE("ERR(%s):min undequeued buffer count %d is too high (expecting at most %d)", __func__,
+        ALOGE("ERR(%s):min undequeued buffer count %d is too high (expecting at most %d)", __func__,
              m_minUndequeuedBufs, NUM_OF_PREVIEW_BUF - 1);
     }
 
     if (m_previewWindow->set_buffer_count(m_previewWindow, NUM_OF_PREVIEW_BUF) != 0) {
-        LOGE("ERR(%s):could not set buffer count", __func__);
+        ALOGE("ERR(%s):could not set buffer count", __func__);
         return INVALID_OPERATION;
     }
 
@@ -224,7 +224,7 @@ status_t ExynosCameraHWInterface::setPreviewWindow(preview_stream_ops *w)
 
     m_params.getPreviewSize(&previewW, &previewH);
     const char *str_preview_format = m_params.getPreviewFormat();
-    LOGV("DEBUG(%s):str preview format %s width : %d height : %d ", __func__, str_preview_format, previewW, previewH);
+    ALOGV("DEBUG(%s):str preview format %s width : %d height : %d ", __func__, str_preview_format, previewW, previewH);
 
     if (!strcmp(str_preview_format,
                 CameraParameters::PIXEL_FORMAT_RGB565)) {
@@ -246,20 +246,20 @@ status_t ExynosCameraHWInterface::setPreviewWindow(preview_stream_ops *w)
                                   GRALLOC_USAGE_HWC_HWOVERLAY |
 #endif
                                   GRALLOC_USAGE_HW_ION) != 0) {
-        LOGE("ERR(%s):could not set usage on gralloc buffer", __func__);
+        ALOGE("ERR(%s):could not set usage on gralloc buffer", __func__);
         return INVALID_OPERATION;
     }
 
     if (m_previewWindow->set_buffers_geometry(m_previewWindow,
                                               previewW, previewH,
                                               hal_pixel_format) != 0) {
-        LOGE("ERR(%s):could not set buffers geometry to %s",
+        ALOGE("ERR(%s):could not set buffers geometry to %s",
              __func__, str_preview_format);
         return INVALID_OPERATION;
     }
 
     if (m_previewRunning == true && m_previewStartDeferred == true) {
-        LOGV("DEBUG(%s):start/resume preview", __func__);
+        ALOGV("DEBUG(%s):start/resume preview", __func__);
         if (m_startPreviewInternal() == true) {
             m_previewStartDeferred = false;
             m_previewCondition.signal();
@@ -285,7 +285,7 @@ void ExynosCameraHWInterface::setCallbacks(camera_notify_callback notify_cb,
 
 void ExynosCameraHWInterface::enableMsgType(int32_t msgType)
 {
-    LOGV("DEBUG(%s):msgType = 0x%x, m_msgEnabled before = 0x%x",
+    ALOGV("DEBUG(%s):msgType = 0x%x, m_msgEnabled before = 0x%x",
          __func__, msgType, m_msgEnabled);
     m_msgEnabled |= msgType;
 
@@ -294,7 +294,7 @@ void ExynosCameraHWInterface::enableMsgType(int32_t msgType)
         && m_previewRunning == true
         && m_previewStartDeferred == true) {
 
-        LOGV("DEBUG(%s):starting deferred preview", __func__);
+        ALOGV("DEBUG(%s):starting deferred preview", __func__);
 
         if (m_startPreviewInternal() == true) {
             m_previewStartDeferred = false;
@@ -303,15 +303,15 @@ void ExynosCameraHWInterface::enableMsgType(int32_t msgType)
     }
     m_previewLock.unlock();
 
-    LOGV("DEBUG(%s):m_msgEnabled = 0x%x", __func__, m_msgEnabled);
+    ALOGV("DEBUG(%s):m_msgEnabled = 0x%x", __func__, m_msgEnabled);
 }
 
 void ExynosCameraHWInterface::disableMsgType(int32_t msgType)
 {
-    LOGV("DEBUG(%s):msgType = 0x%x, m_msgEnabled before = 0x%x",
+    ALOGV("DEBUG(%s):msgType = 0x%x, m_msgEnabled before = 0x%x",
          __func__, msgType, m_msgEnabled);
     m_msgEnabled &= ~msgType;
-    LOGV("DEBUG(%s):m_msgEnabled = 0x%x", __func__, m_msgEnabled);
+    ALOGV("DEBUG(%s):m_msgEnabled = 0x%x", __func__, m_msgEnabled);
 }
 
 bool ExynosCameraHWInterface::msgTypeEnabled(int32_t msgType)
@@ -323,17 +323,17 @@ status_t ExynosCameraHWInterface::startPreview()
 {
     int ret = OK;
 
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
 
     Mutex::Autolock lock(m_stateLock);
     if (m_captureInProgress == true) {
-        LOGE("%s : capture in progress, not allowed", __func__);
+        ALOGE("%s : capture in progress, not allowed", __func__);
         return INVALID_OPERATION;
     }
 
     m_previewLock.lock();
     if (m_previewRunning == true) {
-        LOGE("%s : preview thread already running", __func__);
+        ALOGE("%s : preview thread already running", __func__);
         m_previewLock.unlock();
         return INVALID_OPERATION;
     }
@@ -343,12 +343,12 @@ status_t ExynosCameraHWInterface::startPreview()
 
     if (m_previewWindow == NULL) {
         if (!(m_msgEnabled & CAMERA_MSG_PREVIEW_FRAME)) {
-            LOGV("DEBUG(%s):deferring", __func__);
+            ALOGV("DEBUG(%s):deferring", __func__);
             m_previewStartDeferred = true;
             m_previewLock.unlock();
             return NO_ERROR;
         }
-        LOGE("%s(%d): m_previewWindow is NULL", __func__, __LINE__);
+        ALOGE("%s(%d): m_previewWindow is NULL", __func__, __LINE__);
         return UNKNOWN_ERROR;
     }
 
@@ -365,7 +365,7 @@ status_t ExynosCameraHWInterface::startPreview()
 
 void ExynosCameraHWInterface::stopPreview()
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
 
     /* request that the preview thread stop. */
     m_previewLock.lock();
@@ -376,14 +376,14 @@ void ExynosCameraHWInterface::stopPreview()
 bool ExynosCameraHWInterface::previewEnabled()
 {
     Mutex::Autolock lock(m_previewLock);
-    LOGV("DEBUG(%s):%d", __func__, m_previewRunning);
+    ALOGV("DEBUG(%s):%d", __func__, m_previewRunning);
     return m_previewRunning;
 }
 
 status_t ExynosCameraHWInterface::storeMetaDataInBuffers(bool enable)
 {
     if (!enable) {
-        LOGE("Non-m_frameMetadata buffer mode is not supported!");
+        ALOGE("Non-m_frameMetadata buffer mode is not supported!");
         return INVALID_OPERATION;
     }
     return OK;
@@ -391,7 +391,7 @@ status_t ExynosCameraHWInterface::storeMetaDataInBuffers(bool enable)
 
 status_t ExynosCameraHWInterface::startRecording()
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
 
     Mutex::Autolock lock(m_videoLock);
 
@@ -415,7 +415,7 @@ status_t ExynosCameraHWInterface::startRecording()
 
         m_videoHeap[i] = m_getMemoryCb(-1, videoFramesize, 1, NULL);
         if (!m_videoHeap[i]) {
-            LOGE("ERR(%s):m_getMemoryCb(m_videoHeap[%d], size(%d) fail", __func__, i, videoFramesize);
+            ALOGE("ERR(%s):m_getMemoryCb(m_videoHeap[%d], size(%d) fail", __func__, i, videoFramesize);
             return UNKNOWN_ERROR;
         }
 
@@ -443,14 +443,14 @@ status_t ExynosCameraHWInterface::startRecording()
 
         m_resizedVideoHeap[i] = m_getMemoryCb(-1, orgVideoFrameSize, 1, NULL);
         if (!m_resizedVideoHeap[i]) {
-            LOGE("ERR(%s):m_getMemoryCb(m_resizedVideoHeap[%d], size(%d) fail", __func__, i, orgVideoFrameSize);
+            ALOGE("ERR(%s):m_getMemoryCb(m_resizedVideoHeap[%d], size(%d) fail", __func__, i, orgVideoFrameSize);
             return UNKNOWN_ERROR;
         }
     }
 
     if (m_videoRunning == false) {
         if (m_secCamera->startVideo() == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->startVideo()", __func__);
+            ALOGE("ERR(%s):Fail on m_secCamera->startVideo()", __func__);
             return UNKNOWN_ERROR;
         }
 
@@ -470,7 +470,7 @@ status_t ExynosCameraHWInterface::startRecording()
 
 void ExynosCameraHWInterface::stopRecording()
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
 
 #ifndef USE_3DNR_DMAOUT
     m_videoStart = false;
@@ -485,7 +485,7 @@ void ExynosCameraHWInterface::stopRecording()
         /* wait until video thread is stopped */
         m_videoStoppedCondition.wait(m_videoLock);
     } else
-        LOGV("DEBUG(%s):video not running, doing nothing", __func__);
+        ALOGV("DEBUG(%s):video not running, doing nothing", __func__);
 }
 
 bool ExynosCameraHWInterface::recordingEnabled()
@@ -520,14 +520,14 @@ void ExynosCameraHWInterface::releaseRecordingFrame(const void *opaque)
         if (NUM_OF_VIDEO_BUF <= m_numOfAvailableVideoBuf)
             m_numOfAvailableVideoBuf = NUM_OF_VIDEO_BUF;
     } else {
-        LOGV("DEBUG(%s):no matched index(%p)", __func__, (char *)opaque);
+        ALOGV("DEBUG(%s):no matched index(%p)", __func__, (char *)opaque);
     }
     */
 }
 
 status_t ExynosCameraHWInterface::autoFocus()
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     /* signal m_autoFocusThread to run once */
     m_focusCondition.signal();
     return NO_ERROR;
@@ -536,7 +536,7 @@ status_t ExynosCameraHWInterface::autoFocus()
 status_t ExynosCameraHWInterface::cancelAutoFocus()
 {
     if (m_secCamera->cancelAutoFocus() == false) {
-        LOGE("ERR(%s):Fail on m_secCamera->cancelAutoFocus()", __func__);
+        ALOGE("ERR(%s):Fail on m_secCamera->cancelAutoFocus()", __func__);
         return UNKNOWN_ERROR;
     }
 
@@ -547,14 +547,14 @@ status_t ExynosCameraHWInterface::takePicture()
 {
     Mutex::Autolock lock(m_stateLock);
     if (m_captureInProgress == true) {
-        LOGE("%s : capture already in progress", __func__);
+        ALOGE("%s : capture already in progress", __func__);
         return INVALID_OPERATION;
     }
 
     if (m_pictureRunning == false) {
-        LOGI("%s(%d): m_pictureRunning is false", __func__, __LINE__);
+        ALOGI("%s(%d): m_pictureRunning is false", __func__, __LINE__);
         if (m_startPictureInternal() == false) {
-            LOGE("%s(%d): m_startPictureInternal() fail!!!", __func__, __LINE__);
+            ALOGE("%s(%d): m_startPictureInternal() fail!!!", __func__, __LINE__);
             return INVALID_OPERATION;
         }
     }
@@ -564,7 +564,7 @@ status_t ExynosCameraHWInterface::takePicture()
     m_pictureLock.unlock();
 
     if (m_pictureThread->run("CameraPictureThread", PRIORITY_DEFAULT) != NO_ERROR) {
-        LOGE("%s : couldn't run picture thread", __func__);
+        ALOGE("%s : couldn't run picture thread", __func__);
         return INVALID_OPERATION;
     }
 
@@ -573,12 +573,12 @@ status_t ExynosCameraHWInterface::takePicture()
 
 status_t ExynosCameraHWInterface::cancelPicture()
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
 
     if (m_pictureThread.get()) {
-        LOGV("DEBUG(%s):waiting for picture thread to exit", __func__);
+        ALOGV("DEBUG(%s):waiting for picture thread to exit", __func__);
         m_pictureThread->requestExitAndWait();
-        LOGV("DEBUG(%s):picture thread has exited", __func__);
+        ALOGV("DEBUG(%s):picture thread has exited", __func__);
     }
 
     return NO_ERROR;
@@ -586,7 +586,7 @@ status_t ExynosCameraHWInterface::cancelPicture()
 
 status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
 
     status_t ret = NO_ERROR;
 
@@ -652,7 +652,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
     newPreviewH = newCalPreviewH;
 
     const char *strNewPreviewFormat = params.getPreviewFormat();
-    LOGV("DEBUG(%s):newPreviewW x newPreviewH = %dx%d, format = %s",
+    ALOGV("DEBUG(%s):newPreviewW x newPreviewH = %dx%d, format = %s",
          __func__, newPreviewW, newPreviewH, strNewPreviewFormat);
 
     if (0 < newPreviewW &&
@@ -689,40 +689,40 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
             curPreviewFormat != newPreviewFormat) {
             if (   m_secCamera->setPreviewSize(newPreviewW, newPreviewH) == false
                 || m_secCamera->setPreviewFormat(newPreviewFormat) == false) {
-                LOGE("ERR(%s):Fail on m_secCamera->setPreviewSize(width(%d), height(%d), format(%d))",
+                ALOGE("ERR(%s):Fail on m_secCamera->setPreviewSize(width(%d), height(%d), format(%d))",
                      __func__, newPreviewW, newPreviewH, newPreviewFormat);
                 ret = UNKNOWN_ERROR;
             } else {
                 if (m_previewWindow) {
                     if (m_previewRunning == true && m_previewStartDeferred == false) {
-                        LOGE("ERR(%s):preview is running, cannot change size and format!", __func__);
+                        ALOGE("ERR(%s):preview is running, cannot change size and format!", __func__);
                         ret = INVALID_OPERATION;
                     }
 
-                    LOGV("DEBUG(%s):m_previewWindow (%p) set_buffers_geometry", __func__, m_previewWindow);
-                    LOGV("DEBUG(%s):m_previewWindow->set_buffers_geometry (%p)", __func__,
+                    ALOGV("DEBUG(%s):m_previewWindow (%p) set_buffers_geometry", __func__, m_previewWindow);
+                    ALOGV("DEBUG(%s):m_previewWindow->set_buffers_geometry (%p)", __func__,
                          m_previewWindow->set_buffers_geometry);
                     m_previewWindow->set_buffers_geometry(m_previewWindow,
                                                          newPreviewW, newPreviewH,
                                                          newPreviewFormat);
-                    LOGV("DEBUG(%s):DONE m_previewWindow (%p) set_buffers_geometry", __func__, m_previewWindow);
+                    ALOGV("DEBUG(%s):DONE m_previewWindow (%p) set_buffers_geometry", __func__, m_previewWindow);
                 }
                 m_params.setPreviewSize(newPreviewW, newPreviewH);
                 m_params.setPreviewFormat(strNewPreviewFormat);
             }
         }
         else {
-            LOGV("DEBUG(%s):preview size and format has not changed", __func__);
+            ALOGV("DEBUG(%s):preview size and format has not changed", __func__);
         }
     } else {
-        LOGE("ERR(%s):Invalid preview size(%dx%d)", __func__, newPreviewW, newPreviewH);
+        ALOGE("ERR(%s):Invalid preview size(%dx%d)", __func__, newPreviewW, newPreviewH);
         ret = INVALID_OPERATION;
     }
 
     int newPictureW = 0;
     int newPictureH = 0;
     params.getPictureSize(&newPictureW, &newPictureH);
-    LOGV("DEBUG(%s):newPictureW x newPictureH = %dx%d", __func__, newPictureW, newPictureH);
+    ALOGV("DEBUG(%s):newPictureW x newPictureH = %dx%d", __func__, newPictureW, newPictureH);
 
     if (0 < newPictureW && 0 < newPictureH) {
 
@@ -730,7 +730,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
         m_secCamera->getPictureSize(&orgPictureW, &orgPictureH);
 
         if (m_secCamera->setPictureSize(newPictureW, newPictureH) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setPictureSize(width(%d), height(%d))",
+            ALOGE("ERR(%s):Fail on m_secCamera->setPictureSize(width(%d), height(%d))",
                     __func__, newPictureW, newPictureH);
             ret = UNKNOWN_ERROR;
         } else {
@@ -741,10 +741,10 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
                 if (m_pictureRunning == true) {
                     if (m_stopPictureInternal() == false)
-                        LOGE("ERR(%s):m_stopPictureInternal() fail", __func__);
+                        ALOGE("ERR(%s):m_stopPictureInternal() fail", __func__);
 
                     if (m_startPictureInternal() == false)
-                        LOGE("ERR(%s):m_startPictureInternal() fail", __func__);
+                        ALOGE("ERR(%s):m_startPictureInternal() fail", __func__);
                 }
             }
             m_orgPictureRect.w = newPictureW;
@@ -755,7 +755,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
     // picture format
     const char *newPictureFormat = params.getPictureFormat();
-    LOGV("DEBUG(%s):newPictureFormat %s", __func__, newPictureFormat);
+    ALOGV("DEBUG(%s):newPictureFormat %s", __func__, newPictureFormat);
 
     if (newPictureFormat != NULL) {
         int value = 0;
@@ -785,7 +785,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
         if (value != m_secCamera->getPictureFormat()) {
             if (m_secCamera->setPictureFormat(value) == false) {
-                LOGE("ERR(%s):Fail on m_secCamera->setPictureFormat(format(%d))", __func__, value);
+                ALOGE("ERR(%s):Fail on m_secCamera->setPictureFormat(format(%d))", __func__, value);
                 ret = UNKNOWN_ERROR;
             } else {
                 m_orgPictureRect.colorFormat = value;
@@ -796,11 +796,11 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
     // JPEG image quality
     int newJpegQuality = params.getInt(CameraParameters::KEY_JPEG_QUALITY);
-    LOGV("DEBUG(%s):newJpegQuality %d", __func__, newJpegQuality);
+    ALOGV("DEBUG(%s):newJpegQuality %d", __func__, newJpegQuality);
     // we ignore bad values
     if (newJpegQuality >=1 && newJpegQuality <= 100) {
         if (m_secCamera->setJpegQuality(newJpegQuality) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setJpegQuality(quality(%d))", __func__, newJpegQuality);
+            ALOGE("ERR(%s):Fail on m_secCamera->setJpegQuality(quality(%d))", __func__, newJpegQuality);
             ret = UNKNOWN_ERROR;
         } else {
             m_params.set(CameraParameters::KEY_JPEG_QUALITY, newJpegQuality);
@@ -812,7 +812,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
     int newJpegThumbnailH = params.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT);
     if (0 <= newJpegThumbnailW && 0 <= newJpegThumbnailH) {
         if (m_secCamera->setJpegThumbnailSize(newJpegThumbnailW, newJpegThumbnailH) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setJpegThumbnailSize(width(%d), height(%d))", __func__, newJpegThumbnailW, newJpegThumbnailH);
+            ALOGE("ERR(%s):Fail on m_secCamera->setJpegThumbnailSize(width(%d), height(%d))", __func__, newJpegThumbnailW, newJpegThumbnailH);
             ret = UNKNOWN_ERROR;
         } else {
             m_params.set(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH,  newJpegThumbnailW);
@@ -822,11 +822,11 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
     // JPEG thumbnail quality
     int newJpegThumbnailQuality = params.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_QUALITY);
-    LOGV("DEBUG(%s):newJpegThumbnailQuality %d", __func__, newJpegThumbnailQuality);
+    ALOGV("DEBUG(%s):newJpegThumbnailQuality %d", __func__, newJpegThumbnailQuality);
     // we ignore bad values
     if (newJpegThumbnailQuality >=1 && newJpegThumbnailQuality <= 100) {
         if (m_secCamera->setJpegThumbnailQuality(newJpegThumbnailQuality) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setJpegThumbnailQuality(quality(%d))",
+            ALOGE("ERR(%s):Fail on m_secCamera->setJpegThumbnailQuality(quality(%d))",
                                                __func__, newJpegThumbnailQuality);
             ret = UNKNOWN_ERROR;
         } else {
@@ -838,14 +838,14 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
     int newVideoW = 0;
     int newVideoH = 0;
     params.getVideoSize(&newVideoW, &newVideoH);
-    LOGV("DEBUG(%s):newVideoW (%d) newVideoH (%d)", __func__, newVideoW, newVideoH);
+    ALOGV("DEBUG(%s):newVideoW (%d) newVideoH (%d)", __func__, newVideoW, newVideoH);
     if (0 < newVideoW && 0 < newVideoH && m_videoStart == false) {
 
         m_orgVideoRect.w = newVideoW;
         m_orgVideoRect.h = newVideoH;
 
         if (m_secCamera->setVideoSize(newVideoW, newVideoH) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setVideoSize(width(%d), height(%d))",
+            ALOGE("ERR(%s):Fail on m_secCamera->setVideoSize(width(%d), height(%d))",
             __func__, newVideoW, newVideoH);
             ret = UNKNOWN_ERROR;
         }
@@ -855,7 +855,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
     // video stablization
     const char *newVideoStabilization = params.get(CameraParameters::KEY_VIDEO_STABILIZATION);
     bool currVideoStabilization = m_secCamera->getVideoStabilization();
-    LOGV("DEBUG(%s):newVideoStabilization %s", __func__, newVideoStabilization);
+    ALOGV("DEBUG(%s):newVideoStabilization %s", __func__, newVideoStabilization);
     if (newVideoStabilization != NULL) {
         bool toggle = false;
 
@@ -864,7 +864,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
         if ( currVideoStabilization != toggle) {
             if (m_secCamera->setVideoStabilization(toggle) == false) {
-                LOGE("ERR(%s):setVideoStabilization() fail", __func__);
+                ALOGE("ERR(%s):setVideoStabilization() fail", __func__);
                 ret = UNKNOWN_ERROR;
             } else {
                 m_params.set(CameraParameters::KEY_VIDEO_STABILIZATION, newVideoStabilization);
@@ -874,7 +874,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
     // 3dnr
     const char *new3dnr = params.get("3dnr");
-    LOGV("DEBUG(%s):new3drn %s", __func__, new3dnr);
+    ALOGV("DEBUG(%s):new3drn %s", __func__, new3dnr);
     if (new3dnr != NULL) {
         bool toggle = false;
 
@@ -882,7 +882,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
             toggle = true;
 
             if (m_secCamera->set3DNR(toggle) == false) {
-                LOGE("ERR(%s):set3DNR() fail", __func__);
+                ALOGE("ERR(%s):set3DNR() fail", __func__);
                 ret = UNKNOWN_ERROR;
             } else {
                 m_params.set("3dnr", new3dnr);
@@ -891,7 +891,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
     // odc
     const char *newOdc = params.get("odc");
-    LOGV("DEBUG(%s):newOdc %s", __func__, new3dnr);
+    ALOGV("DEBUG(%s):newOdc %s", __func__, new3dnr);
     if (newOdc != NULL) {
         bool toggle = false;
 
@@ -899,7 +899,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
             toggle = true;
 
             if (m_secCamera->setODC(toggle) == false) {
-                LOGE("ERR(%s):setODC() fail", __func__);
+                ALOGE("ERR(%s):setODC() fail", __func__);
                 ret = UNKNOWN_ERROR;
             } else {
                 m_params.set("odc", newOdc);
@@ -908,12 +908,12 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
     // frame rate
     int newFrameRate = params.getPreviewFrameRate();
-    LOGV("DEBUG(%s):newFrameRate %d", __func__, newFrameRate);
+    ALOGV("DEBUG(%s):newFrameRate %d", __func__, newFrameRate);
     // ignore any fps request, we're determine fps automatically based
     // on scene mode.  don't return an error because it causes CTS failure.
     if (newFrameRate != m_params.getPreviewFrameRate()) {
         if (m_secCamera->setPreviewFrameRate(newFrameRate) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setPreviewFrameRate(%d)", __func__, newFrameRate);
+            ALOGE("ERR(%s):Fail on m_secCamera->setPreviewFrameRate(%d)", __func__, newFrameRate);
             ret = UNKNOWN_ERROR;
         } else {
             m_params.setPreviewFrameRate(newFrameRate);
@@ -922,10 +922,10 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
     // zoom
     int newZoom = params.getInt(CameraParameters::KEY_ZOOM);
-    LOGV("DEBUG(%s):newZoom %d", __func__, newZoom);
+    ALOGV("DEBUG(%s):newZoom %d", __func__, newZoom);
     if (0 <= newZoom) {
         if (m_secCamera->setZoom(newZoom) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setZoom(newZoom(%d))", __func__, newZoom);
+            ALOGE("ERR(%s):Fail on m_secCamera->setZoom(newZoom(%d))", __func__, newZoom);
             ret = UNKNOWN_ERROR;
         }
         else {
@@ -935,11 +935,11 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
     // rotation
     int newRotation = params.getInt(CameraParameters::KEY_ROTATION);
-    LOGV("DEBUG(%s):newRotation %d", __func__, newRotation);
+    ALOGV("DEBUG(%s):newRotation %d", __func__, newRotation);
     if (0 <= newRotation) {
-        LOGV("DEBUG(%s):set orientation:%d", __func__, newRotation);
+        ALOGV("DEBUG(%s):set orientation:%d", __func__, newRotation);
         if (m_secCamera->setRotation(newRotation) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setRotation(%d)", __func__, newRotation);
+            ALOGE("ERR(%s):Fail on m_secCamera->setRotation(%d)", __func__, newRotation);
             ret = UNKNOWN_ERROR;
         } else {
             m_params.set(CameraParameters::KEY_ROTATION, newRotation);
@@ -955,7 +955,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
             toggle = true;
 
         if (m_secCamera->setAutoExposureLock(toggle) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setAutoExposureLock()", __func__);
+            ALOGE("ERR(%s):Fail on m_secCamera->setAutoExposureLock()", __func__);
             ret = UNKNOWN_ERROR;
         } else {
             m_params.set(CameraParameters::KEY_AUTO_EXPOSURE_LOCK, newAutoExposureLock);
@@ -966,11 +966,11 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
     int minExposureCompensation = params.getInt(CameraParameters::KEY_MIN_EXPOSURE_COMPENSATION);
     int maxExposureCompensation = params.getInt(CameraParameters::KEY_MAX_EXPOSURE_COMPENSATION);
     int newExposureCompensation = params.getInt(CameraParameters::KEY_EXPOSURE_COMPENSATION);
-    LOGV("DEBUG(%s):newExposureCompensation %d", __func__, newExposureCompensation);
+    ALOGV("DEBUG(%s):newExposureCompensation %d", __func__, newExposureCompensation);
     if ((minExposureCompensation <= newExposureCompensation) &&
         (newExposureCompensation <= maxExposureCompensation)) {
         if (m_secCamera->setExposureCompensation(newExposureCompensation) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setExposureCompensation(exposure(%d))", __func__, newExposureCompensation);
+            ALOGE("ERR(%s):Fail on m_secCamera->setExposureCompensation(exposure(%d))", __func__, newExposureCompensation);
             ret = UNKNOWN_ERROR;
         } else {
             m_params.set(CameraParameters::KEY_EXPOSURE_COMPENSATION, newExposureCompensation);
@@ -986,7 +986,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
             toggle = true;
 
         if (m_secCamera->setAutoWhiteBalanceLock(toggle) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setAutoWhiteBalanceLock()", __func__);
+            ALOGE("ERR(%s):Fail on m_secCamera->setAutoWhiteBalanceLock()", __func__);
             ret = UNKNOWN_ERROR;
         } else {
             m_params.set(CameraParameters::KEY_AUTO_WHITEBALANCE_LOCK, newAutoWhitebalanceLock);
@@ -995,7 +995,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
     // white balance
     const char *newWhiteBalance = params.get(CameraParameters::KEY_WHITE_BALANCE);
-    LOGV("DEBUG(%s):newWhiteBalance %s", __func__, newWhiteBalance);
+    ALOGV("DEBUG(%s):newWhiteBalance %s", __func__, newWhiteBalance);
     if (newWhiteBalance != NULL) {
         int value = -1;
 
@@ -1016,13 +1016,13 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
         else if (!strcmp(newWhiteBalance, CameraParameters::WHITE_BALANCE_SHADE))
             value = ExynosCamera::WHITE_BALANCE_SHADE;
         else {
-            LOGE("ERR(%s):Invalid white balance(%s)", __func__, newWhiteBalance); //twilight, shade, warm_flourescent
+            ALOGE("ERR(%s):Invalid white balance(%s)", __func__, newWhiteBalance); //twilight, shade, warm_flourescent
             ret = UNKNOWN_ERROR;
         }
 
         if (0 <= value) {
             if (m_secCamera->setWhiteBalance(value) == false) {
-                LOGE("ERR(%s):Fail on m_secCamera->setWhiteBalance(white(%d))", __func__, value);
+                ALOGE("ERR(%s):Fail on m_secCamera->setWhiteBalance(white(%d))", __func__, value);
                 ret = UNKNOWN_ERROR;
             } else {
                 m_params.set(CameraParameters::KEY_WHITE_BALANCE, newWhiteBalance);
@@ -1034,7 +1034,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
     // This is the additional API(not Google API).
     // But, This is set berfore the below KEY_METERING_AREAS.
     const char *strNewMetering = params.get("metering");
-    LOGV("DEBUG(%s):strNewMetering %s", __func__, strNewMetering);
+    ALOGV("DEBUG(%s):strNewMetering %s", __func__, strNewMetering);
     if (strNewMetering != NULL) {
         int newMetering = -1;
 
@@ -1047,13 +1047,13 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
         else if (!strcmp(strNewMetering, "spot"))
             newMetering = ExynosCamera::METERING_MODE_SPOT;
         else {
-            LOGE("ERR(%s):Invalid metering newMetering(%s)", __func__, strNewMetering);
+            ALOGE("ERR(%s):Invalid metering newMetering(%s)", __func__, strNewMetering);
             ret = UNKNOWN_ERROR;
         }
 
         if (0 <= newMetering) {
             if (m_secCamera->setMeteringMode(newMetering) == false) {
-                LOGE("ERR(%s):Fail on m_secCamera->setMeteringMode(%d)", __func__, newMetering);
+                ALOGE("ERR(%s):Fail on m_secCamera->setMeteringMode(%d)", __func__, newMetering);
                 ret = UNKNOWN_ERROR;
             } else {
                 m_params.set("metering", strNewMetering);
@@ -1080,7 +1080,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
             }
 
             if (m_secCamera->setMeteringAreas(validMeteringAreas, rect2s, weights) == false) {
-                LOGE("ERR(%s):setMeteringAreas(%s) fail", __func__, newMeteringAreas);
+                ALOGE("ERR(%s):setMeteringAreas(%s) fail", __func__, newMeteringAreas);
                 ret = UNKNOWN_ERROR;
             }
             else {
@@ -1094,7 +1094,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
     // anti banding
     const char *newAntibanding = params.get(CameraParameters::KEY_ANTIBANDING);
-    LOGV("DEBUG(%s):newAntibanding %s", __func__, newAntibanding);
+    ALOGV("DEBUG(%s):newAntibanding %s", __func__, newAntibanding);
     if (newAntibanding != NULL) {
         int value = -1;
 
@@ -1107,13 +1107,13 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
         else if (!strcmp(newAntibanding, CameraParameters::ANTIBANDING_OFF))
             value = ExynosCamera::ANTIBANDING_OFF;
         else {
-            LOGE("ERR(%s):Invalid antibanding value(%s)", __func__, newAntibanding);
+            ALOGE("ERR(%s):Invalid antibanding value(%s)", __func__, newAntibanding);
             ret = UNKNOWN_ERROR;
         }
 
         if (0 <= value) {
             if (m_secCamera->setAntibanding(value) == false) {
-                LOGE("ERR(%s):Fail on m_secCamera->setAntibanding(%d)", __func__, value);
+                ALOGE("ERR(%s):Fail on m_secCamera->setAntibanding(%d)", __func__, value);
                 ret = UNKNOWN_ERROR;
             } else {
                 m_params.set(CameraParameters::KEY_ANTIBANDING, newAntibanding);
@@ -1139,9 +1139,9 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
     if (strNewSceneMode && strCurSceneMode) {
         if (!strcmp(strNewSceneMode, strCurSceneMode)) {
             if ((newMinFps != curMinFps) || (newMaxFps != curMaxFps)) {
-                LOGW("%s : requested newMinFps = %d, newMaxFps = %d not allowed",
+                ALOGW("%s : requested newMinFps = %d, newMaxFps = %d not allowed",
                         __func__, newMinFps, newMaxFps);
-                LOGE("%s : curMinFps = %d, curMaxFps = %d",
+                ALOGE("%s : curMinFps = %d, curMaxFps = %d",
                         __func__, curMinFps, curMaxFps);
                 ret = UNKNOWN_ERROR;
             }
@@ -1205,7 +1205,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
             } else if (!strcmp(strNewSceneMode, CameraParameters::SCENE_MODE_CANDLELIGHT)) {
                 newSceneMode = ExynosCamera::SCENE_MODE_CANDLELIGHT;
             } else {
-                LOGE("ERR(%s):unmatched scene_mode(%s)",
+                ALOGE("ERR(%s):unmatched scene_mode(%s)",
                         __func__, strNewSceneMode); //action, night-portrait, theatre, steadyphoto
                 ret = UNKNOWN_ERROR;
             }
@@ -1236,13 +1236,13 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
             } else if (!strcmp(strNewFocusMode, CameraParameters::FOCUS_MODE_CONTINUOUS_PICTURE)) {
                 newFocusMode = ExynosCamera::FOCUS_MODE_CONTINUOUS_PICTURE;
             } else {
-                LOGE("ERR(%s):unmatched focus_mode(%s)", __func__, strNewFocusMode);
+                ALOGE("ERR(%s):unmatched focus_mode(%s)", __func__, strNewFocusMode);
                 ret = UNKNOWN_ERROR;
             }
 
             if (0 <= newFocusMode) {
                 if (m_secCamera->setFocusMode(newFocusMode) == false) {
-                    LOGE("ERR(%s):m_secCamera->setFocusMode(%d) fail", __func__, newFocusMode);
+                    ALOGE("ERR(%s):m_secCamera->setFocusMode(%d) fail", __func__, newFocusMode);
                     ret = UNKNOWN_ERROR;
                 } else {
                     m_params.set(CameraParameters::KEY_FOCUS_MODE, strNewFocusMode);
@@ -1265,12 +1265,12 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
             else if (!strcmp(strNewFlashMode, CameraParameters::FLASH_MODE_TORCH))
                 newFlashMode = ExynosCamera::FLASH_MODE_TORCH;
             else {
-                LOGE("ERR(%s):unmatched flash_mode(%s)", __func__, strNewFlashMode); //red-eye
+                ALOGE("ERR(%s):unmatched flash_mode(%s)", __func__, strNewFlashMode); //red-eye
                 ret = UNKNOWN_ERROR;
             }
             if (0 <= newFlashMode) {
                 if (m_secCamera->setFlashMode(newFlashMode) == false) {
-                    LOGE("ERR(%s):m_secCamera->setFlashMode(%d) fail", __func__, newFlashMode);
+                    ALOGE("ERR(%s):m_secCamera->setFlashMode(%d) fail", __func__, newFlashMode);
                     ret = UNKNOWN_ERROR;
                 } else {
                     m_params.set(CameraParameters::KEY_FLASH_MODE, strNewFlashMode);
@@ -1281,7 +1281,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
         // scene mode
         if (0 <= newSceneMode) {
             if (m_secCamera->setSceneMode(newSceneMode) == false) {
-                LOGE("ERR(%s):m_secCamera->setSceneMode(%d) fail", __func__, newSceneMode);
+                ALOGE("ERR(%s):m_secCamera->setSceneMode(%d) fail", __func__, newSceneMode);
                 ret = UNKNOWN_ERROR;
             } else {
                 m_params.set(CameraParameters::KEY_SCENE_MODE, strNewSceneMode);
@@ -1331,7 +1331,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
                     }
 
                     if (m_secCamera->setFocusAreas(validFocusedAreas, rect2s, weights) == false) {
-                        LOGE("ERR(%s):setFocusAreas(%s) fail", __func__, newFocusAreas);
+                        ALOGE("ERR(%s):setFocusAreas(%s) fail", __func__, newFocusAreas);
                         ret = UNKNOWN_ERROR;
                     } else {
                         m_params.set(CameraParameters::KEY_FOCUS_AREAS, newFocusAreas);
@@ -1369,13 +1369,13 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
         } else if (!strcmp(strNewEffect, CameraParameters::EFFECT_AQUA)) {
             newEffect = ExynosCamera::EFFECT_AQUA;
         } else {
-            LOGE("ERR(%s):Invalid effect(%s)", __func__, strNewEffect);
+            ALOGE("ERR(%s):Invalid effect(%s)", __func__, strNewEffect);
             ret = UNKNOWN_ERROR;
         }
 
         if (0 <= newEffect) {
             if (m_secCamera->setColorEffect(newEffect) == false) {
-                LOGE("ERR(%s):Fail on m_secCamera->setColorEffect(effect(%d))", __func__, newEffect);
+                ALOGE("ERR(%s):Fail on m_secCamera->setColorEffect(effect(%d))", __func__, newEffect);
                 ret = UNKNOWN_ERROR;
             } else {
                 const char *oldStrEffect = m_params.get(CameraParameters::KEY_EFFECT);
@@ -1394,7 +1394,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
     const char *strNewGpsAltitude = params.get(CameraParameters::KEY_GPS_ALTITUDE);
 
     if (m_secCamera->setGpsAltitude(strNewGpsAltitude) == false) {
-        LOGE("ERR(%s):m_secCamera->setGpsAltitude(%s) fail", __func__, strNewGpsAltitude);
+        ALOGE("ERR(%s):m_secCamera->setGpsAltitude(%s) fail", __func__, strNewGpsAltitude);
         ret = UNKNOWN_ERROR;
     } else {
         if (strNewGpsAltitude)
@@ -1406,7 +1406,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
     // gps latitude
     const char *strNewGpsLatitude = params.get(CameraParameters::KEY_GPS_LATITUDE);
     if (m_secCamera->setGpsLatitude(strNewGpsLatitude) == false) {
-        LOGE("ERR(%s):m_secCamera->setGpsLatitude(%s) fail", __func__, strNewGpsLatitude);
+        ALOGE("ERR(%s):m_secCamera->setGpsLatitude(%s) fail", __func__, strNewGpsLatitude);
         ret = UNKNOWN_ERROR;
     } else {
         if (strNewGpsLatitude)
@@ -1418,7 +1418,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
     // gps longitude
     const char *strNewGpsLongtitude = params.get(CameraParameters::KEY_GPS_LONGITUDE);
     if (m_secCamera->setGpsLongitude(strNewGpsLongtitude) == false) {
-        LOGE("ERR(%s):m_secCamera->setGpsLongitude(%s) fail", __func__, strNewGpsLongtitude);
+        ALOGE("ERR(%s):m_secCamera->setGpsLongitude(%s) fail", __func__, strNewGpsLongtitude);
         ret = UNKNOWN_ERROR;
     } else {
         if (strNewGpsLongtitude)
@@ -1431,7 +1431,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
     const char *strNewGpsProcessingMethod = params.get(CameraParameters::KEY_GPS_PROCESSING_METHOD);
 
     if (m_secCamera->setGpsProcessingMethod(strNewGpsProcessingMethod) == false) {
-        LOGE("ERR(%s):m_secCamera->setGpsProcessingMethod(%s) fail", __func__, strNewGpsProcessingMethod);
+        ALOGE("ERR(%s):m_secCamera->setGpsProcessingMethod(%s) fail", __func__, strNewGpsProcessingMethod);
         ret = UNKNOWN_ERROR;
     } else {
         if (strNewGpsProcessingMethod)
@@ -1443,7 +1443,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
     // gps timestamp
     const char *strNewGpsTimestamp = params.get(CameraParameters::KEY_GPS_TIMESTAMP);
     if (m_secCamera->setGpsTimeStamp(strNewGpsTimestamp) == false) {
-        LOGE("ERR(%s):m_secCamera->setGpsTimeStamp(%s) fail", __func__, strNewGpsTimestamp);
+        ALOGE("ERR(%s):m_secCamera->setGpsTimeStamp(%s) fail", __func__, strNewGpsTimestamp);
         ret = UNKNOWN_ERROR;
     } else {
         if (strNewGpsTimestamp)
@@ -1459,10 +1459,10 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
     int newBrightness = params.getInt("brightness");
     int maxBrightness = params.getInt("brightness-max");
     int minBrightness = params.getInt("brightness-min");
-    LOGV("DEBUG(%s):newBrightness %d", __func__, newBrightness);
+    ALOGV("DEBUG(%s):newBrightness %d", __func__, newBrightness);
     if ((minBrightness <= newBrightness) && (newBrightness <= maxBrightness)) {
         if (m_secCamera->setBrightness(newBrightness) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setBrightness(%d)", __func__, newBrightness);
+            ALOGE("ERR(%s):Fail on m_secCamera->setBrightness(%d)", __func__, newBrightness);
             ret = UNKNOWN_ERROR;
         } else {
             m_params.set("brightness", newBrightness);
@@ -1473,10 +1473,10 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
     int newSaturation = params.getInt("saturation");
     int maxSaturation = params.getInt("saturation-max");
     int minSaturation = params.getInt("saturation-min");
-    LOGV("DEBUG(%s):newSaturation %d", __func__, newSaturation);
+    ALOGV("DEBUG(%s):newSaturation %d", __func__, newSaturation);
     if ((minSaturation <= newSaturation) && (newSaturation <= maxSaturation)) {
         if (m_secCamera->setSaturation(newSaturation) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setSaturation(%d)", __func__, newSaturation);
+            ALOGE("ERR(%s):Fail on m_secCamera->setSaturation(%d)", __func__, newSaturation);
             ret = UNKNOWN_ERROR;
         } else {
             m_params.set("saturation", newSaturation);
@@ -1487,10 +1487,10 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
     int newSharpness = params.getInt("sharpness");
     int maxSharpness = params.getInt("sharpness-max");
     int minSharpness = params.getInt("sharpness-min");
-    LOGV("DEBUG(%s):newSharpness %d", __func__, newSharpness);
+    ALOGV("DEBUG(%s):newSharpness %d", __func__, newSharpness);
     if ((minSharpness <= newSharpness) && (newSharpness <= maxSharpness)) {
         if (m_secCamera->setSharpness(newSharpness) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setSharpness(%d)", __func__, newSharpness);
+            ALOGE("ERR(%s):Fail on m_secCamera->setSharpness(%d)", __func__, newSharpness);
             ret = UNKNOWN_ERROR;
         } else {
             m_params.set("sharpness", newSharpness);
@@ -1501,10 +1501,10 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
     int newHue = params.getInt("hue");
     int maxHue = params.getInt("hue-max");
     int minHue = params.getInt("hue-min");
-    LOGV("DEBUG(%s):newHue %d", __func__, newHue);
+    ALOGV("DEBUG(%s):newHue %d", __func__, newHue);
     if ((minHue <= newHue) && (maxHue >= newHue)) {
         if (m_secCamera->setHue(newHue) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setHue(hue(%d))", __func__, newHue);
+            ALOGE("ERR(%s):Fail on m_secCamera->setHue(hue(%d))", __func__, newHue);
             ret = UNKNOWN_ERROR;
         } else {
             m_params.set("hue", newHue);
@@ -1513,7 +1513,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
     // ISO
     const char *strNewISO = params.get("iso");
-    LOGV("DEBUG(%s):strNewISO %s", __func__, strNewISO);
+    ALOGV("DEBUG(%s):strNewISO %s", __func__, strNewISO);
     if (strNewISO != NULL) {
         int newISO = -1;
 
@@ -1522,14 +1522,14 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
         else {
             newISO = (int)atoi(strNewISO);
             if (newISO == 0) {
-                LOGE("ERR(%s):Invalid iso value(%s)", __func__, strNewISO);
+                ALOGE("ERR(%s):Invalid iso value(%s)", __func__, strNewISO);
                 ret = UNKNOWN_ERROR;
             }
         }
 
         if (0 <= newISO) {
             if (m_secCamera->setISO(newISO) == false) {
-                LOGE("ERR(%s):Fail on m_secCamera->setISO(iso(%d))", __func__, newISO);
+                ALOGE("ERR(%s):Fail on m_secCamera->setISO(iso(%d))", __func__, newISO);
                 ret = UNKNOWN_ERROR;
             } else {
                 m_params.set("iso", strNewISO);
@@ -1539,7 +1539,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
     //contrast
     const char *strNewContrast = params.get("contrast");
-    LOGV("DEBUG(%s):strNewContrast %s", __func__, strNewContrast);
+    ALOGV("DEBUG(%s):strNewContrast %s", __func__, strNewContrast);
     if (strNewContrast != NULL) {
         int newContrast = -1;
 
@@ -1556,13 +1556,13 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
         else if (!strcmp(strNewContrast, "2"))
             newContrast = ExynosCamera::CONTRAST_PLUS_2;
         else {
-            LOGE("ERR(%s):Invalid contrast value(%s)", __func__, strNewContrast);
+            ALOGE("ERR(%s):Invalid contrast value(%s)", __func__, strNewContrast);
             ret = UNKNOWN_ERROR;
         }
 
         if (0 <= newContrast) {
             if (m_secCamera->setContrast(newContrast) == false) {
-                LOGE("ERR(%s):Fail on m_secCamera->setContrast(contrast(%d))", __func__, newContrast);
+                ALOGE("ERR(%s):Fail on m_secCamera->setContrast(contrast(%d))", __func__, newContrast);
                 ret = UNKNOWN_ERROR;
             } else {
                 m_params.set("contrast", strNewContrast);
@@ -1572,31 +1572,31 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
     //WDR
     int newWdr = params.getInt("wdr");
-    LOGV("DEBUG(%s):newWdr %d", __func__, newWdr);
+    ALOGV("DEBUG(%s):newWdr %d", __func__, newWdr);
     if (0 <= newWdr) {
         if (m_secCamera->setWDR(newWdr) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setWDR(%d)", __func__, newWdr);
+            ALOGE("ERR(%s):Fail on m_secCamera->setWDR(%d)", __func__, newWdr);
             ret = UNKNOWN_ERROR;
         }
     }
 
     //anti shake
     int newAntiShake = m_internalParams.getInt("anti-shake");
-    LOGV("DEBUG(%s):newAntiShake %d", __func__, newAntiShake);
+    ALOGV("DEBUG(%s):newAntiShake %d", __func__, newAntiShake);
     if (0 <= newAntiShake) {
         bool toggle = false;
         if (newAntiShake == 1)
             toggle = true;
 
         if (m_secCamera->setAntiShake(toggle) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setAntiShake(%d)", __func__, newAntiShake);
+            ALOGE("ERR(%s):Fail on m_secCamera->setAntiShake(%d)", __func__, newAntiShake);
             ret = UNKNOWN_ERROR;
         }
     }
 
     //gamma
     const char *strNewGamma = m_internalParams.get("video_recording_gamma");
-    LOGV("DEBUG(%s):strNewGamma %s", __func__, strNewGamma);
+    ALOGV("DEBUG(%s):strNewGamma %s", __func__, strNewGamma);
     if (strNewGamma != NULL) {
         int newGamma = -1;
         if (!strcmp(strNewGamma, "off"))
@@ -1604,7 +1604,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
         else if (!strcmp(strNewGamma, "on"))
             newGamma = 1;
         else {
-            LOGE("ERR(%s):unmatched gamma(%s)", __func__, strNewGamma);
+            ALOGE("ERR(%s):unmatched gamma(%s)", __func__, strNewGamma);
             ret = UNKNOWN_ERROR;
         }
 
@@ -1614,7 +1614,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
                 toggle = true;
 
             if (m_secCamera->setGamma(toggle) == false) {
-                LOGE("ERR(%s):m_secCamera->setGamma(%s) fail", __func__, strNewGamma);
+                ALOGE("ERR(%s):m_secCamera->setGamma(%s) fail", __func__, strNewGamma);
                 ret = UNKNOWN_ERROR;
             }
         }
@@ -1622,7 +1622,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
     //slow ae
     const char *strNewSlowAe = m_internalParams.get("slow_ae");
-    LOGV("DEBUG(%s):strNewSlowAe %s", __func__, strNewSlowAe);
+    ALOGV("DEBUG(%s):strNewSlowAe %s", __func__, strNewSlowAe);
     if (strNewSlowAe != NULL) {
         int newSlowAe = -1;
 
@@ -1631,7 +1631,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
         else if (!strcmp(strNewSlowAe, "on"))
             newSlowAe = 1;
         else {
-            LOGE("ERR(%s):unmatched slow_ae(%s)", __func__, strNewSlowAe);
+            ALOGE("ERR(%s):unmatched slow_ae(%s)", __func__, strNewSlowAe);
             ret = UNKNOWN_ERROR;
         }
 
@@ -1640,7 +1640,7 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
             if (newSlowAe == 1)
                 toggle = true;
             if (m_secCamera->setSlowAE(newSlowAe) == false) {
-                LOGE("ERR(%s):m_secCamera->setSlowAE(%d) fail", __func__, newSlowAe);
+                ALOGE("ERR(%s):m_secCamera->setSlowAE(%d) fail", __func__, newSlowAe);
                 ret = UNKNOWN_ERROR;
             }
         }
@@ -1648,24 +1648,24 @@ status_t ExynosCameraHWInterface::setParameters(const CameraParameters& params)
 
     // Shot mode
     int newShotMode = m_internalParams.getInt("shot_mode");
-    LOGV("DEBUG(%s):newShotMode %d", __func__, newShotMode);
+    ALOGV("DEBUG(%s):newShotMode %d", __func__, newShotMode);
     if (0 <= newShotMode) {
         if (m_secCamera->setShotMode(newShotMode) == false) {
-            LOGE("ERR(%s):Fail on m_secCamera->setShotMode(%d)", __func__, newShotMode);
+            ALOGE("ERR(%s):Fail on m_secCamera->setShotMode(%d)", __func__, newShotMode);
             ret = UNKNOWN_ERROR;
         }
     } else {
         newShotMode=0;
     }
 
-    LOGV("DEBUG(%s):return ret = %d", __func__, ret);
+    ALOGV("DEBUG(%s):return ret = %d", __func__, ret);
 
     return ret;
 }
 
 CameraParameters ExynosCameraHWInterface::getParameters() const
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     return m_params;
 }
 
@@ -1675,31 +1675,31 @@ status_t ExynosCameraHWInterface::sendCommand(int32_t command, int32_t arg1, int
     case CAMERA_CMD_START_FACE_DETECTION:
     case CAMERA_CMD_STOP_FACE_DETECTION:
         if (m_secCamera->getMaxNumDetectedFaces() == 0) {
-            LOGE("ERR(%s):getMaxNumDetectedFaces == 0", __func__);
+            ALOGE("ERR(%s):getMaxNumDetectedFaces == 0", __func__);
             return BAD_VALUE;
         }
 
         if (arg1 == CAMERA_FACE_DETECTION_SW) {
-            LOGE("ERR(%s):only support HW face dectection", __func__);
+            ALOGE("ERR(%s):only support HW face dectection", __func__);
             return BAD_VALUE;
         }
 
         if (command == CAMERA_CMD_START_FACE_DETECTION) {
             if (   m_secCamera->flagStartFaceDetection() == false
                 && m_secCamera->startFaceDetection() == false) {
-                LOGE("ERR(%s):startFaceDetection() fail", __func__);
+                ALOGE("ERR(%s):startFaceDetection() fail", __func__);
                 return BAD_VALUE;
             }
         } else { // if (command == CAMERA_CMD_STOP_FACE_DETECTION)
             if (   m_secCamera->flagStartFaceDetection() == true
                 && m_secCamera->stopFaceDetection() == false) {
-                LOGE("ERR(%s):stopFaceDetection() fail", __func__);
+                ALOGE("ERR(%s):stopFaceDetection() fail", __func__);
                 return BAD_VALUE;
             }
         }
         break;
     default:
-        LOGE("ERR(%s):unexpectect command(%d) fail", __func__, command);
+        ALOGE("ERR(%s):unexpectect command(%d) fail", __func__, command);
         return BAD_VALUE;
         break;
     }
@@ -1708,7 +1708,7 @@ status_t ExynosCameraHWInterface::sendCommand(int32_t command, int32_t arg1, int
 
 void ExynosCameraHWInterface::release()
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
 
     /* shut down any threads we have that might be running.  do it here
      * instead of the destructor.  we're guaranteed to be on another thread
@@ -1777,7 +1777,7 @@ void ExynosCameraHWInterface::release()
 
     if (m_pictureRunning == true) {
         if (m_stopPictureInternal() == false)
-            LOGE("ERR(%s):m_stopPictureInternal() fail", __func__);
+            ALOGE("ERR(%s):m_stopPictureInternal() fail", __func__);
     }
 
     if (m_exynosVideoCSC)
@@ -1827,7 +1827,7 @@ int ExynosCameraHWInterface::getCameraId() const
 void ExynosCameraHWInterface::m_initDefaultParameters(int cameraId)
 {
     if (m_secCamera == NULL) {
-        LOGE("ERR(%s):m_secCamera object is NULL", __func__);
+        ALOGE("ERR(%s):m_secCamera object is NULL", __func__);
         return;
     }
 
@@ -1839,7 +1839,7 @@ void ExynosCameraHWInterface::m_initDefaultParameters(int cameraId)
     char * cameraName;
     cameraName = m_secCamera->getCameraName();
     if (cameraName == NULL)
-        LOGE("ERR(%s):getCameraName() fail", __func__);
+        ALOGE("ERR(%s):getCameraName() fail", __func__);
 
     /*
     if (cameraId == ExynosCamera::CAMERA_ID_BACK) {
@@ -1869,7 +1869,7 @@ void ExynosCameraHWInterface::m_initDefaultParameters(int cameraId)
 
     listString.setTo("");
     if (m_getResolutionList(listString, strBuf, previewMaxW, previewMaxH) == false) {
-        LOGE("ERR(%s):m_getResolutionList() fail", __func__);
+        ALOGE("ERR(%s):m_getResolutionList() fail", __func__);
 
         previewMaxW = 640;
         previewMaxH = 480;
@@ -1892,7 +1892,7 @@ void ExynosCameraHWInterface::m_initDefaultParameters(int cameraId)
 
     listString.setTo("");
     if (m_getResolutionList(listString, strBuf, videoMaxW, videoMaxH) == false) {
-        LOGE("ERR(%s):m_getResolutionList() fail", __func__);
+        ALOGE("ERR(%s):m_getResolutionList() fail", __func__);
 
         videoMaxW = 640;
         videoMaxH = 480;
@@ -1926,7 +1926,7 @@ void ExynosCameraHWInterface::m_initDefaultParameters(int cameraId)
 
     listString.setTo("");
     if (m_getResolutionList(listString, strBuf, pictureMaxW, pictureMaxH) == false) {
-        LOGE("ERR(%s):m_getResolutionList() fail", __func__);
+        ALOGE("ERR(%s):m_getResolutionList() fail", __func__);
 
         pictureMaxW = 640;
         pictureMaxW = 480;
@@ -2368,7 +2368,7 @@ void ExynosCameraHWInterface::m_initDefaultParameters(int cameraId)
 
 bool ExynosCameraHWInterface::m_startPreviewInternal(void)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
 
     int i;
     int previewW, previewH, previewFormat, previewFramesize;
@@ -2390,11 +2390,11 @@ bool ExynosCameraHWInterface::m_startPreviewInternal(void)
         m_avaliblePreviewBufHandle[i] = false;
 
         if (m_previewWindow->dequeue_buffer(m_previewWindow, &m_previewBufHandle[i], &m_previewStride[i]) != 0) {
-            LOGE("ERR(%s):Could not dequeue gralloc buffer[%d]!!", __func__, i);
+            ALOGE("ERR(%s):Could not dequeue gralloc buffer[%d]!!", __func__, i);
             continue;
         } else {
              if (m_previewWindow->lock_buffer(m_previewWindow, m_previewBufHandle[i]) != 0)
-                 LOGE("ERR(%s):Could not lock gralloc buffer[%d]!!", __func__, i);
+                 ALOGE("ERR(%s):Could not lock gralloc buffer[%d]!!", __func__, i);
         }
 
         if (m_flagGrallocLocked[i] == false) {
@@ -2402,10 +2402,10 @@ bool ExynosCameraHWInterface::m_startPreviewInternal(void)
                                    *m_previewBufHandle[i],
                                    GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_YUV_ADDR,
                                    0, 0, previewW, previewH, virtAddr) != 0) {
-                LOGE("ERR(%s):could not obtain gralloc buffer", __func__);
+                ALOGE("ERR(%s):could not obtain gralloc buffer", __func__);
 
                 if (m_previewWindow->cancel_buffer(m_previewWindow, m_previewBufHandle[i]) != 0)
-                    LOGE("ERR(%s):Could not cancel_buffer gralloc buffer[%d]!!", __func__, i);
+                    ALOGE("ERR(%s):Could not cancel_buffer gralloc buffer[%d]!!", __func__, i);
 
                 continue;
             }
@@ -2431,7 +2431,7 @@ bool ExynosCameraHWInterface::m_startPreviewInternal(void)
 
         m_previewHeap[i] = m_getMemoryCb(-1, previewFramesize, 1, 0);
         if (!m_previewHeap[i]) {
-            LOGE("ERR(%s):m_getMemoryCb(m_previewHeap[%d], size(%d) fail", __func__, i, previewFramesize);
+            ALOGE("ERR(%s):m_getMemoryCb(m_previewHeap[%d], size(%d) fail", __func__, i, previewFramesize);
             continue;
         }
 
@@ -2439,13 +2439,13 @@ bool ExynosCameraHWInterface::m_startPreviewInternal(void)
     }
 
     if (m_secCamera->startPreview() == false) {
-        LOGE("ERR(%s):Fail on m_secCamera->startPreview()", __func__);
+        ALOGE("ERR(%s):Fail on m_secCamera->startPreview()", __func__);
         return false;
     }
 
     for (i = NUM_OF_PREVIEW_BUF - m_minUndequeuedBufs; i < NUM_OF_PREVIEW_BUF; i++) {
         if (m_secCamera->getPreviewBuf(&previewBuf) == false) {
-            LOGE("ERR(%s):getPreviewBuf() fail", __func__);
+            ALOGE("ERR(%s):getPreviewBuf() fail", __func__);
             return false;
         }
 
@@ -2455,7 +2455,7 @@ bool ExynosCameraHWInterface::m_startPreviewInternal(void)
         }
 
         if (m_previewWindow->cancel_buffer(m_previewWindow, m_previewBufHandle[previewBuf.reserved.p]) != 0)
-            LOGE("ERR(%s):Could not cancel_buffer gralloc buffer[%d]!!", __func__, previewBuf.reserved.p);
+            ALOGE("ERR(%s):Could not cancel_buffer gralloc buffer[%d]!!", __func__, previewBuf.reserved.p);
 
         m_avaliblePreviewBufHandle[previewBuf.reserved.p] = false;
     }
@@ -2464,14 +2464,14 @@ bool ExynosCameraHWInterface::m_startPreviewInternal(void)
 
     if (m_pictureRunning == false
         && m_startPictureInternal() == false)
-        LOGE("ERR(%s):m_startPictureInternal() fail", __func__);
+        ALOGE("ERR(%s):m_startPictureInternal() fail", __func__);
 
     return true;
 }
 
 void ExynosCameraHWInterface::m_stopPreviewInternal(void)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
 
     /* request that the preview thread stop. */
     if (m_previewRunning == true) {
@@ -2491,7 +2491,7 @@ void ExynosCameraHWInterface::m_stopPreviewInternal(void)
 
                     if (m_avaliblePreviewBufHandle[i] == true) {
                         if (m_previewWindow->cancel_buffer(m_previewWindow, m_previewBufHandle[i]) != 0) {
-                            LOGE("ERR(%s):Fail to cancel buffer(%d)", __func__, i);
+                            ALOGE("ERR(%s):Fail to cancel buffer(%d)", __func__, i);
                         } else {
                             m_previewBufHandle[i] = NULL;
                             m_previewStride[i] = NULL;
@@ -2502,35 +2502,35 @@ void ExynosCameraHWInterface::m_stopPreviewInternal(void)
                 }
             }
         } else {
-            LOGV("DEBUG(%s):preview running but deferred, doing nothing", __func__);
+            ALOGV("DEBUG(%s):preview running but deferred, doing nothing", __func__);
         }
     } else {
-        LOGV("DEBUG(%s):preview not running, doing nothing", __func__);
+        ALOGV("DEBUG(%s):preview not running, doing nothing", __func__);
     }
 }
 
 bool ExynosCameraHWInterface::m_previewThreadFuncWrapper(void)
 {
-    LOGV("DEBUG(%s):starting", __func__);
+    ALOGV("DEBUG(%s):starting", __func__);
     while (1) {
         m_previewLock.lock();
         while (m_previewRunning == false) {
             if (   m_secCamera->flagStartPreview() == true
                 && m_secCamera->stopPreview() == false)
-                LOGE("ERR(%s):Fail on m_secCamera->stopPreview()", __func__);
+                ALOGE("ERR(%s):Fail on m_secCamera->stopPreview()", __func__);
 
-            LOGV("DEBUG(%s):calling m_secCamera->stopPreview() and waiting", __func__);
+            ALOGV("DEBUG(%s):calling m_secCamera->stopPreview() and waiting", __func__);
 
             m_previewStoppedCondition.signal();
             m_previewCondition.wait(m_previewLock);
-            LOGV("DEBUG(%s):return from wait", __func__);
+            ALOGV("DEBUG(%s):return from wait", __func__);
         }
         m_previewLock.unlock();
 
         if (m_exitPreviewThread == true) {
             if (   m_secCamera->flagStartPreview() == true
                 && m_secCamera->stopPreview() == false)
-                LOGE("ERR(%s):Fail on m_secCamera->stopPreview()", __func__);
+                ALOGE("ERR(%s):Fail on m_secCamera->stopPreview()", __func__);
 
             return true;
         }
@@ -2546,7 +2546,7 @@ bool ExynosCameraHWInterface::m_previewThreadFunc(void)
     bool doPutPreviewBuf = true;
 
     if (m_secCamera->getPreviewBuf(&previewBuf) == false) {
-        LOGE("ERR(%s):getPreviewBuf() fail", __func__);
+        ALOGE("ERR(%s):getPreviewBuf() fail", __func__);
         return false;
     }
 
@@ -2562,11 +2562,11 @@ bool ExynosCameraHWInterface::m_previewThreadFunc(void)
     if (0 < m_skipFrame) {
         m_skipFrame--;
         m_skipFrameLock.unlock();
-        LOGV("DEBUG(%s):skipping %d frame", __func__, previewBuf.reserved.p);
+        ALOGV("DEBUG(%s):skipping %d frame", __func__, previewBuf.reserved.p);
 
         if (   doPutPreviewBuf == true
             && m_secCamera->putPreviewBuf(&previewBuf) == false) {
-            LOGE("ERR(%s):putPreviewBuf(%d) fail", __func__, previewBuf.reserved.p);
+            ALOGE("ERR(%s):putPreviewBuf(%d) fail", __func__, previewBuf.reserved.p);
             return false;
         }
 
@@ -2590,14 +2590,14 @@ bool ExynosCameraHWInterface::m_previewThreadFunc(void)
             m_flagGrallocLocked[previewBuf.reserved.p] = false;
         } else {
             if (m_previewWindow->lock_buffer(m_previewWindow, bufHandle) != 0)
-                LOGE("ERR(%s):Could not lock gralloc buffer!!", __func__);
+                ALOGE("ERR(%s):Could not lock gralloc buffer!!", __func__);
         }
 
         /* Enqueue lastest buffer */
         if (m_avaliblePreviewBufHandle[previewBuf.reserved.p] == true) {
             if (m_previewWindow->enqueue_buffer(m_previewWindow,
                                                 m_previewBufHandle[previewBuf.reserved.p]) != 0) {
-                LOGE("ERR(%s):Could not enqueue gralloc buffer[%d]!!", __func__, previewBuf.reserved.p);
+                ALOGE("ERR(%s):Could not enqueue gralloc buffer[%d]!!", __func__, previewBuf.reserved.p);
                 goto callbacks;
             }
 
@@ -2608,7 +2608,7 @@ bool ExynosCameraHWInterface::m_previewThreadFunc(void)
         if (m_previewWindow->dequeue_buffer(m_previewWindow,
                                             &bufHandle,
                                             &stride) != 0) {
-            LOGE("ERR(%s):Could not dequeue gralloc buffer!!", __func__);
+            ALOGE("ERR(%s):Could not dequeue gralloc buffer!!", __func__);
             goto callbacks;
         }
 
@@ -2617,7 +2617,7 @@ bool ExynosCameraHWInterface::m_previewThreadFunc(void)
                                *bufHandle,
                                GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_YUV_ADDR,
                                0, 0, previewW, previewH, virtAddr) != 0) {
-            LOGE("ERR(%s):could not obtain gralloc buffer", __func__);
+            ALOGE("ERR(%s):could not obtain gralloc buffer", __func__);
             goto callbacks;
         }
 
@@ -2641,13 +2641,13 @@ bool ExynosCameraHWInterface::m_previewThreadFunc(void)
         }
 
         if (findGrallocBuf == false) {
-            LOGE("%s:addr(%x) is not matched any gralloc buffer's addr", __func__, virtAddr[0]);
+            ALOGE("%s:addr(%x) is not matched any gralloc buffer's addr", __func__, virtAddr[0]);
             goto callbacks;
         }
 
         if (   doPutPreviewBuf == true
             && m_secCamera->putPreviewBuf(&previewBuf) == false)
-            LOGE("ERR(%s):putPreviewBuf(%d) fail", __func__, previewBuf.reserved.p);
+            ALOGE("ERR(%s):putPreviewBuf(%d) fail", __func__, previewBuf.reserved.p);
         else
             doPutPreviewBuf = false;
     }
@@ -2696,16 +2696,16 @@ callbacks:
                               0);
 
             if (csc_convert(m_exynosPreviewCSC) != 0)
-                LOGE("ERR(%s):csc_convert() fail", __func__);
+                ALOGE("ERR(%s):csc_convert() fail", __func__);
         } else {
-            LOGE("ERR(%s):m_exynosPreviewCSC == NULL", __func__);
+            ALOGE("ERR(%s):m_exynosPreviewCSC == NULL", __func__);
         }
     }
 
     /* TODO: We need better error handling scheme than this scheme */
     if (   doPutPreviewBuf == true
         && m_secCamera->putPreviewBuf(&previewBuf) == false)
-        LOGE("ERR(%s):putPreviewBuf(%d) fail", __func__, previewBuf.reserved.p);
+        ALOGE("ERR(%s):putPreviewBuf(%d) fail", __func__, previewBuf.reserved.p);
     else
         doPutPreviewBuf = false;
 
@@ -2790,7 +2790,7 @@ callbacks:
     // zero shutter lag
     if (m_pictureRunning == false
         && m_startPictureInternal() == false)
-        LOGE("ERR(%s):m_startPictureInternal() fail", __func__);
+        ALOGE("ERR(%s):m_startPictureInternal() fail", __func__);
 
     m_stateLock.lock();
     if (m_captureInProgress == true) {
@@ -2810,7 +2810,7 @@ callbacks:
             } while (cur->next);
 
             if (m_secCamera->getPictureBuf(&m_pictureBuf) == false)
-                LOGE("ERR(%s):getPictureBuf() fail", __func__);
+                ALOGE("ERR(%s):getPictureBuf() fail", __func__);
             else
                 m_numOfAvaliblePictureBuf++;
         }
@@ -2833,7 +2833,7 @@ callbacks:
 
             if (oldBuf != nullBuf) {
                 if (m_secCamera->putPictureBuf(&oldBuf) == false)
-                    LOGE("ERR(%s):putPictureBuf(%d) fail", __func__, oldBuf.reserved.p);
+                    ALOGE("ERR(%s):putPictureBuf(%d) fail", __func__, oldBuf.reserved.p);
                 else {
                     m_numOfAvaliblePictureBuf--;
                     if (m_numOfAvaliblePictureBuf < 0)
@@ -2856,14 +2856,14 @@ bool ExynosCameraHWInterface::m_videoThreadFuncWrapper(void)
 #ifdef USE_3DNR_DMAOUT
             if (   m_secCamera->flagStartVideo() == true
                 && m_secCamera->stopVideo() == false)
-                LOGE("ERR(%s):Fail on m_secCamera->stopVideo()", __func__);
+                ALOGE("ERR(%s):Fail on m_secCamera->stopVideo()", __func__);
 #endif
 
-            LOGV("DEBUG(%s):calling mExynosCamera->stopVideo() and waiting", __func__);
+            ALOGV("DEBUG(%s):calling mExynosCamera->stopVideo() and waiting", __func__);
 
             m_videoStoppedCondition.signal();
             m_videoCondition.wait(m_videoLock);
-            LOGV("DEBUG(%s):return from wait", __func__);
+            ALOGV("DEBUG(%s):return from wait", __func__);
 
             m_videoLock.unlock();
         }
@@ -2874,7 +2874,7 @@ bool ExynosCameraHWInterface::m_videoThreadFuncWrapper(void)
 #ifdef USE_3DNR_DMAOUT
             if (   m_secCamera->flagStartVideo() == true
                 && m_secCamera->stopVideo() == false)
-                LOGE("ERR(%s):Fail on m_secCamera->stopVideo()", __func__);
+                ALOGE("ERR(%s):Fail on m_secCamera->stopVideo()", __func__);
 #endif
 
             m_videoLock.unlock();
@@ -2906,13 +2906,13 @@ bool ExynosCameraHWInterface::m_videoThreadFunc(void)
             Mutex::Autolock lock(m_videoLock);
 
             if (m_numOfAvailableVideoBuf == 0) {
-                LOGV("DEBUG(%s):waiting releaseRecordingFrame()", __func__);
+                ALOGV("DEBUG(%s):waiting releaseRecordingFrame()", __func__);
                 return true;
             }
 
 #ifdef USE_3DNR_DMAOUT
             if (m_secCamera->getVideoBuf(&videoBuf) == false) {
-                LOGE("ERR(%s):Fail on ExynosCamera->getVideoBuf()", __func__);
+                ALOGE("ERR(%s):Fail on ExynosCamera->getVideoBuf()", __func__);
                 return false;
             }
 #endif
@@ -2946,7 +2946,7 @@ bool ExynosCameraHWInterface::m_videoThreadFunc(void)
                                    &cropW, &cropH,
                                    m_secCamera->getZoom());
 
-                    LOGV("DEBUG(%s):cropX = %d, cropY = %d, cropW = %d, cropH = %d",
+                    ALOGV("DEBUG(%s):cropX = %d, cropY = %d, cropW = %d, cropH = %d",
                              __func__, cropX, cropY, cropW, cropH);
 
 #ifdef USE_3DNR_DMAOUT
@@ -3003,9 +3003,9 @@ bool ExynosCameraHWInterface::m_videoThreadFunc(void)
                                       0);
 
                     if (csc_convert(m_exynosVideoCSC) != 0)
-                        LOGE("ERR(%s):csc_convert() fail", __func__);
+                        ALOGE("ERR(%s):csc_convert() fail", __func__);
                 } else {
-                    LOGE("ERR(%s):m_exynosVideoCSC == NULL", __func__);
+                    ALOGE("ERR(%s):m_exynosVideoCSC == NULL", __func__);
                 }
 #ifdef USE_3DNR_DMAOUT
                 m_dataCbTimestamp(timestamp, CAMERA_MSG_VIDEO_FRAME,
@@ -3038,7 +3038,7 @@ bool ExynosCameraHWInterface::m_autoFocusThreadFunc(void)
 {
     int count =0;
     bool afResult = false;
-    LOGV("DEBUG(%s):starting", __func__);
+    ALOGV("DEBUG(%s):starting", __func__);
 
     /* block until we're told to start.  we don't want to use
      * a restartable thread and requestExitAndWait() in cancelAutoFocus()
@@ -3050,7 +3050,7 @@ bool ExynosCameraHWInterface::m_autoFocusThreadFunc(void)
     /* check early exit request */
     if (m_exitAutoFocusThread == true) {
         m_focusLock.unlock();
-        LOGV("DEBUG(%s):exiting on request0", __func__);
+        ALOGV("DEBUG(%s):exiting on request0", __func__);
         return true;
     }
 
@@ -3058,27 +3058,27 @@ bool ExynosCameraHWInterface::m_autoFocusThreadFunc(void)
     /* check early exit request */
     if (m_exitAutoFocusThread == true) {
         m_focusLock.unlock();
-        LOGV("DEBUG(%s):exiting on request1", __func__);
+        ALOGV("DEBUG(%s):exiting on request1", __func__);
         return true;
     }
     m_focusLock.unlock();
 
     if (m_secCamera->autoFocus() == false) {
-        LOGE("ERR(%s):Fail on m_secCamera->autoFocus()", __func__);
+        ALOGE("ERR(%s):Fail on m_secCamera->autoFocus()", __func__);
         return false;
     }
 
     switch (m_secCamera->getFucusModeResult()) {
     case 0:
-        LOGV("DEBUG(%s):AF Cancelled !!", __func__);
+        ALOGV("DEBUG(%s):AF Cancelled !!", __func__);
         afResult = true;
         break;
     case 1:
-        LOGV("DEBUG(%s):AF Success!!", __func__);
+        ALOGV("DEBUG(%s):AF Success!!", __func__);
         afResult = true;
         break;
     default:
-        LOGV("DEBUG(%s):AF Fail !!", __func__);
+        ALOGV("DEBUG(%s):AF Fail !!", __func__);
         afResult = false;
         break;
     }
@@ -3089,14 +3089,14 @@ bool ExynosCameraHWInterface::m_autoFocusThreadFunc(void)
     if (m_msgEnabled & CAMERA_MSG_FOCUS)
         m_notifyCb(CAMERA_MSG_FOCUS, afResult, 0, m_callbackCookie);
 
-    LOGV("DEBUG(%s):exiting with no error", __func__);
+    ALOGV("DEBUG(%s):exiting with no error", __func__);
     return true;
 }
 
 bool ExynosCameraHWInterface::m_startPictureInternal(void)
 {
     if (m_pictureRunning == true) {
-        LOGE("ERR(%s):Aready m_pictureRunning is running", __func__);
+        ALOGE("ERR(%s):Aready m_pictureRunning is running", __func__);
         return false;
     }
 
@@ -3113,7 +3113,7 @@ bool ExynosCameraHWInterface::m_startPictureInternal(void)
     }
     m_rawHeap = m_getMemoryCb(-1, pictureFramesize, 1, NULL);
     if (!m_rawHeap) {
-        LOGE("ERR(%s):m_getMemoryCb(m_rawHeap, size(%d) fail", __func__, pictureFramesize);
+        ALOGE("ERR(%s):m_getMemoryCb(m_rawHeap, size(%d) fail", __func__, pictureFramesize);
         return false;
     }
 
@@ -3126,7 +3126,7 @@ bool ExynosCameraHWInterface::m_startPictureInternal(void)
 
         m_pictureHeap[i] = m_getMemoryCb(-1, pictureFramesize, 1, NULL);
         if (!m_pictureHeap[i]) {
-            LOGE("ERR(%s):m_getMemoryCb(m_pictureHeap[%d], size(%d) fail", __func__, i, pictureFramesize);
+            ALOGE("ERR(%s):m_getMemoryCb(m_pictureHeap[%d], size(%d) fail", __func__, i, pictureFramesize);
             return false;
         }
 
@@ -3147,7 +3147,7 @@ bool ExynosCameraHWInterface::m_startPictureInternal(void)
 
     // zero shutter lag
     if (m_secCamera->startPicture() == false) {
-        LOGE("ERR(%s):Fail on m_secCamera->startPicture()", __func__);
+        ALOGE("ERR(%s):Fail on m_secCamera->startPicture()", __func__);
         return false;
     }
 
@@ -3170,13 +3170,13 @@ bool ExynosCameraHWInterface::m_startPictureInternal(void)
 bool ExynosCameraHWInterface::m_stopPictureInternal(void)
 {
     if (m_pictureRunning == false) {
-        LOGE("ERR(%s):Aready m_pictureRunning is stop", __func__);
+        ALOGE("ERR(%s):Aready m_pictureRunning is stop", __func__);
         return false;
     }
 
     if (m_secCamera->flagStartPicture() == true
         && m_secCamera->stopPicture() == false)
-        LOGE("ERR(%s):Fail on m_secCamera->stopPicture()", __func__);
+        ALOGE("ERR(%s):Fail on m_secCamera->stopPicture()", __func__);
 
     for (int i = 0; i < NUM_OF_PICTURE_BUF; i++) {
         if (m_pictureHeap[i]) {
@@ -3214,7 +3214,7 @@ bool ExynosCameraHWInterface::m_pictureThreadFunc(void)
 
     JpegHeap = m_getMemoryCb(-1, pictureFramesize, 1, 0);
     if (!JpegHeap) {
-        LOGE("ERR(%s):m_getMemoryCb(JpegHeap, size(%d) fail", __func__, pictureFramesize);
+        ALOGE("ERR(%s):m_getMemoryCb(JpegHeap, size(%d) fail", __func__, pictureFramesize);
         return false;
     }
 
@@ -3226,7 +3226,7 @@ bool ExynosCameraHWInterface::m_pictureThreadFunc(void)
                        &cropW, &cropH,
                        m_secCamera->getZoom());
 
-        LOGV("DEBUG(%s):cropX = %d, cropY = %d, cropW = %d, cropH = %d",
+        ALOGV("DEBUG(%s):cropX = %d, cropY = %d, cropW = %d, cropH = %d",
               __func__, cropX, cropY, cropW, cropH);
 
         csc_set_src_format(m_exynosPictureCSC,
@@ -3262,9 +3262,9 @@ bool ExynosCameraHWInterface::m_pictureThreadFunc(void)
                            0);
 
         if (csc_convert(m_exynosPictureCSC) != 0)
-            LOGE("ERR(%s):csc_convert() fail", __func__);
+            ALOGE("ERR(%s):csc_convert() fail", __func__);
     } else {
-        LOGE("ERR(%s):m_exynosPictureCSC == NULL", __func__);
+        ALOGE("ERR(%s):m_exynosPictureCSC == NULL", __func__);
     }
 
     if (m_msgEnabled & CAMERA_MSG_SHUTTER)
@@ -3276,7 +3276,7 @@ bool ExynosCameraHWInterface::m_pictureThreadFunc(void)
         if (pictureBuf.size.extS[i] != 0)
             pictureBuf.virt.extP[i] = pictureBuf.virt.extP[i-1] + pictureBuf.size.extS[i-1];
 
-        LOGV("(%s): pictureBuf.size.extS[%d] = %d", __func__, i, pictureBuf.size.extS[i]);
+        ALOGV("(%s): pictureBuf.size.extS[%d] = %d", __func__, i, pictureBuf.size.extS[i]);
     }
 
     if (m_msgEnabled & CAMERA_MSG_COMPRESSED_IMAGE) {
@@ -3289,7 +3289,7 @@ bool ExynosCameraHWInterface::m_pictureThreadFunc(void)
         jpegRect.colorFormat = V4L2_PIX_FMT_NV16;
 
         if (m_secCamera->yuv2Jpeg(&pictureBuf, &jpegBuf, &jpegRect) == false) {
-            LOGE("ERR(%s):yuv2Jpeg() fail", __func__);
+            ALOGE("ERR(%s):yuv2Jpeg() fail", __func__);
             m_stateLock.lock();
             m_captureInProgress = false;
             m_pictureLock.lock();
@@ -3322,7 +3322,7 @@ bool ExynosCameraHWInterface::m_pictureThreadFunc(void)
     if (m_msgEnabled & CAMERA_MSG_COMPRESSED_IMAGE) {
         JpegHeapOut = m_getMemoryCb(-1, jpegBuf.size.s, 1, 0);
         if (!JpegHeapOut) {
-            LOGE("ERR(%s):m_getMemoryCb(JpegHeapOut, size(%d) fail", __func__, jpegBuf.size.s);
+            ALOGE("ERR(%s):m_getMemoryCb(JpegHeapOut, size(%d) fail", __func__, jpegBuf.size.s);
             return false;
         }
 
@@ -3335,7 +3335,7 @@ bool ExynosCameraHWInterface::m_pictureThreadFunc(void)
     if (m_videoStart == false)
         stopPreview();
 
-    LOGV("DEBUG(%s):m_pictureThread end", __func__);
+    ALOGV("DEBUG(%s):m_pictureThread end", __func__);
 
     ret = true;
 
@@ -3364,14 +3364,14 @@ bool ExynosCameraHWInterface::m_fileDump(char *filename, void *srcBuf, uint32_t 
     yuv_fd = fopen(filename, "w+");
 
     if (yuv_fd == NULL) {
-        LOGE("ERR file open fail: %s", filename);
+        ALOGE("ERR file open fail: %s", filename);
         return 0;
     }
 
     buffer = (char *)malloc(size);
 
     if (buffer == NULL) {
-        LOGE("ERR malloc file");
+        ALOGE("ERR malloc file");
         fclose(yuv_fd);
         return 0;
     }
@@ -3389,7 +3389,7 @@ bool ExynosCameraHWInterface::m_fileDump(char *filename, void *srcBuf, uint32_t 
     if (buffer)
         free(buffer);
 
-    LOGV("filedump(%s) is successed!!", filename);
+    ALOGV("filedump(%s) is successed!!", filename);
     return true;
 }
 #endif
@@ -3411,14 +3411,14 @@ int ExynosCameraHWInterface::m_saveJpeg( unsigned char *real_jpeg, int jpeg_size
     /* file create/open, note to "wb" */
     yuv_fp = fopen("/data/camera_dump.jpeg", "wb");
     if (yuv_fp == NULL) {
-        LOGE("Save jpeg file open error");
+        ALOGE("Save jpeg file open error");
         return -1;
     }
 
-    LOGV("DEBUG(%s):[BestIQ]  real_jpeg size ========>  %d", __func__, jpeg_size);
+    ALOGV("DEBUG(%s):[BestIQ]  real_jpeg size ========>  %d", __func__, jpeg_size);
     buffer = (char *) malloc(jpeg_size);
     if (buffer == NULL) {
-        LOGE("Save YUV] buffer alloc failed");
+        ALOGE("Save YUV] buffer alloc failed");
         if (yuv_fp)
             fclose(yuv_fp);
 
@@ -3447,24 +3447,24 @@ void ExynosCameraHWInterface::m_savePostView(const char *fname, uint8_t *buf, ui
     int cnt = 0;
     uint32_t written = 0;
 
-    LOGD("opening file [%s]", fname);
+    ALOGD("opening file [%s]", fname);
     int fd = open(fname, O_RDWR | O_CREAT);
     if (fd < 0) {
-        LOGE("failed to create file [%s]: %s", fname, strerror(errno));
+        ALOGE("failed to create file [%s]: %s", fname, strerror(errno));
         return;
     }
 
-    LOGD("writing %d bytes to file [%s]", size, fname);
+    ALOGD("writing %d bytes to file [%s]", size, fname);
     while (written < size) {
         nw = ::write(fd, buf + written, size - written);
         if (nw < 0) {
-            LOGE("failed to write to file %d [%s]: %s",written,fname, strerror(errno));
+            ALOGE("failed to write to file %d [%s]: %s",written,fname, strerror(errno));
             break;
         }
         written += nw;
         cnt++;
     }
-    LOGD("done writing %d bytes to file [%s] in %d passes",size, fname, cnt);
+    ALOGD("done writing %d bytes to file [%s] in %d passes",size, fname, cnt);
     ::close(fd);
 }
 
@@ -3476,7 +3476,7 @@ bool ExynosCameraHWInterface::m_scaleDownYuv422(char *srcBuf, uint32_t srcWidth,
     int32_t x, y, src_y_start_pos, dst_pos, src_pos;
 
     if (dstWidth % 2 != 0 || dstHeight % 2 != 0) {
-        LOGE("scale_down_yuv422: invalid width, height for scaling");
+        ALOGE("scale_down_yuv422: invalid width, height for scaling");
         return false;
     }
 
@@ -3534,7 +3534,7 @@ bool ExynosCameraHWInterface::m_YUY2toNV21(void *srcBuf, void *dstBuf, uint32_t 
 bool ExynosCameraHWInterface::m_checkVideoStartMarker(unsigned char *pBuf)
 {
     if (!pBuf) {
-        LOGE("m_checkVideoStartMarker() => pBuf is NULL");
+        ALOGE("m_checkVideoStartMarker() => pBuf is NULL");
         return false;
     }
 
@@ -3548,7 +3548,7 @@ bool ExynosCameraHWInterface::m_checkVideoStartMarker(unsigned char *pBuf)
 bool ExynosCameraHWInterface::m_checkEOIMarker(unsigned char *pBuf)
 {
     if (!pBuf) {
-        LOGE("m_checkEOIMarker() => pBuf is NULL");
+        ALOGE("m_checkEOIMarker() => pBuf is NULL");
         return false;
     }
 
@@ -3562,7 +3562,7 @@ bool ExynosCameraHWInterface::m_checkEOIMarker(unsigned char *pBuf)
 bool ExynosCameraHWInterface::m_findEOIMarkerInJPEG(unsigned char *pBuf, int dwBufSize, int *pnJPEGsize)
 {
     if (NULL == pBuf || 0 >= dwBufSize) {
-        LOGE("m_findEOIMarkerInJPEG() => There is no contents.");
+        ALOGE("m_findEOIMarkerInJPEG() => There is no contents.");
         return false;
     }
 
@@ -3583,15 +3583,15 @@ bool ExynosCameraHWInterface::m_splitFrame(unsigned char *pFrame, int dwSize,
                     void *pJPEG, int *pdwJPEGSize,
                     void *pVideo, int *pdwVideoSize)
 {
-    LOGV("DEBUG(%s):===========m_splitFrame Start==============", __func__);
+    ALOGV("DEBUG(%s):===========m_splitFrame Start==============", __func__);
 
     if (NULL == pFrame || 0 >= dwSize) {
-        LOGE("There is no contents (pFrame=%p, dwSize=%d", pFrame, dwSize);
+        ALOGE("There is no contents (pFrame=%p, dwSize=%d", pFrame, dwSize);
         return false;
     }
 
     if (0 == dwJPEGLineLength || 0 == dwVideoLineLength) {
-        LOGE("There in no input information for decoding interleaved jpeg");
+        ALOGE("There in no input information for decoding interleaved jpeg");
         return false;
     }
 
@@ -3660,14 +3660,14 @@ bool ExynosCameraHWInterface::m_splitFrame(unsigned char *pFrame, int dwSize,
         if (pdwVideoSize)
             *pdwVideoSize = dwVSize;
     } else {
-        LOGE("DecodeInterleaveJPEG_WithOutDT() => Can not find EOI");
+        ALOGE("DecodeInterleaveJPEG_WithOutDT() => Can not find EOI");
         bRet = false;
         if (pdwJPEGSize)
             *pdwJPEGSize = 0;
         if (pdwVideoSize)
             *pdwVideoSize = 0;
     }
-    LOGV("DEBUG(%s):===========m_splitFrame end==============", __func__);
+    ALOGV("DEBUG(%s):===========m_splitFrame end==============", __func__);
 
     return bRet;
 }
@@ -3693,7 +3693,7 @@ int ExynosCameraHWInterface::m_decodeInterleaveData(unsigned char *pInterleaveDa
 
     int i = 0;
 
-    LOGV("DEBUG(%s):m_decodeInterleaveData Start~~~", __func__);
+    ALOGV("DEBUG(%s):m_decodeInterleaveData Start~~~", __func__);
     while (i < interleaveDataSize) {
         if ((*interleave_ptr == 0xFFFFFFFF) || (*interleave_ptr == 0x02FFFFFF) ||
                 (*interleave_ptr == 0xFF02FFFF)) {
@@ -3753,7 +3753,7 @@ int ExynosCameraHWInterface::m_decodeInterleaveData(unsigned char *pInterleaveDa
             }
         }
     }
-    LOGV("DEBUG(%s):m_decodeInterleaveData End~~~", __func__);
+    ALOGV("DEBUG(%s):m_decodeInterleaveData End~~~", __func__);
     return ret;
 }
 
@@ -3819,7 +3819,7 @@ void ExynosCameraHWInterface::m_getAlignedYUVSize(int colorFormat, int w, int h,
         buf->size.extS[2] = ALIGN(w/2, 8) * ALIGN(h/2, 8);
         break;
     default:
-        LOGE("ERR(%s):unmatched colorFormat(%d)", __func__, colorFormat);
+        ALOGE("ERR(%s):unmatched colorFormat(%d)", __func__, colorFormat);
         return;
         break;
     }
@@ -3871,7 +3871,7 @@ bool ExynosCameraHWInterface::m_getResolutionList(String8 & string8Buf, char * s
     }
 
     if (ret == false)
-        LOGE("ERR(%s):cannot find resolutions", __func__);
+        ALOGE("ERR(%s):cannot find resolutions", __func__);
 
     return ret;
 }
@@ -3924,7 +3924,7 @@ int ExynosCameraHWInterface::m_bracketsStr2Ints(char *str, int num, ExynosRect2 
         buf[bracketsClose - bracketsOpen + 1] = 0;
 
         if (m_subBracketsStr2Ints(5, buf, tempArray) == false) {
-            LOGE("ERR(%s):m_subBracketsStr2Ints(%s) fail", __func__, buf);
+            ALOGE("ERR(%s):m_subBracketsStr2Ints(%s) fail", __func__, buf);
             break;
         }
 
@@ -3944,7 +3944,7 @@ int ExynosCameraHWInterface::m_bracketsStr2Ints(char *str, int num, ExynosRect2 
 bool ExynosCameraHWInterface::m_subBracketsStr2Ints(int num, char *str, int *arr)
 {
     if (str == NULL || arr == NULL) {
-        LOGE("ERR(%s):str or arr is NULL", __func__);
+        ALOGE("ERR(%s):str or arr is NULL", __func__);
         return false;
     }
 
@@ -3956,13 +3956,13 @@ bool ExynosCameraHWInterface::m_subBracketsStr2Ints(int num, char *str, int *arr
 
     bracketsOpen = strchr(str, '(');
     if (bracketsOpen == NULL) {
-        LOGE("ERR(%s):no '('", __func__);
+        ALOGE("ERR(%s):no '('", __func__);
         return false;
     }
 
     bracketsClose = strchr(bracketsOpen, ')');
     if (bracketsClose == NULL) {
-        LOGE("ERR(%s):no ')'", __func__);
+        ALOGE("ERR(%s):no ')'", __func__);
         return false;
     }
 
@@ -3971,7 +3971,7 @@ bool ExynosCameraHWInterface::m_subBracketsStr2Ints(int num, char *str, int *arr
 
     tok = strtok(buf, ",");
     if (tok == NULL) {
-        LOGE("ERR(%s):strtok(%s) fail", __func__, buf);
+        ALOGE("ERR(%s):strtok(%s) fail", __func__, buf);
         return false;
     }
 
@@ -3981,7 +3981,7 @@ bool ExynosCameraHWInterface::m_subBracketsStr2Ints(int num, char *str, int *arr
         tok = strtok(NULL, ",");
         if (tok == NULL) {
             if (i < num - 1) {
-                LOGE("ERR(%s):strtok() (index : %d, num : %d) fail", __func__, i, num);
+                ALOGE("ERR(%s):strtok() (index : %d, num : %d) fail", __func__, i, num);
                 return false;
             }
             break;
@@ -4100,7 +4100,7 @@ static camera_device_t *g_cam_device;
 
 static int HAL_camera_device_close(struct hw_device_t* device)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     if (device) {
         camera_device_t *cam_device = (camera_device_t *)device;
         delete static_cast<ExynosCameraHWInterface *>(cam_device->priv);
@@ -4119,7 +4119,7 @@ static inline ExynosCameraHWInterface *obj(struct camera_device *dev)
 static int HAL_camera_device_set_preview_window(struct camera_device *dev,
                                                 struct preview_stream_ops *buf)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     return obj(dev)->setPreviewWindow(buf);
 }
 
@@ -4131,7 +4131,7 @@ static void HAL_camera_device_set_callbacks(struct camera_device *dev,
         camera_request_memory get_memory,
         void* user)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     obj(dev)->setCallbacks(notify_cb, data_cb, data_cb_timestamp,
                            get_memory,
                            user);
@@ -4147,7 +4147,7 @@ static void HAL_camera_device_set_callbacks(struct camera_device *dev,
  */
 static void HAL_camera_device_enable_msg_type(struct camera_device *dev, int32_t msg_type)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     obj(dev)->enableMsgType(msg_type);
 }
 
@@ -4163,7 +4163,7 @@ static void HAL_camera_device_enable_msg_type(struct camera_device *dev, int32_t
  */
 static void HAL_camera_device_disable_msg_type(struct camera_device *dev, int32_t msg_type)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     obj(dev)->disableMsgType(msg_type);
 }
 
@@ -4174,7 +4174,7 @@ static void HAL_camera_device_disable_msg_type(struct camera_device *dev, int32_
  */
 static int HAL_camera_device_msg_type_enabled(struct camera_device *dev, int32_t msg_type)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     return obj(dev)->msgTypeEnabled(msg_type);
 }
 
@@ -4183,7 +4183,7 @@ static int HAL_camera_device_msg_type_enabled(struct camera_device *dev, int32_t
  */
 static int HAL_camera_device_start_preview(struct camera_device *dev)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     return obj(dev)->startPreview();
 }
 
@@ -4192,7 +4192,7 @@ static int HAL_camera_device_start_preview(struct camera_device *dev)
  */
 static void HAL_camera_device_stop_preview(struct camera_device *dev)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     obj(dev)->stopPreview();
 }
 
@@ -4201,7 +4201,7 @@ static void HAL_camera_device_stop_preview(struct camera_device *dev)
  */
 static int HAL_camera_device_preview_enabled(struct camera_device *dev)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     return obj(dev)->previewEnabled();
 }
 
@@ -4237,7 +4237,7 @@ static int HAL_camera_device_preview_enabled(struct camera_device *dev)
  */
 static int HAL_camera_device_store_meta_data_in_buffers(struct camera_device *dev, int enable)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     return obj(dev)->storeMetaDataInBuffers(enable);
 }
 
@@ -4253,7 +4253,7 @@ static int HAL_camera_device_store_meta_data_in_buffers(struct camera_device *de
  */
 static int HAL_camera_device_start_recording(struct camera_device *dev)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     return obj(dev)->startRecording();
 }
 
@@ -4262,7 +4262,7 @@ static int HAL_camera_device_start_recording(struct camera_device *dev)
  */
 static void HAL_camera_device_stop_recording(struct camera_device *dev)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     obj(dev)->stopRecording();
 }
 
@@ -4271,7 +4271,7 @@ static void HAL_camera_device_stop_recording(struct camera_device *dev)
  */
 static int HAL_camera_device_recording_enabled(struct camera_device *dev)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     return obj(dev)->recordingEnabled();
 }
 
@@ -4287,7 +4287,7 @@ static int HAL_camera_device_recording_enabled(struct camera_device *dev)
 static void HAL_camera_device_release_recording_frame(struct camera_device *dev,
                                 const void *opaque)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     obj(dev)->releaseRecordingFrame(opaque);
 }
 
@@ -4298,7 +4298,7 @@ static void HAL_camera_device_release_recording_frame(struct camera_device *dev,
  */
 static int HAL_camera_device_auto_focus(struct camera_device *dev)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     return obj(dev)->autoFocus();
 }
 
@@ -4310,7 +4310,7 @@ static int HAL_camera_device_auto_focus(struct camera_device *dev)
  */
 static int HAL_camera_device_cancel_auto_focus(struct camera_device *dev)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     return obj(dev)->cancelAutoFocus();
 }
 
@@ -4319,7 +4319,7 @@ static int HAL_camera_device_cancel_auto_focus(struct camera_device *dev)
  */
 static int HAL_camera_device_take_picture(struct camera_device *dev)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     return obj(dev)->takePicture();
 }
 
@@ -4329,7 +4329,7 @@ static int HAL_camera_device_take_picture(struct camera_device *dev)
  */
 static int HAL_camera_device_cancel_picture(struct camera_device *dev)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     return obj(dev)->cancelPicture();
 }
 
@@ -4340,7 +4340,7 @@ static int HAL_camera_device_cancel_picture(struct camera_device *dev)
 static int HAL_camera_device_set_parameters(struct camera_device *dev,
                                             const char *parms)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     String8 str(parms);
     CameraParameters p(str);
     return obj(dev)->setParameters(p);
@@ -4349,7 +4349,7 @@ static int HAL_camera_device_set_parameters(struct camera_device *dev,
 /** Return the camera parameters. */
 char *HAL_camera_device_get_parameters(struct camera_device *dev)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     String8 str;
     CameraParameters parms = obj(dev)->getParameters();
     str = parms.flatten();
@@ -4358,7 +4358,7 @@ char *HAL_camera_device_get_parameters(struct camera_device *dev)
 
 static void HAL_camera_device_put_parameters(struct camera_device *dev, char *parms)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     free(parms);
 }
 
@@ -4368,7 +4368,7 @@ static void HAL_camera_device_put_parameters(struct camera_device *dev, char *pa
 static int HAL_camera_device_send_command(struct camera_device *dev,
                     int32_t cmd, int32_t arg1, int32_t arg2)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     return obj(dev)->sendCommand(cmd, arg1, arg2);
 }
 
@@ -4378,7 +4378,7 @@ static int HAL_camera_device_send_command(struct camera_device *dev,
  */
 static void HAL_camera_device_release(struct camera_device *dev)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     obj(dev)->release();
 }
 
@@ -4387,19 +4387,19 @@ static void HAL_camera_device_release(struct camera_device *dev)
  */
 static int HAL_camera_device_dump(struct camera_device *dev, int fd)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     return obj(dev)->dump(fd);
 }
 
 static int HAL_getNumberOfCameras()
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     return sizeof(sCameraInfo) / sizeof(sCameraInfo[0]);
 }
 
 static int HAL_getCameraInfo(int cameraId, struct camera_info *cameraInfo)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
     memcpy(cameraInfo, &sCameraInfo[cameraId], sizeof(CameraInfo));
     return 0;
 }
@@ -4438,20 +4438,20 @@ static int HAL_camera_device_open(const struct hw_module_t* module,
                                   const char *id,
                                   struct hw_device_t** device)
 {
-    LOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __func__);
 
     int cameraId = atoi(id);
     if (cameraId < 0 || cameraId >= HAL_getNumberOfCameras()) {
-        LOGE("ERR(%s):Invalid camera ID %s", __func__, id);
+        ALOGE("ERR(%s):Invalid camera ID %s", __func__, id);
         return -EINVAL;
     }
 
     if (g_cam_device) {
         if (obj(g_cam_device)->getCameraId() == cameraId) {
-            LOGV("DEBUG(%s):returning existing camera ID %s", __func__, id);
+            ALOGV("DEBUG(%s):returning existing camera ID %s", __func__, id);
             goto done;
         } else {
-            LOGE("ERR(%s):Cannot open camera %d. camera %d is already running!",
+            ALOGE("ERR(%s):Cannot open camera %d. camera %d is already running!",
                     __func__, cameraId, obj(g_cam_device)->getCameraId());
             return -ENOSYS;
         }
@@ -4468,13 +4468,13 @@ static int HAL_camera_device_open(const struct hw_module_t* module,
 
     g_cam_device->ops = &camera_device_ops;
 
-    LOGV("DEBUG(%s):open camera %s", __func__, id);
+    ALOGV("DEBUG(%s):open camera %s", __func__, id);
 
     g_cam_device->priv = new ExynosCameraHWInterface(cameraId, g_cam_device);
 
 done:
     *device = (hw_device_t *)g_cam_device;
-    LOGV("DEBUG(%s):opened camera %s (%p)", __func__, id, *device);
+    ALOGV("DEBUG(%s):opened camera %s (%p)", __func__, id, *device);
     return 0;
 }
 

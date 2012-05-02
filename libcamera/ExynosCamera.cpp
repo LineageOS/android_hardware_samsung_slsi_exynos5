@@ -698,7 +698,7 @@ bool ExynosCamera::create(int cameraId)
     struct media_link   *links = NULL;
 
     if (m_flagCreate == true) {
-        LOGE("ERR(%s):Already created", __func__);
+        ALOGE("ERR(%s):Already created", __func__);
         return false;
     }
 
@@ -729,7 +729,7 @@ bool ExynosCamera::create(int cameraId)
         // media device open
         m_media = exynos_media_open(MEDIA_DEV_INTERNAL_ISP);
         if (m_media == NULL) {
-            LOGE("ERR(%s):Cannot open media device (error : %s)", __func__, strerror(errno));
+            ALOGE("ERR(%s):Cannot open media device (error : %s)", __func__, strerror(errno));
             goto err;
         }
 
@@ -766,12 +766,12 @@ bool ExynosCamera::create(int cameraId)
         strcpy(node, ISP_VIDEO_3DNR_NAME);
         m_isp3dnrEntity = exynos_media_get_entity_by_name(m_media, node, strlen(node));
 
-        LOGV("DEBUG(%s):m_ispSensorEntity  : numlink : %d", __func__, m_ispSensorEntity->num_links);
-        LOGV("DEBUG(%s):m_ispFrontEntity   : numlink : %d", __func__, m_ispFrontEntity->num_links);
-        LOGV("DEBUG(%s):m_ispBackEntity    : numlink : %d", __func__, m_ispBackEntity->num_links);
-        LOGV("DEBUG(%s):m_ispScalercEntity : numlink : %d", __func__, m_ispScalercEntity->num_links);
-        LOGV("DEBUG(%s):m_ispScalerpEntity : numlink : %d", __func__, m_ispScalerpEntity->num_links);
-        LOGV("DEBUG(%s):m_isp3dnrEntity    : numlink : %d", __func__, m_isp3dnrEntity->num_links);
+        ALOGV("DEBUG(%s):m_ispSensorEntity  : numlink : %d", __func__, m_ispSensorEntity->num_links);
+        ALOGV("DEBUG(%s):m_ispFrontEntity   : numlink : %d", __func__, m_ispFrontEntity->num_links);
+        ALOGV("DEBUG(%s):m_ispBackEntity    : numlink : %d", __func__, m_ispBackEntity->num_links);
+        ALOGV("DEBUG(%s):m_ispScalercEntity : numlink : %d", __func__, m_ispScalercEntity->num_links);
+        ALOGV("DEBUG(%s):m_ispScalerpEntity : numlink : %d", __func__, m_ispScalerpEntity->num_links);
+        ALOGV("DEBUG(%s):m_isp3dnrEntity    : numlink : %d", __func__, m_isp3dnrEntity->num_links);
 
         //////////////////
         // SETUP LINKS
@@ -781,13 +781,13 @@ bool ExynosCamera::create(int cameraId)
         if (links == NULL ||
             links->source->entity != m_ispSensorEntity ||
             links->sink->entity != m_ispFrontEntity) {
-            LOGE("ERR(%s):Can not make link isp_sensor to isp_front", __func__);
+            ALOGE("ERR(%s):Can not make link isp_sensor to isp_front", __func__);
             goto err;
         } else if (exynos_media_setup_link(m_media, links->source, links->sink, MEDIA_LNK_FL_ENABLED) < 0) {
-            LOGE("ERR(%s):Can not make setup isp_sensor to isp_front", __func__);
+            ALOGE("ERR(%s):Can not make setup isp_sensor to isp_front", __func__);
             goto err;
         }
-        LOGV("DEBUG(%s):[LINK SUCCESS] Sensor to front", __func__);
+        ALOGV("DEBUG(%s):[LINK SUCCESS] Sensor to front", __func__);
 
         // FRONT TO BACK
         for (i = 0; i < m_ispFrontEntity->num_links; i++) {
@@ -795,17 +795,17 @@ bool ExynosCamera::create(int cameraId)
             if (links == NULL ||
                 links->source->entity != m_ispFrontEntity ||
                 links->sink->entity != m_ispBackEntity) {
-                LOGV("DEBUG(%s):i=%d: links->source->entity : %p, m_ispFrontEntity : %p", __func__, i,
+                ALOGV("DEBUG(%s):i=%d: links->source->entity : %p, m_ispFrontEntity : %p", __func__, i,
                     links->source->entity, m_ispFrontEntity);
-                LOGV("DEBUG(%s):i=%d: links->sink->entity : %p, m_ispBackEntity : %p", __func__, i,
+                ALOGV("DEBUG(%s):i=%d: links->sink->entity : %p, m_ispBackEntity : %p", __func__, i,
                     links->sink->entity, m_ispBackEntity);
                 continue;
             } else if (exynos_media_setup_link(m_media, links->source, links->sink, MEDIA_LNK_FL_ENABLED) < 0) {
-                LOGE("ERR(%s):Can not make setup isp_front to isp_back", __func__);
+                ALOGE("ERR(%s):Can not make setup isp_front to isp_back", __func__);
                 goto err;
             }
         }
-        LOGV("DEBUG(%s):[LINK SUCCESS] front to back", __func__);
+        ALOGV("DEBUG(%s):[LINK SUCCESS] front to back", __func__);
 
         // BACK TO ScalerP Video
         for (i = 0; i < m_ispBackEntity->num_links; i++) {
@@ -813,22 +813,22 @@ bool ExynosCamera::create(int cameraId)
             if (links == NULL ||
                 links->source->entity != m_ispBackEntity ||
                 links->sink->entity != m_ispScalerpEntity) {
-                LOGV("DEBUG(%s):i=%d: links->source->entity : %p, m_ispBackEntity : %p", __func__, i,
+                ALOGV("DEBUG(%s):i=%d: links->source->entity : %p, m_ispBackEntity : %p", __func__, i,
                     links->source->entity, m_ispBackEntity);
-                LOGV("DEBUG(%s):i=%d: links->sink->entity : %p, m_ispScalerpEntity : %p", __func__, i,
+                ALOGV("DEBUG(%s):i=%d: links->sink->entity : %p, m_ispScalerpEntity : %p", __func__, i,
                     links->sink->entity, m_ispScalerpEntity);
                 continue;
             } else if (exynos_media_setup_link(m_media, links->source, links->sink, MEDIA_LNK_FL_ENABLED) < 0) {
-                LOGE("ERR(%s):Can not make setup isp_back to scalerP", __func__);
+                ALOGE("ERR(%s):Can not make setup isp_back to scalerP", __func__);
                 goto err;
             }
         }
-        LOGV("DEBUG(%s):[LINK SUCCESS] back to scalerP", __func__);
+        ALOGV("DEBUG(%s):[LINK SUCCESS] back to scalerP", __func__);
 
         sprintf(node, "%s%d", PFX_NODE, (ISP_VD_NODE_OFFSET + VIDEO_NODE_PREVIEW_ID));
         m_gscPreviewDev.fd = exynos_v4l2_open(node, O_RDWR, 0);
         if (m_gscPreviewDev.fd <= 0) {
-            LOGE("ERR(%s):exynos_v4l2_open(%s) fail (error : %s)", __func__, node, strerror(errno));
+            ALOGE("ERR(%s):exynos_v4l2_open(%s) fail (error : %s)", __func__, node, strerror(errno));
             goto err;
         }
         m_previewDev = &m_gscPreviewDev;
@@ -836,7 +836,7 @@ bool ExynosCamera::create(int cameraId)
         sprintf(node, "%s%d", PFX_NODE, (ISP_VD_NODE_OFFSET + VIDEO_NODE_RECODING_ID));
         m_gscVideoDev.fd = exynos_v4l2_open(node, O_RDWR, 0);
         if (m_gscVideoDev.fd <= 0) {
-            LOGE("ERR(%s):exynos_v4l2_open(%s) fail (error : %s)", __func__, node, strerror(errno));
+            ALOGE("ERR(%s):exynos_v4l2_open(%s) fail (error : %s)", __func__, node, strerror(errno));
             goto err;
         }
         m_videoDev = &m_gscVideoDev;
@@ -844,7 +844,7 @@ bool ExynosCamera::create(int cameraId)
         sprintf(node, "%s%d", PFX_NODE, (ISP_VD_NODE_OFFSET + VIDEO_NODE_SNAPSHOT_ID));
         m_gscPictureDev.fd = exynos_v4l2_open(node, O_RDWR, 0);
         if (m_gscPictureDev.fd <= 0) {
-            LOGE("ERR(%s):exynos_v4l2_open(%s) fail (error : %s)", __func__, node, strerror(errno));
+            ALOGE("ERR(%s):exynos_v4l2_open(%s) fail (error : %s)", __func__, node, strerror(errno));
             goto err;
         }
         m_pictureDev = &m_gscPictureDev;
@@ -856,7 +856,7 @@ bool ExynosCamera::create(int cameraId)
         // media device open
         m_media = exynos_media_open(MEDIA_DEV_EXTERNAL_ISP);
         if (m_media == NULL) {
-            LOGE("ERR(%s):Cannot open media device (error : %s)", __func__, strerror(errno));
+            ALOGE("ERR(%s):Cannot open media device (error : %s)", __func__, strerror(errno));
             goto err;
         }
 
@@ -865,46 +865,46 @@ bool ExynosCamera::create(int cameraId)
         //////////////////
         // camera subdev
         strcpy(node, M5MOLS_ENTITY_NAME);
-        LOGV("DEBUG(%s):node : %s", __func__, node);
+        ALOGV("DEBUG(%s):node : %s", __func__, node);
         m_sensorEntity = exynos_media_get_entity_by_name(m_media, node, strlen(node));
-        LOGV("DEBUG(%s):m_sensorEntity : 0x%p", __func__, m_sensorEntity);
+        ALOGV("DEBUG(%s):m_sensorEntity : 0x%p", __func__, m_sensorEntity);
 
         // mipi subdev
         sprintf(node, "%s.%d", PFX_SUBDEV_ENTITY_MIPI_CSIS, MIPI_NUM);
-        LOGV("DEBUG(%s):node : %s", __func__, node);
+        ALOGV("DEBUG(%s):node : %s", __func__, node);
         m_mipiEntity = exynos_media_get_entity_by_name(m_media, node, strlen(node));
-        LOGV("DEBUG(%s):m_mipiEntity : 0x%p", __func__, m_mipiEntity);
+        ALOGV("DEBUG(%s):m_mipiEntity : 0x%p", __func__, m_mipiEntity);
 
         // fimc-lite subdev
         sprintf(node, "%s.%d", PFX_SUBDEV_ENTITY_FLITE, FLITE_NUM);
-        LOGV("DEBUG(%s):node : %s", __func__, node);
+        ALOGV("DEBUG(%s):node : %s", __func__, node);
         m_fliteSdEntity = exynos_media_get_entity_by_name(m_media, node, strlen(node));
-        LOGV("DEBUG(%s):m_fliteSdEntity : 0x%p", __func__, m_fliteSdEntity);
+        ALOGV("DEBUG(%s):m_fliteSdEntity : 0x%p", __func__, m_fliteSdEntity);
 
         // fimc-lite videodev
         sprintf(node, "%s.%d", PFX_VIDEODEV_ENTITY_FLITE, FLITE_NUM);
-        LOGV("DEBUG(%s):node : %s", __func__, node);
+        ALOGV("DEBUG(%s):node : %s", __func__, node);
         m_fliteVdEntity = exynos_media_get_entity_by_name(m_media, node, strlen(node));
-        LOGV("DEBUG(%s):m_fliteVdEntity : 0x%p", __func__, m_fliteVdEntity);
+        ALOGV("DEBUG(%s):m_fliteVdEntity : 0x%p", __func__, m_fliteVdEntity);
 
         // gscaler subdev
         sprintf(node, "%s.%d", PFX_SUBDEV_ENTITY_GSC_CAP, GSC_NUM);
-        LOGV("DEBUG(%s):node : %s", __func__, node);
+        ALOGV("DEBUG(%s):node : %s", __func__, node);
         m_gscSdEntity = exynos_media_get_entity_by_name(m_media, node, strlen(node));
-        LOGV("DEBUG(%s):m_gscSdEntity : 0x%p", __func__, m_gscSdEntity);
+        ALOGV("DEBUG(%s):m_gscSdEntity : 0x%p", __func__, m_gscSdEntity);
 
         // gscaler videodev
         sprintf(node, "%s.%d", PFX_VIDEODEV_ENTITY_GSC_CAP, GSC_NUM);
-        LOGV("DEBUG(%s):node : %s", __func__, node);
+        ALOGV("DEBUG(%s):node : %s", __func__, node);
         m_gscVdEntity = exynos_media_get_entity_by_name(m_media, node, strlen(node));
-        LOGV("DEBUG(%s):m_gscVdEntity : 0x%p", __func__, m_gscVdEntity);
+        ALOGV("DEBUG(%s):m_gscVdEntity : 0x%p", __func__, m_gscVdEntity);
 
-        LOGV("DEBUG(%s):sensor_sd : numlink : %d", __func__, m_sensorEntity->num_links);
-        LOGV("DEBUG(%s):mipi_sd   : numlink : %d", __func__, m_mipiEntity->num_links);
-        LOGV("DEBUG(%s):flite_sd  : numlink : %d", __func__, m_fliteSdEntity->num_links);
-        LOGV("DEBUG(%s):flite_vd  : numlink : %d", __func__, m_fliteVdEntity->num_links);
-        LOGV("DEBUG(%s):gsc_sd    : numlink : %d", __func__, m_gscSdEntity->num_links);
-        LOGV("DEBUG(%s):gsc_vd    : numlink : %d", __func__, m_gscVdEntity->num_links);
+        ALOGV("DEBUG(%s):sensor_sd : numlink : %d", __func__, m_sensorEntity->num_links);
+        ALOGV("DEBUG(%s):mipi_sd   : numlink : %d", __func__, m_mipiEntity->num_links);
+        ALOGV("DEBUG(%s):flite_sd  : numlink : %d", __func__, m_fliteSdEntity->num_links);
+        ALOGV("DEBUG(%s):flite_vd  : numlink : %d", __func__, m_fliteVdEntity->num_links);
+        ALOGV("DEBUG(%s):gsc_sd    : numlink : %d", __func__, m_gscSdEntity->num_links);
+        ALOGV("DEBUG(%s):gsc_vd    : numlink : %d", __func__, m_gscVdEntity->num_links);
 
         //////////////////
         // SETUP LINKS
@@ -914,92 +914,92 @@ bool ExynosCamera::create(int cameraId)
         if (links == NULL ||
             links->source->entity != m_sensorEntity ||
             links->sink->entity != m_mipiEntity) {
-            LOGE("ERR(%s):Cannot make link camera sensor to mipi", __func__);
+            ALOGE("ERR(%s):Cannot make link camera sensor to mipi", __func__);
             goto err;
         }
 
         if (exynos_media_setup_link(m_media,  links->source,  links->sink, MEDIA_LNK_FL_ENABLED) < 0) {
-            LOGE("ERR(%s):Cannot make setup camera sensor to mipi", __func__);
+            ALOGE("ERR(%s):Cannot make setup camera sensor to mipi", __func__);
             goto err;
         }
-        LOGV("DEBUG(%s):[LINK SUCCESS] sensor subdev to mipi subdev", __func__);
+        ALOGV("DEBUG(%s):[LINK SUCCESS] sensor subdev to mipi subdev", __func__);
 
         // mipi subdev to fimc-lite subdev
         for (i = 0; i < m_mipiEntity->num_links; i++) {
             links = &m_mipiEntity->links[i];
-            LOGV("DEBUG(%s):i=%d: links->source->entity : %p, m_mipiEntity : %p", __func__, i,
+            ALOGV("DEBUG(%s):i=%d: links->source->entity : %p, m_mipiEntity : %p", __func__, i,
                     links->source->entity, m_mipiEntity);
-            LOGV("DEBUG(%s):i=%d: links->sink->entity : %p, m_fliteSdEntity : %p", __func__, i,
+            ALOGV("DEBUG(%s):i=%d: links->sink->entity : %p, m_fliteSdEntity : %p", __func__, i,
                     links->sink->entity, m_fliteSdEntity);
             if (links == NULL ||
                 links->source->entity != m_mipiEntity ||
                 links->sink->entity != m_fliteSdEntity) {
                 continue;
             } else if (exynos_media_setup_link(m_media,  links->source,  links->sink, MEDIA_LNK_FL_ENABLED) < 0) {
-                LOGE("ERR(%s):Cannot make setup mipi subdev to fimc-lite subdev", __func__);
+                ALOGE("ERR(%s):Cannot make setup mipi subdev to fimc-lite subdev", __func__);
                 goto err;
             }
         }
-        LOGV("DEBUG(%s):[LINK SUCCESS] mipi subdev to fimc-lite subdev", __func__);
+        ALOGV("DEBUG(%s):[LINK SUCCESS] mipi subdev to fimc-lite subdev", __func__);
 
         // fimc-lite subdev TO fimc-lite video dev
         for (i = 0; i < m_fliteSdEntity->num_links; i++) {
             links = &m_fliteSdEntity->links[i];
-            LOGV("DEBUG(%s):i=%d: links->source->entity : %p, m_fliteSdEntity : %p", __func__, i,
+            ALOGV("DEBUG(%s):i=%d: links->source->entity : %p, m_fliteSdEntity : %p", __func__, i,
                 links->source->entity, m_fliteSdEntity);
-            LOGV("DEBUG(%s):i=%d: links->sink->entity : %p, m_fliteVdEntity : %p", __func__, i,
+            ALOGV("DEBUG(%s):i=%d: links->sink->entity : %p, m_fliteVdEntity : %p", __func__, i,
                 links->sink->entity, m_fliteVdEntity);
             if (links == NULL ||
                 links->source->entity != m_fliteSdEntity ||
                 links->sink->entity != m_fliteVdEntity) {
                 continue;
             } else if (exynos_media_setup_link(m_media,  links->source,  links->sink, MEDIA_LNK_FL_ENABLED) < 0) {
-                LOGE("ERR(%s):Cannot make setup fimc-lite subdev to fimc-lite video dev", __func__);
+                ALOGE("ERR(%s):Cannot make setup fimc-lite subdev to fimc-lite video dev", __func__);
                 goto err;
             }
         }
-        LOGV("DEBUG(%s):[LINK SUCCESS] fimc-lite subdev to fimc-lite video dev", __func__);
+        ALOGV("DEBUG(%s):[LINK SUCCESS] fimc-lite subdev to fimc-lite video dev", __func__);
 
         // fimc-lite subdev to gscaler subdev
         for (i = 0; i < m_gscSdEntity->num_links; i++) {
             links = &m_gscSdEntity->links[i];
-            LOGV("DEBUG(%s):i=%d: links->source->entity : %p, m_fliteSdEntity : %p", __func__, i,
+            ALOGV("DEBUG(%s):i=%d: links->source->entity : %p, m_fliteSdEntity : %p", __func__, i,
                     links->source->entity, m_fliteSdEntity);
-            LOGV("DEBUG(%s):i=%d: links->sink->entity : %p, m_gscSdEntity : %p", __func__, i,
+            ALOGV("DEBUG(%s):i=%d: links->sink->entity : %p, m_gscSdEntity : %p", __func__, i,
                     links->sink->entity, m_gscSdEntity);
             if (links == NULL ||
                 links->source->entity != m_fliteSdEntity ||
                 links->sink->entity != m_gscSdEntity) {
                 continue;
             } else if (exynos_media_setup_link(m_media, links->source, links->sink, MEDIA_LNK_FL_ENABLED) < 0) {
-                LOGE("ERR(%s):Cannot make setup fimc-lite subdev to gscaler subdev", __func__);
+                ALOGE("ERR(%s):Cannot make setup fimc-lite subdev to gscaler subdev", __func__);
                 goto err;
             }
         }
-        LOGV("DEBUG(%s):[LINK SUCCESS] fimc-lite subdev to gscaler subdev", __func__);
+        ALOGV("DEBUG(%s):[LINK SUCCESS] fimc-lite subdev to gscaler subdev", __func__);
 
         // gscaler subdev to gscaler video dev
         for (i = 0; i < m_gscVdEntity->num_links; i++) {
             links = &m_gscVdEntity->links[i];
-            LOGV("DEBUG(%s):i=%d: links->source->entity : %p, m_gscSdEntity : %p", __func__, i,
+            ALOGV("DEBUG(%s):i=%d: links->source->entity : %p, m_gscSdEntity : %p", __func__, i,
                     links->source->entity, m_gscSdEntity);
-            LOGV("DEBUG(%s):i=%d: links->sink->entity : %p, m_gscVdEntity : %p", __func__, i,
+            ALOGV("DEBUG(%s):i=%d: links->sink->entity : %p, m_gscVdEntity : %p", __func__, i,
                     links->sink->entity, m_gscVdEntity);
             if (links == NULL ||
                 links->source->entity != m_gscSdEntity ||
                 links->sink->entity != m_gscVdEntity) {
                 continue;
             } else if (exynos_media_setup_link(m_media, links->source, links->sink, MEDIA_LNK_FL_ENABLED) < 0) {
-                LOGE("ERR(%s):Cannot make setup gscaler subdev to gscaler video dev", __func__);
+                ALOGE("ERR(%s):Cannot make setup gscaler subdev to gscaler video dev", __func__);
                 goto err;
             }
         }
-        LOGV("DEBUG(%s):[LINK SUCCESS] gscaler subdev to gscaler video dev", __func__);
+        ALOGV("DEBUG(%s):[LINK SUCCESS] gscaler subdev to gscaler video dev", __func__);
 
         sprintf(node, "%s%d", PFX_NODE, (FLITE_VD_NODE_OFFSET + VIDEO_NODE_PREVIEW_ID));
         m_fliteDev.fd = exynos_v4l2_open(node, O_RDWR, 0);
         if (m_fliteDev.fd <= 0) {
-            LOGE("ERR(%s):exynos_v4l2_open(%s) fail (error : %s)", __func__, node, strerror(errno));
+            ALOGE("ERR(%s):exynos_v4l2_open(%s) fail (error : %s)", __func__, node, strerror(errno));
             goto err;
         }
         m_previewDev = &m_fliteDev;
@@ -1019,7 +1019,7 @@ bool ExynosCamera::create(int cameraId)
     m_flagAutoFocusRunning = false;
 
     if (exynos_v4l2_enuminput(m_previewDev->fd, m_cameraId, m_cameraName) == false) {
-        LOGE("ERR(%s):exynos_v4l2_enuminput(%d, %s) fail", __func__, m_cameraId, m_cameraName);
+        ALOGE("ERR(%s):exynos_v4l2_enuminput(%d, %s) fail", __func__, m_cameraId, m_cameraName);
         goto err;
     }
 
@@ -1030,7 +1030,7 @@ bool ExynosCamera::create(int cameraId)
         strcpy(m_cameraName, "S5K6A3");
 
     if (exynos_v4l2_s_input(m_previewDev->fd, m_cameraId) < 0) {
-        LOGE("ERR(%s):exynos_v4l2_s_input() fail", __func__);
+        ALOGE("ERR(%s):exynos_v4l2_s_input() fail", __func__);
         goto err;
     }
 
@@ -1044,7 +1044,7 @@ bool ExynosCamera::create(int cameraId)
         m_defaultCameraInfo  = new ExynosCameraInfoM5M0;
         m_curCameraInfo      = new ExynosCameraInfoM5M0;
     } else {
-        LOGE("ERR(%s):invalid camera Name (%s) fail", __func__, m_cameraName);
+        ALOGE("ERR(%s):invalid camera Name (%s) fail", __func__, m_cameraName);
         goto err;
     }
 
@@ -1084,7 +1084,7 @@ err:
 bool ExynosCamera::destroy(void)
 {
     if (m_flagCreate == false) {
-        LOGE("ERR(%s):Not yet created", __func__);
+        ALOGE("ERR(%s):Not yet created", __func__);
         return false;
     }
 
@@ -1161,7 +1161,7 @@ int ExynosCamera::getVideoFd(void)
 bool ExynosCamera::startPreview(void)
 {
     if (m_flagCreate == false) {
-        LOGE("ERR(%s):Not yet Created", __func__);
+        ALOGE("ERR(%s):Not yet Created", __func__);
         return false;
     }
 
@@ -1174,23 +1174,23 @@ bool ExynosCamera::startPreview(void)
                              m_curCameraInfo->previewColorFormat,
                              m_previewBuf,
                              m_validPreviewBuf) == false) {
-            LOGE("ERR(%s):m_setWidthHeight() fail", __func__);
+            ALOGE("ERR(%s):m_setWidthHeight() fail", __func__);
             return false;
         }
 
         if (setPreviewFrameRate(m_curCameraInfo->fps) == false)
-            LOGE("ERR(%s):Fail toggle setPreviewFrameRate(%d)",
+            ALOGE("ERR(%s):Fail toggle setPreviewFrameRate(%d)",
                 __func__, m_curCameraInfo->fps);
 
         if (exynos_v4l2_streamon(m_previewDev->fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_streamon() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_streamon() fail", __func__);
             return false;
         }
 
         if (m_curCameraInfo->focusMode == FOCUS_MODE_CONTINUOUS_VIDEO
             || m_curCameraInfo->focusMode == FOCUS_MODE_CONTINUOUS_PICTURE) {
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_CAF_START_STOP, CAF_START) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
@@ -1204,19 +1204,19 @@ bool ExynosCamera::startPreview(void)
         bool toggle = getVideoStabilization();
 
         if (setVideoStabilization(toggle) == false)
-            LOGE("ERR(%s):setVideoStabilization() fail", __func__);
+            ALOGE("ERR(%s):setVideoStabilization() fail", __func__);
 #endif
 
 #ifdef USE_3DNR
         if (m_recordingHint == true && getCameraId() == CAMERA_ID_BACK) {
             if (set3DNR(true) == false)
-                LOGE("ERR(%s):set3DNR() fail", __func__);
+                ALOGE("ERR(%s):set3DNR() fail", __func__);
         }
 #endif
 
 #ifdef USE_ODC
         if (setODC(true) == false)
-            LOGE("ERR(%s):setODC() fail", __func__);
+            ALOGE("ERR(%s):setODC() fail", __func__);
 #endif
     }
 
@@ -1226,7 +1226,7 @@ bool ExynosCamera::startPreview(void)
 bool ExynosCamera::stopPreview(void)
 {
     if (m_flagCreate == false) {
-        LOGE("ERR(%s):Not yet Created", __func__);
+        ALOGE("ERR(%s):Not yet Created", __func__);
         return false;
     }
 
@@ -1246,16 +1246,16 @@ bool ExynosCamera::stopPreview(void)
 /* Can not use 3DNR, ODC and DIS function because HW problem at exynos5250 EVT0 */
 #ifdef USE_3DNR
         if (set3DNR(false) == false)
-            LOGE("ERR(%s):set3DNR() fail", __func__);
+            ALOGE("ERR(%s):set3DNR() fail", __func__);
 #endif
 
 #ifdef USE_ODC
         if (setODC(false) == false)
-            LOGE("ERR(%s):setODC() fail", __func__);
+            ALOGE("ERR(%s):setODC() fail", __func__);
 #endif
 
         if (exynos_v4l2_streamoff(m_previewDev->fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_streamoff() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_streamoff() fail", __func__);
             return false;
         }
 
@@ -1265,7 +1265,7 @@ bool ExynosCamera::stopPreview(void)
         req.memory = V4L2_MEMORY_USERPTR;
 
         if (exynos_v4l2_reqbufs(m_previewDev->fd, &req) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_reqbufs() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_reqbufs() fail", __func__);
             return false;
         }
 
@@ -1290,12 +1290,12 @@ int ExynosCamera::getPreviewMaxBuf(void)
 bool ExynosCamera::setPreviewBuf(ExynosBuffer *buf)
 {
     if (m_flagCreate == false) {
-        LOGE("ERR(%s):Not yet created fail", __func__);
+        ALOGE("ERR(%s):Not yet created fail", __func__);
         return false;
     }
 
     if (VIDEO_MAX_FRAME <= buf->reserved.p) {
-        LOGE("ERR(%s):index(%d) must smaller than %d", __func__, buf->reserved.p, VIDEO_MAX_FRAME);
+        ALOGE("ERR(%s):index(%d) must smaller than %d", __func__, buf->reserved.p, VIDEO_MAX_FRAME);
         return false;
     }
 
@@ -1311,12 +1311,12 @@ bool ExynosCamera::setPreviewBuf(ExynosBuffer *buf)
 bool ExynosCamera::getPreviewBuf(ExynosBuffer *buf)
 {
     if (m_flagCreate == false) {
-        LOGE("ERR(%s):Not yet created fail", __func__);
+        ALOGE("ERR(%s):Not yet created fail", __func__);
         return false;
     }
 
     if (m_previewDev->flagStart == false) {
-        LOGE("ERR(%s):Not yet preview started fail", __func__);
+        ALOGE("ERR(%s):Not yet preview started fail", __func__);
         return false;
     }
 
@@ -1334,12 +1334,12 @@ bool ExynosCamera::getPreviewBuf(ExynosBuffer *buf)
     }
 
     if (exynos_v4l2_dqbuf(m_previewDev->fd, &v4l2_buf) < 0) {
-        LOGE("ERR(%s):exynos_v4l2_dqbuf() fail", __func__);
+        ALOGE("ERR(%s):exynos_v4l2_dqbuf() fail", __func__);
         return false;
     }
 
     if (VIDEO_MAX_FRAME <= v4l2_buf.index) {
-        LOGE("ERR(%s):wrong index = %d", __func__, v4l2_buf.index);
+        ALOGE("ERR(%s):wrong index = %d", __func__, v4l2_buf.index);
         return false;
     }
 
@@ -1351,12 +1351,12 @@ bool ExynosCamera::getPreviewBuf(ExynosBuffer *buf)
 bool ExynosCamera::putPreviewBuf(ExynosBuffer *buf)
 {
     if (m_flagCreate == false) {
-        LOGE("ERR(%s):Not yet created fail", __func__);
+        ALOGE("ERR(%s):Not yet created fail", __func__);
         return false;
     }
 
     if (m_validPreviewBuf[buf->reserved.p] == false) {
-        LOGE("ERR(%s):Invalid index(%d)", __func__, buf->reserved.p);
+        ALOGE("ERR(%s):Invalid index(%d)", __func__, buf->reserved.p);
         return false;
     }
 
@@ -1378,7 +1378,7 @@ bool ExynosCamera::putPreviewBuf(ExynosBuffer *buf)
     }
 
     if (exynos_v4l2_qbuf(m_previewDev->fd, &v4l2_buf) < 0) {
-        LOGE("ERR(%s):exynos_v4l2_qbuf() fail", __func__);
+        ALOGE("ERR(%s):exynos_v4l2_qbuf() fail", __func__);
         return false;
     }
 
@@ -1419,7 +1419,7 @@ int ExynosCamera::getVideoFormat(void)
 bool ExynosCamera::startVideo(void)
 {
     if (m_flagCreate == false) {
-        LOGE("ERR(%s):Not yet Created", __func__);
+        ALOGE("ERR(%s):Not yet Created", __func__);
         return false;
     }
 
@@ -1433,12 +1433,12 @@ bool ExynosCamera::startVideo(void)
                              m_curCameraInfo->videoColorFormat,
                              m_videoBuf,
                              m_validVideoBuf) == false) {
-            LOGE("ERR(%s):m_setWidthHeight() fail", __func__);
+            ALOGE("ERR(%s):m_setWidthHeight() fail", __func__);
             return false;
         }
 
         if (exynos_v4l2_streamon(m_videoDev->fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_streamon() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_streamon() fail", __func__);
             return false;
         }
 
@@ -1453,7 +1453,7 @@ bool ExynosCamera::startVideo(void)
 bool ExynosCamera::stopVideo(void)
 {
     if (m_flagCreate == false) {
-        LOGE("ERR(%s):Not yet Created", __func__);
+        ALOGE("ERR(%s):Not yet Created", __func__);
         return false;
     }
 
@@ -1467,7 +1467,7 @@ bool ExynosCamera::stopVideo(void)
             return true;
 
         if (exynos_v4l2_streamoff(m_videoDev->fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_streamoff() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_streamoff() fail", __func__);
             return false;
         }
         struct v4l2_requestbuffers req;
@@ -1476,7 +1476,7 @@ bool ExynosCamera::stopVideo(void)
         req.memory = V4L2_MEMORY_USERPTR;
 
         if (exynos_v4l2_reqbufs(m_videoDev->fd, &req) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_reqbufs() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_reqbufs() fail", __func__);
             return false;
         }
 
@@ -1499,12 +1499,12 @@ int ExynosCamera::getVideoMaxBuf(void)
 bool ExynosCamera::setVideoBuf(ExynosBuffer *buf)
 {
     if (m_flagCreate == false) {
-        LOGE("ERR(%s):Not yet created fail", __func__);
+        ALOGE("ERR(%s):Not yet created fail", __func__);
         return false;
     }
 
     if (VIDEO_MAX_FRAME <= buf->reserved.p) {
-        LOGE("ERR(%s):index(%d) must smaller than %d", __func__, buf->reserved.p, VIDEO_MAX_FRAME);
+        ALOGE("ERR(%s):index(%d) must smaller than %d", __func__, buf->reserved.p, VIDEO_MAX_FRAME);
         return false;
     }
 
@@ -1515,12 +1515,12 @@ bool ExynosCamera::setVideoBuf(ExynosBuffer *buf)
 bool ExynosCamera::getVideoBuf(ExynosBuffer *buf)
 {
     if (m_flagCreate == false) {
-        LOGE("ERR(%s):Not yet created fail", __func__);
+        ALOGE("ERR(%s):Not yet created fail", __func__);
         return false;
     }
 
     if (m_videoDev->flagStart == false) {
-        LOGE("ERR(%s):Not yet video started fail", __func__);
+        ALOGE("ERR(%s):Not yet video started fail", __func__);
         return false;
     }
 
@@ -1538,12 +1538,12 @@ bool ExynosCamera::getVideoBuf(ExynosBuffer *buf)
     }
 
     if (exynos_v4l2_dqbuf(m_videoDev->fd, &v4l2_buf) < 0) {
-        LOGE("ERR(%s):exynos_v4l2_dqbuf() fail", __func__);
+        ALOGE("ERR(%s):exynos_v4l2_dqbuf() fail", __func__);
         return false;
     }
 
     if (VIDEO_MAX_FRAME <= v4l2_buf.index) {
-        LOGE("ERR(%s):wrong index = %d", __func__, v4l2_buf.index);
+        ALOGE("ERR(%s):wrong index = %d", __func__, v4l2_buf.index);
         return false;
     }
 
@@ -1555,7 +1555,7 @@ bool ExynosCamera::getVideoBuf(ExynosBuffer *buf)
 bool ExynosCamera::putVideoBuf(ExynosBuffer *buf)
 {
     if (m_flagCreate == false) {
-        LOGE("ERR(%s):Not yet created fail", __func__);
+        ALOGE("ERR(%s):Not yet created fail", __func__);
         return false;
     }
 
@@ -1566,12 +1566,12 @@ bool ExynosCamera::putVideoBuf(ExynosBuffer *buf)
          * cases where fimc could crash if we called qbuf and it
          * wasn't expecting it.
          */
-        LOGV("DEBUG(%s):recording not in progress, ignoring", __func__);
+        ALOGV("DEBUG(%s):recording not in progress, ignoring", __func__);
         return true;
     }
 
     if (m_validVideoBuf[buf->reserved.p] == false) {
-        LOGE("ERR(%s):Invalid index(%d)", __func__, buf->reserved.p);
+        ALOGE("ERR(%s):Invalid index(%d)", __func__, buf->reserved.p);
         return false;
     }
 
@@ -1593,7 +1593,7 @@ bool ExynosCamera::putVideoBuf(ExynosBuffer *buf)
     }
 
     if (exynos_v4l2_qbuf(m_videoDev->fd, &v4l2_buf) < 0) {
-        LOGE("ERR(%s):exynos_v4l2_qbuf() fail", __func__);
+        ALOGE("ERR(%s):exynos_v4l2_qbuf() fail", __func__);
         return false;
     }
 
@@ -1603,7 +1603,7 @@ bool ExynosCamera::putVideoBuf(ExynosBuffer *buf)
 bool ExynosCamera::startPicture(void)
 {
     if (m_flagCreate == false) {
-        LOGE("ERR(%s):Not yet Created", __func__);
+        ALOGE("ERR(%s):Not yet Created", __func__);
         return false;
     }
 
@@ -1616,12 +1616,12 @@ bool ExynosCamera::startPicture(void)
                              m_curCameraInfo->pictureColorFormat,
                              m_pictureBuf,
                              m_validPictureBuf) == false) {
-            LOGE("ERR(%s):m_setWidthHeight() fail", __func__);
+            ALOGE("ERR(%s):m_setWidthHeight() fail", __func__);
             return false;
         }
 
         if (exynos_v4l2_streamon(m_pictureDev->fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_streamon() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_streamon() fail", __func__);
             return false;
         }
 
@@ -1635,7 +1635,7 @@ bool ExynosCamera::startPicture(void)
 bool ExynosCamera::stopPicture(void)
 {
     if (m_flagCreate == false) {
-        LOGE("ERR(%s):Not yet Created", __func__);
+        ALOGE("ERR(%s):Not yet Created", __func__);
         return false;
     }
 
@@ -1649,7 +1649,7 @@ bool ExynosCamera::stopPicture(void)
             return true;
 
         if (exynos_v4l2_streamoff(m_pictureDev->fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_streamoff() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_streamoff() fail", __func__);
             return false;
         }
 
@@ -1659,7 +1659,7 @@ bool ExynosCamera::stopPicture(void)
         req.memory = V4L2_MEMORY_USERPTR;
 
         if (exynos_v4l2_reqbufs(m_pictureDev->fd, &req) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_reqbufs() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_reqbufs() fail", __func__);
             return false;
         }
 
@@ -1682,12 +1682,12 @@ int ExynosCamera::getPictureMaxBuf(void)
 bool ExynosCamera::setPictureBuf(ExynosBuffer *buf)
 {
     if (m_flagCreate == false) {
-        LOGE("ERR(%s):Not yet created fail", __func__);
+        ALOGE("ERR(%s):Not yet created fail", __func__);
         return false;
     }
 
     if (VIDEO_MAX_FRAME <= buf->reserved.p) {
-        LOGE("ERR(%s):index(%d) must smaller than %d", __func__, buf->reserved.p, VIDEO_MAX_FRAME);
+        ALOGE("ERR(%s):index(%d) must smaller than %d", __func__, buf->reserved.p, VIDEO_MAX_FRAME);
         return false;
     }
 
@@ -1698,12 +1698,12 @@ bool ExynosCamera::setPictureBuf(ExynosBuffer *buf)
 bool ExynosCamera::getPictureBuf(ExynosBuffer *buf)
 {
     if (m_flagCreate == false) {
-        LOGE("ERR(%s):Not yet created fail", __func__);
+        ALOGE("ERR(%s):Not yet created fail", __func__);
         return false;
     }
 
     if (m_pictureDev->flagStart == false) {
-        LOGE("ERR(%s):Not yet picture started fail", __func__);
+        ALOGE("ERR(%s):Not yet picture started fail", __func__);
         return false;
     }
 
@@ -1721,12 +1721,12 @@ bool ExynosCamera::getPictureBuf(ExynosBuffer *buf)
     }
 
     if (exynos_v4l2_dqbuf(m_pictureDev->fd, &v4l2_buf) < 0) {
-        LOGE("ERR(%s):exynos_v4l2_dqbuf() fail", __func__);
+        ALOGE("ERR(%s):exynos_v4l2_dqbuf() fail", __func__);
         return false;
     }
 
     if (VIDEO_MAX_FRAME <= v4l2_buf.index) {
-        LOGE("ERR(%s):wrong index = %d", __func__, v4l2_buf.index);
+        ALOGE("ERR(%s):wrong index = %d", __func__, v4l2_buf.index);
         return false;
     }
 
@@ -1738,17 +1738,17 @@ bool ExynosCamera::getPictureBuf(ExynosBuffer *buf)
 bool ExynosCamera::putPictureBuf(ExynosBuffer *buf)
 {
     if (m_flagCreate == false) {
-        LOGE("ERR(%s):Not yet created fail", __func__);
+        ALOGE("ERR(%s):Not yet created fail", __func__);
         return false;
     }
 
     if (m_pictureDev->flagStart == false) {
-        LOGE("ERR(%s):Not yet picture started fail", __func__);
+        ALOGE("ERR(%s):Not yet picture started fail", __func__);
         return false;
     }
 
     if (m_validPictureBuf[buf->reserved.p] == false) {
-        LOGE("ERR(%s):Invalid index(%d)", __func__, buf->reserved.p);
+        ALOGE("ERR(%s):Invalid index(%d)", __func__, buf->reserved.p);
         return false;
     }
 
@@ -1770,7 +1770,7 @@ bool ExynosCamera::putPictureBuf(ExynosBuffer *buf)
     }
 
     if (exynos_v4l2_qbuf(m_pictureDev->fd, &v4l2_buf) < 0) {
-        LOGE("ERR(%s):exynos_v4l2_qbuf() fail", __func__);
+        ALOGE("ERR(%s):exynos_v4l2_qbuf() fail", __func__);
         return false;
     }
 
@@ -1789,40 +1789,40 @@ bool ExynosCamera::yuv2Jpeg(ExynosBuffer *yuvBuf,
     unsigned int *yuvSize = yuvBuf->size.extS;
 
     if (jpegEnc.create()) {
-        LOGE("ERR(%s):jpegEnc.create() fail", __func__);
+        ALOGE("ERR(%s):jpegEnc.create() fail", __func__);
         goto jpeg_encode_done;
     }
 
     if (jpegEnc.setQuality(m_jpegQuality)) {
-        LOGE("ERR(%s):jpegEnc.setQuality() fail", __func__);
+        ALOGE("ERR(%s):jpegEnc.setQuality() fail", __func__);
         goto jpeg_encode_done;
     }
 
     if (jpegEnc.setSize(rect->w, rect->h)) {
-        LOGE("ERR(%s):jpegEnc.setSize() fail", __func__);
+        ALOGE("ERR(%s):jpegEnc.setSize() fail", __func__);
         goto jpeg_encode_done;
     }
 
     if (jpegEnc.setColorFormat(rect->colorFormat)) {
-        LOGE("ERR(%s):jpegEnc.setColorFormat() fail", __func__);
+        ALOGE("ERR(%s):jpegEnc.setColorFormat() fail", __func__);
         goto jpeg_encode_done;
     }
 
     if (jpegEnc.setJpegFormat(V4L2_PIX_FMT_JPEG_422)) {
-        LOGE("ERR(%s):jpegEnc.setJpegFormat() fail", __func__);
+        ALOGE("ERR(%s):jpegEnc.setJpegFormat() fail", __func__);
         goto jpeg_encode_done;
     }
 
     if (m_curCameraInfo->thumbnailW != 0 && m_curCameraInfo->thumbnailH != 0) {
         mExifInfo.enableThumb = true;
         if (jpegEnc.setThumbnailSize(m_curCameraInfo->thumbnailW, m_curCameraInfo->thumbnailH)) {
-            LOGE("ERR(%s):jpegEnc.setThumbnailSize(%d, %d) fail", __func__, m_curCameraInfo->thumbnailW, m_curCameraInfo->thumbnailH);
+            ALOGE("ERR(%s):jpegEnc.setThumbnailSize(%d, %d) fail", __func__, m_curCameraInfo->thumbnailW, m_curCameraInfo->thumbnailH);
             goto jpeg_encode_done;
         }
 
         if (0 < m_jpegThumbnailQuality && m_jpegThumbnailQuality <= 100) {
             if (jpegEnc.setThumbnailQuality(m_jpegThumbnailQuality)) {
-                LOGE("ERR(%s):jpegEnc.setThumbnailSize(%d, %d) fail", __func__, m_curCameraInfo->thumbnailW, m_curCameraInfo->thumbnailH);
+                ALOGE("ERR(%s):jpegEnc.setThumbnailSize(%d, %d) fail", __func__, m_curCameraInfo->thumbnailW, m_curCameraInfo->thumbnailH);
                 goto jpeg_encode_done;
             }
         }
@@ -1833,22 +1833,22 @@ bool ExynosCamera::yuv2Jpeg(ExynosBuffer *yuvBuf,
     }
 
     if (jpegEnc.setInBuf((char **)&(yuvBuf->virt.p), (int *)yuvSize)) {
-        LOGE("ERR(%s):jpegEnc.setInBuf() fail", __func__);
+        ALOGE("ERR(%s):jpegEnc.setInBuf() fail", __func__);
         goto jpeg_encode_done;
     }
 
     if (jpegEnc.setOutBuf(jpegBuf->virt.p, jpegBuf->size.extS[0] + jpegBuf->size.extS[1] + jpegBuf->size.extS[2])) {
-        LOGE("ERR(%s):jpegEnc.setOutBuf() fail", __func__);
+        ALOGE("ERR(%s):jpegEnc.setOutBuf() fail", __func__);
         goto jpeg_encode_done;
     }
 
     if (jpegEnc.updateConfig()) {
-        LOGE("ERR(%s):jpegEnc.updateConfig() fail", __func__);
+        ALOGE("ERR(%s):jpegEnc.updateConfig() fail", __func__);
         goto jpeg_encode_done;
     }
 
     if (jpegEnc.encode((int *)&jpegBuf->size.s, &mExifInfo)) {
-        LOGE("ERR(%s):jpegEnc.encode() fail", __func__);
+        ALOGE("ERR(%s):jpegEnc.encode() fail", __func__);
         goto jpeg_encode_done;
     }
 
@@ -1865,12 +1865,12 @@ jpeg_encode_done:
 bool ExynosCamera::autoFocus(void)
 {
     if (m_previewDev->fd <= 0) {
-        LOGE("ERR(%s):Camera was closed", __func__);
+        ALOGE("ERR(%s):Camera was closed", __func__);
         return false;
     }
 
     if (m_flagAutoFocusRunning == true) {
-        LOGD("DEBUG(%s):m_flagAutoFocusRunning == true", __func__);
+        ALOGD("DEBUG(%s):m_flagAutoFocusRunning == true", __func__);
         return true;
     }
 
@@ -1880,12 +1880,12 @@ bool ExynosCamera::autoFocus(void)
     case FOCUS_MODE_MACRO:
         if (m_touchAFMode == true) {
             if (setFocusMode(FOCUS_MODE_TOUCH) == false) {
-                LOGE("ERR(%s): %d: setFocusMode(FOCUS_MODE_TOUCH) fail", __func__, __LINE__);
+                ALOGE("ERR(%s): %d: setFocusMode(FOCUS_MODE_TOUCH) fail", __func__, __LINE__);
                 return false;
             }
         } else {
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_SET_AUTO_FOCUS, AUTO_FOCUS_ON) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
@@ -1897,7 +1897,7 @@ bool ExynosCamera::autoFocus(void)
         break;
     case FOCUS_MODE_TOUCH:
         if (setFocusMode(FOCUS_MODE_TOUCH) == false) {
-            LOGE("ERR(%s): %d: setFocusMode(FOCUS_MODE_TOUCH) fail", __func__, __LINE__);
+            ALOGE("ERR(%s): %d: setFocusMode(FOCUS_MODE_TOUCH) fail", __func__, __LINE__);
             return false;
         }
         break;
@@ -1905,7 +1905,7 @@ bool ExynosCamera::autoFocus(void)
         break;
     case FOCUS_MODE_EDOF:
     default:
-        LOGE("ERR(%s):Unsupported value(%d)", __func__, m_curCameraInfo->focusMode);
+        ALOGE("ERR(%s):Unsupported value(%d)", __func__, m_curCameraInfo->focusMode);
         return false;
         break;
     }
@@ -1918,12 +1918,12 @@ bool ExynosCamera::autoFocus(void)
 bool ExynosCamera::cancelAutoFocus(void)
 {
     if (m_previewDev->fd <= 0) {
-        LOGE("ERR(%s):Camera was closed", __func__);
+        ALOGE("ERR(%s):Camera was closed", __func__);
         return false;
     }
 
     if (m_flagAutoFocusRunning == false) {
-        LOGV("DEBUG(%s):m_flagAutoFocusRunning == false", __func__);
+        ALOGV("DEBUG(%s):m_flagAutoFocusRunning == false", __func__);
         return true;
     }
 
@@ -1932,7 +1932,7 @@ bool ExynosCamera::cancelAutoFocus(void)
     case FOCUS_MODE_INFINITY:
     case FOCUS_MODE_MACRO:
         if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_SET_AUTO_FOCUS, AUTO_FOCUS_OFF) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
             return false;
         }
         break;
@@ -1943,7 +1943,7 @@ bool ExynosCamera::cancelAutoFocus(void)
         break;
     case FOCUS_MODE_TOUCH:
         if (setFocusMode(FOCUS_MODE_TOUCH) == false) {
-            LOGE("ERR(%s): %d: setFocusMode(FOCUS_MODE_TOUCH) fail", __func__, __LINE__);
+            ALOGE("ERR(%s): %d: setFocusMode(FOCUS_MODE_TOUCH) fail", __func__, __LINE__);
             return false;
         }
         m_touchAFMode = false;
@@ -1952,7 +1952,7 @@ bool ExynosCamera::cancelAutoFocus(void)
         break;
     case FOCUS_MODE_EDOF:
     default:
-        LOGE("ERR(%s):Unsupported value(%d)", __func__, m_curCameraInfo->focusMode);
+        ALOGE("ERR(%s):Unsupported value(%d)", __func__, m_curCameraInfo->focusMode);
         return false;
         break;
     }
@@ -1975,7 +1975,7 @@ int ExynosCamera::getFucusModeResult(void)
             return -1;
 
         if (exynos_v4l2_g_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_AUTO_FOCUS_RESULT, &ret) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_g_ctrl() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_g_ctrl() fail", __func__);
             return -1;
         }
 
@@ -2028,27 +2028,27 @@ int ExynosCamera::getFucusModeResult(void)
 bool ExynosCamera::startFaceDetection(void)
 {
     if (m_flagStartFaceDetection == true) {
-        LOGD("DEBUG(%s):Face detection already started..", __func__);
+        ALOGD("DEBUG(%s):Face detection already started..", __func__);
         return true;
     }
 
     if (m_previewDev->flagStart == true) {
         //if (this->setFocusMode(FOCUS_MODE_AUTO) == false)
-        //    LOGE("ERR(%s):Fail setFocusMode", __func__);
+        //    ALOGE("ERR(%s):Fail setFocusMode", __func__);
 
         if (m_internalISP == true) {
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_FD_SET_MAX_FACE_NUMBER, m_defaultCameraInfo->maxNumDetectedFaces) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
 
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CMD_FD, IS_FD_COMMAND_START) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         } else {
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_FACE_DETECTION, FACE_DETECTION_ON) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
@@ -2060,19 +2060,19 @@ bool ExynosCamera::startFaceDetection(void)
 bool ExynosCamera::stopFaceDetection(void)
 {
     if (m_flagStartFaceDetection == false) {
-        LOGD("DEBUG(%s):Face detection already stopped..", __func__);
+        ALOGD("DEBUG(%s):Face detection already stopped..", __func__);
         return true;
     }
 
     if (m_previewDev->flagStart == true) {
         if (m_internalISP == true) {
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CMD_FD, IS_FD_COMMAND_STOP) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         } else {
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_FACE_DETECTION, FACE_DETECTION_OFF) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
@@ -2091,7 +2091,7 @@ bool ExynosCamera::setFaceDetectLock(bool toggle)
     int lock = (toggle == true) ? 1 : 0;
 
     if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_FACEDETECT_LOCKUNLOCK, lock) < 0) {
-        LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+        ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
         return false;
     }
     return true;
@@ -2100,7 +2100,7 @@ bool ExynosCamera::setFaceDetectLock(bool toggle)
 bool ExynosCamera::startSmoothZoom(int value)
 {
     if (m_defaultCameraInfo->hwZoomSupported == false) {
-        LOGE("ERR(%s):m_defaultCameraInfo->hwZoomSupported == false", __func__);
+        ALOGE("ERR(%s):m_defaultCameraInfo->hwZoomSupported == false", __func__);
         return false;
     }
 
@@ -2142,12 +2142,12 @@ int ExynosCamera::getDetectedFacesAreas(int num,
                                         ExynosRect *mouth)
 {
     if (m_defaultCameraInfo->maxNumDetectedFaces == 0) {
-        LOGE("ERR(%s):maxNumDetectedFaces == 0 fail", __func__);
+        ALOGE("ERR(%s):maxNumDetectedFaces == 0 fail", __func__);
         return -1;
     }
 
     if (m_flagStartFaceDetection == false) {
-        LOGD("DEBUG(%s):m_flagStartFaceDetection == false", __func__);
+        ALOGD("DEBUG(%s):m_flagStartFaceDetection == false", __func__);
         return 0;
     }
 
@@ -2200,12 +2200,12 @@ int ExynosCamera::getDetectedFacesAreas(int num,
                                      ExynosRect2 *mouth)
 {
     if (m_defaultCameraInfo->maxNumDetectedFaces == 0) {
-        LOGE("ERR(%s):maxNumDetectedFaces == 0 fail", __func__);
+        ALOGE("ERR(%s):maxNumDetectedFaces == 0 fail", __func__);
         return -1;
     }
 
     if (m_flagStartFaceDetection == false) {
-        LOGD("DEBUG(%s):m_flagStartFaceDetection == false", __func__);
+        ALOGD("DEBUG(%s):m_flagStartFaceDetection == false", __func__);
         return 0;
     }
 
@@ -2273,7 +2273,7 @@ int ExynosCamera::getDetectedFacesAreas(int num,
     fd_ctrls.controls = fd_ctrl;
 
     if (exynos_v4l2_g_ext_ctrl(m_previewDev->fd, &fd_ctrls) < 0) {
-        LOGE("ERR(%s):exynos_v4l2_g_ext_ctrl() fail", __func__);
+        ALOGE("ERR(%s):exynos_v4l2_g_ext_ctrl() fail", __func__);
         num = -1;
         goto done;
     }
@@ -2618,19 +2618,19 @@ bool ExynosCamera::setAntibanding(int value)
         internalValue = ::ANTI_BANDING_OFF;
         break;
     default:
-        LOGE("ERR(%s):Unsupported value(%d)", __func__, value);
+        ALOGE("ERR(%s):Unsupported value(%d)", __func__, value);
         return false;
         break;
     }
 
     if (m_internalISP == true) {
         if (internalValue < ::IS_AFC_DISABLE || ::IS_AFC_MAX <= internalValue) {
-            LOGE("ERR(%s):Invalid value (%d)", __func__, value);
+            ALOGE("ERR(%s):Invalid value (%d)", __func__, value);
             return false;
         }
     } else {
         if (internalValue < ::ANTI_BANDING_AUTO || ::ANTI_BANDING_OFF < internalValue) {
-            LOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
+            ALOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
             return false;
         }
     }
@@ -2639,7 +2639,7 @@ bool ExynosCamera::setAntibanding(int value)
         m_curCameraInfo->antiBanding = value;
         if (m_flagCreate == true) {
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_AFC_MODE, internalValue) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
@@ -2668,7 +2668,7 @@ bool ExynosCamera::setAutoExposureLock(bool toggle)
 
     if (m_flagCreate == true) {
         if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_AEAWB_LOCK_UNLOCK, internalValue) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
             return false;
         }
     }
@@ -2695,7 +2695,7 @@ bool ExynosCamera::setAutoWhiteBalanceLock(bool toggle)
 
     if (m_flagCreate == true) {
         if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_AEAWB_LOCK_UNLOCK, internalValue) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
             return false;
         }
     }
@@ -2734,19 +2734,19 @@ bool ExynosCamera::setColorEffect(int value)
     case EFFECT_WHITEBOARD:
     case EFFECT_BLACKBOARD:
     default:
-        LOGE("ERR(%s):Unsupported value(%d)", __func__, value);
+        ALOGE("ERR(%s):Unsupported value(%d)", __func__, value);
         return false;
         break;
     }
 
     if (m_internalISP == true) {
         if (internalValue < ::IS_IMAGE_EFFECT_DISABLE || ::IS_IMAGE_EFFECT_MAX <= internalValue) {
-            LOGE("ERR(%s):Invalid internalValue(%d)", __func__, internalValue);
+            ALOGE("ERR(%s):Invalid internalValue(%d)", __func__, internalValue);
             return false;
         }
     } else {
         if (internalValue <= ::IMAGE_EFFECT_BASE || ::IMAGE_EFFECT_MAX <= internalValue) {
-            LOGE("ERR(%s):Invalid internalValue(%d)", __func__, internalValue);
+            ALOGE("ERR(%s):Invalid internalValue(%d)", __func__, internalValue);
             return false;
         }
     }
@@ -2756,12 +2756,12 @@ bool ExynosCamera::setColorEffect(int value)
         if (m_flagCreate == true) {
             if (m_internalISP == true) {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_IMAGE_EFFECT, internalValue) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             } else {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_EFFECT, internalValue) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             }
@@ -2778,13 +2778,13 @@ bool ExynosCamera::setExposureCompensation(int value)
     if (m_internalISP == true) {
         internalValue += IS_EXPOSURE_DEFAULT;
         if (internalValue < IS_EXPOSURE_MINUS_2 || IS_EXPOSURE_PLUS_2 < internalValue) {
-            LOGE("ERR(%s):Invalid internalValue(%d)", __func__, internalValue);
+            ALOGE("ERR(%s):Invalid internalValue(%d)", __func__, internalValue);
             return false;
         }
     } else {
         internalValue += EV_DEFAULT;
         if (internalValue < EV_MINUS_4 || EV_PLUS_4 < internalValue) {
-            LOGE("ERR(%s):Invalid internalValue(%d)", __func__, internalValue);
+            ALOGE("ERR(%s):Invalid internalValue(%d)", __func__, internalValue);
             return false;
         }
     }
@@ -2794,12 +2794,12 @@ bool ExynosCamera::setExposureCompensation(int value)
         if (m_flagCreate == true) {
             if (m_internalISP == true) {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_EXPOSURE, internalValue) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             } else {
                 if (this->setBrightness(value) == false) {
-                    LOGE("ERR(%s):setBrightness() fail", __func__);
+                    ALOGE("ERR(%s):setBrightness() fail", __func__);
                     return false;
                 }
             }
@@ -2828,13 +2828,13 @@ bool ExynosCamera::setFlashMode(int value)
         break;
     case FLASH_MODE_RED_EYE:
     default:
-        LOGE("ERR(%s):Unsupported value(%d)", __func__, value);
+        ALOGE("ERR(%s):Unsupported value(%d)", __func__, value);
         return false;
         break;
     }
 
     if (internalValue <= ::FLASH_MODE_BASE || ::FLASH_MODE_MAX <= internalValue) {
-        LOGE("ERR(%s):Invalid value (%d)", __func__, value);
+        ALOGE("ERR(%s):Invalid value (%d)", __func__, value);
         return false;
     }
 
@@ -2842,7 +2842,7 @@ bool ExynosCamera::setFlashMode(int value)
         m_curCameraInfo->flashMode = value;
         if (m_flagCreate == true) {
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_FLASH_MODE, internalValue) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
@@ -2854,7 +2854,7 @@ bool ExynosCamera::setFlashMode(int value)
 bool ExynosCamera::setFocusAreas(int num, ExynosRect* rects, int *weights)
 {
     if (m_defaultCameraInfo->maxNumFocusAreas == 0) {
-        LOGV("DEBUG(%s):maxNumFocusAreas is 0. so, ignored", __func__);
+        ALOGV("DEBUG(%s):maxNumFocusAreas is 0. so, ignored", __func__);
         return true;
     }
 
@@ -2874,7 +2874,7 @@ bool ExynosCamera::setFocusAreas(int num, ExynosRect* rects, int *weights)
 bool ExynosCamera::setFocusAreas(int num, ExynosRect2* rect2s, int *weights)
 {
     if (m_defaultCameraInfo->maxNumFocusAreas == 0) {
-        LOGV("DEBUG(%s):maxNumFocusAreas is 0. so, ignored", __func__);
+        ALOGV("DEBUG(%s):maxNumFocusAreas is 0. so, ignored", __func__);
         return true;
     }
 
@@ -2902,7 +2902,7 @@ bool ExynosCamera::setFocusAreas(int num, ExynosRect2* rect2s, int *weights)
             m_touchAFMode = true;
             if (   exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_OBJECT_POSITION_X, new_x) < 0
                 && exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_OBJECT_POSITION_Y, new_y) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
@@ -2944,13 +2944,13 @@ bool ExynosCamera::setFocusMode(int value)
     case FOCUS_MODE_EDOF:
     default:
         m_touchAFMode = false;
-        LOGE("ERR(%s):Unsupported value(%d)", __func__, value);
+        ALOGE("ERR(%s):Unsupported value(%d)", __func__, value);
         return false;
         break;
     }
 
     if (::FOCUS_MODE_MAX <= internalValue) {
-        LOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
+        ALOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
         return false;
     }
 
@@ -2958,7 +2958,7 @@ bool ExynosCamera::setFocusMode(int value)
         m_curCameraInfo->focusMode = value;
         if (m_flagCreate == true) {
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_FOCUS_MODE, internalValue) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
@@ -3037,7 +3037,7 @@ bool ExynosCamera::setGpsTimeStamp(const char *gpsTimestamp)
 bool ExynosCamera::setJpegQuality(int quality)
 {
     if (quality < JPEG_QUALITY_MIN || JPEG_QUALITY_MAX < quality) {
-        LOGE("ERR(%s):Invalid quality (%d)", __func__, quality);
+        ALOGE("ERR(%s):Invalid quality (%d)", __func__, quality);
         return false;
     }
 
@@ -3049,7 +3049,7 @@ bool ExynosCamera::setJpegQuality(int quality)
 bool ExynosCamera::setJpegThumbnailQuality(int quality)
 {
     if (quality < JPEG_QUALITY_MIN || JPEG_QUALITY_MAX < quality) {
-        LOGE("ERR(%s):Invalid quality (%d)", __func__, quality);
+        ALOGE("ERR(%s):Invalid quality (%d)", __func__, quality);
         return false;
     }
 
@@ -3068,7 +3068,7 @@ bool ExynosCamera::setJpegThumbnailSize(int w, int h)
 bool ExynosCamera::setMeteringAreas(int num, ExynosRect *rects, int *weights)
 {
     if (m_defaultCameraInfo->maxNumMeteringAreas == 0) {
-        LOGV("DEBUG(%s):maxNumMeteringAreas is 0. so, ignored", __func__);
+        ALOGV("DEBUG(%s):maxNumMeteringAreas is 0. so, ignored", __func__);
         return true;
     }
 
@@ -3081,7 +3081,7 @@ bool ExynosCamera::setMeteringAreas(int num, ExynosRect *rects, int *weights)
                 && exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_METERING_POSITION_Y, rects[i].y) < 0
                 && exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_METERING_WINDOW_X,   rects[i].w) < 0
                 && exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_METERING_WINDOW_Y,   rects[i].h) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
@@ -3093,7 +3093,7 @@ bool ExynosCamera::setMeteringAreas(int num, ExynosRect *rects, int *weights)
 bool ExynosCamera::setMeteringAreas(int num, ExynosRect2 *rect2s, int *weights)
 {
     if (m_defaultCameraInfo->maxNumMeteringAreas == 0) {
-        LOGV("DEBUG(%s):maxNumMeteringAreas is 0. so, ignored", __func__);
+        ALOGV("DEBUG(%s):maxNumMeteringAreas is 0. so, ignored", __func__);
         return true;
     }
 
@@ -3147,12 +3147,12 @@ bool ExynosCamera::setPreviewFormat(int colorFormat)
 bool ExynosCamera::setPreviewFrameRate(int fps)
 {
     if (fps < FRAME_RATE_AUTO || FRAME_RATE_MAX < fps)
-        LOGE("ERR(%s):Invalid fps(%d)", __func__, fps);
+        ALOGE("ERR(%s):Invalid fps(%d)", __func__, fps);
 
     if (m_flagCreate == true) {
         m_curCameraInfo->fps = fps;
         if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_FRAME_RATE, fps) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
             return false;
         }
     }
@@ -3178,7 +3178,7 @@ bool ExynosCamera::setRecordingHint(bool hint)
 bool ExynosCamera::setRotation(int rotation)
 {
      if (rotation < 0) {
-         LOGE("ERR(%s):Invalid rotation (%d)", __func__, rotation);
+         ALOGE("ERR(%s):Invalid rotation (%d)", __func__, rotation);
          return false;
      }
      m_curCameraInfo->rotation = rotation;
@@ -3236,13 +3236,13 @@ bool ExynosCamera::setSceneMode(int value)
     case SCENE_MODE_NIGHT_PORTRAIT:
     case SCENE_MODE_THEATRE:
     default:
-        LOGE("ERR(%s):Unsupported value(%d)", __func__, value);
+        ALOGE("ERR(%s):Unsupported value(%d)", __func__, value);
         return false;
         break;
     }
 
     if (internalValue <= ::SCENE_MODE_BASE || ::SCENE_MODE_MAX <= internalValue) {
-        LOGE("ERR(%s):Invalid value (%d)", __func__, internalValue);
+        ALOGE("ERR(%s):Invalid value (%d)", __func__, internalValue);
         return false;
     }
 
@@ -3250,7 +3250,7 @@ bool ExynosCamera::setSceneMode(int value)
         m_curCameraInfo->sceneMode = value;
         if (m_flagCreate == true) {
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_SCENE_MODE, internalValue) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
@@ -3269,7 +3269,7 @@ bool ExynosCamera::setVideoStabilization(bool toggle)
             int dis = (toggle == true) ? CAMERA_DIS_ON : CAMERA_DIS_OFF;
 
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_SET_DIS, dis) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             } else {
                 m_curCameraInfo->applyVideoStabilization = toggle;
@@ -3318,19 +3318,19 @@ bool ExynosCamera::setWhiteBalance(int value)
     case WHITE_BALANCE_TWILIGHT:
     case WHITE_BALANCE_SHADE:
     default:
-        LOGE("ERR(%s):Unsupported value(%d)", __func__, value);
+        ALOGE("ERR(%s):Unsupported value(%d)", __func__, value);
         return false;
         break;
     }
 
     if (m_internalISP == true) {
         if (internalValue < ::IS_AWB_AUTO || ::IS_AWB_MAX <= internalValue) {
-            LOGE("ERR(%s):Invalid internalValue(%d)", __func__, internalValue);
+            ALOGE("ERR(%s):Invalid internalValue(%d)", __func__, internalValue);
             return false;
         }
     } else {
         if (internalValue <= ::WHITE_BALANCE_BASE || ::WHITE_BALANCE_MAX <= internalValue) {
-            LOGE("ERR(%s):Invalid internalValue(%d)", __func__, internalValue);
+            ALOGE("ERR(%s):Invalid internalValue(%d)", __func__, internalValue);
             return false;
         }
     }
@@ -3340,12 +3340,12 @@ bool ExynosCamera::setWhiteBalance(int value)
         if (m_flagCreate == true) {
             if (m_internalISP == true) {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_AWB_MODE, internalValue) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             } else {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_WHITE_BALANCE, internalValue) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             }
@@ -3358,7 +3358,7 @@ bool ExynosCamera::setWhiteBalance(int value)
 bool ExynosCamera::setZoom(int value)
 {
     if (value < ZOOM_LEVEL_0 || ZOOM_LEVEL_MAX <= value) {
-        LOGE("ERR(%s):Invalid value (%d)", __func__, value);
+        ALOGE("ERR(%s):Invalid value (%d)", __func__, value);
         return false;
     }
 
@@ -3367,13 +3367,13 @@ bool ExynosCamera::setZoom(int value)
         if (m_defaultCameraInfo->hwZoomSupported == true) {
             if (m_flagCreate == true) {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_ZOOM, value) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             }
         } else {
             if (m_setZoom(m_previewDev->fd, m_curCameraInfo->zoom, m_curCameraInfo->previewW, m_curCameraInfo->previewH) == false) {
-                LOGE("ERR(%s):m_setZoom(%d) fail", __func__, m_curCameraInfo->zoom);
+                ALOGE("ERR(%s):m_setZoom(%d) fail", __func__, m_curCameraInfo->zoom);
                 return false;
             }
         }
@@ -3428,7 +3428,7 @@ bool ExynosCamera::m_setWidthHeight(int mode,
         v4l2_fmt.fmt.pix_mp.num_planes = planes;
 
         if (exynos_v4l2_s_fmt(fd, &v4l2_fmt) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_s_fmt() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_s_fmt() fail", __func__);
             return false;
         }
         break;
@@ -3444,7 +3444,7 @@ bool ExynosCamera::m_setWidthHeight(int mode,
         v4l2_fmt.fmt.pix = pixfmt;
 
         if (exynos_v4l2_s_fmt(fd, &v4l2_fmt) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_s_fmt() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_s_fmt() fail", __func__);
             return false;
         }
         break;
@@ -3458,7 +3458,7 @@ bool ExynosCamera::m_setWidthHeight(int mode,
     req.memory = V4L2_MEMORY_USERPTR;
 
     if (exynos_v4l2_reqbufs(fd, &req) < 0) {
-        LOGE("ERR(%s):exynos_v4l2_reqbufs(%d) fail", __func__, numOfBuf);
+        ALOGE("ERR(%s):exynos_v4l2_reqbufs(%d) fail", __func__, numOfBuf);
         return false;
     }
 
@@ -3483,7 +3483,7 @@ bool ExynosCamera::m_setWidthHeight(int mode,
             }
 
             if (exynos_v4l2_qbuf(fd, &v4l2_buf) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_qbuf(%d) fail", __func__, i);
+                ALOGE("ERR(%s):exynos_v4l2_qbuf(%d) fail", __func__, i);
                 return false;
             }
         }
@@ -3493,7 +3493,7 @@ bool ExynosCamera::m_setWidthHeight(int mode,
     m_currentZoom = -1;
 
     if (m_setZoom(fd, m_curCameraInfo->zoom, w, h) == false)
-        LOGE("ERR(%s):m_setZoom(%d, %d) fail", __func__, mode, m_curCameraInfo->zoom);
+        ALOGE("ERR(%s):m_setZoom(%d, %d) fail", __func__, mode, m_curCameraInfo->zoom);
     */
     return true;
 }
@@ -3514,7 +3514,7 @@ bool ExynosCamera::m_setZoom(int fd, int zoom, int w, int h)
 
         ret = m_setCrop(fd, w, h, real_zoom);
         if (ret == false)
-            LOGE("ERR(%s):m_setCrop(%d, %d) fail", __func__, w, h);
+            ALOGE("ERR(%s):m_setCrop(%d, %d) fail", __func__, w, h);
     }
 
     return ret;
@@ -3532,7 +3532,7 @@ bool ExynosCamera::m_setCrop(int fd, int w, int h, int zoom)
     cropcap.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
     if (exynos_v4l2_cropcap(fd, &cropcap) < 0)  {
-        LOGE("ERR(%s):exynos_v4l2_cropcap() fail)", __func__);
+        ALOGE("ERR(%s):exynos_v4l2_cropcap() fail)", __func__);
         return false;
     }
 
@@ -3550,24 +3550,24 @@ bool ExynosCamera::m_setCrop(int fd, int w, int h, int zoom)
     crop.c    = cropcap.defrect;
 
     if (exynos_v4l2_s_crop(fd, &crop) < 0) {
-        LOGE("ERR(%s):exynos_v4l2_s_crop() fail(%d))", __func__, zoom);
+        ALOGE("ERR(%s):exynos_v4l2_s_crop() fail(%d))", __func__, zoom);
         return false;
     }
 
     /*
-    LOGD("## 1 w                     : %d", w);
-    LOGD("## 1 h                     : %d", h);
-    LOGD("## 1 zoom                  : %d", zoom);
-    LOGD("## 1 cropcap.bounds.w      : %d", cropcap.bounds.width);
-    LOGD("## 1 cropcap.bounds.h      : %d", cropcap.bounds.height);
-    LOGD("## 2 crop_x                : %d", crop_x);
-    LOGD("## 2 crop_y                : %d", crop_y);
-    LOGD("## 2 crop_w                : %d", crop_w);
-    LOGD("## 2 crop_h                : %d", crop_h);
-    LOGD("## 2 cropcap.defrect.left  : %d", cropcap.defrect.left);
-    LOGD("## 2 cropcap.defrect.top   : %d", cropcap.defrect.top);
-    LOGD("## 2 cropcap.defrect.width : %d", cropcap.defrect.width);
-    LOGD("## 2 cropcap.defrect.height: %d", cropcap.defrect.height);
+    ALOGD("## 1 w                     : %d", w);
+    ALOGD("## 1 h                     : %d", h);
+    ALOGD("## 1 zoom                  : %d", zoom);
+    ALOGD("## 1 cropcap.bounds.w      : %d", cropcap.bounds.width);
+    ALOGD("## 1 cropcap.bounds.h      : %d", cropcap.bounds.height);
+    ALOGD("## 2 crop_x                : %d", crop_x);
+    ALOGD("## 2 crop_y                : %d", crop_y);
+    ALOGD("## 2 crop_w                : %d", crop_w);
+    ALOGD("## 2 crop_h                : %d", crop_h);
+    ALOGD("## 2 cropcap.defrect.left  : %d", cropcap.defrect.left);
+    ALOGD("## 2 cropcap.defrect.top   : %d", cropcap.defrect.top);
+    ALOGD("## 2 cropcap.defrect.width : %d", cropcap.defrect.width);
+    ALOGD("## 2 cropcap.defrect.height: %d", cropcap.defrect.height);
     */
 
     return true;
@@ -3750,7 +3750,7 @@ void ExynosCamera::m_setExifChangedAttribute(exif_attribute_t *exifInfo, ExynosR
        odd value into exif for now */
     if (   exynos_v4l2_g_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_EXIF_SHUTTERSPEED, &shutterSpeed) < 0
         || shutterSpeed < 0) {
-        LOGE("ERR(%s):exynos_v4l2_g_ctrl() fail, using 100", __func__);
+        ALOGE("ERR(%s):exynos_v4l2_g_ctrl() fail, using 100", __func__);
         shutterSpeed = 100;
     }
 
@@ -3766,7 +3766,7 @@ void ExynosCamera::m_setExifChangedAttribute(exif_attribute_t *exifInfo, ExynosR
        odd value into exif for now */
     if (   exynos_v4l2_g_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_EXIF_ISO, &iso) < 0
         || iso < 0) {
-        LOGE("ERR(%s):exynos_v4l2_g_ctrl() fail, using ISO_100", __func__);
+        ALOGE("ERR(%s):exynos_v4l2_g_ctrl() fail, using ISO_100", __func__);
         iso = ISO_100;
     }
 
@@ -3800,8 +3800,8 @@ void ExynosCamera::m_setExifChangedAttribute(exif_attribute_t *exifInfo, ExynosR
     sv = APEX_ISO_TO_FILMSENSITIVITY(exifInfo->iso_speed_rating);
     bv = av + tv - sv;
     ev = av + tv;
-    LOGD("Shutter speed=%d us, iso=%d", shutterSpeed, exifInfo->iso_speed_rating);
-    LOGD("AV=%d, TV=%d, SV=%d", av, tv, sv);
+    ALOGD("Shutter speed=%d us, iso=%d", shutterSpeed, exifInfo->iso_speed_rating);
+    ALOGD("AV=%d, TV=%d, SV=%d", av, tv, sv);
 
     //3 Shutter Speed
     exifInfo->shutter_speed.num = tv * EXIF_DEF_APEX_DEN;
@@ -3947,40 +3947,40 @@ void ExynosCamera::m_printFormat(int colorFormat, const char *arg)
 {
     switch (colorFormat) {
     case V4L2_PIX_FMT_YUV420:
-        LOGV("DEBUG(%s):V4L2_PIX_FMT_YUV420", arg);
+        ALOGV("DEBUG(%s):V4L2_PIX_FMT_YUV420", arg);
         break;
     case V4L2_PIX_FMT_YVU420:
-        LOGV("DEBUG(%s):V4L2_PIX_FMT_YVU420", arg);
+        ALOGV("DEBUG(%s):V4L2_PIX_FMT_YVU420", arg);
         break;
     case V4L2_PIX_FMT_YVU420M:
-        LOGV("DEBUG(%s):V4L2_PIX_FMT_YVU420M", arg);
+        ALOGV("DEBUG(%s):V4L2_PIX_FMT_YVU420M", arg);
         break;
     case V4L2_PIX_FMT_NV12M:
-        LOGV("DEBUG(%s):V4L2_PIX_FMT_NV12M", arg);
+        ALOGV("DEBUG(%s):V4L2_PIX_FMT_NV12M", arg);
         break;
     case V4L2_PIX_FMT_NV12:
-        LOGV("DEBUG(%s):V4L2_PIX_FMT_NV12", arg);
+        ALOGV("DEBUG(%s):V4L2_PIX_FMT_NV12", arg);
         break;
     case V4L2_PIX_FMT_NV12T:
-        LOGV("DEBUG(%s):V4L2_PIX_FMT_NV12T", arg);
+        ALOGV("DEBUG(%s):V4L2_PIX_FMT_NV12T", arg);
         break;
     case V4L2_PIX_FMT_NV21:
-        LOGV("DEBUG(%s):V4L2_PIX_FMT_NV21", arg);
+        ALOGV("DEBUG(%s):V4L2_PIX_FMT_NV21", arg);
         break;
     case V4L2_PIX_FMT_YUV422P:
-        LOGV("DEBUG(%s):V4L2_PIX_FMT_YUV422PP", arg);
+        ALOGV("DEBUG(%s):V4L2_PIX_FMT_YUV422PP", arg);
         break;
     case V4L2_PIX_FMT_YUYV:
-        LOGV("DEBUG(%s):V4L2_PIX_FMT_YUYV", arg);
+        ALOGV("DEBUG(%s):V4L2_PIX_FMT_YUYV", arg);
         break;
     case V4L2_PIX_FMT_UYVY:
-        LOGV("DEBUG(%s):V4L2_PIX_FMT_UYVYI", arg);
+        ALOGV("DEBUG(%s):V4L2_PIX_FMT_UYVYI", arg);
         break;
     case V4L2_PIX_FMT_RGB565:
-        LOGV("DEBUG(%s):V4L2_PIX_FMT_RGB565", arg);
+        ALOGV("DEBUG(%s):V4L2_PIX_FMT_RGB565", arg);
         break;
     default:
-        LOGV("DEBUG(%s):Unknown Format", arg);
+        ALOGV("DEBUG(%s):Unknown Format", arg);
         break;
     }
 }
@@ -4015,13 +4015,13 @@ bool ExynosCamera::setAngle(int angle)
             break;
 
         default:
-            LOGE("ERR(%s):Invalid angle(%d)", __func__, angle);
+            ALOGE("ERR(%s):Invalid angle(%d)", __func__, angle);
             return false;
         }
 
         if (m_flagCreate == true) {
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_ROTATION, angle) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
@@ -4065,7 +4065,7 @@ bool ExynosCamera::setISO(int iso)
     }
 
     if (internalValue < ISO_AUTO || ISO_MAX <= internalValue) {
-        LOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
+        ALOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
         return false;
     }
 
@@ -4074,12 +4074,12 @@ bool ExynosCamera::setISO(int iso)
         if (m_flagCreate == true) {
             if (m_internalISP == true) {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_ISO, internalValue) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             } else {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_ISO, internalValue) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             }
@@ -4103,7 +4103,7 @@ bool ExynosCamera::setContrast(int value)
         if (m_internalISP == true)
             internalValue = ::IS_CONTRAST_AUTO;
         else
-            LOGW("WARN(%s):Invalid contrast value (%d)", __func__, value);
+            ALOGW("WARN(%s):Invalid contrast value (%d)", __func__, value);
             return true;
         break;
     case CONTRAST_MINUS_2:
@@ -4137,19 +4137,19 @@ bool ExynosCamera::setContrast(int value)
             internalValue = ::CONTRAST_PLUS_2;
         break;
     default:
-        LOGE("ERR(%s):Unsupported value(%d)", __func__, value);
+        ALOGE("ERR(%s):Unsupported value(%d)", __func__, value);
         return false;
         break;
     }
 
     if (m_internalISP == true) {
         if (internalValue < ::IS_CONTRAST_AUTO || ::IS_CONTRAST_MAX <= internalValue) {
-            LOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
+            ALOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
             return false;
         }
     } else {
         if (internalValue < ::CONTRAST_MINUS_2 || ::CONTRAST_MAX <= internalValue) {
-            LOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
+            ALOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
             return false;
         }
     }
@@ -4159,12 +4159,12 @@ bool ExynosCamera::setContrast(int value)
         if (m_flagCreate == true) {
             if (m_internalISP == true) {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_CONTRAST, internalValue) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             } else {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_CONTRAST, internalValue) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             }
@@ -4183,7 +4183,7 @@ bool ExynosCamera::setSaturation(int saturation)
 {
     int internalValue = saturation + SATURATION_DEFAULT;
     if (internalValue < SATURATION_MINUS_2 || SATURATION_MAX <= internalValue) {
-        LOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
+        ALOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
         return false;
     }
 
@@ -4192,12 +4192,12 @@ bool ExynosCamera::setSaturation(int saturation)
         if (m_flagCreate == true) {
             if (m_internalISP == true) {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_SATURATION, internalValue) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             } else {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_SATURATION, internalValue) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             }
@@ -4216,7 +4216,7 @@ bool ExynosCamera::setSharpness(int sharpness)
 {
     int internalValue = sharpness + SHARPNESS_DEFAULT;
     if (internalValue < SHARPNESS_MINUS_2 || SHARPNESS_MAX <= internalValue) {
-        LOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
+        ALOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
         return false;
     }
 
@@ -4225,12 +4225,12 @@ bool ExynosCamera::setSharpness(int sharpness)
         if (m_flagCreate == true) {
             if (m_internalISP == true) {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_SHARPNESS, internalValue) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             } else {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_SHARPNESS, internalValue) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             }
@@ -4252,11 +4252,11 @@ bool ExynosCamera::setHue(int hue)
     if (m_internalISP == true) {
         internalValue += IS_HUE_DEFAULT;
         if (internalValue < IS_HUE_MINUS_2 || IS_HUE_MAX <= internalValue) {
-            LOGE("ERR(%s):Invalid hue (%d)", __func__, hue);
+            ALOGE("ERR(%s):Invalid hue (%d)", __func__, hue);
             return false;
         }
     } else {
-            LOGV("WARN(%s):Not supported hue setting", __func__);
+            ALOGV("WARN(%s):Not supported hue setting", __func__);
             return true;
     }
 
@@ -4264,7 +4264,7 @@ bool ExynosCamera::setHue(int hue)
         m_curCameraInfo->hue = hue;
         if (m_flagCreate == true) {
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_HUE, internalValue) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
@@ -4299,12 +4299,12 @@ bool ExynosCamera::setWDR(bool toggle)
         if (m_flagCreate == true) {
             if (m_internalISP == true) {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_SET_DRC, internalWdr) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             } else {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_WDR, internalWdr) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             }
@@ -4330,7 +4330,7 @@ bool ExynosCamera::setAntiShake(bool toggle)
         m_curCameraInfo->antiShake = toggle;
         if (m_flagCreate == true) {
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_ANTI_SHAKE, internalValue) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
@@ -4374,19 +4374,19 @@ bool ExynosCamera::setMeteringMode(int value)
             internalValue = METERING_SPOT;
         break;
     default:
-        LOGE("ERR(%s):Unsupported value(%d)", __func__, value);
+        ALOGE("ERR(%s):Unsupported value(%d)", __func__, value);
         return false;
         break;
     }
 
     if (m_internalISP == true) {
         if (internalValue < IS_METERING_AVERAGE || IS_METERING_MAX <= internalValue) {
-            LOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
+            ALOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
             return false;
         }
     } else {
         if (internalValue <= METERING_BASE || METERING_MAX <= internalValue) {
-            LOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
+            ALOGE("ERR(%s):Invalid internalValue (%d)", __func__, internalValue);
             return false;
         }
     }
@@ -4396,12 +4396,12 @@ bool ExynosCamera::setMeteringMode(int value)
         if (m_flagCreate == true) {
             if (m_internalISP == true) {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_METERING, internalValue) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             } else {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_METERING, internalValue) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             }
@@ -4434,7 +4434,7 @@ bool ExynosCamera::setObjectTrackingStart(bool toggle)
 
         int startStop = (toggle == true) ? 1 : 0;
         if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_OBJ_TRACKING_START_STOP, startStop) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
             return false;
         }
     }
@@ -4447,7 +4447,7 @@ int ExynosCamera::getObjectTrackingStatus(void)
     int ret = 0;
 
     if (exynos_v4l2_g_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_OBJ_TRACKING_STATUS, &ret) < 0) {
-        LOGE("ERR(%s):exynos_v4l2_g_ctrl() fail", __func__);
+        ALOGE("ERR(%s):exynos_v4l2_g_ctrl() fail", __func__);
         return -1;
     }
     return ret;
@@ -4459,12 +4459,12 @@ bool ExynosCamera::setObjectPosition(int x, int y)
         x = x - 80;
 
     if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_OBJECT_POSITION_X, x) < 0) {
-        LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+        ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
         return false;
     }
 
     if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_OBJECT_POSITION_Y, y) < 0) {
-        LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+        ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
         return false;
     }
 
@@ -4478,7 +4478,7 @@ bool ExynosCamera::setTouchAFStart(bool toggle)
         int startStop = (toggle == true) ? 1 : 0;
 
         if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_TOUCH_AF_START_STOP, startStop) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
             return false;
         }
     }
@@ -4495,7 +4495,7 @@ bool ExynosCamera::setSmartAuto(bool toggle)
 
         if (m_flagCreate == true) {
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_SMART_AUTO, smartAuto) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
@@ -4515,12 +4515,12 @@ int ExynosCamera::getSmartAutoStatus(void)
 
     if (m_curCameraInfo->smartAuto == true) {
         if (exynos_v4l2_g_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_SMART_AUTO_STATUS, &autoscene_status) < 0) {
-            LOGE("ERR(%s):exynos_v4l2_g_ctrl() fail", __func__);
+            ALOGE("ERR(%s):exynos_v4l2_g_ctrl() fail", __func__);
             return -1;
         }
 
         if ((autoscene_status < SMART_AUTO_STATUS_AUTO) || (autoscene_status > SMART_AUTO_STATUS_MAX)) {
-            LOGE("ERR(%s):Invalid getSmartAutoStatus (%d)", __func__, autoscene_status);
+            ALOGE("ERR(%s):Invalid getSmartAutoStatus (%d)", __func__, autoscene_status);
             return -1;
         }
     }
@@ -4535,7 +4535,7 @@ bool ExynosCamera::setBeautyShot(bool toggle)
 
         if (m_flagCreate == true) {
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_BEAUTY_SHOT, beautyShot) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
@@ -4552,12 +4552,12 @@ bool ExynosCamera::getBeautyShot(void)
 bool ExynosCamera::setTopDownMirror(void)
 {
     if (m_previewDev->fd <= 0) {
-        LOGE("ERR(%s):Camera was closed", __func__);
+        ALOGE("ERR(%s):Camera was closed", __func__);
         return false;
     }
 
     if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_VFLIP, 1) < 0) {
-        LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+        ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
         return false;
     }
 
@@ -4567,12 +4567,12 @@ bool ExynosCamera::setTopDownMirror(void)
 bool ExynosCamera::setLRMirror(void)
 {
     if (m_previewDev->fd <= 0) {
-        LOGE("ERR(%s):Camera was closed", __func__);
+        ALOGE("ERR(%s):Camera was closed", __func__);
         return false;
     }
 
     if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_HFLIP, 1) < 0) {
-        LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+        ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
         return false;
     }
 
@@ -4586,13 +4586,13 @@ bool ExynosCamera::setBrightness(int brightness)
     if (m_internalISP == true) {
         internalValue += IS_BRIGHTNESS_DEFAULT;
         if (internalValue < IS_BRIGHTNESS_MINUS_2 || IS_BRIGHTNESS_PLUS_2 < internalValue) {
-            LOGE("ERR(%s):Invalid internalValue(%d)", __func__, internalValue);
+            ALOGE("ERR(%s):Invalid internalValue(%d)", __func__, internalValue);
             return false;
         }
     } else {
         internalValue += EV_DEFAULT;
         if (internalValue < EV_MINUS_4 || EV_PLUS_4 < internalValue) {
-            LOGE("ERR(%s):Invalid internalValue(%d)", __func__, internalValue);
+            ALOGE("ERR(%s):Invalid internalValue(%d)", __func__, internalValue);
             return false;
         }
     }
@@ -4602,12 +4602,12 @@ bool ExynosCamera::setBrightness(int brightness)
         if (m_flagCreate == true) {
             if (m_internalISP == true) {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_BRIGHTNESS, internalValue) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             } else {
                 if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_BRIGHTNESS, internalValue) < 0) {
-                    LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                    ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                     return false;
                 }
             }
@@ -4631,7 +4631,7 @@ bool ExynosCamera::setGamma(bool toggle)
 
         if (m_flagCreate == true) {
              if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_SET_GAMMA, gamma) < 0) {
-                 LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                 ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                  return false;
              }
          }
@@ -4654,7 +4654,7 @@ bool ExynosCamera::setODC(bool toggle)
             int odc = (toggle == true) ? CAMERA_ODC_ON : CAMERA_ODC_OFF;
 
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_SET_ODC, odc) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
@@ -4677,7 +4677,7 @@ bool ExynosCamera::setSlowAE(bool toggle)
 
         if (m_flagCreate == true) {
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_SET_SLOW_AE, slow_ae) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
          }
@@ -4694,7 +4694,7 @@ bool ExynosCamera::getSlowAE(void)
 bool ExynosCamera::setShotMode(int shotMode)
 {
     if (shotMode < SHOT_MODE_SINGLE || SHOT_MODE_SELF < shotMode) {
-        LOGE("ERR(%s):Invalid shotMode (%d)", __func__, shotMode);
+        ALOGE("ERR(%s):Invalid shotMode (%d)", __func__, shotMode);
         return false;
     }
 
@@ -4703,7 +4703,7 @@ bool ExynosCamera::setShotMode(int shotMode)
 
         if (m_flagCreate == true) {
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_IS_CAMERA_SHOT_MODE_NORMAL, shotMode) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
@@ -4726,7 +4726,7 @@ bool ExynosCamera::set3DNR(bool toggle)
             int tdnr = (toggle == true) ? CAMERA_3DNR_ON : CAMERA_3DNR_OFF;
 
             if (exynos_v4l2_s_ctrl(m_previewDev->fd, V4L2_CID_CAMERA_SET_3DNR, tdnr) < 0) {
-                LOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
+                ALOGE("ERR(%s):exynos_v4l2_s_ctrl() fail", __func__);
                 return false;
             }
         }
