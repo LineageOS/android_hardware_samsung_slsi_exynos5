@@ -26,7 +26,9 @@ exynos5_dirs := \
 	librotator \
 	libstagefrighthw \
 	libswconverter \
-	libv4l2
+	libv4l2 \
+	libhwjpeg \
+	libcamera
 
 BOARD_USE_V4L2 := true
 BOARD_USE_V4L2_ION := true
