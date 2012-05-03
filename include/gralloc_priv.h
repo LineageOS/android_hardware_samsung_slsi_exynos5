@@ -75,6 +75,9 @@ struct private_module_t
     float ydpi;
     float fps;
     int enableVSync;
+    
+    void *queue;
+    pthread_mutex_t queue_lock;
 
     enum {
         PRIV_USAGE_LOCKED_FOR_POST = 0x80000000
