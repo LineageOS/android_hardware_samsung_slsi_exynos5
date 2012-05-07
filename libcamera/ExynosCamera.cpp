@@ -480,7 +480,7 @@ ExynosCameraInfoS5K4E5::ExynosCameraInfoS5K4E5()
         //| ExynosCamera::FOCUS_MODE_FIXED
         //| ExynosCamera::FOCUS_MODE_EDOF
         | ExynosCamera::FOCUS_MODE_CONTINUOUS_VIDEO
-        | ExynosCamera::FOCUS_MODE_CONTINUOUS_PICTURE
+    //    | ExynosCamera::FOCUS_MODE_CONTINUOUS_PICTURE
         | ExynosCamera::FOCUS_MODE_TOUCH
         ;
     focusMode = ExynosCamera::FOCUS_MODE_AUTO;
