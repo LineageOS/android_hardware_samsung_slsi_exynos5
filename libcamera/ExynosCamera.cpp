@@ -1262,7 +1262,7 @@ bool ExynosCamera::stopPreview(void)
         struct v4l2_requestbuffers req;
         req.count  = 0;
         req.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-        req.memory = V4L2_MEMORY_USERPTR;
+        req.memory = V4L2_MEMORY_DMABUF;
 
         if (exynos_v4l2_reqbufs(m_previewDev->fd, &req) < 0) {
             ALOGE("ERR(%s):exynos_v4l2_reqbufs() fail", __func__);
@@ -1325,7 +1325,7 @@ bool ExynosCamera::getPreviewBuf(ExynosBuffer *buf)
 
     v4l2_buf.m.planes = planes;
     v4l2_buf.type     = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    v4l2_buf.memory   = V4L2_MEMORY_USERPTR;
+    v4l2_buf.memory   = V4L2_MEMORY_DMABUF;
     v4l2_buf.length   = 0;
 
     for (int i = 0; i < 3; i++) {
@@ -1365,12 +1365,12 @@ bool ExynosCamera::putPreviewBuf(ExynosBuffer *buf)
 
     v4l2_buf.m.planes = planes;
     v4l2_buf.type     = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    v4l2_buf.memory   = V4L2_MEMORY_USERPTR;
+    v4l2_buf.memory   = V4L2_MEMORY_DMABUF;
     v4l2_buf.index    = buf->reserved.p;
     v4l2_buf.length   = 0;
 
     for (int i = 0; i < 3; i++) {
-        v4l2_buf.m.planes[i].m.userptr = (unsigned long)m_previewBuf[buf->reserved.p].virt.extP[i];
+        v4l2_buf.m.planes[i].m.fd= m_previewBuf[buf->reserved.p].fd.extFd[i];
         v4l2_buf.m.planes[i].length   = m_previewBuf[buf->reserved.p].size.extS[i];
 
         if (m_previewBuf[buf->reserved.p].size.extS[i] != 0)
@@ -1473,7 +1473,7 @@ bool ExynosCamera::stopVideo(void)
         struct v4l2_requestbuffers req;
         req.count  = 0;
         req.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-        req.memory = V4L2_MEMORY_USERPTR;
+        req.memory = V4L2_MEMORY_DMABUF;
 
         if (exynos_v4l2_reqbufs(m_videoDev->fd, &req) < 0) {
             ALOGE("ERR(%s):exynos_v4l2_reqbufs() fail", __func__);
@@ -1529,7 +1529,7 @@ bool ExynosCamera::getVideoBuf(ExynosBuffer *buf)
 
     v4l2_buf.m.planes = planes;
     v4l2_buf.type     = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    v4l2_buf.memory   = V4L2_MEMORY_USERPTR;
+    v4l2_buf.memory   = V4L2_MEMORY_DMABUF;
     v4l2_buf.length   = 0;
 
     for (int i = 0; i < 3; i++) {
@@ -1580,12 +1580,12 @@ bool ExynosCamera::putVideoBuf(ExynosBuffer *buf)
 
     v4l2_buf.m.planes = planes;
     v4l2_buf.type     = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    v4l2_buf.memory   = V4L2_MEMORY_USERPTR;
+    v4l2_buf.memory   = V4L2_MEMORY_DMABUF;
     v4l2_buf.index    = buf->reserved.p;
     v4l2_buf.length   = 0;
 
     for (int i = 0; i < 3; i++) {
-        v4l2_buf.m.planes[i].m.userptr = (unsigned long)m_videoBuf[buf->reserved.p].virt.extP[i];
+        v4l2_buf.m.planes[i].m.fd = (unsigned long)m_videoBuf[buf->reserved.p].fd.extFd[i];
         v4l2_buf.m.planes[i].length   = m_videoBuf[buf->reserved.p].size.extS[i];
 
         if (m_videoBuf[buf->reserved.p].size.extS[i] != 0)
@@ -1656,7 +1656,7 @@ bool ExynosCamera::stopPicture(void)
         struct v4l2_requestbuffers req;
         req.count  = 0;
         req.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-        req.memory = V4L2_MEMORY_USERPTR;
+        req.memory = V4L2_MEMORY_DMABUF;
 
         if (exynos_v4l2_reqbufs(m_pictureDev->fd, &req) < 0) {
             ALOGE("ERR(%s):exynos_v4l2_reqbufs() fail", __func__);
@@ -1712,7 +1712,7 @@ bool ExynosCamera::getPictureBuf(ExynosBuffer *buf)
 
     v4l2_buf.m.planes = planes;
     v4l2_buf.type     = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    v4l2_buf.memory   = V4L2_MEMORY_USERPTR;
+    v4l2_buf.memory   = V4L2_MEMORY_DMABUF;
     v4l2_buf.length   = 0;
 
     for (int i = 0; i < 3; i++) {
@@ -1757,12 +1757,12 @@ bool ExynosCamera::putPictureBuf(ExynosBuffer *buf)
 
     v4l2_buf.m.planes = planes;
     v4l2_buf.type     = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    v4l2_buf.memory   = V4L2_MEMORY_USERPTR;
+    v4l2_buf.memory   = V4L2_MEMORY_DMABUF;
     v4l2_buf.index    = buf->reserved.p;
     v4l2_buf.length   = 0;
 
     for (int i = 0; i < 3; i++) {
-        v4l2_buf.m.planes[i].m.userptr = (unsigned long)m_pictureBuf[buf->reserved.p].virt.extP[i];
+        v4l2_buf.m.planes[i].m.fd = (unsigned long)m_pictureBuf[buf->reserved.p].fd.extFd[i];
         v4l2_buf.m.planes[i].length   = m_pictureBuf[buf->reserved.p].size.extS[i];
 
         if (m_pictureBuf[buf->reserved.p].size.extS[i] != 0)
@@ -3399,7 +3399,8 @@ bool ExynosCamera::m_setWidthHeight(int mode,
     int numOfBuf = 0;
 
     for (int i = 0; i < VIDEO_MAX_FRAME; i++) {
-        if (buf[i].virt.p != NULL || buf[i].phys.p != 0) {
+        if (buf[i].virt.p != NULL || buf[i].phys.p != 0 || 
+	    buf[i].fd.fd >= 0) {
             validBuf[i] = true;
             numOfBuf++;
         } else {
@@ -3455,7 +3456,7 @@ bool ExynosCamera::m_setWidthHeight(int mode,
     struct v4l2_requestbuffers req;
     req.count  = numOfBuf;
     req.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    req.memory = V4L2_MEMORY_USERPTR;
+    req.memory = V4L2_MEMORY_DMABUF;
 
     if (exynos_v4l2_reqbufs(fd, &req) < 0) {
         ALOGE("ERR(%s):exynos_v4l2_reqbufs(%d) fail", __func__, numOfBuf);
@@ -3470,12 +3471,12 @@ bool ExynosCamera::m_setWidthHeight(int mode,
 
             v4l2_buf.m.planes = planes;
             v4l2_buf.type     = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-            v4l2_buf.memory   = V4L2_MEMORY_USERPTR;
+            v4l2_buf.memory   = V4L2_MEMORY_DMABUF;
             v4l2_buf.index    = buf[i].reserved.p;
             v4l2_buf.length   = 0;
 
             for (int j = 0; j < 3; j++) {
-                v4l2_buf.m.planes[j].m.userptr = (unsigned long)buf[i].virt.extP[j];
+                v4l2_buf.m.planes[j].m.fd = buf[i].fd.extFd[j];
                 v4l2_buf.m.planes[j].length   = buf[i].size.extS[j];
 
                 if (buf[i].size.extS[j] != 0)

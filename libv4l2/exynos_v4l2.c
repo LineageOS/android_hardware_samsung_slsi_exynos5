@@ -232,7 +232,7 @@ int exynos_v4l2_s_input(int fd, int index)
 
     ret = ioctl(fd, VIDIOC_S_INPUT, &input);
     if (ret){
-        ALOGE("failed to ioctl: VIDIOC_S_INPUT (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_S_INPUT (%d) %s", ret, strerror(errno));
         return ret;
     }
 
@@ -405,7 +405,9 @@ int exynos_v4l2_reqbufs(int fd, struct v4l2_requestbuffers *req)
         return ret;
     }
 
-    if ((req->memory != V4L2_MEMORY_MMAP) && (req->memory != V4L2_MEMORY_USERPTR)) {
+    if ((req->memory != V4L2_MEMORY_MMAP) &&
+	(req->memory != V4L2_MEMORY_USERPTR) &&
+	(req->memory != V4L2_MEMORY_DMABUF)) {
         ALOGE("%s: unsupported memory type", __func__);
         return ret;
     }
@@ -448,7 +450,8 @@ int exynos_v4l2_querybuf(int fd, struct v4l2_buffer *buf)
         return ret;
     }
 
-    if (buf->memory != V4L2_MEMORY_MMAP) {
+    if ((buf->memory != V4L2_MEMORY_MMAP) &&
+	(buf->memory != V4L2_MEMORY_DMABUF)) {
         ALOGE("%s: unsupported memory type", __func__);
         return ret;
     }
@@ -485,7 +488,9 @@ int exynos_v4l2_qbuf(int fd, struct v4l2_buffer *buf)
         return ret;
     }
 
-    if ((buf->memory != V4L2_MEMORY_MMAP) && (buf->memory != V4L2_MEMORY_USERPTR)) {
+    if ((buf->memory != V4L2_MEMORY_MMAP) &&
+	(buf->memory != V4L2_MEMORY_USERPTR) &&
+	(buf->memory != V4L2_MEMORY_DMABUF)) {
         ALOGE("%s: unsupported memory type", __func__);
         return ret;
     }
@@ -497,7 +502,7 @@ int exynos_v4l2_qbuf(int fd, struct v4l2_buffer *buf)
 
     ret = ioctl(fd, VIDIOC_QBUF, buf);
     if (ret) {
-        ALOGE("failed to ioctl: VIDIOC_QBUF (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_QBUF (%d)", errno);
         return ret;
     }
 
@@ -522,7 +527,9 @@ int exynos_v4l2_dqbuf(int fd, struct v4l2_buffer *buf)
         return ret;
     }
 
-    if ((buf->memory != V4L2_MEMORY_MMAP) && (buf->memory != V4L2_MEMORY_USERPTR)) {
+    if ((buf->memory != V4L2_MEMORY_MMAP) &&
+	(buf->memory != V4L2_MEMORY_USERPTR) &&
+	(buf->memory != V4L2_MEMORY_DMABUF)) {
         ALOGE("%s: unsupported memory type", __func__);
         return ret;
     }
@@ -737,7 +744,7 @@ int exynos_v4l2_s_ctrl(int fd, unsigned int id, int value)
 
     ret = ioctl(fd, VIDIOC_S_CTRL, &ctrl);
     if (ret) {
-        ALOGE("failed to ioctl: VIDIOC_S_CTRL (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_S_CTRL (%d)", errno);
         return ret;
     }
 

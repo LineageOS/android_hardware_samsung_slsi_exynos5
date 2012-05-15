@@ -297,7 +297,9 @@ private:
     camera_memory_t    *m_videoHeap[NUM_OF_VIDEO_BUF];
     camera_memory_t    *m_resizedVideoHeap[NUM_OF_VIDEO_BUF];
     camera_memory_t    *m_pictureHeap[NUM_OF_PICTURE_BUF];
+    int			m_pictureFds[NUM_OF_PICTURE_BUF][3];
     camera_memory_t    *m_rawHeap;
+    int			m_ion_client;
 
     camera_frame_metadata_t  m_frameMetadata;
     camera_face_t            m_faces[NUM_OF_DETECTED_FACES];

@@ -48,6 +48,7 @@ public:
         BUFFER_TYPE_VIRT     = 1,      //!< virtual address
         BUFFER_TYPE_PHYS     = 1 << 1, //!< physical address
         BUFFER_TYPE_RESERVED = 1 << 2, //!< reserved type
+        BUFFER_TYPE_FD       = 1 << 3, //!< physical address
         BUFFER_TYPE_MAX,
     };
 
@@ -62,6 +63,12 @@ public:
         unsigned int p;       //! single address.
         unsigned int extP[3]; //! Y Cb Cr.
     } phys;
+
+    //! Buffer file descriptors
+    union {
+	int fd;
+	int extFd[3];
+    } fd;
 
     //! Buffer reserved id
     union {
@@ -82,6 +89,7 @@ public:
         for (int i = 0; i < 3; i++) {
             virt.    extP[i] = NULL;
             phys.    extP[i] = 0;
+	    fd.      extFd[i] = -1;
             reserved.extP[i] = 0;
             size.    extS[i] = 0;
         }
@@ -93,6 +101,7 @@ public:
         for (int i = 0; i < 3; i++) {
             virt.    extP[i] = other->virt.extP[i];
             phys.    extP[i] = other->phys.extP[i];
+	    fd.      extFd[i] = other->fd.extFd[i];
             reserved.extP[i] = other->reserved.extP[i];
             size.    extS[i] = other->size.extS[i];
         }
@@ -104,6 +113,7 @@ public:
         for (int i = 0; i < 3; i++) {
             virt.    extP[i] = other.virt.extP[i];
             phys.    extP[i] = other.phys.extP[i];
+	    fd.      extFd[i] = other.fd.extFd[i];	
             reserved.extP[i] = other.reserved.extP[i];
             size.    extS[i] = other.size.extS[i];
         }
@@ -119,6 +129,9 @@ public:
                 && phys.    extP[0] == other.phys.extP[0]
                 && phys.    extP[1] == other.phys.extP[1]
                 && phys.    extP[2] == other.phys.extP[2]
+                && fd.      extFd[0] == other.fd.extFd[0]
+                && fd.      extFd[1] == other.fd.extFd[1]
+                && fd.      extFd[2] == other.fd.extFd[2]
                 && reserved.extP[0] == other.reserved.extP[0]
                 && reserved.extP[1] == other.reserved.extP[1]
                 && reserved.extP[2] == other.reserved.extP[2]
@@ -142,6 +155,8 @@ public:
             type |= BUFFER_TYPE_VIRT;
         if (buf->phys.p)
             type |= BUFFER_TYPE_PHYS;
+	if (buf->fd.fd >= 0)
+            type |= BUFFER_TYPE_FD;		
         if (buf->reserved.p)
             type |= BUFFER_TYPE_RESERVED;
 

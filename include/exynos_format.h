@@ -108,6 +108,16 @@ unsigned int FRAME_SIZE(
     int width,
     int height);
 
+int PLANAR_FRAME_SIZE(
+    int hal_pixel_format,
+    int width,
+    int height, 
+    unsigned int *luma_size,
+    unsigned int *chroma_size);
+
+int NUM_PLANES(int hal_pixel_format);
+
+
 /*
  * Get bpp and plane of v4l2_pixel_format.
  *

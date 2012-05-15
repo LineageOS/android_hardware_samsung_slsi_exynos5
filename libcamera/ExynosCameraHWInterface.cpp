@@ -127,6 +127,7 @@ ExynosCameraHWInterface::ExynosCameraHWInterface(int cameraId, camera_device_t *
         m_resizedVideoHeap[i] = NULL;
     }
 
+    m_ion_client = ion_client_create();
     for (int i = 0; i < NUM_OF_PICTURE_BUF; i++)
         m_pictureHeap[i] = NULL;
 
@@ -184,6 +185,7 @@ ExynosCameraHWInterface::ExynosCameraHWInterface(int cameraId, camera_device_t *
 
 ExynosCameraHWInterface::~ExynosCameraHWInterface()
 {
+    close(m_ion_client);
     this->release();
 }
 
@@ -2381,9 +2383,12 @@ bool ExynosCameraHWInterface::m_startPreviewInternal(void)
 
     ExynosBuffer previewBuf;
     void *virtAddr[3];
+    int fd[3];
 
-    for (i = 0; i < 3; i++)
+    for (i = 0; i < 3; i++) {
         virtAddr[i] = NULL;
+	fd[i] = -1;
+    }
 
     for (i = 0; i < NUM_OF_PREVIEW_BUF; i++) {
 
@@ -2397,10 +2402,10 @@ bool ExynosCameraHWInterface::m_startPreviewInternal(void)
                  ALOGE("ERR(%s):Could not lock gralloc buffer[%d]!!", __func__, i);
         }
 
-        if (m_flagGrallocLocked[i] == false) {
+	if (m_flagGrallocLocked[i] == false) {
             if (m_grallocHal->lock(m_grallocHal,
-                                   *m_previewBufHandle[i],
-                                   GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_YUV_ADDR,
+				   *m_previewBufHandle[i],
+				   GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_YUV_ADDR,
                                    0, 0, previewW, previewH, virtAddr) != 0) {
                 ALOGE("ERR(%s):could not obtain gralloc buffer", __func__);
 
@@ -2410,6 +2415,10 @@ bool ExynosCameraHWInterface::m_startPreviewInternal(void)
                 continue;
             }
 
+	    const private_handle_t *priv_handle = reinterpret_cast<const private_handle_t *>(*m_previewBufHandle[i]);
+	    fd[0] = priv_handle->fd;
+	    fd[1] = priv_handle->u_fd;
+	    fd[2] = priv_handle->v_fd;
             m_grallocVirtAddr[i] = virtAddr[0];
             m_matchedGrallocIndex[i] = i;
             m_flagGrallocLocked[i] = true;
@@ -2421,6 +2430,9 @@ bool ExynosCameraHWInterface::m_startPreviewInternal(void)
         previewBuf.virt.extP[0] = (char *)virtAddr[0];
         previewBuf.virt.extP[1] = (char *)virtAddr[1];
         previewBuf.virt.extP[2] = (char *)virtAddr[2];
+	previewBuf.fd.extFd[0] = fd[0];
+	previewBuf.fd.extFd[1] = fd[1];
+	previewBuf.fd.extFd[2] = fd[2];
 
         m_secCamera->setPreviewBuf(&previewBuf);
 
@@ -2583,6 +2595,7 @@ bool ExynosCameraHWInterface::m_previewThreadFunc(void)
         bool findGrallocBuf = false;
         buffer_handle_t *bufHandle = NULL;
         void *virtAddr[3];
+	int fd[3];
 
         /* Unlock grallocHal buffer if locked */
         if (m_flagGrallocLocked[previewBuf.reserved.p] == true) {
@@ -2621,6 +2634,11 @@ bool ExynosCameraHWInterface::m_previewThreadFunc(void)
             goto callbacks;
         }
 
+	const private_handle_t *priv_handle = reinterpret_cast<const private_handle_t *>(*bufHandle);
+	fd[0] = priv_handle->fd;
+	fd[1] = priv_handle->u_fd;
+	fd[2] = priv_handle->v_fd;
+
         for (int i = 0; i < NUM_OF_PREVIEW_BUF; i++) {
             if ((unsigned int)m_grallocVirtAddr[i] == (unsigned int)virtAddr[0]) {
                 findGrallocBuf = true;
@@ -2632,6 +2650,10 @@ bool ExynosCameraHWInterface::m_previewThreadFunc(void)
                 previewBuf.virt.extP[0] = (char *)virtAddr[0];
                 previewBuf.virt.extP[1] = (char *)virtAddr[1];
                 previewBuf.virt.extP[2] = (char *)virtAddr[2];
+
+                previewBuf.fd.extFd[0] = fd[0];
+                previewBuf.fd.extFd[1] = fd[1];
+                previewBuf.fd.extFd[2] = fd[2];
 
                 m_secCamera->setPreviewBuf(&previewBuf);
                 m_matchedGrallocIndex[previewBuf.reserved.p] = i;
@@ -3100,13 +3122,17 @@ bool ExynosCameraHWInterface::m_startPictureInternal(void)
         return false;
     }
 
-    int pictureW, pictureH, pictureFormat, pictureFramesize;
+    int pictureW, pictureH, pictureFormat;
+    unsigned int pictureFrameSize, pictureChromaSize;
     ExynosBuffer nullBuf;
+    int numPlanes;
 
     m_secCamera->getPictureSize(&pictureW, &pictureH);
     pictureFormat = m_secCamera->getPictureFormat();
-    pictureFramesize = FRAME_SIZE(V4L2_PIX_2_HAL_PIXEL_FORMAT(V4L2_PIX_FMT_NV16), pictureW, pictureH);
-
+    PLANAR_FRAME_SIZE(V4L2_PIX_2_HAL_PIXEL_FORMAT(V4L2_PIX_FMT_NV16), pictureW, pictureH, &pictureFrameSize, 
+					 &pictureChromaSize);
+    numPlanes = NUM_PLANES(V4L2_PIX_2_HAL_PIXEL_FORMAT(V4L2_PIX_FMT_NV16));
+#if 0
     if (m_rawHeap) {
         m_rawHeap->release(m_rawHeap);
         m_rawHeap = 0;
@@ -3118,31 +3144,40 @@ bool ExynosCameraHWInterface::m_startPictureInternal(void)
     }
 
     pictureFramesize = FRAME_SIZE(V4L2_PIX_2_HAL_PIXEL_FORMAT(pictureFormat), pictureW, pictureH);
+#endif
     for (int i = 0; i < NUM_OF_PICTURE_BUF; i++) {
-        if (m_pictureHeap[i]) {
-            m_pictureHeap[i]->release(m_pictureHeap[i]);
-            m_pictureHeap[i] = 0;
-        }
+		for (int j = 0; j < 3; j++)
+			if (m_pictureFds[i][j] >= 0) {
+				close(m_pictureFds[i][j]);
+				m_pictureFds[i][j] = -1;
+			}
 
-        m_pictureHeap[i] = m_getMemoryCb(-1, pictureFramesize, 1, NULL);
-        if (!m_pictureHeap[i]) {
-            ALOGE("ERR(%s):m_getMemoryCb(m_pictureHeap[%d], size(%d) fail", __func__, i, pictureFramesize);
-            return false;
-        }
+		m_pictureFds[i][0] = ion_alloc(m_ion_client, pictureFrameSize, 0, ION_HEAP_SYSTEM_MASK);
+		if (m_pictureFds[i][0] < 0) {
+			ALOGE("ERR(%s):ion_alloc(m_pictureFds[%d], size(%d) fail", __func__, i, pictureFrameSize); 
+			return false;
+		}
 
-        m_getAlignedYUVSize(pictureFormat, pictureW, pictureH, &m_pictureBuf);
+		for (int j = 1; j < numPlanes; j++) {
+			m_pictureFds[i][j] = ion_alloc(m_ion_client, pictureChromaSize, 0, ION_HEAP_SYSTEM_MASK);
+			if (m_pictureFds[i][j]) {
+				ALOGE("ERR(%s):ion_alloc(m_pictureFds[%d][%d], size(%d) fail", __func__, i, j, pictureFrameSize); 
+				return false;
+			}
+		}
+		m_getAlignedYUVSize(pictureFormat, pictureW, pictureH, &m_pictureBuf);
 
-        m_pictureBuf.virt.extP[0] = (char *)m_pictureHeap[i]->data;
-        for (int j = 1; j < 3; j++) {
-            if (m_pictureBuf.size.extS[j] != 0)
-                m_pictureBuf.virt.extP[j] = m_pictureBuf.virt.extP[j-1] + m_pictureBuf.size.extS[j-1];
-            else
-                m_pictureBuf.virt.extP[j] = NULL;
-        }
+		m_pictureBuf.fd.extFd[0] = m_pictureFds[i][0];
+		for (int j = 1; j < 3; j++) {
+			if (m_pictureBuf.size.extS[j] != 0)
+				m_pictureBuf.fd.extFd[j] = m_pictureFds[i][j];
+			else
+				m_pictureBuf.fd.extFd[j] = -1;
+		}
 
-        m_pictureBuf.reserved.p = i;
+		m_pictureBuf.reserved.p = i;
 
-        m_secCamera->setPictureBuf(&m_pictureBuf);
+		m_secCamera->setPictureBuf(&m_pictureBuf);
     }
 
     // zero shutter lag

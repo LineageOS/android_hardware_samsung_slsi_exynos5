@@ -104,6 +104,8 @@ struct private_handle_t
 
     // Following member is for ION memory only
     int     fd;
+    int     u_fd;
+    int     v_fd;
     int     magic;
     int     flags;
     int     size;
@@ -135,10 +137,13 @@ struct private_handle_t
 
 #ifdef __cplusplus
     static const int sNumInts = 21;
-    static const int sNumFds = 1;
+    static const int sNumFds = 3;
     static const int sMagic = 0x3141592;
 
     private_handle_t(int flags, int size, int base, int lock_state, ump_secure_id secure_id, ump_handle handle):
+	fd(0),
+        u_fd(0),
+        v_fd(0),
         magic(sMagic),
         flags(flags),
         size(size),
@@ -148,7 +153,7 @@ struct private_handle_t
         pid(getpid()),
         ump_id(secure_id),
         ump_mem_handle(handle),
-        fd(0),
+        offset(0),
         format(0),
         usage(0),
         width(0),
@@ -157,8 +162,7 @@ struct private_handle_t
         stride(0),
         yaddr(0),
         uoffset(0),
-        voffset(0),
-        offset(0)
+        voffset(0)
     {
         version = sizeof(native_handle);
         numFds = sNumFds;
@@ -176,6 +180,8 @@ struct private_handle_t
         ump_id(UMP_INVALID_SECURE_ID),
         ump_mem_handle(UMP_INVALID_MEMORY_HANDLE),
         fd(fb_file),
+        u_fd(0),
+        v_fd(0),
         format(0),
         usage(0),
         width(0),
