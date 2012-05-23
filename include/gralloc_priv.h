@@ -61,16 +61,12 @@ struct private_module_t
 {
     gralloc_module_t base;
 
-    private_handle_t* framebuffer;
-    uint32_t flags;
-    uint32_t numBuffers;
-    uint32_t bufferMask;
     pthread_mutex_t lock;
-    buffer_handle_t currentBuffer;
     int ion_client;
 
-    struct fb_var_screeninfo info;
-    struct fb_fix_screeninfo finfo;
+    int xres;
+    int yres;
+    int line_length;
     float xdpi;
     float ydpi;
     float fps;
