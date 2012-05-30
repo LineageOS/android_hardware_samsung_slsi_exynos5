@@ -36,6 +36,8 @@
 #include <hardware_legacy/uevent.h>
 #include <utils/Vector.h>
 
+#include <sync/sync.h>
+
 #include "ump.h"
 #include "ion.h"
 #include "gralloc_priv.h"
@@ -337,8 +339,9 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
 	exynos5_hwc_post_data_t *pdata =
 			(exynos5_hwc_post_data_t *)data;
 
-	struct s3c_fb_win_config config[NUM_HW_WINDOWS];
-	memset(config, 0, sizeof(config));
+	struct s3c_fb_win_config_data win_data;
+	struct s3c_fb_win_config *config = win_data.config;
+	memset(config, 0, sizeof(win_data.config));
 	for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
 		if (i == pdata->fb_window) {
 			hwc_rect_t rect = { 0, 0, fb->width, fb->height };
@@ -348,10 +351,12 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
 		dump_config(config[i]);
 	}
 
-	int ret = ioctl(pdata->pdev->fd, S3CFB_WIN_CONFIG, config);
+	int ret = ioctl(pdata->pdev->fd, S3CFB_WIN_CONFIG, &win_data);
 	if (ret < 0)
-		ALOGE("ioctl S3CFB_WIN_CONFIG failed: %d", ret);
+		ALOGE("ioctl S3CFB_WIN_CONFIG failed: %d", errno);
 
+	sync_wait(win_data.fence, 1000);
+	close(win_data.fence);
 	free(pdata);
 }
 
