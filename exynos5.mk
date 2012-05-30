@@ -25,3 +25,7 @@ PRODUCT_PACKAGES := \
 PRODUCT_PACKAGES += \
 	libstagefrighthw \
 	libExynosOMX_Core
+
+# hw composer HAL
+PRODUCT_PACKAGES += \
+	hwcomposer.exynos5

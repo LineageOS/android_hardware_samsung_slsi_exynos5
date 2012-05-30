@@ -28,7 +28,8 @@ exynos5_dirs := \
 	libswconverter \
 	libv4l2 \
 	libhwjpeg \
-	libcamera
+	libcamera \
+	libhwc
 
 BOARD_USE_V4L2 := true
 BOARD_USE_V4L2_ION := true
