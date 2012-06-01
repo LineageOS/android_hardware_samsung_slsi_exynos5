@@ -143,6 +143,8 @@ protected:
     int setJpegConfig(enum MODE eMode, void *pConfig);
     int setColorFormat(enum MODE eMode, int iV4l2ColorFormat);
     int setJpegFormat(enum MODE eMode, int iV4l2JpegFormat);
+    int setColorBufSize(enum MODE eMode, int *piBufSize, int iSize);
+    int setColorBufSize(int iFormat, int *piBufSize, int iSize, int width, int height);
     int getBuf(bool bCreateBuf, struct BUFFER *pstBuf, char **pcBuf, int *iBufSize, int iSize, int iPlaneNum);
     int setBuf(struct BUFFER *pstBuf, char **pcBuf, int *iSize, int iPlaneNum);
     int updateConfig(enum MODE eMode, int iInBufs, int iOutBufs, int iInBufPlanes, int iOutBufPlanes);
@@ -181,6 +183,7 @@ public:
     int     getColorFormat(void);
     int     setColorFormat(int iV4l2ColorFormat);
     int     setJpegFormat(int iV4l2JpegFormat);
+    int     setColorBufSize(int *piBufSize, int iSize);
     int     updateConfig(void);
 
     int     setQuality(int iQuality);
