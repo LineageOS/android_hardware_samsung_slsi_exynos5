@@ -397,8 +397,8 @@ static CSC_ERRORCODE csc_set_format(
                 ALIGN(csc_handle->src_format.height, GSCALER_IMG_ALIGN),
                 csc_handle->src_format.crop_left,
                 csc_handle->src_format.crop_top,
-                ALIGN(csc_handle->src_format.crop_width, GSCALER_IMG_ALIGN),
-                ALIGN(csc_handle->src_format.crop_height, GSCALER_IMG_ALIGN),
+                csc_handle->src_format.crop_width,
+                csc_handle->src_format.crop_height,
                 HAL_PIXEL_FORMAT_2_V4L2_PIX(csc_handle->src_format.color_format),
                 csc_handle->src_format.cacheable,
                 csc_handle->hw_property.mode_drm);
@@ -409,8 +409,8 @@ static CSC_ERRORCODE csc_set_format(
                 ALIGN(csc_handle->dst_format.height, GSCALER_IMG_ALIGN),
                 csc_handle->dst_format.crop_left,
                 csc_handle->dst_format.crop_top,
-                ALIGN(csc_handle->dst_format.crop_width, GSCALER_IMG_ALIGN),
-                ALIGN(csc_handle->dst_format.crop_height, GSCALER_IMG_ALIGN),
+                csc_handle->dst_format.crop_width,
+                csc_handle->dst_format.crop_height,
                 HAL_PIXEL_FORMAT_2_V4L2_PIX(csc_handle->dst_format.color_format),
                 csc_handle->dst_format.cacheable,
                 csc_handle->hw_property.mode_drm);
