@@ -16,10 +16,11 @@
 
 # codecs
 PRODUCT_PACKAGES := \
-	libOMX.Exynos5.M4V.Decoder \
-	libOMX.Exynos5.AVC.Decoder \
-	libOMX.Exynos5.VP8.Decoder \
-	libOMX.Exynos5.AVC.Encoder
+	libOMX.Exynos.MPEG4.Decoder \
+	libOMX.Exynos.AVC.Decoder \
+	libOMX.Exynos.VP8.Decoder \
+	libOMX.Exynos.MPEG4.Encoder \
+	libOMX.Exynos.AVC.Encoder
 
 # stagefright and device specific modules
 PRODUCT_PACKAGES += \
