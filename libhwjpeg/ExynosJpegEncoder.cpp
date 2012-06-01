@@ -138,6 +138,11 @@ int ExynosJpegEncoder::setJpegFormat(int iV4l2JpegFormat)
     return ExynosJpegBase::setJpegFormat(MODE_ENCODE, iV4l2JpegFormat);
 }
 
+int ExynosJpegEncoder::setColorBufSize(int *piBufSize, int iSize)
+{
+    return ExynosJpegBase::setColorBufSize(MODE_ENCODE, piBufSize, iSize);
+}
+
 int ExynosJpegEncoder::updateConfig(void)
 {
     return ExynosJpegBase::updateConfig(MODE_ENCODE, \

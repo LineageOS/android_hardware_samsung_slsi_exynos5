@@ -177,7 +177,7 @@ int ExynosJpegBase::t_v4l2Reqbufs(int iFd, int iBufCount, struct BUF_INFO *pstBu
     struct v4l2_requestbuffers req;
     int iRet = ERROR_NONE;
 
-    memset(&req, 0, sizeof(req));
+    memset(&req, 0, sizeof(v4l2_requestbuffers));
 
     req.type = pstBufInfo->buf_type;
     req.memory = pstBufInfo->memory;
@@ -222,7 +222,7 @@ int ExynosJpegBase::t_v4l2Querybuf(int iFd, struct BUF_INFO *pstBufInfo, struct 
             PROT_READ | PROT_WRITE, MAP_SHARED, iFd,
             v4l2_buf.m.planes[i].m.mem_offset);
 
-        if (pstBuf->addr[i] == MAP_FAILED) {
+        if ((pstBuf->addr[i] == MAP_FAILED) || (pstBuf->size[i] <= 0)) {
             JPEG_ERROR_LOG("[%s]: mmap failed\n", __func__);
             return ERROR_MMAP_FAILED;
         }
@@ -545,7 +545,7 @@ int ExynosJpegBase::getBuf(bool bCreateBuf, struct BUFFER *pstBuf, char **pcBuf,
         return ERROR_BUF_NOT_SET_YET;
     }
 
-     if ((pcBuf == NULL) || (iSize == NULL)) {
+     if ((pcBuf == NULL) || (iSize == 0)) {
         return ERROR_BUFFR_IS_NULL;
      }
 
@@ -687,6 +687,68 @@ int ExynosJpegBase::setJpegFormat(enum MODE eMode, int iV4l2JpegFormat)
         return ERROR_INVALID_JPEG_FORMAT;
         break;
     }
+
+    return ERROR_NONE;
+}
+
+int ExynosJpegBase::setColorBufSize(enum MODE eMode, int *piBufSize, int iSize)
+{
+    int iFormat;
+
+    switch (eMode) {
+    case MODE_ENCODE:
+        iFormat = t_stJpegConfig.pix.enc_fmt.in_fmt;
+        break;
+    case MODE_DECODE:
+        iFormat = t_stJpegConfig.pix.dec_fmt.out_fmt;
+        break;
+    default:
+        return ERROR_INVALID_JPEG_MODE;
+        break;
+    }
+
+    return setColorBufSize(iFormat, piBufSize, iSize, t_stJpegConfig.width, t_stJpegConfig.height);
+}
+
+int ExynosJpegBase::setColorBufSize(int iFormat, int *piBufSize, int iSize, int width, int height)
+{
+    int pBufSize[3];
+
+    if(iSize>3) {
+        return ERROR_INVALID_IMAGE_SIZE;
+    }
+
+    switch (iFormat) {
+    case V4L2_PIX_FMT_YUYV:
+    case V4L2_PIX_FMT_RGB565X:
+        pBufSize[0] = width*height*2;
+        pBufSize[1] = 0;
+        pBufSize[2] = 0;
+        break;
+    case V4L2_PIX_FMT_RGB32:
+    case V4L2_PIX_FMT_BGR32:
+        pBufSize[0] = width*height*4;
+        pBufSize[1] = 0;
+        pBufSize[2] = 0;
+        break;
+    case V4L2_PIX_FMT_NV16:
+        pBufSize[0] = width*height;
+        pBufSize[1] = width*height;
+        pBufSize[2] = 0;
+        break;
+    case V4L2_PIX_FMT_YUV420:
+        pBufSize[0] = width*height;
+        pBufSize[1] = width*height/4;
+        pBufSize[2] = width*height/4;
+        break;
+    default:
+        pBufSize[0] = width*height*4;
+        pBufSize[1] = width*height*4;
+        pBufSize[2] = width*height*4;
+        break;
+    }
+
+    memcpy(piBufSize, pBufSize, iSize*sizeof(int));
 
     return ERROR_NONE;
 }
