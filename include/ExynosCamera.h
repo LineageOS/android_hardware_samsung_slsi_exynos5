@@ -71,9 +71,12 @@
 #include "ExynosExif.h"
 #include "exynos_v4l2.h"
 
+#define ALIGN(x,  a)       (((x) + (a) - 1) & ~((a) - 1))
 namespace android {
 
 #define GAIA_FW_BETA                        1
+/* FIXME: This is for test. We remove this after test */
+#define USE_DIGITAL_ZOOM
 
 //! struct for Camera sensor information
 /*!
@@ -89,8 +92,6 @@ public:
     int  previewColorFormat;
     int  videoW;
     int  videoH;
-    int  prefVideoPreviewW;
-    int  prefVideoPreviewH;
     int  videoColorFormat;
     int  pictureW;
     int  pictureH;
@@ -189,6 +190,12 @@ public:
     ExynosCameraInfoS5K4E5();
 };
 
+struct ExynosCameraInfoS5K3H7 : public ExynosCameraInfo
+{
+public:
+    ExynosCameraInfoS5K3H7();
+};
+
 //! ExynosCamera
 /*!
  * \ingroup Exynos
@@ -236,7 +243,7 @@ public:
         FLASH_MODE_TORCH   = (1 << 4), //!< \n
     };
 
-    //! Flash mode
+    //! Focus mode
     enum {
         FOCUS_MODE_AUTO               = (1 << 0), //!< \n
         FOCUS_MODE_INFINITY           = (1 << 1), //!< \n
@@ -532,9 +539,6 @@ public:
     //! Gets the supported video frame sizes that can be used by MediaRecorder.
     bool            getSupportedVideoSizes(int *w, int *h);
 
-    //! Gets the preferred Preview size for the video recording.
-    bool            getPreferredPreivewSizeForVideo(int *w, int *h);
-
     //! Gets the supported white balance.
     int             getSupportedWhiteBalance(void);
 
@@ -637,6 +641,9 @@ public:
     //! Sets metering areas.(Using ExynosRect2)
     bool            setMeteringAreas(int num, ExynosRect2 *rect2s, int *weights);
 
+    //! Cancel metering areas.
+    bool            cancelMeteringAreas();
+
     //! Sets the image format for pictures.
     bool            setPictureFormat(int colorFormat);
 
@@ -712,6 +719,11 @@ private:
     devInfo         m_gscVideoDev;
     devInfo         m_gscPictureDev;
 
+#ifdef USE_DIGITAL_ZOOM
+    devInfo         m_gscBayerDev;
+    devInfo        *m_bayerDev;
+#endif
+
     devInfo        *m_previewDev;
     devInfo        *m_videoDev;
     devInfo        *m_pictureDev;
@@ -726,6 +738,9 @@ private:
     char            m_cameraName[32];
     bool            m_internalISP;
     bool            m_touchAFMode;
+    bool            m_isTouchMetering;
+
+    bool            m_focusIdle;
 
     // media controller variable
     struct media_device *m_media;
@@ -738,6 +753,7 @@ private:
     struct media_entity *m_ispSensorEntity;
     struct media_entity *m_ispFrontEntity;
     struct media_entity *m_ispBackEntity;
+    struct media_entity *m_ispBayerEntity;
     struct media_entity *m_ispScalercEntity;
     struct media_entity *m_ispScalerpEntity;
     struct media_entity *m_isp3dnrEntity;
@@ -779,6 +795,11 @@ private:
 // Additional API.
 ///////////////////////////////////////////////////
 public:
+    //! Focus mode
+    enum {
+        FOCUS_MODE_CONTINUOUS_PICTURE_MACRO = (1 << 8), //!< \n
+    };
+
     //! Metering
     enum {
         METERING_MODE_AVERAGE = (1 << 0), //!< \n
