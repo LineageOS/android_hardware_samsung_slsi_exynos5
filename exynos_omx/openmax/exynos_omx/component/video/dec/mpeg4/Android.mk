@@ -8,7 +8,7 @@ LOCAL_SRC_FILES := \
 	library_register.c
 
 LOCAL_PRELINK_MODULE := false
-LOCAL_MODULE := libOMX.Exynos5.M4V.Decoder
+LOCAL_MODULE := libOMX.Exynos.MPEG4.Decoder
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/omx
 
 LOCAL_CFLAGS :=
@@ -19,15 +19,6 @@ endif
 
 ifeq ($(BOARD_USE_ANB), true)
 LOCAL_CFLAGS += -DUSE_ANB
-ifeq ($(BOARD_USE_CSC_FIMC), true)
-ifeq ($(BOARD_USE_V4L2_ION), false)
-LOCAL_CFLAGS += -DUSE_CSC_FIMC
-endif
-endif
-
-ifeq ($(BOARD_USE_CSC_GSCALER), true)
-LOCAL_CFLAGS += -DUSE_CSC_GSCALER
-endif
 endif
 
 LOCAL_ARM_MODE := arm

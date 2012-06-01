@@ -1,14 +1,8 @@
 /*
- * Copyright (c) 2012 Samsung Electronics Co., Ltd.
- *              http://www.samsung.com/
  *
- * Common header file for Codec driver
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * Alternatively, Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -26,7 +20,7 @@
 
 /* Configurable */
 #define VIDEO_DECODER_NAME              "s5p-mfc-dec"
-#define VIDEO_DECODER_INBUF_SIZE        (1 * 1024 * 1024)
+#define VIDEO_DECODER_INBUF_SIZE        (1920 * 1080 * 3 / 2)
 #define VIDEO_DECODER_INBUF_PLANES      1
 #define VIDEO_DECODER_OUTBUF_PLANES     2
 #define VIDEO_DECODER_POLL_TIMEOUT      25
@@ -36,18 +30,20 @@
 
 
 typedef struct _ExynosVideoDecContext {
-    int hDec;
-    ExynosVideoBoolType bShareInbuf;
-    ExynosVideoBoolType bShareOutbuf;
-    ExynosVideoBuffer  *pInbuf;
-    ExynosVideoBuffer  *pOutbuf;
-    ExynosVideoGeometry inbufGeometry;
-    ExynosVideoGeometry outbufGeometry;
-    int nInbufs;
-    int nOutbufs;
-    ExynosVideoBoolType bStreamonInbuf;
-    ExynosVideoBoolType bStreamonOutbuf;
-    void *pPrivate;
+    int                  hDec;
+    ExynosVideoBoolType  bShareInbuf;
+    ExynosVideoBoolType  bShareOutbuf;
+    ExynosVideoBuffer   *pInbuf;
+    ExynosVideoBuffer   *pOutbuf;
+    ExynosVideoGeometry  inbufGeometry;
+    ExynosVideoGeometry  outbufGeometry;
+    int                  nInbufs;
+    int                  nOutbufs;
+    ExynosVideoBoolType  bStreamonInbuf;
+    ExynosVideoBoolType  bStreamonOutbuf;
+    void                *pPrivate;
+    void                *pInMutex;
+    void                *pOutMutex;
 } ExynosVideoDecContext;
 
 #endif /* _EXYNOS_VIDEO_DEC_H_ */

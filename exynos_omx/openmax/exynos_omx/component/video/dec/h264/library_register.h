@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2010 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
  * @file        library_register.h
  * @brief
  * @author      SeungBeom Kim (sbcrux.kim@samsung.com)
- * @version     1.1.0
+ * @version     2.0.0
  * @history
- *   2010.7.15 : Create
+ *   2012.02.20 : Create
  */
 
 #ifndef EXYNOS_OMX_H264_REG
@@ -33,13 +33,12 @@
 
 
 #define OSCL_EXPORT_REF __attribute__((visibility("default")))
-#define MAX_COMPONENT_NUM       3
+#define MAX_COMPONENT_NUM       2
 #define MAX_COMPONENT_ROLE_NUM  1
 
 /* H.264 */
-#define EXYNOS_OMX_COMPONENT_H264_DEC "OMX.Exynos5.AVC.Decoder"
-#define EXYNOS_OMX_COMPONENT_H264_FP_DEC "OMX.Exynos5.FP.AVC.Decoder"
-#define EXYNOS_OMX_COMPONENT_H264_DRM_DEC "OMX.Exynos5.AVC.Decoder.secure"
+#define EXYNOS_OMX_COMPONENT_H264_DEC "OMX.Exynos.AVC.Decoder"
+#define EXYNOS_OMX_COMPONENT_H264_DRM_DEC "OMX.Exynos.AVC.Decoder.secure"
 #define EXYNOS_OMX_COMPONENT_H264_DEC_ROLE "video_decoder.avc"
 
 

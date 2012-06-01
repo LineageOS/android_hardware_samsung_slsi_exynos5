@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2010 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
  * @file        Exynos_OMX_H264enc.h
  * @brief
  * @author      SeungBeom Kim (sbcrux.kim@samsung.com)
- * @version     1.1.0
+ * @version     2.0.0
  * @history
- *   2010.7.15 : Create
+ *   2012.02.20 : Create
  */
 
 #ifndef EXYNOS_OMX_H264_ENC_COMPONENT
@@ -43,13 +43,16 @@ typedef struct _EXYNOS_MFC_H264ENC_HANDLE
 {
     OMX_HANDLETYPE hMFCHandle;
 
-    OMX_PTR  pMFCYUVVirBuffer[2];
-    OMX_PTR  pMFCYUVPhyBuffer[2];
-    OMX_U32  pMFCYUVDataSize[2];
     OMX_U32 indexTimestamp;
-    OMX_BOOL bConfiguredMFC;
+    OMX_U32 outputIndexTimestamp;
+    OMX_BOOL bConfiguredMFCSrc;
+    OMX_BOOL bConfiguredMFCDst;
     EXTRA_DATA headerData;
-    OMX_S32 returnCodec;
+
+    ExynosVideoDecOps *pEncOps;
+    ExynosVideoDecBufferOps *pInbufOps;
+    ExynosVideoDecBufferOps *pOutbufOps;
+    ExynosVideoEncParam      encParam;
 } EXYNOS_MFC_H264ENC_HANDLE;
 
 typedef struct _EXYNOS_H264ENC_HANDLE
@@ -60,6 +63,11 @@ typedef struct _EXYNOS_H264ENC_HANDLE
 
     /* SEC MFC Codec specific */
     EXYNOS_MFC_H264ENC_HANDLE hMFCH264Handle;
+
+    OMX_BOOL bSourceStart;
+    OMX_BOOL bDestinationStart;
+    OMX_HANDLETYPE hSourceStartEvent;
+    OMX_HANDLETYPE hDestinationStartEvent;
 } EXYNOS_H264ENC_HANDLE;
 
 #ifdef __cplusplus

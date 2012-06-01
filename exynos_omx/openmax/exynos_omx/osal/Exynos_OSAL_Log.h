@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2010 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@
  * @file        Exynos_OSAL_Log.h
  * @brief
  * @author      Yunji Kim (yunji.kim@samsung.com)
- * @version     1.1.0
+ * @version     2.0.0
  * @history
- *   2010.7.15 : Create
- *   2010.8.27 : Add trace function
+ *   2012.02.20 : Create
+ *   2012.8.27 : Add trace function
  */
 
 #ifndef EXYNOS_OSAL_LOG

@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2010 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
  * @author      Yunji Kim (yunji.kim@samsung.com)
  * @version     1.1.0
  * @history
- *   2011.10.18 : Create
+ *   2012.02.28 : Create
  */
 
 #ifndef EXYNOS_OMX_MP3_DEC_REG
@@ -37,7 +37,7 @@
 #define MAX_COMPONENT_ROLE_NUM    1
 
 /* MP3 */
-#define EXYNOS_OMX_COMPONENT_MP3_DEC         "OMX.Exynos5.MP3.Decoder"
+#define EXYNOS_OMX_COMPONENT_MP3_DEC         "OMX.Exynos.MP3.Decoder"
 #define EXYNOS_OMX_COMPONENT_MP3_DEC_ROLE    "audio_decoder.mp3"
 
 #ifdef __cplusplus

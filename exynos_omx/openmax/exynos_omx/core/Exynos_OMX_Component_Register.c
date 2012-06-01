@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2010 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
  * @file       Exynos_OMX_Component_Register.c
  * @brief      Exynos OpenMAX IL Component Register
  * @author     SeungBeom Kim (sbcrux.kim@samsung.com)
- * @version    1.1.0
+ * @version    2.0.0
  * @history
- *    2010.7.15 : Create
+ *    2012.02.20 : Create
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -76,7 +76,7 @@ OMX_ERRORTYPE Exynos_OMX_Component_Register(EXYNOS_OMX_COMPONENT_REGLIST **compL
         OMX_HANDLETYPE soHandle;
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "%s", d->d_name);
 
-        if (Exynos_OSAL_Strncmp(d->d_name, "libOMX.Exynos5.", Exynos_OSAL_Strlen("libOMX.Exynos5.")) == 0) {
+        if (Exynos_OSAL_Strncmp(d->d_name, "libOMX.Exynos.", Exynos_OSAL_Strlen("libOMX.Exynos.")) == 0) {
             Exynos_OSAL_Memset(libName, 0, MAX_OMX_COMPONENT_LIBNAME_SIZE);
             Exynos_OSAL_Strcpy(libName, EXYNOS_OMX_INSTALL_PATH);
             Exynos_OSAL_Strcat(libName, d->d_name);

@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2010 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
  * @file        library_register.h
  * @brief
  * @author      Yunji Kim (yunji.kim@samsung.com)
- * @version     1.1.0
+ * @version     2.0.0
  * @history
- *   2010.7.15 : Create
+ *   2012.02.20 : Create
  */
 
 #ifndef EXYNOS_OMX_MPEG4_DEC_REG
@@ -37,11 +37,11 @@
 #define MAX_COMPONENT_ROLE_NUM    1
 
 /* MPEG4 */
-#define EXYNOS_OMX_COMPONENT_MPEG4_DEC         "OMX.Exynos5.MPEG4.Decoder"
+#define EXYNOS_OMX_COMPONENT_MPEG4_DEC         "OMX.Exynos.MPEG4.Decoder"
 #define EXYNOS_OMX_COMPONENT_MPEG4_DEC_ROLE    "video_decoder.mpeg4"
 
 /* H.263 */
-#define EXYNOS_OMX_COMPONENT_H263_DEC          "OMX.Exynos5.H263.Decoder"
+#define EXYNOS_OMX_COMPONENT_H263_DEC          "OMX.Exynos.H263.Decoder"
 #define EXYNOS_OMX_COMPONENT_H263_DEC_ROLE     "video_decoder.h263"
 
 

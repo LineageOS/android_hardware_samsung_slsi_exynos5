@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2010 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
  * @author    Yunji Kim (yunji.kim@samsung.com)
  * @version   1.1.0
  * @history
- *   2011.10.18 : Create
+ *   2012.02.28 : Create
  */
 
 #include <stdio.h>
@@ -496,7 +496,7 @@ OMX_ERRORTYPE Exynos_SRP_Mp3_Decode_Block(OMX_COMPONENTTYPE *pOMXComponent, EXYN
 
 #ifdef SRP_DUMP_TO_FILE
     if (pExynosComponent->reInputData == OMX_FALSE) {
-        fwrite(pInputData->dataBuffer, pInputData->dataLen, 1, inFile);
+        fwrite(pInputData->buffer.singlePlaneBuffer.dataBuffer, pInputData->dataLen, 1, inFile);
     }
 #endif
 
@@ -506,7 +506,7 @@ OMX_ERRORTYPE Exynos_SRP_Mp3_Decode_Block(OMX_COMPONENTTYPE *pOMXComponent, EXYN
 
     /* Decoding mp3 frames by SRP */
     if (pExynosComponent->getAllDelayBuffer == OMX_FALSE) {
-        returnCodec = SRP_Decode(pInputData->dataBuffer, pInputData->dataLen);
+        returnCodec = SRP_Decode(pInputData->buffer.singlePlaneBuffer.dataBuffer, pInputData->dataLen);
 
         if (returnCodec >= 0) {
             if (pInputData->nFlags & OMX_BUFFERFLAG_EOS) {
@@ -588,14 +588,14 @@ OMX_ERRORTYPE Exynos_SRP_Mp3_Decode_Block(OMX_COMPONENTTYPE *pOMXComponent, EXYN
     returnCodec = SRP_Get_PCM(&dataBuffer, &dataLen);
     if (dataLen > 0) {
         pOutputData->dataLen = dataLen;
-        Exynos_OSAL_Memcpy(pOutputData->dataBuffer, dataBuffer, dataLen);
+        Exynos_OSAL_Memcpy(pOutputData->buffer.singlePlaneBuffer.dataBuffer, dataBuffer, dataLen);
     } else {
         pOutputData->dataLen = 0;
     }
 
 #ifdef SRP_DUMP_TO_FILE
     if (pOutputData->dataLen > 0)
-        fwrite(pOutputData->dataBuffer, pOutputData->dataLen, 1, outFile);
+        fwrite(pOutputData->buffer.singlePlaneBuffer.dataBuffer, pOutputData->dataLen, 1, outFile);
 #endif
 
     /* Delay EOS signal until all the PCM is returned from the SRP driver. */
@@ -662,7 +662,6 @@ OMX_ERRORTYPE Exynos_SRP_Mp3Dec_bufferProcess(OMX_COMPONENTTYPE *pOMXComponent, 
                                                     OMX_EventError, ret, 0, NULL);
         }
     } else {
-        pInputData->previousDataLen = pInputData->dataLen;
         pInputData->usedDataLen += pInputData->dataLen;
         pInputData->remainDataLen = pInputData->dataLen - pInputData->usedDataLen;
         pInputData->dataLen -= pInputData->usedDataLen;
@@ -761,9 +760,10 @@ OSCL_EXPORT_REF OMX_ERRORTYPE Exynos_OMX_ComponentInit(OMX_HANDLETYPE hComponent
         goto EXIT_ERROR_5;
     }
 
-    pExynosComponent->processData[INPUT_PORT_INDEX].allocSize = inputBufferSize;
-    pExynosComponent->processData[INPUT_PORT_INDEX].dataBuffer = Exynos_OSAL_Malloc(inputBufferSize);
-    if (pExynosComponent->processData[INPUT_PORT_INDEX].dataBuffer == NULL) {
+    pExynosPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
+    pExynosPort->processData.allocSize = inputBufferSize;
+    pExynosPort->processData.buffer.singlePlaneBuffer.dataBuffer = Exynos_OSAL_Malloc(inputBufferSize);
+    if (pExynosPort->processData.buffer.singlePlaneBuffer.dataBuffer == NULL) {
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Input data buffer alloc failed");
         ret = OMX_ErrorInsufficientResources;
         goto EXIT_ERROR_5;
@@ -800,6 +800,7 @@ OSCL_EXPORT_REF OMX_ERRORTYPE Exynos_OMX_ComponentInit(OMX_HANDLETYPE hComponent
     pExynosPort->portDefinition.format.audio.pNativeRender = 0;
     pExynosPort->portDefinition.format.audio.bFlagErrorConcealment = OMX_FALSE;
     pExynosPort->portDefinition.format.audio.eEncoding = OMX_AUDIO_CodingMP3;
+    pExynosPort->portWayType = WAY1_PORT;
 
     /* Output port */
     pExynosPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
@@ -812,6 +813,7 @@ OSCL_EXPORT_REF OMX_ERRORTYPE Exynos_OMX_ComponentInit(OMX_HANDLETYPE hComponent
     pExynosPort->portDefinition.format.audio.pNativeRender = 0;
     pExynosPort->portDefinition.format.audio.bFlagErrorConcealment = OMX_FALSE;
     pExynosPort->portDefinition.format.audio.eEncoding = OMX_AUDIO_CodingPCM;
+    pExynosPort->portWayType = WAY1_PORT;
 
     /* Default values for Mp3 audio param */
     INIT_SET_SIZE_VERSION(&pMp3Dec->mp3Param, OMX_AUDIO_PARAM_MP3TYPE);
@@ -845,10 +847,10 @@ OSCL_EXPORT_REF OMX_ERRORTYPE Exynos_OMX_ComponentInit(OMX_HANDLETYPE hComponent
     pOMXComponent->ComponentDeInit   = &Exynos_OMX_ComponentDeinit;
 
     /* ToDo: Change the function name associated with a specific codec */
-    pExynosComponent->exynos_mfc_componentInit      = &Exynos_SRP_Mp3Dec_Init;
-    pExynosComponent->exynos_mfc_componentTerminate = &Exynos_SRP_Mp3Dec_Terminate;
-    pExynosComponent->exynos_mfc_bufferProcess      = &Exynos_SRP_Mp3Dec_bufferProcess;
-    pExynosComponent->exynos_checkInputFrame = NULL;
+    pExynosComponent->exynos_codec_componentInit      = &Exynos_SRP_Mp3Dec_Init;
+    pExynosComponent->exynos_codec_componentTerminate = &Exynos_SRP_Mp3Dec_Terminate;
+    pAudioDec->exynos_codec_bufferProcess = &Exynos_SRP_Mp3Dec_bufferProcess;
+    pAudioDec->exynos_checkInputFrame = NULL;
 
     pExynosComponent->currentState = OMX_StateLoaded;
 
@@ -856,9 +858,10 @@ OSCL_EXPORT_REF OMX_ERRORTYPE Exynos_OMX_ComponentInit(OMX_HANDLETYPE hComponent
     goto EXIT; /* This function is performed successfully. */
 
 EXIT_ERROR_6:
-    Exynos_OSAL_Free(pExynosComponent->processData[INPUT_PORT_INDEX].dataBuffer);
-    pExynosComponent->processData[INPUT_PORT_INDEX].dataBuffer = NULL;
-    pExynosComponent->processData[INPUT_PORT_INDEX].allocSize = 0;
+    pExynosPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
+    Exynos_OSAL_Free(pExynosPort->processData.buffer.singlePlaneBuffer.dataBuffer);
+    pExynosPort->processData.buffer.singlePlaneBuffer.dataBuffer = NULL;
+    pExynosPort->processData.allocSize = 0;
 EXIT_ERROR_5:
     SRP_Deinit();
 EXIT_ERROR_4:
@@ -883,6 +886,7 @@ OMX_ERRORTYPE Exynos_OMX_ComponentDeinit(OMX_HANDLETYPE hComponent)
     OMX_COMPONENTTYPE        *pOMXComponent = NULL;
     EXYNOS_OMX_BASECOMPONENT *pExynosComponent = NULL;
     EXYNOS_MP3_HANDLE        *pMp3Dec = NULL;
+    EXYNOS_OMX_BASEPORT      *pExynosPort = NULL;
 
     FunctionIn();
 
@@ -895,10 +899,11 @@ OMX_ERRORTYPE Exynos_OMX_ComponentDeinit(OMX_HANDLETYPE hComponent)
 
     Exynos_OSAL_Free(pExynosComponent->componentName);
     pExynosComponent->componentName = NULL;
-    if (pExynosComponent->processData[INPUT_PORT_INDEX].dataBuffer) {
-        Exynos_OSAL_Free(pExynosComponent->processData[INPUT_PORT_INDEX].dataBuffer);
-        pExynosComponent->processData[INPUT_PORT_INDEX].dataBuffer = NULL;
-        pExynosComponent->processData[INPUT_PORT_INDEX].allocSize = 0;
+    pExynosPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
+    if (pExynosPort->processData.buffer.singlePlaneBuffer.dataBuffer) {
+        Exynos_OSAL_Free(pExynosPort->processData.buffer.singlePlaneBuffer.dataBuffer);
+        pExynosPort->processData.buffer.singlePlaneBuffer.dataBuffer = NULL;
+        pExynosPort->processData.allocSize = 0;
     }
 
     pMp3Dec = (EXYNOS_MP3_HANDLE *)((EXYNOS_OMX_AUDIODEC_COMPONENT *)pExynosComponent->hComponentHandle)->hCodecHandle;

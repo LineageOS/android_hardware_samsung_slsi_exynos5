@@ -8,7 +8,7 @@ LOCAL_SRC_FILES := \
 	library_register.c
 
 LOCAL_PRELINK_MODULE := false
-LOCAL_MODULE := libOMX.Exynos5.AVC.Encoder
+LOCAL_MODULE := libOMX.Exynos.AVC.Encoder
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/omx
 
 LOCAL_CFLAGS :=
@@ -23,7 +23,7 @@ LOCAL_STATIC_LIBRARIES := libExynosOMX_Venc libExynosOMX_OSAL libExynosOMX_Basec
 	libswconverter libExynosVideoApi
 
 LOCAL_SHARED_LIBRARIES := libc libdl libcutils libutils libui \
-	libExynosOMX_Resourcemanager libcsc libexynosv4l2
+	libExynosOMX_Resourcemanager libcsc libexynosv4l2 libion_exynos
 
 LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
 	$(EXYNOS_OMX_INC)/exynos \

@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2010 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
  * @file    Exynos_OMX_H264dec.h
  * @brief
  * @author    SeungBeom Kim (sbcrux.kim@samsung.com)
- * @version    1.1.0
+ * @version    2.0.0
  * @history
- *   2010.7.15 : Create
+ *   2012.02.20 : Create
  */
 
 #ifndef EXYNOS_OMX_H264_DEC_COMPONENT
@@ -30,26 +30,22 @@
 #include "Exynos_OMX_Def.h"
 #include "OMX_Component.h"
 #include "OMX_Video.h"
-
-
-#define MAX_H264_FP_VIDEO_INPUTBUFFER_NUM  4
-#define MAX_H264_FP_VIDEO_OUTPUTBUFFER_NUM 4
-
-#define MAX_H264_DRM_VIDEO_INPUTBUFFER_NUM  3
+#include "ExynosVideoApi.h"
 
 typedef struct _EXYNOS_MFC_H264DEC_HANDLE
 {
     OMX_HANDLETYPE hMFCHandle;
-    OMX_PTR  pMFCStreamBuffer;
-    OMX_PTR  pMFCStreamPhyBuffer;
     OMX_U32  indexTimestamp;
     OMX_U32  outputIndexTimestamp;
-    OMX_BOOL bConfiguredMFC;
-    OMX_BOOL bFlashPlayerMode;
-#ifdef S3D_SUPPORT
-    OMX_BOOL bS3DMode;
-#endif
-    OMX_S32  returnCodec;
+    OMX_BOOL bConfiguredMFCSrc;
+    OMX_BOOL bConfiguredMFCDst;
+    OMX_U32  MAXDPBNum;
+
+    ExynosVideoColorFormatType MFCOutputColorType;
+    ExynosVideoDecOps *pDecOps;
+    ExynosVideoDecBufferOps *pInbufOps;
+    ExynosVideoDecBufferOps *pOutbufOps;
+    ExynosVideoGeometry      codecOutbufConf;
 } EXYNOS_MFC_H264DEC_HANDLE;
 
 typedef struct _EXYNOS_H264DEC_HANDLE
@@ -58,8 +54,13 @@ typedef struct _EXYNOS_H264DEC_HANDLE
     OMX_VIDEO_PARAM_AVCTYPE AVCComponent[ALL_PORT_NUM];
     OMX_VIDEO_PARAM_ERRORCORRECTIONTYPE errorCorrectionType[ALL_PORT_NUM];
 
-    /* SEC MFC Codec specific */
+    /* EXYNOS MFC Codec specific */
     EXYNOS_MFC_H264DEC_HANDLE hMFCH264Handle;
+
+    OMX_BOOL bSourceStart;
+    OMX_BOOL bDestinationStart;
+    OMX_HANDLETYPE hSourceStartEvent;
+    OMX_HANDLETYPE hDestinationStartEvent;
 } EXYNOS_H264DEC_HANDLE;
 
 #ifdef __cplusplus

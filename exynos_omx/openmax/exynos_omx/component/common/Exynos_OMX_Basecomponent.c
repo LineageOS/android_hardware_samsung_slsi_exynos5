@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2010 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@
  * @brief
  * @author     SeungBeom Kim (sbcrux.kim@samsung.com)
  *             Yunji Kim (yunji.kim@samsung.com)
- * @version    1.1.0
+ * @version    2.0.0
  * @history
- *    2010.7.15 : Create
+ *    2012.02.20 : Create
  */
 
 #include <stdio.h>
@@ -43,6 +43,7 @@
 #undef  EXYNOS_LOG_TAG
 #define EXYNOS_LOG_TAG    "EXYNOS_BASE_COMP"
 #define EXYNOS_LOG_OFF
+//#define EXYNOS_TRACE_ON
 #include "Exynos_OSAL_Log.h"
 
 
@@ -163,35 +164,6 @@ EXIT:
     return ret;
 }
 
-static OMX_ERRORTYPE Exynos_OMX_BufferProcessThread(OMX_PTR threadData)
-{
-    OMX_ERRORTYPE             ret = OMX_ErrorNone;
-    OMX_COMPONENTTYPE        *pOMXComponent = NULL;
-    EXYNOS_OMX_BASECOMPONENT *pExynosComponent = NULL;
-    EXYNOS_OMX_MESSAGE       *message = NULL;
-
-    FunctionIn();
-
-    if (threadData == NULL) {
-        ret = OMX_ErrorBadParameter;
-        goto EXIT;
-    }
-    pOMXComponent = (OMX_COMPONENTTYPE *)threadData;
-    ret = Exynos_OMX_Check_SizeVersion(pOMXComponent, sizeof(OMX_COMPONENTTYPE));
-    if (ret != OMX_ErrorNone) {
-        goto EXIT;
-    }
-    pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
-    pExynosComponent->exynos_BufferProcess(pOMXComponent);
-
-    Exynos_OSAL_ThreadExit(NULL);
-
-EXIT:
-    FunctionOut();
-
-    return ret;
-}
-
 OMX_ERRORTYPE Exynos_OMX_ComponentStateSet(OMX_COMPONENTTYPE *pOMXComponent, OMX_U32 messageParam)
 {
     OMX_ERRORTYPE             ret = OMX_ErrorNone;
@@ -230,7 +202,6 @@ OMX_ERRORTYPE Exynos_OMX_ComponentStateSet(OMX_COMPONENTTYPE *pOMXComponent, OMX
     }
 
     Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "destState: %d", destState);
-
     switch (destState) {
     case OMX_StateInvalid:
         switch (currentState) {
@@ -241,32 +212,41 @@ OMX_ERRORTYPE Exynos_OMX_ComponentStateSet(OMX_COMPONENTTYPE *pOMXComponent, OMX
         case OMX_StatePause:
         case OMX_StateLoaded:
             pExynosComponent->currentState = OMX_StateInvalid;
-            if (pExynosComponent->hBufferProcess) {
-                pExynosComponent->bExitBufferProcessThread = OMX_TRUE;
+            ret = pExynosComponent->exynos_BufferProcessTerminate(pOMXComponent);
 
-                for (i = 0; i < ALL_PORT_NUM; i++) {
-                    Exynos_OSAL_Get_SemaphoreCount(pExynosComponent->pExynosPort[i].bufferSemID, &countValue);
-                    if (countValue == 0)
-                        Exynos_OSAL_SemaphorePost(pExynosComponent->pExynosPort[i].bufferSemID);
+            for (i = 0; i < ALL_PORT_NUM; i++) {
+                if (pExynosComponent->pExynosPort[i].portWayType == WAY1_PORT) {
+                    Exynos_OSAL_MutexTerminate(pExynosComponent->pExynosPort[i].way.port1WayDataBuffer.dataBuffer.bufferMutex);
+                    pExynosComponent->pExynosPort[i].way.port1WayDataBuffer.dataBuffer.bufferMutex = NULL;
+                } else if (pExynosComponent->pExynosPort[i].portWayType == WAY2_PORT) {
+                    Exynos_OSAL_MutexTerminate(pExynosComponent->pExynosPort[i].way.port2WayDataBuffer.inputDataBuffer.bufferMutex);
+                    pExynosComponent->pExynosPort[i].way.port2WayDataBuffer.inputDataBuffer.bufferMutex = NULL;
+                    Exynos_OSAL_MutexTerminate(pExynosComponent->pExynosPort[i].way.port2WayDataBuffer.outputDataBuffer.bufferMutex);
+                    pExynosComponent->pExynosPort[i].way.port2WayDataBuffer.outputDataBuffer.bufferMutex = NULL;
                 }
+                Exynos_OSAL_MutexTerminate(pExynosComponent->pExynosPort[i].hPortMutex);
+                pExynosComponent->pExynosPort[i].hPortMutex = NULL;
+            }
 
-                Exynos_OSAL_SignalSet(pExynosComponent->pauseEvent);
-                Exynos_OSAL_ThreadTerminate(pExynosComponent->hBufferProcess);
-                pExynosComponent->hBufferProcess = NULL;
-
-                for (i = 0; i < ALL_PORT_NUM; i++) {
-                    Exynos_OSAL_MutexTerminate(pExynosComponent->exynosDataBuffer[i].bufferMutex);
-                    pExynosComponent->exynosDataBuffer[i].bufferMutex = NULL;
-                }
-
+            if (pExynosComponent->bMultiThreadProcess == OMX_FALSE) {
                 Exynos_OSAL_SignalTerminate(pExynosComponent->pauseEvent);
+                pExynosComponent->pauseEvent = NULL;
+            } else {
                 for (i = 0; i < ALL_PORT_NUM; i++) {
-                    Exynos_OSAL_SemaphoreTerminate(pExynosComponent->pExynosPort[i].bufferSemID);
-                    pExynosComponent->pExynosPort[i].bufferSemID = NULL;
+                    Exynos_OSAL_SignalTerminate(pExynosComponent->pExynosPort[i].pauseEvent);
+                    pExynosComponent->pExynosPort[i].pauseEvent = NULL;
+                    if (pExynosComponent->pExynosPort[i].bufferProcessType == BUFFER_SHARE) {
+                        Exynos_OSAL_SignalTerminate(&pExynosComponent->pExynosPort[i].hAllCodecBufferReturnEvent);
+                        pExynosComponent->pExynosPort[i].hAllCodecBufferReturnEvent = NULL;
+                    }
                 }
             }
-            if (pExynosComponent->exynos_mfc_componentTerminate != NULL)
-                pExynosComponent->exynos_mfc_componentTerminate(pOMXComponent);
+            for (i = 0; i < ALL_PORT_NUM; i++) {
+                Exynos_OSAL_SemaphoreTerminate(pExynosComponent->pExynosPort[i].bufferSemID);
+                pExynosComponent->pExynosPort[i].bufferSemID = NULL;
+            }
+            if (pExynosComponent->exynos_codec_componentTerminate != NULL)
+                pExynosComponent->exynos_codec_componentTerminate(pOMXComponent);
 
             ret = OMX_ErrorInvalidState;
             break;
@@ -278,30 +258,40 @@ OMX_ERRORTYPE Exynos_OMX_ComponentStateSet(OMX_COMPONENTTYPE *pOMXComponent, OMX
     case OMX_StateLoaded:
         switch (currentState) {
         case OMX_StateIdle:
-            pExynosComponent->bExitBufferProcessThread = OMX_TRUE;
+            ret = pExynosComponent->exynos_BufferProcessTerminate(pOMXComponent);
 
             for (i = 0; i < ALL_PORT_NUM; i++) {
-                Exynos_OSAL_Get_SemaphoreCount(pExynosComponent->pExynosPort[i].bufferSemID, &countValue);
-                if (countValue == 0)
-                    Exynos_OSAL_SemaphorePost(pExynosComponent->pExynosPort[i].bufferSemID);
+                if (pExynosComponent->pExynosPort[i].portWayType == WAY1_PORT) {
+                    Exynos_OSAL_MutexTerminate(pExynosComponent->pExynosPort[i].way.port1WayDataBuffer.dataBuffer.bufferMutex);
+                    pExynosComponent->pExynosPort[i].way.port1WayDataBuffer.dataBuffer.bufferMutex = NULL;
+                } else if (pExynosComponent->pExynosPort[i].portWayType == WAY2_PORT) {
+                    Exynos_OSAL_MutexTerminate(pExynosComponent->pExynosPort[i].way.port2WayDataBuffer.inputDataBuffer.bufferMutex);
+                    pExynosComponent->pExynosPort[i].way.port2WayDataBuffer.inputDataBuffer.bufferMutex = NULL;
+                    Exynos_OSAL_MutexTerminate(pExynosComponent->pExynosPort[i].way.port2WayDataBuffer.outputDataBuffer.bufferMutex);
+                    pExynosComponent->pExynosPort[i].way.port2WayDataBuffer.outputDataBuffer.bufferMutex = NULL;
+                }
+                Exynos_OSAL_MutexTerminate(pExynosComponent->pExynosPort[i].hPortMutex);
+                pExynosComponent->pExynosPort[i].hPortMutex = NULL;
             }
-
-            Exynos_OSAL_SignalSet(pExynosComponent->pauseEvent);
-            Exynos_OSAL_ThreadTerminate(pExynosComponent->hBufferProcess);
-            pExynosComponent->hBufferProcess = NULL;
-
-            for (i = 0; i < ALL_PORT_NUM; i++) {
-                Exynos_OSAL_MutexTerminate(pExynosComponent->exynosDataBuffer[i].bufferMutex);
-                pExynosComponent->exynosDataBuffer[i].bufferMutex = NULL;
+            if (pExynosComponent->bMultiThreadProcess == OMX_FALSE) {
+                Exynos_OSAL_SignalTerminate(pExynosComponent->pauseEvent);
+                pExynosComponent->pauseEvent = NULL;
+            } else {
+                for (i = 0; i < ALL_PORT_NUM; i++) {
+                    Exynos_OSAL_SignalTerminate(pExynosComponent->pExynosPort[i].pauseEvent);
+                    pExynosComponent->pExynosPort[i].pauseEvent = NULL;
+                    if (pExynosComponent->pExynosPort[i].bufferProcessType == BUFFER_SHARE) {
+                        Exynos_OSAL_SignalTerminate(&pExynosComponent->pExynosPort[i].hAllCodecBufferReturnEvent);
+                        pExynosComponent->pExynosPort[i].hAllCodecBufferReturnEvent = NULL;
+                    }
+                }
             }
-
-            Exynos_OSAL_SignalTerminate(pExynosComponent->pauseEvent);
             for (i = 0; i < ALL_PORT_NUM; i++) {
                 Exynos_OSAL_SemaphoreTerminate(pExynosComponent->pExynosPort[i].bufferSemID);
                 pExynosComponent->pExynosPort[i].bufferSemID = NULL;
             }
 
-            pExynosComponent->exynos_mfc_componentTerminate(pOMXComponent);
+            pExynosComponent->exynos_codec_componentTerminate(pOMXComponent);
 
             for (i = 0; i < (pExynosComponent->portParam.nPorts); i++) {
                 pExynosPort = (pExynosComponent->pExynosPort + i);
@@ -357,15 +347,22 @@ OMX_ERRORTYPE Exynos_OMX_ComponentStateSet(OMX_COMPONENTTYPE *pOMXComponent, OMX
                     }
                 }
             }
-            ret = pExynosComponent->exynos_mfc_componentInit(pOMXComponent);
+            ret = pExynosComponent->exynos_codec_componentInit(pOMXComponent);
             if (ret != OMX_ErrorNone) {
                 /*
                  * if (CHECK_PORT_TUNNELED == OMX_TRUE) thenTunnel Buffer Free
                  */
                 goto EXIT;
             }
-            pExynosComponent->bExitBufferProcessThread = OMX_FALSE;
-            Exynos_OSAL_SignalCreate(&pExynosComponent->pauseEvent);
+            if (pExynosComponent->bMultiThreadProcess == OMX_FALSE) {
+                Exynos_OSAL_SignalCreate(&pExynosComponent->pauseEvent);
+            } else {
+                for (i = 0; i < ALL_PORT_NUM; i++) {
+                    Exynos_OSAL_SignalCreate(&pExynosComponent->pExynosPort[i].pauseEvent);
+                    if (pExynosComponent->pExynosPort[i].bufferProcessType == BUFFER_SHARE)
+                        Exynos_OSAL_SignalCreate(&pExynosComponent->pExynosPort[i].hAllCodecBufferReturnEvent);
+                }
+            }
             for (i = 0; i < ALL_PORT_NUM; i++) {
                 ret = Exynos_OSAL_SemaphoreCreate(&pExynosComponent->pExynosPort[i].bufferSemID);
                 if (ret != OMX_ErrorNone) {
@@ -375,25 +372,64 @@ OMX_ERRORTYPE Exynos_OMX_ComponentStateSet(OMX_COMPONENTTYPE *pOMXComponent, OMX
                 }
             }
             for (i = 0; i < ALL_PORT_NUM; i++) {
-                ret = Exynos_OSAL_MutexCreate(&pExynosComponent->exynosDataBuffer[i].bufferMutex);
+                if (pExynosComponent->pExynosPort[i].portWayType == WAY1_PORT) {
+                    ret = Exynos_OSAL_MutexCreate(&pExynosComponent->pExynosPort[i].way.port1WayDataBuffer.dataBuffer.bufferMutex);
+                    if (ret != OMX_ErrorNone) {
+                        ret = OMX_ErrorInsufficientResources;
+                        Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "OMX_ErrorInsufficientResources, Line:%d", __LINE__);
+                        goto EXIT;
+                    }
+                } else if (pExynosComponent->pExynosPort[i].portWayType == WAY2_PORT) {
+                    ret = Exynos_OSAL_MutexCreate(&pExynosComponent->pExynosPort[i].way.port2WayDataBuffer.inputDataBuffer.bufferMutex);
+                    if (ret != OMX_ErrorNone) {
+                        ret = OMX_ErrorInsufficientResources;
+                        Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "OMX_ErrorInsufficientResources, Line:%d", __LINE__);
+                        goto EXIT;
+                    }
+                    ret = Exynos_OSAL_MutexCreate(&pExynosComponent->pExynosPort[i].way.port2WayDataBuffer.outputDataBuffer.bufferMutex);
+                    if (ret != OMX_ErrorNone) {
+                        ret = OMX_ErrorInsufficientResources;
+                        Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "OMX_ErrorInsufficientResources, Line:%d", __LINE__);
+                        goto EXIT;
+                    }
+                }
+                ret = Exynos_OSAL_MutexCreate(&pExynosComponent->pExynosPort[i].hPortMutex);
                 if (ret != OMX_ErrorNone) {
                     ret = OMX_ErrorInsufficientResources;
-                    Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "OMX_ErrorInsufficientResources, Line:%d", __LINE__);
                     goto EXIT;
                 }
             }
-            ret = Exynos_OSAL_ThreadCreate(&pExynosComponent->hBufferProcess,
-                             Exynos_OMX_BufferProcessThread,
-                             pOMXComponent);
+
+            ret = pExynosComponent->exynos_BufferProcessCreate(pOMXComponent);
             if (ret != OMX_ErrorNone) {
                 /*
                  * if (CHECK_PORT_TUNNELED == OMX_TRUE) thenTunnel Buffer Free
                  */
-
-                Exynos_OSAL_SignalTerminate(pExynosComponent->pauseEvent);
+                if (pExynosComponent->bMultiThreadProcess == OMX_FALSE) {
+                    Exynos_OSAL_SignalTerminate(pExynosComponent->pauseEvent);
+                    pExynosComponent->pauseEvent = NULL;
+                } else {
+                    for (i = 0; i < ALL_PORT_NUM; i++) {
+                        Exynos_OSAL_SignalTerminate(pExynosComponent->pExynosPort[i].pauseEvent);
+                        pExynosComponent->pExynosPort[i].pauseEvent = NULL;
+                        if (pExynosComponent->pExynosPort[i].bufferProcessType == BUFFER_SHARE) {
+                            Exynos_OSAL_SignalTerminate(&pExynosComponent->pExynosPort[i].hAllCodecBufferReturnEvent);
+                            pExynosComponent->pExynosPort[i].hAllCodecBufferReturnEvent = NULL;
+                        }
+                    }
+                }
                 for (i = 0; i < ALL_PORT_NUM; i++) {
-                    Exynos_OSAL_MutexTerminate(pExynosComponent->exynosDataBuffer[i].bufferMutex);
-                    pExynosComponent->exynosDataBuffer[i].bufferMutex = NULL;
+                    if (pExynosComponent->pExynosPort[i].portWayType == WAY1_PORT) {
+                        Exynos_OSAL_MutexTerminate(pExynosComponent->pExynosPort[i].way.port1WayDataBuffer.dataBuffer.bufferMutex);
+                        pExynosComponent->pExynosPort[i].way.port1WayDataBuffer.dataBuffer.bufferMutex = NULL;
+                    } else if (pExynosComponent->pExynosPort[i].portWayType == WAY2_PORT) {
+                        Exynos_OSAL_MutexTerminate(pExynosComponent->pExynosPort[i].way.port2WayDataBuffer.inputDataBuffer.bufferMutex);
+                        pExynosComponent->pExynosPort[i].way.port2WayDataBuffer.inputDataBuffer.bufferMutex = NULL;
+                        Exynos_OSAL_MutexTerminate(pExynosComponent->pExynosPort[i].way.port2WayDataBuffer.outputDataBuffer.bufferMutex);
+                        pExynosComponent->pExynosPort[i].way.port2WayDataBuffer.outputDataBuffer.bufferMutex = NULL;
+                    }
+                    Exynos_OSAL_MutexTerminate(pExynosComponent->pExynosPort[i].hPortMutex);
+                    pExynosComponent->pExynosPort[i].hPortMutex = NULL;
                 }
                 for (i = 0; i < ALL_PORT_NUM; i++) {
                     Exynos_OSAL_SemaphoreTerminate(pExynosComponent->pExynosPort[i].bufferSemID);
@@ -407,7 +443,7 @@ OMX_ERRORTYPE Exynos_OMX_ComponentStateSet(OMX_COMPONENTTYPE *pOMXComponent, OMX
             break;
         case OMX_StateExecuting:
         case OMX_StatePause:
-            Exynos_OMX_BufferFlushProcessNoEvent(pOMXComponent, ALL_PORT_INDEX);
+            Exynos_OMX_BufferFlushProcess(pOMXComponent, ALL_PORT_INDEX, OMX_FALSE);
             pExynosComponent->currentState = OMX_StateIdle;
             break;
         case OMX_StateWaitForResources:
@@ -435,7 +471,13 @@ OMX_ERRORTYPE Exynos_OMX_ComponentStateSet(OMX_COMPONENTTYPE *pOMXComponent, OMX
 
             pExynosComponent->transientState = EXYNOS_OMX_TransStateMax;
             pExynosComponent->currentState = OMX_StateExecuting;
-            Exynos_OSAL_SignalSet(pExynosComponent->pauseEvent);
+            if (pExynosComponent->bMultiThreadProcess == OMX_FALSE) {
+                Exynos_OSAL_SignalSet(pExynosComponent->pauseEvent);
+            } else {
+                for (i = 0; i < ALL_PORT_NUM; i++) {
+                    Exynos_OSAL_SignalSet(pExynosComponent->pExynosPort[i].pauseEvent);
+                }
+            }
             break;
         case OMX_StatePause:
             for (i = 0; i < pExynosComponent->portParam.nPorts; i++) {
@@ -453,7 +495,13 @@ OMX_ERRORTYPE Exynos_OMX_ComponentStateSet(OMX_COMPONENTTYPE *pOMXComponent, OMX
             }
 
             pExynosComponent->currentState = OMX_StateExecuting;
-            Exynos_OSAL_SignalSet(pExynosComponent->pauseEvent);
+            if (pExynosComponent->bMultiThreadProcess == OMX_FALSE) {
+                Exynos_OSAL_SignalSet(pExynosComponent->pauseEvent);
+            } else {
+                for (i = 0; i < ALL_PORT_NUM; i++) {
+                    Exynos_OSAL_SignalSet(pExynosComponent->pExynosPort[i].pauseEvent);
+                }
+            }
             break;
         case OMX_StateWaitForResources:
             ret = OMX_ErrorIncorrectStateTransition;
@@ -512,6 +560,7 @@ EXIT:
             destState, NULL);
         }
     } else {
+        Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "%s:%d", __FUNCTION__, __LINE__);
         if (pExynosComponent->pCallbacks != NULL) {
             pExynosComponent->pCallbacks->EventHandler((OMX_HANDLETYPE)pOMXComponent,
             pExynosComponent->callbackData,
@@ -556,7 +605,7 @@ static OMX_ERRORTYPE Exynos_OMX_MessageHandlerThread(OMX_PTR threadData)
                 ret = Exynos_OMX_ComponentStateSet(pOMXComponent, message->messageParam);
                 break;
             case OMX_CommandFlush:
-                ret = Exynos_OMX_BufferFlushProcess(pOMXComponent, message->messageParam);
+                ret = Exynos_OMX_BufferFlushProcess(pOMXComponent, message->messageParam, OMX_TRUE);
                 break;
             case OMX_CommandPortDisable:
                 ret = Exynos_OMX_PortDisableProcess(pOMXComponent, message->messageParam);
@@ -1455,13 +1504,15 @@ OMX_ERRORTYPE Exynos_OMX_BaseComponent_Constructor(
     }
 
     pExynosComponent->bExitMessageHandlerThread = OMX_FALSE;
-    Exynos_OSAL_QueueCreate(&pExynosComponent->messageQ);
+    Exynos_OSAL_QueueCreate(&pExynosComponent->messageQ, MAX_QUEUE_ELEMENTS);
     ret = Exynos_OSAL_ThreadCreate(&pExynosComponent->hMessageHandler, Exynos_OMX_MessageHandlerThread, pOMXComponent);
     if (ret != OMX_ErrorNone) {
         ret = OMX_ErrorInsufficientResources;
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "OMX_ErrorInsufficientResources, Line:%d", __LINE__);
         goto EXIT;
     }
+
+    pExynosComponent->bMultiThreadProcess = OMX_FALSE;
 
     pOMXComponent->GetComponentVersion = &Exynos_OMX_GetComponentVersion;
     pOMXComponent->SendCommand         = &Exynos_OMX_SendCommand;

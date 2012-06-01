@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2010 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
  * @file        Exynos_OSAL_Mutex.c
  * @brief
  * @author      SeungBeom Kim (sbcrux.kim@samsung.com)
- * @version     1.1.0
+ * @version     2.0.0
  * @history
- *   2010.7.15 : Create
+ *   2012.02.20 : Create
  */
 
 #include <stdio.h>
@@ -31,7 +31,6 @@
 
 #include "Exynos_OSAL_Memory.h"
 #include "Exynos_OSAL_Mutex.h"
-
 
 OMX_ERRORTYPE Exynos_OSAL_MutexCreate(OMX_HANDLETYPE *mutexHandle)
 {

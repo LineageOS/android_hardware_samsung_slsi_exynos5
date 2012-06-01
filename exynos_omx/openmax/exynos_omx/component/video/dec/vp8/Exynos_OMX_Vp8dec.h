@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2011 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,10 @@
  * @file       Exynos_OMX_Vp8dec.h
  * @brief
  * @author     Satish Kumar Reddy (palli.satish@samsung.com)
- * @version    1.1.0
+ * @author     SeungBeom Kim (sbcrux.kim@samsung.com)
+ * @version    2.0.0
  * @history
- *   2011.10.10 : Create
+ *   2012.02.20 : Create
  */
 
 #ifndef EXYNOS_OMX_VP8_DEC_COMPONENT
@@ -30,17 +31,23 @@
 #include "Exynos_OMX_Def.h"
 #include "OMX_Component.h"
 #include "OMX_Video.h"
+#include "ExynosVideoApi.h"
 
 
 typedef struct _EXYNOS_MFC_VP8DEC_HANDLE
 {
     OMX_HANDLETYPE hMFCHandle;
-    OMX_PTR        pMFCStreamBuffer;
-    OMX_PTR        pMFCStreamPhyBuffer;
-    OMX_U32        indexTimestamp;
-    OMX_U32        outputIndexTimestamp;
-    OMX_BOOL       bConfiguredMFC;
-    OMX_S32        returnCodec;
+    OMX_U32  indexTimestamp;
+    OMX_U32  outputIndexTimestamp;
+    OMX_BOOL       bConfiguredMFCSrc;
+    OMX_BOOL       bConfiguredMFCDst;
+    OMX_U32        MAXDPBNum;
+
+    ExynosVideoColorFormatType MFCOutputColorType;
+    ExynosVideoDecOps *pDecOps;
+    ExynosVideoDecBufferOps *pInbufOps;
+    ExynosVideoDecBufferOps *pOutbufOps;
+    ExynosVideoGeometry      codecOutbufConf;
 } EXYNOS_MFC_VP8DEC_HANDLE;
 
 typedef struct _EXYNOS_VP8DEC_HANDLE
@@ -50,6 +57,11 @@ typedef struct _EXYNOS_VP8DEC_HANDLE
 
     /* EXYNOS MFC Codec specific */
     EXYNOS_MFC_VP8DEC_HANDLE            hMFCVp8Handle;
+
+    OMX_BOOL bSourceStart;
+    OMX_BOOL bDestinationStart;
+    OMX_HANDLETYPE hSourceStartEvent;
+    OMX_HANDLETYPE hDestinationStartEvent;
 } EXYNOS_VP8DEC_HANDLE;
 
 #ifdef __cplusplus

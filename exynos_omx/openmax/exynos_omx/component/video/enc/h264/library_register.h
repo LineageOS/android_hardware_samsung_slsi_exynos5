@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2010 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
  * @file        library_register.h
  * @brief
  * @author      SeungBeom Kim (sbcrux.kim@samsung.com)
- * @version     1.1.0
+ * @version     2.0.0
  * @history
- *   2010.7.15 : Create
+ *   2012.02.20 : Create
  */
 
 #ifndef EXYNOS_OMX_H264_REG
@@ -37,7 +37,7 @@
 #define MAX_COMPONENT_ROLE_NUM  1
 
 /* H.264 */
-#define EXYNOS_OMX_COMPONENT_H264_ENC "OMX.Exynos5.AVC.Encoder"
+#define EXYNOS_OMX_COMPONENT_H264_ENC "OMX.Exynos.AVC.Encoder"
 #define EXYNOS_OMX_COMPONENT_H264_ENC_ROLE "video_encoder.avc"
 
 

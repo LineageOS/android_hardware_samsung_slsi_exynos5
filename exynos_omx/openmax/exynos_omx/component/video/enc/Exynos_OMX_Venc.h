@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2010 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@
  * @brief
  * @author      SeungBeom Kim (sbcrux.kim@samsung.com)
  *              Yunji Kim (yunji.kim@samsung.com)
- * @version     1.1.0
+ * @version     2.0.0
  * @history
- *   2010.7.15 : Create
+ *   2012.02.20 : Create
  */
 
 #ifndef EXYNOS_OMX_VIDEO_ENCODE
@@ -41,128 +41,109 @@
 #define DEFAULT_FRAME_WIDTH          176
 #define DEFAULT_FRAME_HEIGHT         144
 
-#define DEFAULT_VIDEO_INPUT_BUFFER_SIZE    (DEFAULT_FRAME_WIDTH * DEFAULT_FRAME_HEIGHT * 3) / 2
+#define DEFAULT_VIDEO_INPUT_BUFFER_SIZE    (ALIGN_TO_16B(DEFAULT_FRAME_WIDTH) * ALIGN_TO_16B(DEFAULT_FRAME_HEIGHT) + \
+                                                                                ALIGN((ALIGN_TO_16B(DEFAULT_FRAME_WIDTH) * ALIGN_TO_16B(DEFAULT_FRAME_HEIGHT))/2,256))
 #define DEFAULT_VIDEO_OUTPUT_BUFFER_SIZE   (DEFAULT_FRAME_WIDTH * DEFAULT_FRAME_HEIGHT) * 2
 
-#define MFC_INPUT_BUFFER_NUM_MAX            2
-#define MFC_OUTPUT_BUFFER_NUM_MAX           2
-#define DEFAULT_MFC_INPUT_BUFFER_SIZE       1024 * 1024 * MFC_INPUT_BUFFER_NUM_MAX
+#define MFC_INPUT_BUFFER_NUM_MAX            3
+#define MFC_OUTPUT_BUFFER_NUM_MAX           4
 
-#define INPUT_PORT_SUPPORTFORMAT_NUM_MAX    9
+#define DEFAULT_MFC_INPUT_YBUFFER_SIZE      ALIGN_TO_16B(1920) * ALIGN_TO_16B(1080)
+#define DEFAULT_MFC_INPUT_CBUFFER_SIZE      ALIGN((DEFAULT_MFC_INPUT_YBUFFER_SIZE / 2), 256)
+#define DEFAULT_MFC_OUTPUT_BUFFER_SIZE      1920 * 1080 * 3 / 2
+
+#define INPUT_PORT_SUPPORTFORMAT_NUM_MAX    5
 #define OUTPUT_PORT_SUPPORTFORMAT_NUM_MAX   1
 
-#ifdef USE_STOREMETADATA
 // The largest metadata buffer size advertised
 // when metadata buffer mode is used for video encoding
 #define  MAX_INPUT_METADATA_BUFFER_SIZE (64)
-#endif
 
-typedef struct _EXYNOS_MFC_NBENC_THREAD
+typedef struct
 {
-    OMX_HANDLETYPE  hNBEncodeThread;
-    OMX_HANDLETYPE  hEncFrameStart;
-    OMX_HANDLETYPE  hEncFrameEnd;
-    OMX_BOOL        bExitEncodeThread;
-    OMX_BOOL        bEncoderRun;
-    OMX_U32         oneFrameSize;
-} EXYNOS_MFC_NBENC_THREAD;
+    void *pAddrY;
+    void *pAddrC;
+} CODEC_ENC_ADDR_INFO;
 
-typedef struct _MFC_ENC_INPUT_BUFFER
+typedef struct _CODEC_ENC_INPUT_BUFFER
 {
-    void *YPhyAddr; // physical address of Y
-    void *CPhyAddr; // physical address of CbCr
     void *YVirAddr; // virtual address of Y
     void *CVirAddr; // virtual address of CbCr
     int YBufferSize; // input buffer alloc size of Y
     int CBufferSize; // input buffer alloc size of CbCr
     int YDataSize;  // input size of Y data
     int CDataSize;  // input size of CbCr data
-} MFC_ENC_INPUT_BUFFER;
+} CODEC_ENC_INPUT_BUFFER;
+
+typedef struct _CODEC_ENC_OUTPUT_BUFFER
+{
+    void *VirAddr;      // virtual address
+    int   bufferSize;   // input buffer alloc size
+    int   dataSize;     // Data length
+} CODEC_ENC_OUTPUT_BUFFER;
 
 typedef struct _EXYNOS_OMX_VIDEOENC_COMPONENT
 {
     OMX_HANDLETYPE hCodecHandle;
-    EXYNOS_MFC_NBENC_THREAD NBEncThread;
+//    EXYNOS_CODEC_NBENC_THREAD NBEncThread;
+    OMX_BOOL bFirstFrame;
+    CODEC_ENC_INPUT_BUFFER *pMFCEncInputBuffer[MFC_INPUT_BUFFER_NUM_MAX];
+    CODEC_ENC_OUTPUT_BUFFER *pMFCEncOutputBuffer[MFC_OUTPUT_BUFFER_NUM_MAX];
+
+    /* Buffer Process */
+    OMX_BOOL       bExitBufferProcessThread;
+    OMX_HANDLETYPE hSrcInputThread;
+    OMX_HANDLETYPE hSrcOutputThread;
+    OMX_HANDLETYPE hDstInputThread;
+    OMX_HANDLETYPE hDstOutputThread;
+
+    /* Shared Memory Handle */
+    OMX_HANDLETYPE hSharedMemory;
 
     OMX_BOOL configChange;
     OMX_BOOL IntraRefreshVOP;
     OMX_VIDEO_CONTROLRATETYPE eControlRate[ALL_PORT_NUM];
     OMX_VIDEO_PARAM_QUANTIZATIONTYPE quantization;
-    OMX_BOOL bFirstFrame;
-    MFC_ENC_INPUT_BUFFER MFCEncInputBuffer[MFC_INPUT_BUFFER_NUM_MAX];
-    OMX_U32  indexInputBuffer;
 
-    ExynosVideoEncOps *pEncOps;
-    ExynosVideoEncBufferOps *pInbufOps;
-    ExynosVideoEncBufferOps *pOutbufOps;
-    ExynosVideoBuffer *pOutbuf;
-    OMX_BOOL bInputRun;
-
-    /* Encoding parameters */
-    ExynosVideoEncParam encParam;
+    OMX_HANDLETYPE           headerGeneratedEvent;
+    OMX_BOOL bFirstOutput;
 
     /* CSC handle */
     OMX_PTR csc_handle;
+    OMX_U32 csc_set_format;
+
+    OMX_ERRORTYPE (*exynos_codec_srcInputProcess) (OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA *pInputData);
+    OMX_ERRORTYPE (*exynos_codec_srcOutputProcess) (OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA *pInputData);
+    OMX_ERRORTYPE (*exynos_codec_dstInputProcess) (OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA *pOutputData);
+    OMX_ERRORTYPE (*exynos_codec_dstOutputProcess) (OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA *pOutputData);
+
+    OMX_ERRORTYPE (*exynos_codec_start)(OMX_COMPONENTTYPE *pOMXComponent, OMX_U32 nPortIndex);
+    OMX_ERRORTYPE (*exynos_codec_stop)(OMX_COMPONENTTYPE *pOMXComponent, OMX_U32 nPortIndex);
+    OMX_ERRORTYPE (*exynos_codec_bufferProcessRun)(OMX_COMPONENTTYPE *pOMXComponent, OMX_U32 nPortIndex);
+    OMX_ERRORTYPE (*exynos_codec_enqueueAllBuffer)(OMX_COMPONENTTYPE *pOMXComponent, OMX_U32 nPortIndex);
+
+    int (*exynos_checkInputFrame) (OMX_U8 *pInputStream, OMX_U32 buffSize, OMX_U32 flag,
+                                   OMX_BOOL bPreviousFrameEOF, OMX_BOOL *pbEndOfFrame);
+    OMX_ERRORTYPE (*exynos_codec_getCodecInputPrivateData) (OMX_PTR codecBuffer, OMX_PTR addr[], OMX_U32 size[]);
+    OMX_ERRORTYPE (*exynos_codec_getCodecOutputPrivateData) (OMX_PTR codecBuffer, OMX_PTR addr, OMX_U32 *size);
 } EXYNOS_OMX_VIDEOENC_COMPONENT;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-OMX_ERRORTYPE Exynos_OMX_UseBuffer(
-    OMX_IN OMX_HANDLETYPE            hComponent,
-    OMX_INOUT OMX_BUFFERHEADERTYPE **ppBufferHdr,
-    OMX_IN OMX_U32                   nPortIndex,
-    OMX_IN OMX_PTR                   pAppPrivate,
-    OMX_IN OMX_U32                   nSizeBytes,
-    OMX_IN OMX_U8                   *pBuffer);
-OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
-    OMX_IN OMX_HANDLETYPE            hComponent,
-    OMX_INOUT OMX_BUFFERHEADERTYPE **ppBuffer,
-    OMX_IN OMX_U32                   nPortIndex,
-    OMX_IN OMX_PTR                   pAppPrivate,
-    OMX_IN OMX_U32                   nSizeBytes);
-OMX_ERRORTYPE Exynos_OMX_FreeBuffer(
-    OMX_IN OMX_HANDLETYPE hComponent,
-    OMX_IN OMX_U32        nPortIndex,
-    OMX_IN OMX_BUFFERHEADERTYPE *pBufferHdr);
-OMX_ERRORTYPE Exynos_OMX_AllocateTunnelBuffer(
-    EXYNOS_OMX_BASEPORT *pOMXBasePort,
-    OMX_U32           nPortIndex);
-OMX_ERRORTYPE Exynos_OMX_FreeTunnelBuffer(
-    EXYNOS_OMX_BASEPORT *pOMXBasePort,
-    OMX_U32           nPortIndex);
-OMX_ERRORTYPE Exynos_OMX_ComponentTunnelRequest(
-    OMX_IN OMX_HANDLETYPE  hComp,
-    OMX_IN OMX_U32         nPort,
-    OMX_IN OMX_HANDLETYPE  hTunneledComp,
-    OMX_IN OMX_U32         nTunneledPort,
-    OMX_INOUT OMX_TUNNELSETUPTYPE *pTunnelSetup);
-OMX_ERRORTYPE Exynos_OMX_BufferProcess(OMX_HANDLETYPE hComponent);
-OMX_ERRORTYPE Exynos_OMX_VideoEncodeGetParameter(
-    OMX_IN OMX_HANDLETYPE hComponent,
-    OMX_IN OMX_INDEXTYPE  nParamIndex,
-    OMX_INOUT OMX_PTR     ComponentParameterStructure);
-OMX_ERRORTYPE Exynos_OMX_VideoEncodeSetParameter(
-    OMX_IN OMX_HANDLETYPE hComponent,
-    OMX_IN OMX_INDEXTYPE  nIndex,
-    OMX_IN OMX_PTR        ComponentParameterStructure);
-OMX_ERRORTYPE Exynos_OMX_VideoEncodeGetConfig(
-    OMX_HANDLETYPE hComponent,
-    OMX_INDEXTYPE nIndex,
-    OMX_PTR pComponentConfigStructure);
-OMX_ERRORTYPE Exynos_OMX_VideoEncodeSetConfig(
-    OMX_HANDLETYPE hComponent,
-    OMX_INDEXTYPE nIndex,
-    OMX_PTR pComponentConfigStructure);
-OMX_ERRORTYPE Exynos_OMX_VideoEncodeGetExtensionIndex(
-    OMX_IN OMX_HANDLETYPE  hComponent,
-    OMX_IN OMX_STRING      cParameterName,
-    OMX_OUT OMX_INDEXTYPE *pIndexType);
+inline void Exynos_UpdateFrameSize(OMX_COMPONENTTYPE *pOMXComponent);
+OMX_BOOL Exynos_Check_BufferProcess_State(EXYNOS_OMX_BASECOMPONENT *pExynosComponent, OMX_U32 nPortIndex);
+OMX_ERRORTYPE Exynos_Input_CodecBufferToData(EXYNOS_OMX_BASECOMPONENT *pExynosComponent, OMX_PTR codecBuffer, EXYNOS_OMX_DATA *pData);
+OMX_ERRORTYPE Exynos_Output_CodecBufferToData(EXYNOS_OMX_BASECOMPONENT *pExynosComponent, OMX_PTR codecBuffer, EXYNOS_OMX_DATA *pData);
+
+
+OMX_ERRORTYPE Exynos_OMX_SrcInputBufferProcess(OMX_HANDLETYPE hComponent);
+OMX_ERRORTYPE Exynos_OMX_SrcOutputBufferProcess(OMX_HANDLETYPE hComponent);
+OMX_ERRORTYPE Exynos_OMX_DstInputBufferProcess(OMX_HANDLETYPE hComponent);
+OMX_ERRORTYPE Exynos_OMX_DstOutputBufferProcess(OMX_HANDLETYPE hComponent);
 OMX_ERRORTYPE Exynos_OMX_VideoEncodeComponentInit(OMX_IN OMX_HANDLETYPE hComponent);
 OMX_ERRORTYPE Exynos_OMX_VideoEncodeComponentDeinit(OMX_IN OMX_HANDLETYPE hComponent);
-OMX_BOOL Exynos_Check_BufferProcess_State(EXYNOS_OMX_BASECOMPONENT *pExynosComponent);
-inline void Exynos_UpdateFrameSize(OMX_COMPONENTTYPE *pOMXComponent);
 
 #ifdef __cplusplus
 }

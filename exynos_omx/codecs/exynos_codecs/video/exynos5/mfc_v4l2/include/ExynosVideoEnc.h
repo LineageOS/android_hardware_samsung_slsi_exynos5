@@ -1,14 +1,8 @@
 /*
- * Copyright (c) 2012 Samsung Electronics Co., Ltd.
- *              http://www.samsung.com/
  *
- * Common header file for Codec driver
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * Alternatively, Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -31,20 +25,22 @@
 #define VIDEO_ENCODER_POLL_TIMEOUT      25
 
 typedef struct _ExynosVideoEncContext {
-    int hEnc;
-    ExynosVideoBoolType bShareInbuf;
-    ExynosVideoBoolType bShareOutbuf;
-    ExynosVideoBuffer *pInbuf;
-    ExynosVideoBuffer *pOutbuf;
+    int                  hEnc;
+    ExynosVideoBoolType  bShareInbuf;
+    ExynosVideoBoolType  bShareOutbuf;
+    ExynosVideoBuffer   *pInbuf;
+    ExynosVideoBuffer   *pOutbuf;
 
     /* FIXME : temp */
-    ExynosVideoGeometry inbufGeometry;
-    ExynosVideoGeometry outbufGeometry;
-    int nInbufs;
-    int nOutbufs;
-    ExynosVideoBoolType bStreamonInbuf;
-    ExynosVideoBoolType bStreamonOutbuf;
-    void *pPrivate;
+    ExynosVideoGeometry  inbufGeometry;
+    ExynosVideoGeometry  outbufGeometry;
+    int                  nInbufs;
+    int                  nOutbufs;
+    ExynosVideoBoolType  bStreamonInbuf;
+    ExynosVideoBoolType  bStreamonOutbuf;
+    void                *pPrivate;
+    void                *pInMutex;
+    void                *pOutMutex;
 } ExynosVideoEncContext;
 
 #endif /* _EXYNOS_VIDEO_ENC_H_ */

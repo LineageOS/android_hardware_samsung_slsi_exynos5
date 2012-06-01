@@ -8,7 +8,7 @@ LOCAL_SRC_FILES := \
 	library_register.c
 
 LOCAL_PRELINK_MODULE := false
-LOCAL_MODULE := libOMX.Exynos5.AVC.Decoder
+LOCAL_MODULE := libOMX.Exynos.AVC.Decoder
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/omx
 
 LOCAL_CFLAGS :=
@@ -17,21 +17,8 @@ ifeq ($(BOARD_NONBLOCK_MODE_PROCESS), true)
 LOCAL_CFLAGS += -DNONBLOCK_MODE_PROCESS
 endif
 
-ifeq ($(BOARD_USE_DRM), true)
-LOCAL_CFLAGS += -DUSE_DRM
-endif
-
 ifeq ($(BOARD_USE_ANB), true)
 LOCAL_CFLAGS += -DUSE_ANB
-ifeq ($(BOARD_USE_CSC_FIMC), true)
-ifeq ($(BOARD_USE_V4L2_ION), false)
-LOCAL_CFLAGS += -DUSE_CSC_FIMC
-endif
-endif
-
-ifeq ($(BOARD_USE_CSC_GSCALER), true)
-LOCAL_CFLAGS += -DUSE_CSC_GSCALER
-endif
 endif
 
 ifeq ($(BOARD_USE_S3D_SUPPORT), true)

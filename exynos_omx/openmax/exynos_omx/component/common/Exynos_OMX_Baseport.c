@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2010 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@
  * @brief
  * @author     SeungBeom Kim (sbcrux.kim@samsung.com)
  *             HyeYeon Chung (hyeon.chung@samsung.com)
- * @version    1.1.0
+ * @version    2.0.0
  * @history
- *    2010.7.15 : Create
+ *    2012.02.20 : Create
  */
 
 #include <stdio.h>
@@ -40,112 +40,60 @@
 #undef  EXYNOS_LOG_TAG
 #define EXYNOS_LOG_TAG    "EXYNOS_BASE_PORT"
 #define EXYNOS_LOG_OFF
+//#define EXYNOS_TRACE_ON
 #include "Exynos_OSAL_Log.h"
 
 
-OMX_ERRORTYPE Exynos_OMX_FlushPort(OMX_COMPONENTTYPE *pOMXComponent, OMX_S32 portIndex)
+OMX_ERRORTYPE Exynos_OMX_InputBufferReturn(OMX_COMPONENTTYPE *pOMXComponent, OMX_BUFFERHEADERTYPE* bufferHeader)
 {
-    OMX_ERRORTYPE          ret = OMX_ErrorNone;
+    OMX_ERRORTYPE             ret = OMX_ErrorNone;
     EXYNOS_OMX_BASECOMPONENT *pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
-    EXYNOS_OMX_BASEPORT      *pExynosPort = NULL;
-    OMX_BUFFERHEADERTYPE  *bufferHeader = NULL;
-    EXYNOS_OMX_MESSAGE       *message = NULL;
-    OMX_U32                flushNum = 0;
-    OMX_S32                semValue = 0;
+    EXYNOS_OMX_BASEPORT      *pExynosPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
+    OMX_U32                   i = 0;
 
-    FunctionIn();
-
-    pExynosPort = &pExynosComponent->pExynosPort[portIndex];
-    while (Exynos_OSAL_GetElemNum(&pExynosPort->bufferQ) > 0) {
-        Exynos_OSAL_Get_SemaphoreCount(pExynosComponent->pExynosPort[portIndex].bufferSemID, &semValue);
-        if (semValue == 0)
-            Exynos_OSAL_SemaphorePost(pExynosComponent->pExynosPort[portIndex].bufferSemID);
-        Exynos_OSAL_SemaphoreWait(pExynosComponent->pExynosPort[portIndex].bufferSemID);
-
-        message = (EXYNOS_OMX_MESSAGE *)Exynos_OSAL_Dequeue(&pExynosPort->bufferQ);
-        if (message != NULL) {
-            bufferHeader = (OMX_BUFFERHEADERTYPE *)message->pCmdData;
-            bufferHeader->nFilledLen = 0;
-
-            if (CHECK_PORT_TUNNELED(pExynosPort) && !CHECK_PORT_BUFFER_SUPPLIER(pExynosPort)) {
-                if (portIndex) {
-                    OMX_EmptyThisBuffer(pExynosPort->tunneledComponent, bufferHeader);
-                } else {
-                    OMX_FillThisBuffer(pExynosPort->tunneledComponent, bufferHeader);
-                }
-                Exynos_OSAL_Free(message);
-                message = NULL;
-            } else if (CHECK_PORT_TUNNELED(pExynosPort) && CHECK_PORT_BUFFER_SUPPLIER(pExynosPort)) {
-                Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Tunneled mode is not working, Line:%d", __LINE__);
-                ret = OMX_ErrorNotImplemented;
-                Exynos_OSAL_Queue(&pExynosPort->bufferQ, pExynosPort);
-                goto EXIT;
-            } else {
-                if (portIndex == OUTPUT_PORT_INDEX) {
-                    pExynosComponent->pCallbacks->FillBufferDone(pOMXComponent, pExynosComponent->callbackData, bufferHeader);
-                } else {
-                    pExynosComponent->pCallbacks->EmptyBufferDone(pOMXComponent, pExynosComponent->callbackData, bufferHeader);
-                }
-
-                Exynos_OSAL_Free(message);
-                message = NULL;
-            }
+    Exynos_OSAL_MutexLock(pExynosPort->hPortMutex);
+    for (i = 0; i < pExynosPort->portDefinition.nBufferCountActual; i++) {
+        if (bufferHeader == pExynosPort->extendBufferHeader[i].OMXBufferHeader) {
+            pExynosPort->extendBufferHeader[i].bBufferInOMX = OMX_FALSE;
+            break;
         }
     }
 
-    if (pExynosComponent->exynosDataBuffer[portIndex].dataValid == OMX_TRUE) {
-        if (CHECK_PORT_TUNNELED(pExynosPort) && CHECK_PORT_BUFFER_SUPPLIER(pExynosPort)) {
-            message = Exynos_OSAL_Malloc(sizeof(EXYNOS_OMX_MESSAGE));
-            message->pCmdData = pExynosComponent->exynosDataBuffer[portIndex].bufferHeader;
-            message->messageType = 0;
-            message->messageParam = -1;
-            Exynos_OSAL_Queue(&pExynosPort->bufferQ, message);
-            pExynosComponent->exynos_BufferReset(pOMXComponent, portIndex);
-        } else {
-            if (portIndex == INPUT_PORT_INDEX)
-                pExynosComponent->exynos_InputBufferReturn(pOMXComponent);
-            else if (portIndex == OUTPUT_PORT_INDEX)
-                pExynosComponent->exynos_OutputBufferReturn(pOMXComponent);
-        }
-    }
-
-    if (CHECK_PORT_TUNNELED(pExynosPort) && CHECK_PORT_BUFFER_SUPPLIER(pExynosPort)) {
-        while (Exynos_OSAL_GetElemNum(&pExynosPort->bufferQ) < (int)pExynosPort->assignedBufferNum) {
-            Exynos_OSAL_SemaphoreWait(pExynosComponent->pExynosPort[portIndex].bufferSemID);
-        }
-        if (Exynos_OSAL_GetElemNum(&pExynosPort->bufferQ) != (int)pExynosPort->assignedBufferNum)
-            Exynos_OSAL_SetElemNum(&pExynosPort->bufferQ, pExynosPort->assignedBufferNum);
-    } else {
-        while(1) {
-            OMX_S32 cnt = 0;
-            Exynos_OSAL_Get_SemaphoreCount(pExynosComponent->pExynosPort[portIndex].bufferSemID, &cnt);
-            if (cnt <= 0)
-                break;
-            Exynos_OSAL_SemaphoreWait(pExynosComponent->pExynosPort[portIndex].bufferSemID);
-        }
-        Exynos_OSAL_SetElemNum(&pExynosPort->bufferQ, 0);
-    }
-
-    pExynosComponent->processData[portIndex].dataLen       = 0;
-    pExynosComponent->processData[portIndex].nFlags        = 0;
-    pExynosComponent->processData[portIndex].remainDataLen = 0;
-    pExynosComponent->processData[portIndex].timeStamp     = 0;
-    pExynosComponent->processData[portIndex].usedDataLen   = 0;
-
-EXIT:
-    FunctionOut();
+    Exynos_OSAL_MutexUnlock(pExynosPort->hPortMutex);
+    pExynosComponent->pCallbacks->EmptyBufferDone(pOMXComponent, pExynosComponent->callbackData, bufferHeader);
 
     return ret;
 }
 
-OMX_ERRORTYPE Exynos_OMX_BufferFlushProcess(OMX_COMPONENTTYPE *pOMXComponent, OMX_S32 nPortIndex)
+OMX_ERRORTYPE Exynos_OMX_OutputBufferReturn(OMX_COMPONENTTYPE *pOMXComponent, OMX_BUFFERHEADERTYPE* bufferHeader)
 {
-    OMX_ERRORTYPE          ret = OMX_ErrorNone;
+    OMX_ERRORTYPE             ret = OMX_ErrorNone;
+    EXYNOS_OMX_BASECOMPONENT *pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
+    EXYNOS_OMX_BASEPORT      *pExynosPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
+    OMX_U32                   i = 0;
+
+    Exynos_OSAL_MutexLock(pExynosPort->hPortMutex);
+    for (i = 0; i < pExynosPort->portDefinition.nBufferCountActual; i++) {
+        if (bufferHeader == pExynosPort->extendBufferHeader[i].OMXBufferHeader) {
+            pExynosPort->extendBufferHeader[i].bBufferInOMX = OMX_FALSE;
+            break;
+        }
+    }
+
+    Exynos_OSAL_MutexUnlock(pExynosPort->hPortMutex);
+    pExynosComponent->pCallbacks->FillBufferDone(pOMXComponent, pExynosComponent->callbackData, bufferHeader);
+
+    return ret;
+}
+
+OMX_ERRORTYPE Exynos_OMX_BufferFlushProcess(OMX_COMPONENTTYPE *pOMXComponent, OMX_S32 nPortIndex, OMX_BOOL bEvent)
+{
+    OMX_ERRORTYPE             ret = OMX_ErrorNone;
     EXYNOS_OMX_BASECOMPONENT *pExynosComponent = NULL;
     EXYNOS_OMX_BASEPORT      *pExynosPort = NULL;
-    OMX_S32                portIndex = 0;
-    OMX_U32                i = 0, cnt = 0;
-    EXYNOS_OMX_DATABUFFER    *flushBuffer = NULL;
+    OMX_S32                   portIndex = 0;
+    EXYNOS_OMX_DATABUFFER    *flushPortBuffer[2] = {NULL, NULL};
+    OMX_U32                   i = 0, cnt = 0;
 
     FunctionIn();
 
@@ -172,123 +120,22 @@ OMX_ERRORTYPE Exynos_OMX_BufferFlushProcess(OMX_COMPONENTTYPE *pOMXComponent, OM
         else
             portIndex = nPortIndex;
 
-        Exynos_OSAL_SignalSet(pExynosComponent->pauseEvent);
-
-        flushBuffer = &pExynosComponent->exynosDataBuffer[portIndex];
-
-        Exynos_OSAL_MutexLock(flushBuffer->bufferMutex);
-        ret = Exynos_OMX_FlushPort(pOMXComponent, portIndex);
-        Exynos_OSAL_MutexUnlock(flushBuffer->bufferMutex);
-
-        pExynosComponent->pExynosPort[portIndex].bIsPortFlushed = OMX_FALSE;
-
-        if (ret == OMX_ErrorNone) {
-            Exynos_OSAL_Log(EXYNOS_LOG_TRACE,"OMX_CommandFlush EventCmdComplete");
-            pExynosComponent->pCallbacks->EventHandler((OMX_HANDLETYPE)pOMXComponent,
-                            pExynosComponent->callbackData,
-                            OMX_EventCmdComplete,
-                            OMX_CommandFlush, portIndex, NULL);
-        }
-
-        if (portIndex == INPUT_PORT_INDEX) {
-            pExynosComponent->checkTimeStamp.needSetStartTimeStamp = OMX_TRUE;
-            pExynosComponent->checkTimeStamp.needCheckStartTimeStamp = OMX_FALSE;
-            Exynos_OSAL_Memset(pExynosComponent->timeStamp, -19771003, sizeof(OMX_TICKS) * MAX_TIMESTAMP);
-            Exynos_OSAL_Memset(pExynosComponent->nFlags, 0, sizeof(OMX_U32) * MAX_FLAGS);
-            pExynosComponent->getAllDelayBuffer = OMX_FALSE;
-            pExynosComponent->bSaveFlagEOS = OMX_FALSE;
-            pExynosComponent->reInputData = OMX_FALSE;
-        } else if (portIndex == OUTPUT_PORT_INDEX) {
-            pExynosComponent->remainOutputData = OMX_FALSE;
-        }
+        pExynosComponent->exynos_BufferFlush(pOMXComponent, portIndex, bEvent);
     }
 
 EXIT:
     if ((ret != OMX_ErrorNone) && (pOMXComponent != NULL) && (pExynosComponent != NULL)) {
-            pExynosComponent->pCallbacks->EventHandler(pOMXComponent,
-                            pExynosComponent->callbackData,
-                            OMX_EventError,
-                            ret, 0, NULL);
-    }
-
-    FunctionOut();
-
-    return ret;
-}
-
-OMX_ERRORTYPE Exynos_OMX_BufferFlushProcessNoEvent(OMX_COMPONENTTYPE *pOMXComponent, OMX_S32 nPortIndex)
-{
-    OMX_ERRORTYPE          ret = OMX_ErrorNone;
-    EXYNOS_OMX_BASECOMPONENT *pExynosComponent = NULL;
-    EXYNOS_OMX_BASEPORT      *pExynosPort = NULL;
-    OMX_S32                portIndex = 0;
-    OMX_U32                i = 0, cnt = 0;
-    EXYNOS_OMX_DATABUFFER    *flushBuffer = NULL;
-
-    FunctionIn();
-
-    if (pOMXComponent == NULL) {
-        ret = OMX_ErrorBadParameter;
-        goto EXIT;
-    }
-    ret = Exynos_OMX_Check_SizeVersion(pOMXComponent, sizeof(OMX_COMPONENTTYPE));
-    if (ret != OMX_ErrorNone) {
-        goto EXIT;
-    }
-
-    if (pOMXComponent->pComponentPrivate == NULL) {
-        ret = OMX_ErrorBadParameter;
-        goto EXIT;
-    }
-    pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
-
-    cnt = (nPortIndex == ALL_PORT_INDEX ) ? ALL_PORT_NUM : 1;
-
-    for (i = 0; i < cnt; i++) {
-        if (nPortIndex == ALL_PORT_INDEX)
-            portIndex = i;
-        else
-            portIndex = nPortIndex;
-
-        pExynosComponent->pExynosPort[portIndex].bIsPortFlushed = OMX_TRUE;
-
-        Exynos_OSAL_SignalSet(pExynosComponent->pauseEvent);
-
-        flushBuffer = &pExynosComponent->exynosDataBuffer[portIndex];
-
-        Exynos_OSAL_MutexLock(flushBuffer->bufferMutex);
-        ret = Exynos_OMX_FlushPort(pOMXComponent, portIndex);
-        Exynos_OSAL_MutexUnlock(flushBuffer->bufferMutex);
-
-        pExynosComponent->pExynosPort[portIndex].bIsPortFlushed = OMX_FALSE;
-
-        if (portIndex == INPUT_PORT_INDEX) {
-            pExynosComponent->checkTimeStamp.needSetStartTimeStamp = OMX_TRUE;
-            pExynosComponent->checkTimeStamp.needCheckStartTimeStamp = OMX_FALSE;
-            Exynos_OSAL_Memset(pExynosComponent->timeStamp, -19771003, sizeof(OMX_TICKS) * MAX_TIMESTAMP);
-            Exynos_OSAL_Memset(pExynosComponent->nFlags, 0, sizeof(OMX_U32) * MAX_FLAGS);
-            pExynosComponent->getAllDelayBuffer = OMX_FALSE;
-            pExynosComponent->bSaveFlagEOS = OMX_FALSE;
-            pExynosComponent->remainOutputData = OMX_FALSE;
-            pExynosComponent->reInputData = OMX_FALSE;
-        } else if (portIndex == OUTPUT_PORT_INDEX) {
-            pExynosComponent->remainOutputData = OMX_FALSE;
-        }
-    }
-
-EXIT:
-    if ((ret != OMX_ErrorNone) && (pOMXComponent != NULL) && (pExynosComponent != NULL)) {
+        Exynos_OSAL_Log(EXYNOS_LOG_ERROR,"%s : %d", __FUNCTION__, __LINE__);
         pExynosComponent->pCallbacks->EventHandler(pOMXComponent,
-                            pExynosComponent->callbackData,
-                            OMX_EventError,
-                            ret, 0, NULL);
+                        pExynosComponent->callbackData,
+                        OMX_EventError,
+                        ret, 0, NULL);
     }
 
     FunctionOut();
 
     return ret;
 }
-
 
 OMX_ERRORTYPE Exynos_OMX_EnablePort(OMX_COMPONENTTYPE *pOMXComponent, OMX_S32 portIndex)
 {
@@ -300,30 +147,14 @@ OMX_ERRORTYPE Exynos_OMX_EnablePort(OMX_COMPONENTTYPE *pOMXComponent, OMX_S32 po
     FunctionIn();
 
     pExynosPort = &pExynosComponent->pExynosPort[portIndex];
+
+    if ((pExynosComponent->currentState != OMX_StateLoaded) && (pExynosComponent->currentState != OMX_StateWaitForResources)) {
+        Exynos_OSAL_SemaphoreWait(pExynosPort->loadedResource);
+        pExynosPort->portDefinition.bPopulated = OMX_TRUE;
+    }
+    pExynosPort->exceptionFlag = GENERAL_STATE;
     pExynosPort->portDefinition.bEnabled = OMX_TRUE;
 
-    if (CHECK_PORT_TUNNELED(pExynosPort) && CHECK_PORT_BUFFER_SUPPLIER(pExynosPort)) {
-        ret = pExynosComponent->exynos_AllocateTunnelBuffer(pExynosPort, portIndex);
-        if (OMX_ErrorNone != ret) {
-            goto EXIT;
-        }
-        pExynosPort->portDefinition.bPopulated = OMX_TRUE;
-        if (pExynosComponent->currentState == OMX_StateExecuting) {
-            for (i=0; i<pExynosPort->tunnelBufferNum; i++) {
-                Exynos_OSAL_SemaphorePost(pExynosComponent->pExynosPort[portIndex].bufferSemID);
-            }
-        }
-    } else if (CHECK_PORT_TUNNELED(pExynosPort) && !CHECK_PORT_BUFFER_SUPPLIER(pExynosPort)) {
-        if ((pExynosComponent->currentState != OMX_StateLoaded) && (pExynosComponent->currentState != OMX_StateWaitForResources)) {
-            Exynos_OSAL_SemaphoreWait(pExynosPort->loadedResource);
-            pExynosPort->portDefinition.bPopulated = OMX_TRUE;
-        }
-    } else {
-        if ((pExynosComponent->currentState != OMX_StateLoaded) && (pExynosComponent->currentState != OMX_StateWaitForResources)) {
-            Exynos_OSAL_SemaphoreWait(pExynosPort->loadedResource);
-            pExynosPort->portDefinition.bPopulated = OMX_TRUE;
-        }
-    }
     ret = OMX_ErrorNone;
 
 EXIT:
@@ -403,30 +234,15 @@ OMX_ERRORTYPE Exynos_OMX_DisablePort(OMX_COMPONENTTYPE *pOMXComponent, OMX_S32 p
         goto EXIT;
     }
 
-    if (pExynosComponent->currentState!=OMX_StateLoaded) {
-        if (CHECK_PORT_TUNNELED(pExynosPort) && CHECK_PORT_BUFFER_SUPPLIER(pExynosPort)) {
-            while (Exynos_OSAL_GetElemNum(&pExynosPort->bufferQ) >0 ) {
+    if (pExynosComponent->currentState != OMX_StateLoaded) {
+        if (CHECK_PORT_BUFFER_SUPPLIER(pExynosPort)) {
+            while (Exynos_OSAL_GetElemNum(&pExynosPort->bufferQ) > 0) {
                 message = (EXYNOS_OMX_MESSAGE*)Exynos_OSAL_Dequeue(&pExynosPort->bufferQ);
                 Exynos_OSAL_Free(message);
             }
-            ret = pExynosComponent->exynos_FreeTunnelBuffer(pExynosPort, portIndex);
-            if (OMX_ErrorNone != ret) {
-                goto EXIT;
-            }
-            pExynosPort->portDefinition.bPopulated = OMX_FALSE;
-        } else if (CHECK_PORT_TUNNELED(pExynosPort) && !CHECK_PORT_BUFFER_SUPPLIER(pExynosPort)) {
-            pExynosPort->portDefinition.bPopulated = OMX_FALSE;
-            Exynos_OSAL_SemaphoreWait(pExynosPort->unloadedResource);
-        } else {
-            if (CHECK_PORT_BUFFER_SUPPLIER(pExynosPort)) {
-                while (Exynos_OSAL_GetElemNum(&pExynosPort->bufferQ) >0 ) {
-                    message = (EXYNOS_OMX_MESSAGE*)Exynos_OSAL_Dequeue(&pExynosPort->bufferQ);
-                    Exynos_OSAL_Free(message);
-                }
-            }
-            pExynosPort->portDefinition.bPopulated = OMX_FALSE;
-            Exynos_OSAL_SemaphoreWait(pExynosPort->unloadedResource);
         }
+        pExynosPort->portDefinition.bPopulated = OMX_FALSE;
+        Exynos_OSAL_SemaphoreWait(pExynosPort->unloadedResource);
     }
     pExynosPort->portDefinition.bEnabled = OMX_FALSE;
     ret = OMX_ErrorNone;
@@ -441,9 +257,10 @@ OMX_ERRORTYPE Exynos_OMX_PortDisableProcess(OMX_COMPONENTTYPE *pOMXComponent, OM
 {
     OMX_ERRORTYPE          ret = OMX_ErrorNone;
     EXYNOS_OMX_BASECOMPONENT *pExynosComponent = NULL;
+    EXYNOS_OMX_BASEPORT      *pExynosPort = NULL;
     OMX_S32                portIndex = 0;
     OMX_U32                i = 0, cnt = 0;
-    EXYNOS_OMX_DATABUFFER      *flushBuffer = NULL;
+    EXYNOS_OMX_DATABUFFER    *flushPortBuffer[2] = {NULL, NULL};
 
     FunctionIn();
 
@@ -471,27 +288,7 @@ OMX_ERRORTYPE Exynos_OMX_PortDisableProcess(OMX_COMPONENTTYPE *pOMXComponent, OM
         else
             portIndex = nPortIndex;
 
-        pExynosComponent->pExynosPort[portIndex].bIsPortFlushed = OMX_TRUE;
-
-        flushBuffer = &pExynosComponent->exynosDataBuffer[portIndex];
-
-        Exynos_OSAL_MutexLock(flushBuffer->bufferMutex);
-        ret = Exynos_OMX_FlushPort(pOMXComponent, portIndex);
-        Exynos_OSAL_MutexUnlock(flushBuffer->bufferMutex);
-
-        pExynosComponent->pExynosPort[portIndex].bIsPortFlushed = OMX_FALSE;
-
-        if (portIndex == INPUT_PORT_INDEX) {
-            pExynosComponent->checkTimeStamp.needSetStartTimeStamp = OMX_TRUE;
-            pExynosComponent->checkTimeStamp.needCheckStartTimeStamp = OMX_FALSE;
-            Exynos_OSAL_Memset(pExynosComponent->timeStamp, -19771003, sizeof(OMX_TICKS) * MAX_TIMESTAMP);
-            Exynos_OSAL_Memset(pExynosComponent->nFlags, 0, sizeof(OMX_U32) * MAX_FLAGS);
-            pExynosComponent->getAllDelayBuffer = OMX_FALSE;
-            pExynosComponent->bSaveFlagEOS = OMX_FALSE;
-            pExynosComponent->reInputData = OMX_FALSE;
-        } else if (portIndex == OUTPUT_PORT_INDEX) {
-            pExynosComponent->remainOutputData = OMX_FALSE;
-        }
+        Exynos_OMX_BufferFlushProcess(pOMXComponent, portIndex, OMX_FALSE);
     }
 
     for(i = 0; i < cnt; i++) {
@@ -588,8 +385,10 @@ OMX_ERRORTYPE Exynos_OMX_EmptyThisBuffer(
         goto EXIT;
     }
 
+    Exynos_OSAL_MutexLock(pExynosPort->hPortMutex);
     for (i = 0; i < pExynosPort->portDefinition.nBufferCountActual; i++) {
-        if (pBuffer == pExynosPort->bufferHeader[i]) {
+        if (pBuffer == pExynosPort->extendBufferHeader[i].OMXBufferHeader) {
+            pExynosPort->extendBufferHeader[i].bBufferInOMX = OMX_TRUE;
             findBuffer = OMX_TRUE;
             break;
         }
@@ -597,14 +396,14 @@ OMX_ERRORTYPE Exynos_OMX_EmptyThisBuffer(
 
     if (findBuffer == OMX_FALSE) {
         ret = OMX_ErrorBadParameter;
+        Exynos_OSAL_MutexUnlock(pExynosPort->hPortMutex);
         goto EXIT;
-    } else {
-        ret = OMX_ErrorNone;
     }
 
     message = Exynos_OSAL_Malloc(sizeof(EXYNOS_OMX_MESSAGE));
     if (message == NULL) {
         ret = OMX_ErrorInsufficientResources;
+        Exynos_OSAL_MutexUnlock(pExynosPort->hPortMutex);
         goto EXIT;
     }
     message->messageType = EXYNOS_OMX_CommandEmptyBuffer;
@@ -614,9 +413,11 @@ OMX_ERRORTYPE Exynos_OMX_EmptyThisBuffer(
     ret = Exynos_OSAL_Queue(&pExynosPort->bufferQ, (void *)message);
     if (ret != 0) {
         ret = OMX_ErrorUndefined;
+        Exynos_OSAL_MutexUnlock(pExynosPort->hPortMutex);
         goto EXIT;
     }
     ret = Exynos_OSAL_SemaphorePost(pExynosPort->bufferSemID);
+    Exynos_OSAL_MutexUnlock(pExynosPort->hPortMutex);
 
 EXIT:
     FunctionOut();
@@ -689,8 +490,10 @@ OMX_ERRORTYPE Exynos_OMX_FillThisBuffer(
         goto EXIT;
     }
 
+    Exynos_OSAL_MutexLock(pExynosPort->hPortMutex);
     for (i = 0; i < pExynosPort->portDefinition.nBufferCountActual; i++) {
-        if (pBuffer == pExynosPort->bufferHeader[i]) {
+        if (pBuffer == pExynosPort->extendBufferHeader[i].OMXBufferHeader) {
+            pExynosPort->extendBufferHeader[i].bBufferInOMX = OMX_TRUE;
             findBuffer = OMX_TRUE;
             break;
         }
@@ -698,14 +501,14 @@ OMX_ERRORTYPE Exynos_OMX_FillThisBuffer(
 
     if (findBuffer == OMX_FALSE) {
         ret = OMX_ErrorBadParameter;
+        Exynos_OSAL_MutexUnlock(pExynosPort->hPortMutex);
         goto EXIT;
-    } else {
-        ret = OMX_ErrorNone;
     }
 
     message = Exynos_OSAL_Malloc(sizeof(EXYNOS_OMX_MESSAGE));
     if (message == NULL) {
         ret = OMX_ErrorInsufficientResources;
+        Exynos_OSAL_MutexUnlock(pExynosPort->hPortMutex);
         goto EXIT;
     }
     message->messageType = EXYNOS_OMX_CommandFillBuffer;
@@ -715,10 +518,12 @@ OMX_ERRORTYPE Exynos_OMX_FillThisBuffer(
     ret = Exynos_OSAL_Queue(&pExynosPort->bufferQ, (void *)message);
     if (ret != 0) {
         ret = OMX_ErrorUndefined;
+        Exynos_OSAL_MutexUnlock(pExynosPort->hPortMutex);
         goto EXIT;
     }
 
     ret = Exynos_OSAL_SemaphorePost(pExynosPort->bufferSemID);
+    Exynos_OSAL_MutexUnlock(pExynosPort->hPortMutex);
 
 EXIT:
     FunctionOut();
@@ -772,22 +577,22 @@ OMX_ERRORTYPE Exynos_OMX_Port_Constructor(OMX_HANDLETYPE hComponent)
     /* Input Port */
     pExynosInputPort = &pExynosPort[INPUT_PORT_INDEX];
 
-    Exynos_OSAL_QueueCreate(&pExynosInputPort->bufferQ);
+    Exynos_OSAL_QueueCreate(&pExynosInputPort->bufferQ, MAX_QUEUE_ELEMENTS);
 
-    pExynosInputPort->bufferHeader = Exynos_OSAL_Malloc(sizeof(OMX_BUFFERHEADERTYPE*) * MAX_BUFFER_NUM);
-    if (pExynosInputPort->bufferHeader == NULL) {
+    pExynosInputPort->extendBufferHeader = Exynos_OSAL_Malloc(sizeof(EXYNOS_OMX_BUFFERHEADERTYPE) * MAX_BUFFER_NUM);
+    if (pExynosInputPort->extendBufferHeader == NULL) {
         Exynos_OSAL_Free(pExynosPort);
         pExynosPort = NULL;
         ret = OMX_ErrorInsufficientResources;
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "OMX_ErrorInsufficientResources, Line:%d", __LINE__);
         goto EXIT;
     }
-    Exynos_OSAL_Memset(pExynosInputPort->bufferHeader, 0, sizeof(OMX_BUFFERHEADERTYPE*) * MAX_BUFFER_NUM);
+    Exynos_OSAL_Memset(pExynosInputPort->extendBufferHeader, 0, sizeof(EXYNOS_OMX_BUFFERHEADERTYPE) * MAX_BUFFER_NUM);
 
     pExynosInputPort->bufferStateAllocate = Exynos_OSAL_Malloc(sizeof(OMX_U32) * MAX_BUFFER_NUM);
     if (pExynosInputPort->bufferStateAllocate == NULL) {
-        Exynos_OSAL_Free(pExynosInputPort->bufferHeader);
-        pExynosInputPort->bufferHeader = NULL;
+        Exynos_OSAL_Free(pExynosInputPort->extendBufferHeader);
+        pExynosInputPort->extendBufferHeader = NULL;
         Exynos_OSAL_Free(pExynosPort);
         pExynosPort = NULL;
         ret = OMX_ErrorInsufficientResources;
@@ -810,8 +615,8 @@ OMX_ERRORTYPE Exynos_OMX_Port_Constructor(OMX_HANDLETYPE hComponent)
     if (ret != OMX_ErrorNone) {
         Exynos_OSAL_Free(pExynosInputPort->bufferStateAllocate);
         pExynosInputPort->bufferStateAllocate = NULL;
-        Exynos_OSAL_Free(pExynosInputPort->bufferHeader);
-        pExynosInputPort->bufferHeader = NULL;
+        Exynos_OSAL_Free(pExynosInputPort->extendBufferHeader);
+        pExynosInputPort->extendBufferHeader = NULL;
         Exynos_OSAL_Free(pExynosPort);
         pExynosPort = NULL;
         goto EXIT;
@@ -822,8 +627,8 @@ OMX_ERRORTYPE Exynos_OMX_Port_Constructor(OMX_HANDLETYPE hComponent)
         pExynosInputPort->loadedResource = NULL;
         Exynos_OSAL_Free(pExynosInputPort->bufferStateAllocate);
         pExynosInputPort->bufferStateAllocate = NULL;
-        Exynos_OSAL_Free(pExynosInputPort->bufferHeader);
-        pExynosInputPort->bufferHeader = NULL;
+        Exynos_OSAL_Free(pExynosInputPort->extendBufferHeader);
+        pExynosInputPort->extendBufferHeader = NULL;
         Exynos_OSAL_Free(pExynosPort);
         pExynosPort = NULL;
         goto EXIT;
@@ -842,33 +647,34 @@ OMX_ERRORTYPE Exynos_OMX_Port_Constructor(OMX_HANDLETYPE hComponent)
     pExynosInputPort->portDefinition.nBufferAlignment = 0;
     pExynosInputPort->markType.hMarkTargetComponent = NULL;
     pExynosInputPort->markType.pMarkData = NULL;
+    pExynosInputPort->exceptionFlag = GENERAL_STATE;
 
     /* Output Port */
     pExynosOutputPort = &pExynosPort[OUTPUT_PORT_INDEX];
 
-    Exynos_OSAL_QueueCreate(&pExynosOutputPort->bufferQ);
+    Exynos_OSAL_QueueCreate(&pExynosOutputPort->bufferQ, MAX_QUEUE_ELEMENTS); /* For in case of "Output Buffer Share", MAX ELEMENTS(DPB + EDPB) */ 
 
-    pExynosOutputPort->bufferHeader = Exynos_OSAL_Malloc(sizeof(OMX_BUFFERHEADERTYPE*) * MAX_BUFFER_NUM);
-    if (pExynosOutputPort->bufferHeader == NULL) {
+    pExynosOutputPort->extendBufferHeader = Exynos_OSAL_Malloc(sizeof(EXYNOS_OMX_BUFFERHEADERTYPE) * MAX_BUFFER_NUM);
+    if (pExynosOutputPort->extendBufferHeader == NULL) {
         Exynos_OSAL_SemaphoreTerminate(pExynosInputPort->unloadedResource);
         pExynosInputPort->unloadedResource = NULL;
         Exynos_OSAL_SemaphoreTerminate(pExynosInputPort->loadedResource);
         pExynosInputPort->loadedResource = NULL;
         Exynos_OSAL_Free(pExynosInputPort->bufferStateAllocate);
         pExynosInputPort->bufferStateAllocate = NULL;
-        Exynos_OSAL_Free(pExynosInputPort->bufferHeader);
-        pExynosInputPort->bufferHeader = NULL;
+        Exynos_OSAL_Free(pExynosInputPort->extendBufferHeader);
+        pExynosInputPort->extendBufferHeader = NULL;
         Exynos_OSAL_Free(pExynosPort);
         pExynosPort = NULL;
         ret = OMX_ErrorInsufficientResources;
         goto EXIT;
     }
-    Exynos_OSAL_Memset(pExynosOutputPort->bufferHeader, 0, sizeof(OMX_BUFFERHEADERTYPE*) * MAX_BUFFER_NUM);
+    Exynos_OSAL_Memset(pExynosOutputPort->extendBufferHeader, 0, sizeof(EXYNOS_OMX_BUFFERHEADERTYPE) * MAX_BUFFER_NUM);
 
     pExynosOutputPort->bufferStateAllocate = Exynos_OSAL_Malloc(sizeof(OMX_U32) * MAX_BUFFER_NUM);
     if (pExynosOutputPort->bufferStateAllocate == NULL) {
-        Exynos_OSAL_Free(pExynosOutputPort->bufferHeader);
-        pExynosOutputPort->bufferHeader = NULL;
+        Exynos_OSAL_Free(pExynosOutputPort->extendBufferHeader);
+        pExynosOutputPort->extendBufferHeader = NULL;
 
         Exynos_OSAL_SemaphoreTerminate(pExynosInputPort->unloadedResource);
         pExynosInputPort->unloadedResource = NULL;
@@ -876,8 +682,8 @@ OMX_ERRORTYPE Exynos_OMX_Port_Constructor(OMX_HANDLETYPE hComponent)
         pExynosInputPort->loadedResource = NULL;
         Exynos_OSAL_Free(pExynosInputPort->bufferStateAllocate);
         pExynosInputPort->bufferStateAllocate = NULL;
-        Exynos_OSAL_Free(pExynosInputPort->bufferHeader);
-        pExynosInputPort->bufferHeader = NULL;
+        Exynos_OSAL_Free(pExynosInputPort->extendBufferHeader);
+        pExynosInputPort->extendBufferHeader = NULL;
         Exynos_OSAL_Free(pExynosPort);
         pExynosPort = NULL;
         ret = OMX_ErrorInsufficientResources;
@@ -899,8 +705,8 @@ OMX_ERRORTYPE Exynos_OMX_Port_Constructor(OMX_HANDLETYPE hComponent)
     if (ret != OMX_ErrorNone) {
         Exynos_OSAL_Free(pExynosOutputPort->bufferStateAllocate);
         pExynosOutputPort->bufferStateAllocate = NULL;
-        Exynos_OSAL_Free(pExynosOutputPort->bufferHeader);
-        pExynosOutputPort->bufferHeader = NULL;
+        Exynos_OSAL_Free(pExynosOutputPort->extendBufferHeader);
+        pExynosOutputPort->extendBufferHeader = NULL;
 
         Exynos_OSAL_SemaphoreTerminate(pExynosInputPort->unloadedResource);
         pExynosInputPort->unloadedResource = NULL;
@@ -908,8 +714,8 @@ OMX_ERRORTYPE Exynos_OMX_Port_Constructor(OMX_HANDLETYPE hComponent)
         pExynosInputPort->loadedResource = NULL;
         Exynos_OSAL_Free(pExynosInputPort->bufferStateAllocate);
         pExynosInputPort->bufferStateAllocate = NULL;
-        Exynos_OSAL_Free(pExynosInputPort->bufferHeader);
-        pExynosInputPort->bufferHeader = NULL;
+        Exynos_OSAL_Free(pExynosInputPort->extendBufferHeader);
+        pExynosInputPort->extendBufferHeader = NULL;
         Exynos_OSAL_Free(pExynosPort);
         pExynosPort = NULL;
         goto EXIT;
@@ -920,8 +726,8 @@ OMX_ERRORTYPE Exynos_OMX_Port_Constructor(OMX_HANDLETYPE hComponent)
         pExynosOutputPort->loadedResource = NULL;
         Exynos_OSAL_Free(pExynosOutputPort->bufferStateAllocate);
         pExynosOutputPort->bufferStateAllocate = NULL;
-        Exynos_OSAL_Free(pExynosOutputPort->bufferHeader);
-        pExynosOutputPort->bufferHeader = NULL;
+        Exynos_OSAL_Free(pExynosOutputPort->extendBufferHeader);
+        pExynosOutputPort->extendBufferHeader = NULL;
 
         Exynos_OSAL_SemaphoreTerminate(pExynosInputPort->unloadedResource);
         pExynosInputPort->unloadedResource = NULL;
@@ -929,8 +735,8 @@ OMX_ERRORTYPE Exynos_OMX_Port_Constructor(OMX_HANDLETYPE hComponent)
         pExynosInputPort->loadedResource = NULL;
         Exynos_OSAL_Free(pExynosInputPort->bufferStateAllocate);
         pExynosInputPort->bufferStateAllocate = NULL;
-        Exynos_OSAL_Free(pExynosInputPort->bufferHeader);
-        pExynosInputPort->bufferHeader = NULL;
+        Exynos_OSAL_Free(pExynosInputPort->extendBufferHeader);
+        pExynosInputPort->extendBufferHeader = NULL;
         Exynos_OSAL_Free(pExynosPort);
         pExynosPort = NULL;
         goto EXIT;
@@ -949,6 +755,7 @@ OMX_ERRORTYPE Exynos_OMX_Port_Constructor(OMX_HANDLETYPE hComponent)
     pExynosOutputPort->portDefinition.nBufferAlignment = 0;
     pExynosOutputPort->markType.hMarkTargetComponent = NULL;
     pExynosOutputPort->markType.pMarkData = NULL;
+    pExynosOutputPort->exceptionFlag = GENERAL_STATE;
 
     pExynosComponent->checkTimeStamp.needSetStartTimeStamp = OMX_FALSE;
     pExynosComponent->checkTimeStamp.needCheckStartTimeStamp = OMX_FALSE;
@@ -999,8 +806,8 @@ OMX_ERRORTYPE Exynos_OMX_Port_Destructor(OMX_HANDLETYPE hComponent)
         pExynosPort->unloadedResource = NULL;
         Exynos_OSAL_Free(pExynosPort->bufferStateAllocate);
         pExynosPort->bufferStateAllocate = NULL;
-        Exynos_OSAL_Free(pExynosPort->bufferHeader);
-        pExynosPort->bufferHeader = NULL;
+        Exynos_OSAL_Free(pExynosPort->extendBufferHeader);
+        pExynosPort->extendBufferHeader = NULL;
 
         Exynos_OSAL_QueueTerminate(&pExynosPort->bufferQ);
     }
@@ -1009,6 +816,91 @@ OMX_ERRORTYPE Exynos_OMX_Port_Destructor(OMX_HANDLETYPE hComponent)
     ret = OMX_ErrorNone;
 EXIT:
     FunctionOut();
+
+    return ret;
+}
+
+OMX_ERRORTYPE Exynos_ResetDataBuffer(EXYNOS_OMX_DATABUFFER *pDataBuffer)
+{
+    OMX_ERRORTYPE ret = OMX_ErrorNone;
+
+    if (pDataBuffer == NULL) {
+        ret = OMX_ErrorBadParameter;
+        goto EXIT;
+    }
+
+    pDataBuffer->dataValid     = OMX_FALSE;
+    pDataBuffer->dataLen       = 0;
+    pDataBuffer->remainDataLen = 0;
+    pDataBuffer->usedDataLen   = 0;
+    pDataBuffer->bufferHeader  = NULL;
+    pDataBuffer->nFlags        = 0;
+    pDataBuffer->timeStamp     = 0;
+    pDataBuffer->pPrivate      = NULL;
+
+EXIT:
+    return ret;
+}
+
+OMX_ERRORTYPE Exynos_ResetCodecData(EXYNOS_OMX_DATA *pData)
+{
+    OMX_ERRORTYPE ret = OMX_ErrorNone;
+
+    if (pData == NULL) {
+        ret = OMX_ErrorBadParameter;
+        goto EXIT;
+    }
+
+    pData->dataLen       = 0;
+    pData->usedDataLen   = 0;
+    pData->remainDataLen = 0;
+    pData->nFlags        = 0;
+    pData->timeStamp     = 0;
+    pData->pPrivate      = NULL;
+    pData->bufferHeader  = NULL;
+
+EXIT:
+    return ret;
+}
+
+OMX_ERRORTYPE Exynos_Shared_BufferToData(EXYNOS_OMX_DATABUFFER *pUseBuffer, EXYNOS_OMX_DATA *pData, EXYNOS_OMX_PLANE nPlane)
+{
+    OMX_ERRORTYPE ret = OMX_ErrorNone;
+
+    if (nPlane == ONE_PLANE) {
+        /* Case of Shared Buffer, Only support singlePlaneBuffer */
+        pData->buffer.singlePlaneBuffer.dataBuffer = pUseBuffer->bufferHeader->pBuffer;
+    } else {
+        Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Can not support plane");
+        ret = OMX_ErrorNotImplemented;
+        goto EXIT;
+    }
+
+    pData->allocSize     = pUseBuffer->allocSize;
+    pData->dataLen       = pUseBuffer->dataLen;
+    pData->usedDataLen   = pUseBuffer->usedDataLen;
+    pData->remainDataLen = pUseBuffer->remainDataLen;
+    pData->timeStamp     = pUseBuffer->timeStamp;
+    pData->nFlags        = pUseBuffer->nFlags;
+    pData->pPrivate      = pUseBuffer->pPrivate;
+    pData->bufferHeader  = pUseBuffer->bufferHeader;
+
+EXIT:
+    return ret;
+}
+
+OMX_ERRORTYPE Exynos_Shared_DataToBuffer(EXYNOS_OMX_DATA *pData, EXYNOS_OMX_DATABUFFER *pUseBuffer)
+{
+    OMX_ERRORTYPE ret = OMX_ErrorNone;
+
+    pUseBuffer->bufferHeader          = pData->bufferHeader;
+    pUseBuffer->allocSize             = pData->allocSize;
+    pUseBuffer->dataLen               = pData->dataLen;
+    pUseBuffer->usedDataLen           = pData->usedDataLen;
+    pUseBuffer->remainDataLen         = pData->remainDataLen;
+    pUseBuffer->timeStamp             = pData->timeStamp;
+    pUseBuffer->nFlags                = pData->nFlags;
+    pUseBuffer->pPrivate              = pData->pPrivate;
 
     return ret;
 }

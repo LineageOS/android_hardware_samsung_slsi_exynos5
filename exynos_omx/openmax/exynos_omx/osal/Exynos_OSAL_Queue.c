@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2010 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
  * @file        Exynos_OSAL_Queue.c
  * @brief
  * @author      SeungBeom Kim (sbcrux.kim@samsung.com)
- * @version     1.1.0
+ * @version     2.0.0
  * @history
- *   2010.7.15 : Create
+ *   2012.02.20 : Create
  */
 
 
@@ -34,7 +34,7 @@
 #include "Exynos_OSAL_Queue.h"
 
 
-OMX_ERRORTYPE Exynos_OSAL_QueueCreate(EXYNOS_QUEUE *queueHandle)
+OMX_ERRORTYPE Exynos_OSAL_QueueCreate(EXYNOS_QUEUE *queueHandle, int maxNumElem)
 {
     int i = 0;
     EXYNOS_QElem *newqelem = NULL;
@@ -57,8 +57,8 @@ OMX_ERRORTYPE Exynos_OSAL_QueueCreate(EXYNOS_QUEUE *queueHandle)
     Exynos_OSAL_Memset(queue->first, 0, sizeof(EXYNOS_QElem));
     currentqelem = queue->last = queue->first;
     queue->numElem = 0;
-
-    for (i = 0; i < (MAX_QUEUE_ELEMENTS - 2); i++) {
+    queue->maxNumElem = maxNumElem;
+    for (i = 0; i < (queue->maxNumElem - 2); i++) {
         newqelem = (EXYNOS_QElem *)Exynos_OSAL_Malloc(sizeof(EXYNOS_QElem));
         if (newqelem == NULL) {
             while (queue->first != NULL) {
@@ -89,7 +89,7 @@ OMX_ERRORTYPE Exynos_OSAL_QueueTerminate(EXYNOS_QUEUE *queueHandle)
     if (!queue)
         return OMX_ErrorBadParameter;
 
-    for ( i = 0; i < (MAX_QUEUE_ELEMENTS - 2); i++) {
+    for ( i = 0; i < (queue->maxNumElem - 2); i++) {
         currentqelem = queue->first->qNext;
         Exynos_OSAL_Free(queue->first);
         queue->first = currentqelem;
@@ -113,7 +113,7 @@ int Exynos_OSAL_Queue(EXYNOS_QUEUE *queueHandle, void *data)
 
     Exynos_OSAL_MutexLock(queue->qMutex);
 
-    if ((queue->last->data != NULL) || (queue->numElem >= MAX_QUEUE_ELEMENTS)) {
+    if ((queue->last->data != NULL) || (queue->numElem >= queue->maxNumElem)) {
         Exynos_OSAL_MutexUnlock(queue->qMutex);
         return -1;
     }
@@ -172,3 +172,24 @@ int Exynos_OSAL_SetElemNum(EXYNOS_QUEUE *queueHandle, int ElemNum)
     return ElemNum;
 }
 
+int Exynos_OSAL_ResetQueue(EXYNOS_QUEUE *queueHandle)
+{
+    EXYNOS_QUEUE *queue = (EXYNOS_QUEUE *)queueHandle;
+    EXYNOS_QElem *currentqelem = NULL;
+
+    if (queue == NULL)
+        return -1;
+
+    Exynos_OSAL_MutexLock(queue->qMutex);
+    queue->first->data = NULL;
+    currentqelem = queue->first->qNext;
+    while (currentqelem != queue->first) {
+        currentqelem->data = NULL;
+        currentqelem = currentqelem->qNext;
+    }
+    queue->last = queue->first;
+    queue->numElem = 0x00;
+    Exynos_OSAL_MutexUnlock(queue->qMutex);
+
+    return 0;
+}

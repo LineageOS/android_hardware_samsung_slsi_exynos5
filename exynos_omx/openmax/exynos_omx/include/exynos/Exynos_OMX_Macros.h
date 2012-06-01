@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2010 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
  * @file    Exynos_OMX_Macros.h
  * @brief   Macros
  * @author  SeungBeom Kim (sbcrux.kim@samsung.com)
- * @version    1.1.0
+ * @version    2.0.0
  * @history
- *   2010.7.15 : Create
+ *   2012.02.20 : Create
  */
 
 #ifndef EXYNOS_OMX_MACROS
@@ -58,6 +58,7 @@
 
 #define CHECK_PORT_BEING_FLUSHED(port)                 (port->bIsPortFlushed == OMX_TRUE)
 #define CHECK_PORT_BEING_DISABLED(port)                (port->bIsPortDisabled == OMX_TRUE)
+#define CHECK_PORT_BEING_FLUSHED_OR_DISABLED(port)     ((port->bIsPortFlushed == OMX_TRUE) || (port->bIsPortDisabled == OMX_TRUE))
 #define CHECK_PORT_ENABLED(port)                       (port->portDefinition.bEnabled == OMX_TRUE)
 #define CHECK_PORT_POPULATED(port)                     (port->portDefinition.bPopulated == OMX_TRUE)
 #define CHECK_PORT_TUNNELED(port)                      (port->tunnelFlags & EXYNOS_TUNNEL_ESTABLISHED)

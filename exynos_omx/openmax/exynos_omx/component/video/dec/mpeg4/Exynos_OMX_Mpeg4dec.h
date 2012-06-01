@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2010 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,11 @@
 /*
  * @file        Exynos_OMX_Mpeg4dec.h
  * @brief
+ * @author      SeungBeom Kim (sbcrux.kim@samsung.com)
  * @author      Yunji Kim (yunji.kim@samsung.com)
- * @version     1.1.0
+ * @version     2.0.0
  * @history
- *   2010.7.15 : Create
+ *   2012.02.20 : Create
  */
 
 #ifndef EXYNOS_OMX_MPEG4_DEC_COMPONENT
@@ -29,6 +30,8 @@
 
 #include "Exynos_OMX_Def.h"
 #include "OMX_Component.h"
+#include "OMX_Video.h"
+#include "ExynosVideoApi.h"
 
 
 typedef enum _CODEC_TYPE
@@ -55,19 +58,24 @@ typedef struct _BitmapInfoHhr
     OMX_U32    BiClrImportant;
 } BitmapInfoHhr;
 
-typedef struct _EXYNOS_MFC_MPEG4_HANDLE
+typedef struct _EXYNOS_MFC_MPEG4DEC_HANDLE
 {
     OMX_HANDLETYPE hMFCHandle;
-    OMX_PTR        pMFCStreamBuffer;
-    OMX_PTR        pMFCStreamPhyBuffer;
     OMX_U32        indexTimestamp;
     OMX_U32        outputIndexTimestamp;
-    OMX_BOOL       bConfiguredMFC;
+    OMX_BOOL       bConfiguredMFCSrc;
+    OMX_BOOL       bConfiguredMFCDst;
+    OMX_U32        MAXDPBNum;
     CODEC_TYPE     codecType;
-    OMX_S32        returnCodec;
-} EXYNOS_MFC_MPEG4_HANDLE;
 
-typedef struct _EXYNOS_MPEG4_HANDLE
+    ExynosVideoColorFormatType MFCOutputColorType;
+    ExynosVideoDecOps *pDecOps;
+    ExynosVideoDecBufferOps *pInbufOps;
+    ExynosVideoDecBufferOps *pOutbufOps;
+    ExynosVideoGeometry      codecOutbufConf;
+} EXYNOS_MFC_MPEG4DEC_HANDLE;
+
+typedef struct _EXYNOS_MPEG4DEC_HANDLE
 {
     /* OMX Codec specific */
     OMX_VIDEO_PARAM_H263TYPE            h263Component[ALL_PORT_NUM];
@@ -75,8 +83,13 @@ typedef struct _EXYNOS_MPEG4_HANDLE
     OMX_VIDEO_PARAM_ERRORCORRECTIONTYPE errorCorrectionType[ALL_PORT_NUM];
 
     /* EXYNOS MFC Codec specific */
-    EXYNOS_MFC_MPEG4_HANDLE             hMFCMpeg4Handle;
-} EXYNOS_MPEG4_HANDLE;
+    EXYNOS_MFC_MPEG4DEC_HANDLE             hMFCMpeg4Handle;
+
+    OMX_BOOL bSourceStart;
+    OMX_BOOL bDestinationStart;
+    OMX_HANDLETYPE hSourceStartEvent;
+    OMX_HANDLETYPE hDestinationStartEvent;
+} EXYNOS_MPEG4DEC_HANDLE;
 
 #ifdef __cplusplus
 extern "C" {

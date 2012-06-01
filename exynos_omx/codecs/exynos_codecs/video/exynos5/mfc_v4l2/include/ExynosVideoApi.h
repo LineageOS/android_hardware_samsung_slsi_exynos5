@@ -1,14 +1,8 @@
 /*
- * Copyright (c) 2012 Samsung Electronics Co., Ltd.
- *              http://www.samsung.com/
  *
- * Common header file for Codec driver
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * Alternatively, Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -33,7 +27,7 @@ typedef enum _ExynosVideoBoolType {
 } ExynosVideoBoolType;
 
 typedef enum _ExynosVideoErrorType {
-    VIDEO_ERROR_NONE      = 1,
+    VIDEO_ERROR_NONE      =  1,
     VIDEO_ERROR_BADPARAM  = -1,
     VIDEO_ERROR_OPENFAIL  = -2,
     VIDEO_ERROR_NOMEM     = -3,
@@ -82,9 +76,9 @@ typedef enum _ExynosVideoFrameStatusType {
 } ExynosVideoFrameStatusType;
 
 typedef enum _ExynosVideoFrameSkipMode {
-    VIDEO_FRAME_SKIP_DISABLE = 0,
-    VIDEO_FRAME_SKIP_MODE_LEVEL,
-    VIDEO_FRAME_SKIP_VBV_BUF_SIZE,
+    VIDEO_FRAME_SKIP_DISABLED = 0,
+    VIDEO_FRAME_SKIP_MODE_LEVEL_LIMIT,
+    VIDEO_FRAME_SKIP_MODE_BUF_LIMIT,
 } ExynosVideoFrameSkipMode;
 
 typedef struct _ExynosVideoRect {
@@ -115,6 +109,7 @@ typedef struct _ExynosVideoBuffer {
     ExynosVideoFrameStatusType  displayStatus;
     ExynosVideoFrameType        frameType;
     ExynosVideoBoolType         bQueued;
+    ExynosVideoBoolType         bRegistered;
     void                       *pPrivate;
 } ExynosVideoBuffer;
 
@@ -204,22 +199,22 @@ typedef struct _ExynosVideoEncH263Param {
 } ExynosVideoEncH263Param;
 
 typedef union _ExynosVideoEncCodecParam {
-    ExynosVideoEncH264Param h264;
-    ExynosVideoEncMpeg4Param mpeg4;
-    ExynosVideoEncH263Param h263;
+    ExynosVideoEncH264Param     h264;
+    ExynosVideoEncMpeg4Param    mpeg4;
+    ExynosVideoEncH263Param     h263;
 } ExynosVideoEncCodecParam;
 
 typedef struct _ExynosVideoEncParam {
-    ExynosVideoCodingType eCompressionFormat;
-    ExynosVideoEncInitParam initParam;
-    ExynosVideoEncCommonParam commonParam;
-    ExynosVideoEncCodecParam codecParam;
+    ExynosVideoCodingType       eCompressionFormat;
+    ExynosVideoEncInitParam     initParam;
+    ExynosVideoEncCommonParam   commonParam;
+    ExynosVideoEncCodecParam    codecParam;
 } ExynosVideoEncParam;
 
 typedef struct _ExynosVideoDecOps {
-    unsigned int nSize;
+    unsigned int            nSize;
 
-    void                 *(*Init)(void);
+    void *                (*Init)(void);
     ExynosVideoErrorType  (*Finalize)(void *pHandle);
 
     /* Add new ops at the end of structure, no order change */
@@ -235,8 +230,8 @@ typedef struct _ExynosVideoDecOps {
 } ExynosVideoDecOps;
 
 typedef struct _ExynosVideoEncOps {
-    unsigned int nSize;
-    void *(*Init)(void);
+    unsigned int           nSize;
+    void *               (*Init)(void);
     ExynosVideoErrorType (*Finalize)(void *pHandle);
 
     /* Add new ops at the end of structure, no order change */
@@ -251,12 +246,12 @@ typedef struct _ExynosVideoEncOps {
 } ExynosVideoEncOps;
 
 typedef struct _ExynosVideoDecBufferOps {
-    unsigned int nSize;
+    unsigned int            nSize;
 
     /* Add new ops at the end of structure, no order change */
     ExynosVideoErrorType  (*Enable_Cacheable)(void *pHandle);
     ExynosVideoErrorType  (*Set_Shareable)(void *pHandle);
-    ExynosVideoErrorType  (*Get_BufferInfo)(void *pHandle, int nIndex, ExynosVideoBuffer *pBuffer);
+    ExynosVideoErrorType  (*Get_Buffer)(void *pHandle, int nIndex, ExynosVideoBuffer **pBuffer);
     ExynosVideoErrorType  (*Set_Geometry)(void *pHandle, ExynosVideoGeometry *bufferConf);
     ExynosVideoErrorType  (*Get_Geometry)(void *pHandle, ExynosVideoGeometry *bufferConf);
     ExynosVideoErrorType  (*Setup)(void *pHandle, unsigned int nBufferCount);
@@ -264,24 +259,30 @@ typedef struct _ExynosVideoDecBufferOps {
     ExynosVideoErrorType  (*Stop)(void *pHandle);
     ExynosVideoErrorType  (*Enqueue)(void *pHandle, unsigned char *pBuffer[], unsigned int dataSize[], int nPlanes, void *pPrivate);
     ExynosVideoErrorType  (*Enqueue_All)(void *pHandle);
-    ExynosVideoBuffer    *(*Dequeue)(void *pHandle);
+    ExynosVideoBuffer *   (*Dequeue)(void *pHandle);
+    ExynosVideoErrorType  (*Register)(void *pHandle, unsigned char *pBuffer[], unsigned int allocSize[]);
+    ExynosVideoErrorType  (*Clear_RegisteredBuffer)(void *pHandle);
+    ExynosVideoErrorType  (*Clear_Queue)(void *pHandle);
 } ExynosVideoDecBufferOps;
 
 typedef struct _ExynosVideoEncBufferOps {
-    unsigned int nSize;
+    unsigned int            nSize;
 
     /* Add new ops at the end of structure, no order change */
-    ExynosVideoErrorType (*Enable_Cacheable)(void *pHandle);
-    ExynosVideoErrorType (*Set_Shareable)(void *pHandle);
-    ExynosVideoErrorType (*Get_BufferInfo)(void *pHandle, int nIndex, ExynosVideoBuffer *pBuffer);
-    ExynosVideoErrorType (*Set_Geometry)(void *pHandle, ExynosVideoGeometry *bufferConf);
-    ExynosVideoErrorType (*Get_Geometry)(void *pHandle, ExynosVideoGeometry *bufferConf);
-    ExynosVideoErrorType (*Setup)(void *pHandle, unsigned int nBufferCount);
-    ExynosVideoErrorType (*Run)(void *pHandle);
-    ExynosVideoErrorType (*Stop)(void *pHandle);
-    ExynosVideoErrorType (*Enqueue)(void *pHandle, unsigned char *pBuffer[], unsigned int dataSize[], int nPlanes, void *pPrivate);
-    ExynosVideoErrorType (*Enqueue_All)(void *pHandle);
-    ExynosVideoBuffer *(*Dequeue)(void *pHandle);
+    ExynosVideoErrorType  (*Enable_Cacheable)(void *pHandle);
+    ExynosVideoErrorType  (*Set_Shareable)(void *pHandle);
+    ExynosVideoErrorType  (*Get_Buffer)(void *pHandle, int nIndex, ExynosVideoBuffer **pBuffer);
+    ExynosVideoErrorType  (*Set_Geometry)(void *pHandle, ExynosVideoGeometry *bufferConf);
+    ExynosVideoErrorType  (*Get_Geometry)(void *pHandle, ExynosVideoGeometry *bufferConf);
+    ExynosVideoErrorType  (*Setup)(void *pHandle, unsigned int nBufferCount);
+    ExynosVideoErrorType  (*Run)(void *pHandle);
+    ExynosVideoErrorType  (*Stop)(void *pHandle);
+    ExynosVideoErrorType  (*Enqueue)(void *pHandle, unsigned char *pBuffer[], unsigned int dataSize[], int nPlanes, void *pPrivate);
+    ExynosVideoErrorType  (*Enqueue_All)(void *pHandle);
+    ExynosVideoBuffer *   (*Dequeue)(void *pHandle);
+    ExynosVideoErrorType  (*Register)(void *pHandle, unsigned char *pBuffer[], unsigned int allocSize[]);
+    ExynosVideoErrorType  (*Clear_RegisteredBuffer)(void *pHandle);
+    ExynosVideoErrorType  (*Clear_Queue)(void *pHandle);
 } ExynosVideoEncBufferOps;
 
 int Exynos_Video_Register_Decoder(
@@ -290,7 +291,7 @@ int Exynos_Video_Register_Decoder(
     ExynosVideoDecBufferOps *pOutbufOps);
 
 int Exynos_Video_Register_Encoder(
-    ExynosVideoEncOps *pEncOps,
+    ExynosVideoEncOps       *pEncOps,
     ExynosVideoEncBufferOps *pInbufOps,
     ExynosVideoEncBufferOps *pOutbufOps);
 

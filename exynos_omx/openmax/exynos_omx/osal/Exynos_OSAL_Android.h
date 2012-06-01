@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,9 @@
  * @author      Hyeyeon Chung (hyeon.chung@samsung.com)
  * @author      Yunji Kim (yunji.kim@samsung.com)
  * @author      Jinsung Yang (jsgood.yang@samsung.com)
- * @version     1.1.0
+ * @version     2.0.0
  * @history
- *   2011.7.15 : Create
+ *   2012.02.20 : Create
  */
 
 #ifndef Exynos_OSAL_ANDROID
@@ -51,10 +51,6 @@ OMX_ERRORTYPE Exynos_OSAL_LockANB(OMX_IN OMX_PTR pBuffer,
                                   OMX_IN OMX_COLOR_FORMATTYPE format,
                                   OMX_OUT OMX_U32 *pStride,
                                   OMX_OUT OMX_PTR *vaddr);
-#ifdef ENABLE_PHYSICAL_ADDRESS
-OMX_ERRORTYPE Exynos_OSAL_GetPhysANB(OMX_IN OMX_PTR pBuffer,
-                                     OMX_OUT OMX_PTR *paddr);
-#endif
 
 OMX_ERRORTYPE Exynos_OSAL_UnlockANB(OMX_IN OMX_PTR pBuffer);
 
@@ -66,12 +62,7 @@ OMX_ERRORTYPE Exynos_OSAL_LockANBHandle(OMX_IN OMX_U32 pBuffer,
 
 OMX_ERRORTYPE Exynos_OSAL_UnlockANBHandle(OMX_IN OMX_U32 pBuffer);
 
-#ifdef ENABLE_PHYSICAL_ADDRESS
-OMX_ERRORTYPE Exynos_OSAL_GetPhysANBHandle(OMX_IN OMX_U32 pBuffer,
-                                           OMX_OUT OMX_PTR *paddr);
-#endif
-
-OMX_ERRORTYPE Exynos_OSAL_GetInfoFromMetaData(OMX_IN EXYNOS_OMX_DATA *pBuffer,
+OMX_ERRORTYPE Exynos_OSAL_GetInfoFromMetaData(OMX_IN OMX_BYTE pBuffer,
                                               OMX_OUT OMX_PTR *pOutBuffer);
 
 OMX_ERRORTYPE Exynos_OSAL_CheckANB(OMX_IN EXYNOS_OMX_DATA *pBuffer,

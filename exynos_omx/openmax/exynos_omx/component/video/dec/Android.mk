@@ -2,6 +2,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
+	Exynos_OMX_VdecControl.c \
 	Exynos_OMX_Vdec.c
 
 LOCAL_MODULE := libExynosOMX_Vdec

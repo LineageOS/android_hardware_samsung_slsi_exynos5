@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2011 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
  * @file       library_register.c
  * @brief
  * @author     Satish Kumar Reddy (palli.satish@samsung.com)
- * @version    1.1.0
+ * @version    2.0.0
  * @history
- *   2011.11.15 : Create
+ *   2012.02.20 : Create
  */
 
 #include <stdio.h>

@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2010 Samsung Electronics S.LSI Co. LTD
+ * Copyright 2012 Samsung Electronics S.LSI Co. LTD
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@
  * @brief
  * @author     SeungBeom Kim (sbcrux.kim@samsung.com)
  *             Yunji Kim (yunji.kim@samsung.com)
- * @version    1.1.0
+ * @version    2.0.0
  * @history
- *    2010.7.15 : Create
+ *    2012.02.20 : Create
  */
 
 #ifndef EXYNOS_OMX_BASECOMP
@@ -40,31 +40,6 @@ typedef struct _EXYNOS_OMX_MESSAGE
     OMX_U32 messageParam;
     OMX_PTR pCmdData;
 } EXYNOS_OMX_MESSAGE;
-
-typedef struct _EXYNOS_OMX_DATABUFFER
-{
-    OMX_HANDLETYPE        bufferMutex;
-    OMX_BUFFERHEADERTYPE* bufferHeader;
-    OMX_BOOL              dataValid;
-    OMX_U32               allocSize;
-    OMX_U32               dataLen;
-    OMX_U32               usedDataLen;
-    OMX_U32               remainDataLen;
-    OMX_U32               nFlags;
-    OMX_TICKS             timeStamp;
-} EXYNOS_OMX_DATABUFFER;
-
-typedef struct _EXYNOS_OMX_DATA
-{
-    OMX_BYTE  dataBuffer;
-    OMX_U32   allocSize;
-    OMX_U32   dataLen;
-    OMX_U32   usedDataLen;
-    OMX_U32   remainDataLen;
-    OMX_U32   previousDataLen;
-    OMX_U32   nFlags;
-    OMX_TICKS timeStamp;
-} EXYNOS_OMX_DATA;
 
 /* for Check TimeStamp after Seek */
 typedef struct _EXYNOS_OMX_TIMESTAMP
@@ -97,16 +72,6 @@ typedef struct _EXYNOS_OMX_BASECOMPONENT
     OMX_HANDLETYPE              msgSemaphoreHandle;
     EXYNOS_QUEUE                messageQ;
 
-    /* Buffer Process */
-    OMX_BOOL                    bExitBufferProcessThread;
-    OMX_HANDLETYPE              hBufferProcess;
-
-    /* Buffer */
-    EXYNOS_OMX_DATABUFFER       exynosDataBuffer[2];
-
-    /* Data */
-    EXYNOS_OMX_DATA             processData[2];
-
     /* Port */
     OMX_PORT_PARAM_TYPE         portParam;
     EXYNOS_OMX_BASEPORT        *pExynosPort;
@@ -125,7 +90,6 @@ typedef struct _EXYNOS_OMX_BASECOMPONENT
     OMX_U32                     nFlags[MAX_FLAGS];
 
     OMX_BOOL                    getAllDelayBuffer;
-    OMX_BOOL                    remainOutputData;
     OMX_BOOL                    reInputData;
 
     /* Android CapabilityFlags */
@@ -134,24 +98,17 @@ typedef struct _EXYNOS_OMX_BASECOMPONENT
     OMX_BOOL bUseFlagEOF;
     OMX_BOOL bSaveFlagEOS;
 
-    OMX_ERRORTYPE (*exynos_mfc_componentInit)(OMX_COMPONENTTYPE *pOMXComponent);
-    OMX_ERRORTYPE (*exynos_mfc_componentTerminate)(OMX_COMPONENTTYPE *pOMXComponent);
-    OMX_ERRORTYPE (*exynos_mfc_bufferProcess) (OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA *pInputData, EXYNOS_OMX_DATA *pOutputData);
+    /* Check for Old & New OMX Process type switch */
+    OMX_BOOL bMultiThreadProcess;
+
+    OMX_ERRORTYPE (*exynos_codec_componentInit)(OMX_COMPONENTTYPE *pOMXComponent);
+    OMX_ERRORTYPE (*exynos_codec_componentTerminate)(OMX_COMPONENTTYPE *pOMXComponent);
 
     OMX_ERRORTYPE (*exynos_AllocateTunnelBuffer)(EXYNOS_OMX_BASEPORT *pOMXBasePort, OMX_U32 nPortIndex);
     OMX_ERRORTYPE (*exynos_FreeTunnelBuffer)(EXYNOS_OMX_BASEPORT *pOMXBasePort, OMX_U32 nPortIndex);
-    OMX_ERRORTYPE (*exynos_BufferProcess)(OMX_HANDLETYPE hComponent);
-    OMX_ERRORTYPE (*exynos_BufferReset)(OMX_COMPONENTTYPE *pOMXComponent, OMX_U32 nPortIndex);
-    OMX_ERRORTYPE (*exynos_InputBufferReturn)(OMX_COMPONENTTYPE *pOMXComponent);
-    OMX_ERRORTYPE (*exynos_OutputBufferReturn)(OMX_COMPONENTTYPE *pOMXComponent);
-
-    OMX_ERRORTYPE (*exynos_allocSecureInputBuffer)(OMX_IN OMX_HANDLETYPE hComponent,
-                                                   OMX_IN OMX_U32 nBufferSize,
-                                                   OMX_INOUT OMX_PTR *pInputBuffer_physicalAddress);
-    OMX_ERRORTYPE (*exynos_freeSecureInputBuffer)(OMX_IN OMX_HANDLETYPE hComponent,
-                                                  OMX_INOUT OMX_PTR pInputBuffer_physicalAddress);
-
-    int (*exynos_checkInputFrame)(OMX_U8 *pInputStream, OMX_U32 buffSize, OMX_U32 flag, OMX_BOOL bPreviousFrameEOF, OMX_BOOL *pbEndOfFrame);
+    OMX_ERRORTYPE (*exynos_BufferProcessCreate)(OMX_COMPONENTTYPE *pOMXComponent);
+    OMX_ERRORTYPE (*exynos_BufferProcessTerminate)(OMX_COMPONENTTYPE *pOMXComponent);
+    OMX_ERRORTYPE (*exynos_BufferFlush)(OMX_COMPONENTTYPE *pOMXComponent, OMX_S32 nPortIndex, OMX_BOOL bEvent);
 } EXYNOS_OMX_BASECOMPONENT;
 
 OMX_ERRORTYPE Exynos_OMX_GetParameter(
