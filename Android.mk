@@ -29,7 +29,8 @@ exynos5_dirs := \
 	libv4l2 \
 	libhwjpeg \
 	libcamera \
-	libhwc
+	libhwc \
+	libcamera2
 
 BOARD_USE_V4L2 := true
 BOARD_USE_V4L2_ION := true
