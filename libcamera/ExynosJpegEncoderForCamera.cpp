@@ -1009,7 +1009,7 @@ int ExynosJpegEncoderForCamera::allocJpegIonMemory(ion_client ionClient, ion_buf
         return ERROR_BUFFR_IS_NULL;
     }
 
-    *ionBuffer = ion_alloc(ionClient, size, 0, ION_HEAP_SYSTEM_MASK);
+    *ionBuffer = ion_alloc(ionClient, size, 0, ION_HEAP_SYSTEM_MASK, 0);
     if (*ionBuffer == -1) {
         JPEG_ERROR_LOG("[%s]ion_alloc(%d) failed\n", __func__, size);
         *ionBuffer = 0;

@@ -3155,14 +3155,14 @@ bool ExynosCameraHWInterface::m_startPictureInternal(void)
 				m_pictureFds[i][j] = -1;
 			}
 
-		m_pictureFds[i][0] = ion_alloc(m_ion_client, pictureFrameSize, 0, ION_HEAP_SYSTEM_MASK);
+		m_pictureFds[i][0] = ion_alloc(m_ion_client, pictureFrameSize, 0, ION_HEAP_SYSTEM_MASK, 0);
 		if (m_pictureFds[i][0] < 0) {
 			ALOGE("ERR(%s):ion_alloc(m_pictureFds[%d], size(%d) fail", __func__, i, pictureFrameSize); 
 			return false;
 		}
 
 		for (int j = 1; j < numPlanes; j++) {
-			m_pictureFds[i][j] = ion_alloc(m_ion_client, pictureChromaSize, 0, ION_HEAP_SYSTEM_MASK);
+			m_pictureFds[i][j] = ion_alloc(m_ion_client, pictureChromaSize, 0, ION_HEAP_SYSTEM_MASK, 0);
 			if (m_pictureFds[i][j]) {
 				ALOGE("ERR(%s):ion_alloc(m_pictureFds[%d][%d], size(%d) fail", __func__, i, j, pictureFrameSize); 
 				return false;

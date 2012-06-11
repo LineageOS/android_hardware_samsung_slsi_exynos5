@@ -18,12 +18,14 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
+#include <cutils/log.h>
 
 typedef unsigned long ion_handle;
 
 struct ion_allocation_data {
     size_t len;
     size_t align;
+    unsigned int heap_mask;
     unsigned int flags;
     ion_handle handle;
 };
@@ -47,8 +49,9 @@ struct ion_custom_data {
 #define ION_IOC_FREE    _IOWR(ION_IOC_MAGIC, 1, struct ion_handle_data)
 #define ION_IOC_MAP     _IOWR(ION_IOC_MAGIC, 2, struct ion_fd_data)
 #define ION_IOC_SHARE   _IOWR(ION_IOC_MAGIC, 4, struct ion_fd_data)
-#define ION_IOC_IMPORT  _IOWR(ION_IOC_MAGIC, 5, int)
+#define ION_IOC_IMPORT  _IOWR(ION_IOC_MAGIC, 5, struct ion_fd_data)
 #define ION_IOC_CUSTOM  _IOWR(ION_IOC_MAGIC, 6, struct ion_custom_data)
+#define ION_IOC_SYNC	_IOWR(ION_IOC_MAGIC, 7, struct ion_fd_data)
 
 struct ion_msync_data {
     long flags;
@@ -72,7 +75,7 @@ void ion_client_destroy(ion_client client)
 }
 
 ion_buffer ion_alloc(ion_client client, size_t len, size_t align,
-                     unsigned int flags)
+                     unsigned int heap_mask, unsigned int flags)
 {
     int ret;
     struct ion_handle_data arg_free;
@@ -81,6 +84,7 @@ ion_buffer ion_alloc(ion_client client, size_t len, size_t align,
 
     arg_alloc.len = len;
     arg_alloc.align = align;
+    arg_alloc.heap_mask = heap_mask;
     arg_alloc.flags = flags;
 
     ret = ioctl(client, ION_IOC_ALLOC, &arg_alloc);
@@ -115,19 +119,11 @@ int ion_unmap(void *addr, size_t len)
     return munmap(addr, len);
 }
 
-int ion_msync(ion_client client, ion_buffer buffer, long flags, size_t size,
-              off_t offset)
+int ion_sync(ion_client client, ion_buffer buffer)
 {
-    struct ion_custom_data data;
-    struct ion_msync_data arg;
+    struct ion_fd_data data;
 
-    data.cmd = ION_EXYNOS_CUSTOM_MSYNC;
-    data.arg = (unsigned long)&arg;
+    data.fd = buffer;
 
-    arg.flags = flags;
-    arg.buf = buffer;
-    arg.size = size;
-    arg.offset = offset;
-
-    return ioctl(client, ION_IOC_CUSTOM, &data);
+    return ioctl(client, ION_IOC_SYNC, &data);
 }

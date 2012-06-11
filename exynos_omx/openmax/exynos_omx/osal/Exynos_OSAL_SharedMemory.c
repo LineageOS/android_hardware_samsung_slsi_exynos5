@@ -126,7 +126,7 @@ OMX_PTR Exynos_OSAL_SharedMemory_Alloc(OMX_HANDLETYPE handle, OMX_U32 size, MEMO
     else
         return NULL;
 
-    IONBuffer = (OMX_PTR)ion_alloc((ion_client)pHandle->pIONHandle, size, 0, heap);
+    IONBuffer = (OMX_PTR)ion_alloc((ion_client)pHandle->pIONHandle, size, 0, heap, 0);
 
     if (IONBuffer <= 0) {
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "ion_alloc Error: %d", IONBuffer);

@@ -19,6 +19,8 @@
 
 #include <unistd.h> /* size_t */
 
+#define ION_FLAG_CACHED 1
+
 #define ION_HEAP_SYSTEM_MASK            (1 << 0)
 #define ION_HEAP_SYSTEM_CONTIG_MASK     (1 << 1)
 #define ION_HEAP_EXYNOS_CONTIG_MASK     (1 << 4)
@@ -97,18 +99,16 @@ void ion_client_destroy(ion_client client);
  *         buffer. If the @len is not aligned by @align, ION allocates a buffer
  *         that is aligned by @align and the size of the buffer will be larger
  *         than @len.
- * @flags: Additional requirements about buffer. ION_HEAP_SYSTEM_CONTIG_MASK
- *         for allocating physically contiguous buffer and ION_HEAP_SYSTEM_MASK
- *         for virtually contiguous buffer. You can combine those flags or
- *         simply give -1(0xFFFFFFFF) if you do not care about the contiguouty
- *         of the buffer.
+ * @heap_mask: Mask of heaps which you want this allocation to be served from.
+ * @flags: Additional requirements about buffer. ION_FLAG_CACHED for a 
+ * 	   buffer you want to have a cached mapping of
  * @RETURN: An ion_buffer that represents the buffer allocated. It is only
  *          unique in the context of the given client, @client.
  *          -error if the allocation failed.
  *          See the description of ion_buffer above for detailed information.
  */
 ion_buffer ion_alloc(ion_client client, size_t len, size_t align,
-                     unsigned int flags);
+                     unsigned int heap_mask, unsigned int flags);
 
 /* ion_free() - Frees an existing buffer that is allocated by ION
  * @buffer: An ion_buffer of the buffer to be released.
@@ -152,8 +152,7 @@ int ion_unmap(void *addr, size_t len);
  *
  * Note that @offset + @size must not exceed the size of @buffer.
  */
-int ion_msync(ion_client client, ion_buffer buffer, long flags,
-              size_t size, off_t offset);
+int ion_sync(ion_client client, ion_buffer buffer);
 
 #ifdef __cplusplus
 }
