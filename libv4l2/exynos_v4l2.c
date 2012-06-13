@@ -232,7 +232,7 @@ int exynos_v4l2_s_input(int fd, int index)
 
     ret = ioctl(fd, VIDIOC_S_INPUT, &input);
     if (ret){
-        ALOGE("failed to ioctl: VIDIOC_S_INPUT (%d) %s", ret, strerror(errno));
+        ALOGE("failed to ioctl: VIDIOC_S_INPUT (%d - %s)", errno, strerror(errno));
         return ret;
     }
 
@@ -266,7 +266,7 @@ bool exynos_v4l2_querycap(int fd, unsigned int need_caps)
 
     ret = ioctl(fd, VIDIOC_QUERYCAP, &cap);
     if (ret) {
-        ALOGE("failed to ioctl: VIDIOC_QUERYCAP (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_QUERYCAP (%d - %s)", errno, strerror(errno));
         return false;
     }
 
@@ -333,7 +333,7 @@ int exynos_v4l2_g_fmt(int fd, struct v4l2_format *fmt)
 
     ret = ioctl(fd, VIDIOC_G_FMT, fmt);
     if (ret) {
-        ALOGE("failed to ioctl: VIDIOC_G_FMT");
+        ALOGE("failed to ioctl: VIDIOC_G_FMT (%d - %s)", errno, strerror(errno));
         return ret;
     }
 
@@ -365,9 +365,9 @@ static int __v4l2_s_fmt(int fd, unsigned int request, struct v4l2_format *fmt)
         ret = ioctl(fd, request, fmt);
         if (ret) {
             if (request == VIDIOC_TRY_FMT)
-                ALOGE("failed to ioctl: VIDIOC_TRY_FMT (%d)", ret);
+                ALOGE("failed to ioctl: VIDIOC_TRY_FMT (%d - %s)", errno, strerror(errno));
             else
-                ALOGE("failed to ioctl: VIDIOC_S_FMT (%d)", ret);
+                ALOGE("failed to ioctl: VIDIOC_S_FMT (%d - %s)", errno, strerror(errno));
 
             return ret;
         }
@@ -421,7 +421,7 @@ int exynos_v4l2_reqbufs(int fd, struct v4l2_requestbuffers *req)
 
     ret = ioctl(fd, VIDIOC_REQBUFS, req);
     if (ret) {
-        ALOGE("failed to ioctl: VIDIOC_REQBUFS (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_REQBUFS (%d - %s)", ret, strerror(errno));
         return ret;
     }
 
@@ -463,7 +463,7 @@ int exynos_v4l2_querybuf(int fd, struct v4l2_buffer *buf)
 
     ret = ioctl(fd, VIDIOC_QUERYBUF, buf);
     if (ret) {
-        ALOGE("failed to ioctl: VIDIOC_QUERYBUF (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_QUERYBUF (%d - %s)", errno, strerror(errno));
         return ret;
     }
 
@@ -502,7 +502,7 @@ int exynos_v4l2_qbuf(int fd, struct v4l2_buffer *buf)
 
     ret = ioctl(fd, VIDIOC_QBUF, buf);
     if (ret) {
-        ALOGE("failed to ioctl: VIDIOC_QBUF (%d)", errno);
+        ALOGE("failed to ioctl: VIDIOC_QBUF (%d - %s)", errno, strerror(errno));
         return ret;
     }
 
@@ -541,7 +541,7 @@ int exynos_v4l2_dqbuf(int fd, struct v4l2_buffer *buf)
 
     ret = ioctl(fd, VIDIOC_DQBUF, buf);
     if (ret) {
-        ALOGE("failed to ioctl: VIDIOC_DQBUF (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_DQBUF (%d - %s)", errno, strerror(errno));
         return ret;
     }
 
@@ -568,7 +568,7 @@ int exynos_v4l2_streamon(int fd, enum v4l2_buf_type type)
 
     ret = ioctl(fd, VIDIOC_STREAMON, &type);
     if (ret) {
-        ALOGE("failed to ioctl: VIDIOC_STREAMON (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_STREAMON (%d - %s)", errno, strerror(errno));
         return ret;
     }
 
@@ -595,7 +595,7 @@ int exynos_v4l2_streamoff(int fd, enum v4l2_buf_type type)
 
     ret = ioctl(fd, VIDIOC_STREAMOFF, &type);
     if (ret) {
-        ALOGE("failed to ioctl: VIDIOC_STREAMOFF (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_STREAMOFF (%d - %s)", errno, strerror(errno));
         return ret;
     }
 
@@ -627,7 +627,7 @@ int exynos_v4l2_cropcap(int fd, struct v4l2_cropcap *crop)
 
     ret = ioctl(fd, VIDIOC_CROPCAP, crop);
     if (ret) {
-        ALOGE("failed to ioctl: VIDIOC_CROPCAP (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_CROPCAP (%d - %s)", errno, strerror(errno));
         return ret;
     }
 
@@ -659,7 +659,7 @@ int exynos_v4l2_g_crop(int fd, struct v4l2_crop *crop)
 
     ret = ioctl(fd, VIDIOC_G_CROP, crop);
     if (ret) {
-        ALOGE("failed to ioctl: VIDIOC_G_CROP (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_G_CROP (%d - %s)", errno, strerror(errno));
         return ret;
     }
 
@@ -691,7 +691,7 @@ int exynos_v4l2_s_crop(int fd, struct v4l2_crop *crop)
 
     ret = ioctl(fd, VIDIOC_S_CROP, crop);
     if (ret) {
-        ALOGE("failed to ioctl: VIDIOC_S_CROP (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_S_CROP (%d - %s)", errno, strerror(errno));
         return ret;
     }
 
@@ -716,7 +716,7 @@ int exynos_v4l2_g_ctrl(int fd, unsigned int id, int *value)
 
     ret = ioctl(fd, VIDIOC_G_CTRL, &ctrl);
     if (ret) {
-        ALOGE("failed to ioctl: VIDIOC_G_CTRL (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_G_CTRL (%d - %s)", errno, strerror(errno));
         return ret;
     }
 
@@ -771,7 +771,7 @@ int exynos_v4l2_g_parm(int fd, struct v4l2_streamparm *streamparm)
 
     ret = ioctl(fd, VIDIOC_G_PARM, streamparm);
     if (ret) {
-        ALOGE("failed to ioctl: VIDIOC_G_PARM (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_G_PARM (%d - %s)", errno, strerror(errno));
         return ret;
     }
 
@@ -798,7 +798,7 @@ int exynos_v4l2_s_parm(int fd, struct v4l2_streamparm *streamparm)
 
     ret = ioctl(fd, VIDIOC_S_PARM, streamparm);
     if (ret) {
-        ALOGE("failed to ioctl: VIDIOC_S_PARM (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_S_PARM (%d - %s)", errno, strerror(errno));
         return ret;
     }
 
@@ -825,7 +825,7 @@ int exynos_v4l2_g_ext_ctrl(int fd, struct v4l2_ext_controls *ctrl)
 
     ret = ioctl(fd, VIDIOC_G_EXT_CTRLS, ctrl);
     if (ret)
-        ALOGE("failed to ioctl: VIDIOC_G_EXT_CTRLS (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_G_EXT_CTRLS (%d - %s)", errno, strerror(errno));
 
     Exynos_v4l2_Out();
 
@@ -850,7 +850,7 @@ int exynos_v4l2_s_ext_ctrl(int fd, struct v4l2_ext_controls *ctrl)
 
     ret = ioctl(fd, VIDIOC_S_EXT_CTRLS, ctrl);
     if (ret)
-        ALOGE("failed to ioctl: VIDIOC_S_EXT_CTRLS (%d)", ret);
+        ALOGE("failed to ioctl: VIDIOC_S_EXT_CTRLS (%d - %s)", errno, strerror(errno));
 
     Exynos_v4l2_Out();
 
