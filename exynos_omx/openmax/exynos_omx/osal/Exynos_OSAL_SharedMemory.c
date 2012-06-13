@@ -109,6 +109,7 @@ OMX_PTR Exynos_OSAL_SharedMemory_Alloc(OMX_HANDLETYPE handle, OMX_U32 size, MEMO
     SEC_OMX_SHAREDMEM_LIST *currentElement = NULL;
     ion_buffer IONBuffer = 0;
     OMX_PTR pBuffer = NULL;
+    unsigned int heap;
 
     if (pHandle == NULL)
         goto EXIT;
@@ -116,10 +117,16 @@ OMX_PTR Exynos_OSAL_SharedMemory_Alloc(OMX_HANDLETYPE handle, OMX_U32 size, MEMO
     Element = (SEC_OMX_SHAREDMEM_LIST *)Exynos_OSAL_Malloc(sizeof(SEC_OMX_SHAREDMEM_LIST));
     Exynos_OSAL_Memset(Element, 0, sizeof(SEC_OMX_SHAREDMEM_LIST));
 
-    if (SECURE_MEMORY == memoryType)
-        IONBuffer = (OMX_PTR)ion_alloc((ion_client)pHandle->pIONHandle, size, 0, ION_HEAP_EXYNOS_VIDEO_MASK);
+    if (memoryType == SECURE_MEMORY)
+        heap = ION_HEAP_EXYNOS_VIDEO_MASK;
+    else if (memoryType == NORMAL_MEMORY)
+        heap = ION_HEAP_EXYNOS_MASK;
+    else if (memoryType == SYSTEM_MEMORY)
+        heap = ION_HEAP_SYSTEM_MASK;
     else
-        IONBuffer = (OMX_PTR)ion_alloc((ion_client)pHandle->pIONHandle, size, 0, ION_HEAP_EXYNOS_MASK);
+        return NULL;
+
+    IONBuffer = (OMX_PTR)ion_alloc((ion_client)pHandle->pIONHandle, size, 0, heap);
 
     if (IONBuffer <= 0) {
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "ion_alloc Error: %d", IONBuffer);
