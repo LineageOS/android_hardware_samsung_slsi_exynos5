@@ -318,13 +318,14 @@ OMX_BOOL Exynos_Preprocessor_InputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
                     else {
                         if (eColorFormat == OMX_COLOR_FormatAndroidOpaque) {
                             OMX_PTR pOutBuffer;
+                            ExynosVideoPlane planes[MAX_BUFFER_PLANE];
                             /* ARGB8888 converted to YUV420SemiPlanar */
                             csc_src_color_format = omx_2_hal_pixel_format((unsigned int)OMX_COLOR_Format32bitARGB8888);
                             csc_dst_color_format = omx_2_hal_pixel_format((unsigned int)OMX_COLOR_FormatYUV420SemiPlanar);
 
                             Exynos_OSAL_GetInfoFromMetaData((OMX_BYTE)inputUseBuffer->bufferHeader->pBuffer, ppBuf);
-                            Exynos_OSAL_LockANBHandle((OMX_U32)ppBuf[0], nFrameWidth, nFrameHeight, OMX_COLOR_FormatAndroidOpaque, &pOutBuffer);
-                            pSrcBuf[0]  = (unsigned char *)pOutBuffer;
+                            Exynos_OSAL_LockANBHandle((OMX_U32)ppBuf[0], nFrameWidth, nFrameHeight, OMX_COLOR_FormatAndroidOpaque, planes);
+                            pSrcBuf[0]  = (unsigned char *)planes[0].addr;
                             pSrcBuf[1]  = NULL;
                             pSrcBuf[2]  = NULL;
                         }

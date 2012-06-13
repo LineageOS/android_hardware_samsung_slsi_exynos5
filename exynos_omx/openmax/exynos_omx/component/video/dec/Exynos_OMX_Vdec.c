@@ -133,7 +133,10 @@ OMX_ERRORTYPE Exynos_Input_CodecBufferToData(EXYNOS_OMX_BASECOMPONENT *pExynosCo
     EXYNOS_OMX_VIDEODEC_COMPONENT *pVideoDec = (EXYNOS_OMX_VIDEODEC_COMPONENT *)pExynosComponent->hComponentHandle;
     CODEC_DEC_INPUT_BUFFER *pInputCodecBuffer = (CODEC_DEC_INPUT_BUFFER*)codecBuffer;
 
+    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%s: buffer=%p\n", __func__, codecBuffer);
+
     pData->buffer.singlePlaneBuffer.dataBuffer = pInputCodecBuffer->VirAddr;
+    pData->buffer.singlePlaneBuffer.fd = pInputCodecBuffer->fd;
     pData->allocSize     = pInputCodecBuffer->bufferSize;
     pData->dataLen       = pInputCodecBuffer->dataSize;
     pData->usedDataLen   = 0;
@@ -154,10 +157,13 @@ OMX_ERRORTYPE Exynos_Output_CodecBufferToData(EXYNOS_OMX_BASECOMPONENT *pExynosC
     OMX_PTR pSrcBuf[MAX_BUFFER_PLANE];
     OMX_U32 allocSize[MAX_BUFFER_PLANE];
 
+    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%s: buffer=%p\n", __func__, codecBuffer);
+
     pVideoDec->exynos_codec_getCodecOutputPrivateData(codecBuffer, pSrcBuf, allocSize);
     pData->buffer.multiPlaneBuffer.dataBuffer[0] = pSrcBuf[0];
     pData->buffer.multiPlaneBuffer.dataBuffer[1] = pSrcBuf[1];
     pData->buffer.multiPlaneBuffer.dataBuffer[2] = pSrcBuf[2];
+
     pData->allocSize     = allocSize[0] + allocSize[1] + allocSize[2];
     pData->dataLen       = 0;
     pData->usedDataLen   = 0;
@@ -370,6 +376,7 @@ OMX_BOOL Exynos_Postprocess_OutputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
             void *pOutputBuf = (void *)outputUseBuffer->bufferHeader->pBuffer;
             void *pSrcBuf[MAX_BUFFER_PLANE] = {NULL, };
             void *pYUVBuf[MAX_BUFFER_PLANE] = {NULL, };
+            int fds[MAX_BUFFER_PLANE];
 
             CSC_ERRORCODE cscRet = CSC_ErrorNone;
             CSC_METHOD csc_method = CSC_METHOD_SW;
@@ -408,8 +415,15 @@ OMX_BOOL Exynos_Postprocess_OutputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
                     
                     if (exynosOutputPort->bIsANBEnabled == OMX_TRUE) {
                         OMX_U32 stride;
-                        Exynos_OSAL_LockANB(outputUseBuffer->bufferHeader->pBuffer, width, height, exynosOutputPort->portDefinition.format.video.eColorFormat, &stride, pYUVBuf);
+                        ExynosVideoPlane planes[MAX_BUFFER_PLANE];
+                        Exynos_OSAL_LockANB(outputUseBuffer->bufferHeader->pBuffer, width, height, exynosOutputPort->portDefinition.format.video.eColorFormat, &stride, planes);
                         width = stride;
+                        fds[0] = planes[0].fd;
+                        fds[1] = planes[1].fd;
+                        fds[2] = planes[2].fd;
+                        pYUVBuf[0] = planes[0].addr;
+                        pYUVBuf[1] = planes[1].addr;
+                        pYUVBuf[2] = planes[2].addr;
                         outputUseBuffer->dataLen = sizeof(void *);
                     }
 #endif

@@ -64,14 +64,17 @@ OMX_ERRORTYPE Exynos_OSAL_LockANBHandle(
     OMX_IN OMX_U32 width,
     OMX_IN OMX_U32 height,
     OMX_IN OMX_COLOR_FORMATTYPE format,
-    OMX_OUT OMX_PTR *vaddr)
+    OMX_OUT OMX_PTR planes)
 {
     FunctionIn();
 
     OMX_ERRORTYPE ret = OMX_ErrorNone;
     GraphicBufferMapper &mapper = GraphicBufferMapper::get();
     buffer_handle_t bufferHandle = (buffer_handle_t) handle;
+    private_handle_t *priv_hnd = (private_handle_t *) bufferHandle;
     Rect bounds(width, height);
+    ExynosVideoPlane *vplanes = (ExynosVideoPlane *) planes;
+    void *vaddr[MAX_BUFFER_PLANE];
 
     Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%s: handle: 0x%x", __func__, handle);
 
@@ -93,6 +96,16 @@ OMX_ERRORTYPE Exynos_OSAL_LockANBHandle(
         ret = OMX_ErrorUndefined;
         goto EXIT;
     }
+
+    vplanes[0].fd = priv_hnd->fd;
+    vplanes[0].offset = 0;
+    vplanes[0].addr = vaddr[0];
+    vplanes[1].fd = priv_hnd->u_fd;
+    vplanes[1].offset = priv_hnd->uoffset;
+    vplanes[1].addr = vaddr[1];
+    vplanes[2].fd = priv_hnd->v_fd;
+    vplanes[2].offset = priv_hnd->voffset;
+    vplanes[2].addr = vaddr[2];
 
     Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%s: buffer locked: 0x%x", __func__, *vaddr);
 
@@ -132,14 +145,14 @@ OMX_ERRORTYPE Exynos_OSAL_LockANB(
     OMX_IN OMX_U32 height,
     OMX_IN OMX_COLOR_FORMATTYPE format,
     OMX_OUT OMX_U32 *pStride,
-    OMX_OUT OMX_PTR *vaddr)
+    OMX_OUT OMX_PTR planes)
 {
     FunctionIn();
 
     OMX_ERRORTYPE ret = OMX_ErrorNone;
     android_native_buffer_t *pANB = (android_native_buffer_t *) pBuffer;
 
-    ret = Exynos_OSAL_LockANBHandle((OMX_U32)pANB->handle, width, height, format, vaddr);
+    ret = Exynos_OSAL_LockANBHandle((OMX_U32)pANB->handle, width, height, format, planes);
     *pStride = pANB->stride;
 
 EXIT:
@@ -163,7 +176,7 @@ EXIT:
     return ret;
 }
 
-OMX_ERRORTYPE useAndroidNativeBuffer(
+static OMX_ERRORTYPE useAndroidNativeBuffer(
     EXYNOS_OMX_BASEPORT      *pExynosPort,
     OMX_BUFFERHEADERTYPE **ppBufferHdr,
     OMX_U32                nPortIndex,
@@ -176,6 +189,7 @@ OMX_ERRORTYPE useAndroidNativeBuffer(
     unsigned int          i = 0;
     OMX_U32               width, height;
     OMX_U32               stride;
+    ExynosVideoPlane      planes[MAX_BUFFER_PLANE];
 
     FunctionIn();
 
@@ -199,6 +213,7 @@ OMX_ERRORTYPE useAndroidNativeBuffer(
     }
     Exynos_OSAL_Memset(temp_bufferHeader, 0, sizeof(OMX_BUFFERHEADERTYPE));
 
+
     for (i = 0; i < pExynosPort->portDefinition.nBufferCountActual; i++) {
         if (pExynosPort->bufferStateAllocate[i] == BUFFER_STATE_FREE) {
             pExynosPort->extendBufferHeader[i].OMXBufferHeader = temp_bufferHeader;
@@ -216,11 +231,17 @@ OMX_ERRORTYPE useAndroidNativeBuffer(
             height = pExynosPort->portDefinition.format.video.nFrameHeight;
             Exynos_OSAL_LockANB(temp_bufferHeader->pBuffer, width, height,
                                 pExynosPort->portDefinition.format.video.eColorFormat,
-                                &stride, pExynosPort->extendBufferHeader[i].pYUVBuf);
+                                &stride, planes);
+            pExynosPort->extendBufferHeader[i].buf_fd[0] = planes[0].fd;
+            pExynosPort->extendBufferHeader[i].pYUVBuf[0] = planes[0].addr;
+            pExynosPort->extendBufferHeader[i].buf_fd[1] = planes[1].fd;
+            pExynosPort->extendBufferHeader[i].pYUVBuf[1] = planes[1].addr;
+            pExynosPort->extendBufferHeader[i].buf_fd[2] = planes[2].fd;
+            pExynosPort->extendBufferHeader[i].pYUVBuf[2] = planes[2].addr;
             Exynos_OSAL_UnlockANB(temp_bufferHeader->pBuffer);
-            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pYUVBuf[0]:0x%x, pYUVBuf[1]:0x%x",
-                            pExynosPort->extendBufferHeader[i].pYUVBuf[0],
-                            pExynosPort->extendBufferHeader[i].pYUVBuf[1]);
+            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "useAndroidNativeBuffer: buf %d pYUVBuf[0]:0x%x (fd:%d), pYUVBuf[1]:0x%x (fd:%d)",
+                            i, pExynosPort->extendBufferHeader[i].pYUVBuf[0], planes[0].fd,
+                            pExynosPort->extendBufferHeader[i].pYUVBuf[1], planes[1].fd);
 
             pExynosPort->assignedBufferNum++;
             if (pExynosPort->assignedBufferNum == pExynosPort->portDefinition.nBufferCountActual) {

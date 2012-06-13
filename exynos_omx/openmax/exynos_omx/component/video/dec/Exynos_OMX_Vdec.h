@@ -69,6 +69,7 @@ typedef struct _CODEC_DEC_INPUT_BUFFER
     void *VirAddr;      // virtual address
     int   bufferSize;   // input buffer alloc size
     int   dataSize;     // Data length
+    int   fd;
 } CODEC_DEC_INPUT_BUFFER;
 
 typedef struct _CODEC_DEC_OUTPUT_BUFFER
@@ -76,6 +77,7 @@ typedef struct _CODEC_DEC_OUTPUT_BUFFER
     void *VirAddr[MFC_OUTPUT_BUFFER_PLANE];      // virtual address
     int   bufferSize[MFC_OUTPUT_BUFFER_PLANE];   // input buffer alloc size
     int   dataSize;       // Data length
+    int   fd[MFC_OUTPUT_BUFFER_PLANE];
 } CODEC_DEC_OUTPUT_BUFFER;
 
 

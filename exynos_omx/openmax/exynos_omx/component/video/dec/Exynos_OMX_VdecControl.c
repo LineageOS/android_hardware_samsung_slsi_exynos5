@@ -68,6 +68,8 @@ OMX_ERRORTYPE Exynos_OMX_UseBuffer(
 
     FunctionIn();
 
+    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%s: idx=%d sz=%d pBuffer=%p\n", __func__, nPortIndex, nSizeBytes, pBuffer);
+
     if (hComponent == NULL) {
         ret = OMX_ErrorBadParameter;
         goto EXIT;
@@ -155,7 +157,9 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
     EXYNOS_OMX_BASEPORT      *pExynosPort = NULL;
     OMX_BUFFERHEADERTYPE  *temp_bufferHeader = NULL;
     OMX_U8                *temp_buffer = NULL;
+    int                    temp_buffer_fd;
     OMX_U32                i = 0;
+    MEMORY_TYPE            mem_type;
 
     FunctionIn();
 
@@ -193,38 +197,25 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
     }
 
     if ((pVideoDec->bDRMPlayerMode == OMX_TRUE) && (nPortIndex == INPUT_PORT_INDEX)) {
-        OMX_PTR mapBuffer = Exynos_OSAL_SharedMemory_Alloc(pVideoDec->hSharedMemory, nSizeBytes, SECURE_MEMORY);
-        if (mapBuffer == NULL) {
-            ret = OMX_ErrorInsufficientResources;
-            goto EXIT;
-        }
-        temp_buffer = (OMX_U8 *)Exynos_OSAL_SharedMemory_VirtToION(pVideoDec->hSharedMemory, mapBuffer);
+        mem_type = SECURE_MEMORY;
     } else if (pExynosPort->bufferProcessType == BUFFER_SHARE) {
-         temp_buffer = Exynos_OSAL_SharedMemory_Alloc(pVideoDec->hSharedMemory, nSizeBytes, NORMAL_MEMORY);
-        if (temp_buffer == NULL) {
-            ret = OMX_ErrorInsufficientResources;
-            goto EXIT;
-        }
+        mem_type = NORMAL_MEMORY;
     } else {
-        temp_buffer = Exynos_OSAL_Malloc(sizeof(OMX_U8) * nSizeBytes);
-        if (temp_buffer == NULL) {
-            ret = OMX_ErrorInsufficientResources;
-            goto EXIT;
-        }
+        mem_type = SYSTEM_MEMORY;
+        Exynos_OSAL_Log(EXYNOS_LOG_WARNING, "%s: using system memory to alloc %d bytes\n", __func__,
+                        nSizeBytes);
     }
+
+    temp_buffer = Exynos_OSAL_SharedMemory_Alloc(pVideoDec->hSharedMemory, nSizeBytes, mem_type);
+    if (temp_buffer == NULL) {
+        ret = OMX_ErrorInsufficientResources;
+        goto EXIT;
+    }
+    temp_buffer_fd = Exynos_OSAL_SharedMemory_VirtToION(pVideoDec->hSharedMemory, temp_buffer);
 
     temp_bufferHeader = (OMX_BUFFERHEADERTYPE *)Exynos_OSAL_Malloc(sizeof(OMX_BUFFERHEADERTYPE));
     if (temp_bufferHeader == NULL) {
-        if ((pVideoDec->bDRMPlayerMode == OMX_TRUE) && (nPortIndex == INPUT_PORT_INDEX)) {
-            OMX_PTR mapBuffer = Exynos_OSAL_SharedMemory_IONToVirt(pVideoDec->hSharedMemory, (int)temp_buffer);
-            Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, mapBuffer);
-        } else if (pExynosPort->bufferProcessType == BUFFER_SHARE) {
-            Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, temp_buffer);
-        } else {
-            Exynos_OSAL_Free(temp_buffer);
-        }
-
-        temp_buffer = NULL;
+        Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, temp_buffer);
         ret = OMX_ErrorInsufficientResources;
         goto EXIT;
     }
@@ -233,11 +224,16 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
     for (i = 0; i < pExynosPort->portDefinition.nBufferCountActual; i++) {
         if (pExynosPort->bufferStateAllocate[i] == BUFFER_STATE_FREE) {
             pExynosPort->extendBufferHeader[i].OMXBufferHeader = temp_bufferHeader;
+            pExynosPort->extendBufferHeader[i].buf_fd[0] = temp_buffer_fd;
             pExynosPort->bufferStateAllocate[i] = (BUFFER_STATE_ALLOCATED | HEADER_STATE_ALLOCATED);
             INIT_SET_SIZE_VERSION(temp_bufferHeader, OMX_BUFFERHEADERTYPE);
             temp_bufferHeader->pBuffer        = temp_buffer;
             temp_bufferHeader->nAllocLen      = nSizeBytes;
             temp_bufferHeader->pAppPrivate    = pAppPrivate;
+            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%s: allocated buf %d (hdr=%p) addr=%p sz=%ld fd=%d\n",
+                            __func__, i, &pExynosPort->extendBufferHeader[i], temp_buffer, nSizeBytes,
+                            temp_buffer_fd);
+
             if (nPortIndex == INPUT_PORT_INDEX)
                 temp_bufferHeader->nInputPortIndex = INPUT_PORT_INDEX;
             else
@@ -256,14 +252,7 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
     }
 
     Exynos_OSAL_Free(temp_bufferHeader);
-    if ((pVideoDec->bDRMPlayerMode == OMX_TRUE) && (nPortIndex == INPUT_PORT_INDEX)) {
-        OMX_PTR mapBuffer = Exynos_OSAL_SharedMemory_IONToVirt(pVideoDec->hSharedMemory, (int)temp_buffer);
-        Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, mapBuffer);
-    } else if (pExynosPort->bufferProcessType == BUFFER_SHARE) {
-        Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, temp_buffer);
-    } else {
-        Exynos_OSAL_Free(temp_buffer);
-    }
+    Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, temp_buffer);
 
     ret = OMX_ErrorInsufficientResources;
 
@@ -324,14 +313,7 @@ OMX_ERRORTYPE Exynos_OMX_FreeBuffer(
         if (((pExynosPort->bufferStateAllocate[i] | BUFFER_STATE_FREE) != 0) && (pExynosPort->extendBufferHeader[i].OMXBufferHeader != NULL)) {
             if (pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer == pBufferHdr->pBuffer) {
                 if (pExynosPort->bufferStateAllocate[i] & BUFFER_STATE_ALLOCATED) {
-                    if ((pVideoDec->bDRMPlayerMode == OMX_TRUE) && (nPortIndex == INPUT_PORT_INDEX)) {
-                        OMX_PTR mapBuffer = Exynos_OSAL_SharedMemory_IONToVirt(pVideoDec->hSharedMemory, (int)pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer);
-                        Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, mapBuffer);
-                    } else if (pExynosPort->bufferProcessType == BUFFER_SHARE) {
-                        Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer);
-                    } else {
-                        Exynos_OSAL_Free(pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer);
-                    }
+                    Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer);
                     pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer = NULL;
                     pBufferHdr->pBuffer = NULL;
                 } else if (pExynosPort->bufferStateAllocate[i] & BUFFER_STATE_ASSIGNED) {
@@ -1489,8 +1471,9 @@ OMX_ERRORTYPE Exynos_Shared_ANBBufferToData(EXYNOS_OMX_DATABUFFER *pUseBuffer, E
     OMX_ERRORTYPE ret = OMX_ErrorNone;
     OMX_U32 width, height;
 //    void *pPhys[MAX_BUFFER_PLANE];
-    void *pYUVBuf[MAX_BUFFER_PLANE] = {NULL, };
+    ExynosVideoPlane planes[MAX_BUFFER_PLANE];
 
+    memset(planes, 0, sizeof(planes));
 
     if (pExynosPort->bIsANBEnabled == OMX_TRUE) {
         OMX_U32 stride;
@@ -1498,7 +1481,7 @@ OMX_ERRORTYPE Exynos_Shared_ANBBufferToData(EXYNOS_OMX_DATABUFFER *pUseBuffer, E
         width = pExynosPort->portDefinition.format.video.nFrameWidth;
         height = pExynosPort->portDefinition.format.video.nFrameHeight;
         if ((pUseBuffer->bufferHeader != NULL) && (pUseBuffer->bufferHeader->pBuffer != NULL)) {
-            Exynos_OSAL_LockANB(pUseBuffer->bufferHeader->pBuffer, width, height, pExynosPort->portDefinition.format.video.eColorFormat, &stride, pYUVBuf);
+            Exynos_OSAL_LockANB(pUseBuffer->bufferHeader->pBuffer, width, height, pExynosPort->portDefinition.format.video.eColorFormat, &stride, planes);
             pUseBuffer->dataLen = sizeof(void *);
         } else {
             Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "%s : %d", __FUNCTION__, __LINE__);
@@ -1513,8 +1496,10 @@ OMX_ERRORTYPE Exynos_Shared_ANBBufferToData(EXYNOS_OMX_DATABUFFER *pUseBuffer, E
 
     if (nPlane == TWO_PLANE) {
         /* Case of Shared Buffer, Only support two PlaneBuffer */
-        pData->buffer.multiPlaneBuffer.dataBuffer[0] = pYUVBuf[0];
-        pData->buffer.multiPlaneBuffer.dataBuffer[1] = pYUVBuf[1];
+        pData->buffer.multiPlaneBuffer.dataBuffer[0] = planes[0].addr;
+        pData->buffer.multiPlaneBuffer.fd[0] = planes[0].fd;
+        pData->buffer.multiPlaneBuffer.dataBuffer[1] = planes[1].addr;
+        pData->buffer.multiPlaneBuffer.fd[1] = planes[1].fd;
     } else {
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Can not support plane");
         ret = OMX_ErrorNotImplemented;

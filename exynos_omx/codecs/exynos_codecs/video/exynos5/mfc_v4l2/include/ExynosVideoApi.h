@@ -98,9 +98,11 @@ typedef struct _ExynosVideoGeometry {
 } ExynosVideoGeometry;
 
 typedef struct _ExynosVideoPlane {
-    unsigned char *addr;
+    void          *addr;
     unsigned int   allocSize;
     unsigned int   dataSize;
+    unsigned long  offset;
+    int            fd;
 } ExynosVideoPlane;
 
 typedef struct _ExynosVideoBuffer {
@@ -260,7 +262,7 @@ typedef struct _ExynosVideoDecBufferOps {
     ExynosVideoErrorType  (*Enqueue)(void *pHandle, unsigned char *pBuffer[], unsigned int dataSize[], int nPlanes, void *pPrivate);
     ExynosVideoErrorType  (*Enqueue_All)(void *pHandle);
     ExynosVideoBuffer *   (*Dequeue)(void *pHandle);
-    ExynosVideoErrorType  (*Register)(void *pHandle, unsigned char *pBuffer[], unsigned int allocSize[]);
+    ExynosVideoErrorType  (*Register)(void *pHandle, ExynosVideoPlane *planes, int nPlanes);
     ExynosVideoErrorType  (*Clear_RegisteredBuffer)(void *pHandle);
     ExynosVideoErrorType  (*Clear_Queue)(void *pHandle);
 } ExynosVideoDecBufferOps;
@@ -280,7 +282,7 @@ typedef struct _ExynosVideoEncBufferOps {
     ExynosVideoErrorType  (*Enqueue)(void *pHandle, unsigned char *pBuffer[], unsigned int dataSize[], int nPlanes, void *pPrivate);
     ExynosVideoErrorType  (*Enqueue_All)(void *pHandle);
     ExynosVideoBuffer *   (*Dequeue)(void *pHandle);
-    ExynosVideoErrorType  (*Register)(void *pHandle, unsigned char *pBuffer[], unsigned int allocSize[]);
+    ExynosVideoErrorType  (*Register)(void *pHandle, ExynosVideoPlane *planes, int nPlanes);
     ExynosVideoErrorType  (*Clear_RegisteredBuffer)(void *pHandle);
     ExynosVideoErrorType  (*Clear_Queue)(void *pHandle);
 } ExynosVideoEncBufferOps;

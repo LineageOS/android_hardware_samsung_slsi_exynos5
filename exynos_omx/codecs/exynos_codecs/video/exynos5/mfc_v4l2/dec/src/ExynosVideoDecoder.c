@@ -817,13 +817,16 @@ static ExynosVideoErrorType MFC_Decoder_Setup_Inbuf(
         goto EXIT;
     }
 
+    ALOGV("%s: setting up inbufs (%d) shared=%s\n", __func__, nBufferCount,
+          pCtx->bShareInbuf ? "true" : "false");
+
     memset(&req, 0, sizeof(req));
 
     req.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
     req.count = nBufferCount;
 
     if (pCtx->bShareInbuf == VIDEO_TRUE)
-        req.memory = V4L2_MEMORY_USERPTR;
+        req.memory = V4L2_MEMORY_DMABUF;
     else
         req.memory = V4L2_MEMORY_MMAP;
 
@@ -831,6 +834,9 @@ static ExynosVideoErrorType MFC_Decoder_Setup_Inbuf(
         ret = VIDEO_ERROR_APIFAIL;
         goto EXIT;
     }
+
+    if (req.count != nBufferCount)
+        ALOGW("%s: asked for %d, got %d\n", __func__, nBufferCount, req.count);
 
     pCtx->nInbufs = (int)req.count;
 
@@ -927,13 +933,16 @@ static ExynosVideoErrorType MFC_Decoder_Setup_Outbuf(
         goto EXIT;
     }
 
+    ALOGV("%s: setting up outbufs (%d) shared=%s\n", __func__, nBufferCount,
+          pCtx->bShareOutbuf ? "true" : "false");
+
     memset(&req, 0, sizeof(req));
 
     req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
     req.count = nBufferCount;
 
     if (pCtx->bShareOutbuf == VIDEO_TRUE)
-        req.memory = V4L2_MEMORY_USERPTR;
+        req.memory = V4L2_MEMORY_DMABUF;
     else
         req.memory = V4L2_MEMORY_MMAP;
 
@@ -1173,15 +1182,15 @@ EXIT:
 }
 
 static ExynosVideoErrorType MFC_Decoder_Register_Inbuf(
-    void            *pHandle,
-    unsigned char   *pBuffer[],
-    unsigned int     allocSize[])
+    void             *pHandle,
+    ExynosVideoPlane *planes,
+    int               nPlanes)
 {
     ExynosVideoDecContext *pCtx = (ExynosVideoDecContext *)pHandle;
     ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
     int nIndex;
 
-    if ((pCtx == NULL) || (pBuffer == NULL) || (allocSize == NULL)) {
+    if ((pCtx == NULL) || (planes == NULL) || (nPlanes != 1)) {
         ALOGE("%s: params must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
@@ -1189,9 +1198,12 @@ static ExynosVideoErrorType MFC_Decoder_Register_Inbuf(
 
     for (nIndex = 0; nIndex < pCtx->nInbufs; nIndex++) {
         if (pCtx->pInbuf[nIndex].bRegistered == VIDEO_FALSE) {
-            pCtx->pInbuf[nIndex].planes[0].addr = pBuffer[0];
-            pCtx->pInbuf[nIndex].planes[0].allocSize = allocSize[0];
+            pCtx->pInbuf[nIndex].planes[0].addr = planes[0].addr;
+            pCtx->pInbuf[nIndex].planes[0].allocSize = planes[0].allocSize;
+            pCtx->pInbuf[nIndex].planes[0].fd = planes[0].fd;
             pCtx->pInbuf[nIndex].bRegistered = VIDEO_TRUE;
+            ALOGV("%s: registered buf %d (addr=%p alloc_sz=%ld fd=%d)\n", __func__, nIndex,
+                  planes[0].addr, planes[0].allocSize, planes[0].fd);
             break;
         }
     }
@@ -1206,15 +1218,15 @@ EXIT:
 }
 
 static ExynosVideoErrorType MFC_Decoder_Register_Outbuf(
-    void          *pHandle,
-    unsigned char *pBuffer[],
-    unsigned int   allocSize[])
+    void             *pHandle,
+    ExynosVideoPlane *planes,
+    int               nPlanes)
 {
     ExynosVideoDecContext *pCtx = (ExynosVideoDecContext *)pHandle;
     ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
     int nIndex;
 
-    if ((pCtx == NULL) || (pBuffer == NULL) || (allocSize == NULL)) {
+    if ((pCtx == NULL) || (planes == NULL) || (nPlanes != 2)) {
         ALOGE("%s: params must be supplied", __func__);
         ret = VIDEO_ERROR_BADPARAM;
         goto EXIT;
@@ -1222,11 +1234,16 @@ static ExynosVideoErrorType MFC_Decoder_Register_Outbuf(
 
     for (nIndex = 0; nIndex < pCtx->nOutbufs; nIndex++) {
         if (pCtx->pOutbuf[nIndex].bRegistered == VIDEO_FALSE) {
-            pCtx->pOutbuf[nIndex].planes[0].addr = pBuffer[0];
-            pCtx->pOutbuf[nIndex].planes[1].addr = pBuffer[1];
-            pCtx->pOutbuf[nIndex].planes[0].allocSize = allocSize[0];
-            pCtx->pOutbuf[nIndex].planes[1].allocSize = allocSize[1];
+            int plane;
+            for (plane = 0; plane < 2; plane++) {
+                pCtx->pOutbuf[nIndex].planes[plane].addr = planes[plane].addr;
+                pCtx->pOutbuf[nIndex].planes[plane].allocSize = planes[plane].allocSize;
+                pCtx->pOutbuf[nIndex].planes[plane].fd = planes[plane].fd;
+            }
             pCtx->pOutbuf[nIndex].bRegistered = VIDEO_TRUE;
+            ALOGV("%s: registered buf %d 0:(addr=%p alloc_sz=%d fd=%d) 1:(addr=%p alloc_sz=%d fd=%d)\n",
+                  __func__, nIndex, planes[0].addr, planes[0].allocSize, planes[0].fd,
+                  planes[1].addr, planes[1].allocSize, planes[1].fd);
             break;
         }
     }
@@ -1402,12 +1419,17 @@ static ExynosVideoErrorType MFC_Decoder_Enqueue_Inbuf(
     buf.index = index;
 
     if (pCtx->bShareInbuf == VIDEO_TRUE) {
-        buf.memory = V4L2_MEMORY_USERPTR;
+        buf.memory = V4L2_MEMORY_DMABUF;
         for (i = 0; i < nPlanes; i++) {
-            buf.m.planes[i].m.userptr = (unsigned long)pBuffer[i];
+            buf.m.planes[i].m.fd = pCtx->pInbuf[index].planes[i].fd;
             buf.m.planes[i].length = pCtx->pInbuf[index].planes[i].allocSize;
             buf.m.planes[i].bytesused = dataSize[i];
             pCtx->pInbuf[buf.index].planes[i].addr = pBuffer[i];
+            ALOGV("%s: shared inbuf(%d) plane(%d) fd=%d len=%d used=%d\n", __func__,
+                  index, i,
+                  buf.m.planes[i].m.fd,
+                  buf.m.planes[i].length,
+                  buf.m.planes[i].bytesused);
         }
     } else {
         buf.memory = V4L2_MEMORY_MMAP;
@@ -1472,7 +1494,7 @@ static ExynosVideoErrorType MFC_Decoder_Enqueue_Outbuf(
     memset(&buf, 0, sizeof(buf));
     buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
     buf.m.planes = planes;
-    buf.length = VIDEO_DECODER_OUTBUF_PLANES;
+    buf.length = nPlanes;
 
     index = MFC_Decoder_Find_Outbuf(pCtx, pBuffer[0]);
     if ((index == -1) &&
@@ -1487,14 +1509,21 @@ static ExynosVideoErrorType MFC_Decoder_Enqueue_Outbuf(
     buf.index = index;
 
     if (pCtx->bShareOutbuf == VIDEO_TRUE) {
-        buf.memory = V4L2_MEMORY_USERPTR;
+        buf.memory = V4L2_MEMORY_DMABUF;
         for (i = 0; i < nPlanes; i++) {
-            buf.m.planes[i].m.userptr = (unsigned long)pBuffer[i];
+            buf.m.planes[i].m.fd = pCtx->pOutbuf[index].planes[i].fd;
             buf.m.planes[i].length = pCtx->pOutbuf[index].planes[i].allocSize;
             buf.m.planes[i].bytesused = dataSize[i];
-            pCtx->pOutbuf[buf.index].planes[i].addr = pBuffer[i];
+
+            ALOGV("%s: shared outbuf(%d) plane=%d addr=%p fd=%d len=%d used=%d\n", __func__,
+                  index, i,
+                  pCtx->pOutbuf[index].planes[i].addr,
+                  buf.m.planes[i].m.fd,
+                  buf.m.planes[i].length,
+                  buf.m.planes[i].bytesused);
         }
     } else {
+        ALOGV("%s: non-shared outbuf(%d)\n", __func__, index);
         buf.memory = V4L2_MEMORY_MMAP;
     }
 
@@ -1547,7 +1576,7 @@ static ExynosVideoBuffer *MFC_Decoder_Dequeue_Inbuf(void *pHandle)
     buf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
 
     if (pCtx->bShareInbuf == VIDEO_TRUE)
-        buf.memory = V4L2_MEMORY_USERPTR;
+        buf.memory = V4L2_MEMORY_DMABUF;
     else
         buf.memory = V4L2_MEMORY_MMAP;
 
@@ -1624,7 +1653,7 @@ static ExynosVideoBuffer *MFC_Decoder_Dequeue_Outbuf(void *pHandle)
     buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 
     if (pCtx->bShareOutbuf == VIDEO_TRUE)
-        buf.memory = V4L2_MEMORY_USERPTR;
+        buf.memory = V4L2_MEMORY_DMABUF;
     else
         buf.memory = V4L2_MEMORY_MMAP;
 
