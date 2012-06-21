@@ -532,8 +532,8 @@ OMX_ERRORTYPE VP8CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA
     /* input buffer info */
     Exynos_OSAL_Memset(&bufferConf, 0, sizeof(bufferConf));
     bufferConf.eCompressionFormat = VIDEO_CODING_VP8;
+    pInbufOps->Set_Shareable(hMFCHandle);
     if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
-        pInbufOps->Set_Shareable(hMFCHandle);
         bufferConf.nSizeImage = pExynosInputPort->portDefinition.format.video.nFrameWidth * pExynosInputPort->portDefinition.format.video.nFrameHeight * 3 / 2;
         inputBufferNumber = MAX_VIDEO_INPUTBUFFER_NUM;
     } else if ((pExynosInputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {

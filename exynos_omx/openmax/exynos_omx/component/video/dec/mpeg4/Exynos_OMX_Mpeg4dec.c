@@ -721,8 +721,8 @@ OMX_ERRORTYPE Mpeg4CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DA
     else
         bufferConf.eCompressionFormat = VIDEO_CODING_H263;
 
+    pInbufOps->Set_Shareable(hMFCHandle);
     if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
-        pInbufOps->Set_Shareable(hMFCHandle);
         bufferConf.nSizeImage = pExynosInputPort->portDefinition.format.video.nFrameWidth * pExynosInputPort->portDefinition.format.video.nFrameHeight * 3 / 2;
         inputBufferNumber = MAX_VIDEO_INPUTBUFFER_NUM;
     } else if ((pExynosInputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
