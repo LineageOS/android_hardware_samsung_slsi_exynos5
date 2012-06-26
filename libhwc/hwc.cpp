@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
@@ -103,8 +102,8 @@ static void dump_layer(hwc_layer_1_t const *l)
 
 static void dump_handle(private_handle_t *h)
 {
-    ALOGV("\t\tformat = %d, width = %u, height = %u, bpp = %u, stride = %u",
-            h->format, h->width, h->height, h->bpp, h->stride);
+    ALOGV("\t\tformat = %d, width = %u, height = %u, stride = %u",
+            h->format, h->width, h->height, h->stride);
 }
 
 static void dump_config(s3c_fb_win_config &c)

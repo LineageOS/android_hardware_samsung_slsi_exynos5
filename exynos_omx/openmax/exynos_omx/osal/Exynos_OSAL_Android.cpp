@@ -84,7 +84,7 @@ OMX_ERRORTYPE Exynos_OSAL_LockANBHandle(
     case OMX_COLOR_FormatYUV420Planar:
     case OMX_COLOR_FormatYUV420SemiPlanar:
     case OMX_SEC_COLOR_FormatNV12Tiled:
-        usage = GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_YUV_ADDR;
+        usage = GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
         break;
     default:
         usage = GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
@@ -100,11 +100,11 @@ OMX_ERRORTYPE Exynos_OSAL_LockANBHandle(
     vplanes[0].fd = priv_hnd->fd;
     vplanes[0].offset = 0;
     vplanes[0].addr = vaddr[0];
-    vplanes[1].fd = priv_hnd->u_fd;
-    vplanes[1].offset = priv_hnd->uoffset;
+    vplanes[1].fd = priv_hnd->fd1;
+    vplanes[1].offset = 0;
     vplanes[1].addr = vaddr[1];
-    vplanes[2].fd = priv_hnd->v_fd;
-    vplanes[2].offset = priv_hnd->voffset;
+    vplanes[2].fd = priv_hnd->fd2;
+    vplanes[2].offset = 0;
     vplanes[2].addr = vaddr[2];
 
     Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%s: buffer locked: 0x%x", __func__, *vaddr);
@@ -325,8 +325,7 @@ OMX_ERRORTYPE Exynos_OSAL_GetANBParameter(
         /* NOTE: OMX_IndexParamGetAndroidNativeBuffer returns original 'nUsage' without any
          * modifications since currently not defined what the 'nUsage' is for.
          */
-        pANBParams->nUsage |= (GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_EXTERNAL_DISP
-                           | GRALLOC_USAGE_HW_ION | GRALLOC_USAGE_HWC_HWOVERLAY);
+        pANBParams->nUsage |= (GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_EXTERNAL_DISP);
     }
         break;
 

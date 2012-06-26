@@ -79,7 +79,6 @@
 
 #include "ump_platform.h"
 #include "ump_common.h"
-#include "ion.h"
 
 #ifndef __KERNEL__
 #include <stdlib.h>

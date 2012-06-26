@@ -526,10 +526,10 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
     int fd = 0, i, j;
     *stream_id = 0;
     *format_actual = HAL_PIXEL_FORMAT_YV12;
-    *usage = GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_YUV_ADDR;
+    *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
     *max_buffers = 8;
 
- 
+
      m_streamThread->SetParameter(*stream_id, width, height, *format_actual, stream_ops, *usage, fd, &(m_camera_info.preview));
     return 0;
 }
@@ -588,8 +588,8 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id, int num_
                     const private_handle_t *priv_handle = reinterpret_cast<const private_handle_t *>(buffers[i]);
 
                     v4l2_buf.m.planes[0].m.fd = priv_handle->fd;
-                    v4l2_buf.m.planes[1].m.fd = priv_handle->u_fd;
-                    v4l2_buf.m.planes[2].m.fd = priv_handle->v_fd;
+                    v4l2_buf.m.planes[1].m.fd = priv_handle->fd1;
+                    v4l2_buf.m.planes[2].m.fd = priv_handle->fd2;
 
                     // HACK
                     m_streamThread->m_parameters.grallocVirtAddr[i] = virtAddr[0];
@@ -1016,7 +1016,7 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
             struct v4l2_plane  planes[VIDEO_MAX_PLANES];
 
 
-                   
+
             v4l2_buf.m.planes = planes;
             v4l2_buf.type       = m_camera_info.preview.type;
             v4l2_buf.memory     = m_camera_info.preview.memory;
@@ -1026,14 +1026,14 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
             const private_handle_t *priv_handle = reinterpret_cast<const private_handle_t *>(*buf);
 
             v4l2_buf.m.planes[0].m.fd = priv_handle->fd;
-            v4l2_buf.m.planes[1].m.fd = priv_handle->u_fd;
-            v4l2_buf.m.planes[2].m.fd = priv_handle->v_fd;
+            v4l2_buf.m.planes[1].m.fd = priv_handle->fd1;
+            v4l2_buf.m.planes[2].m.fd = priv_handle->fd2;
 
             // HACK
             v4l2_buf.m.planes[0].length  = 1920*1088;
             v4l2_buf.m.planes[1].length  = 1920*1088/4;
             v4l2_buf.m.planes[2].length  = 1920*1088/4;
-            
+
 
             if (exynos_v4l2_qbuf(m_camera_info.preview.fd, &v4l2_buf) < 0) {
                 ALOGE("ERR(%s):preview exynos_v4l2_qbuf() fail", __func__);
