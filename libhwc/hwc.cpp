@@ -246,9 +246,11 @@ static int exynos5_prepare(hwc_composer_device_t *dev, hwc_layer_list_t* list)
 
 	// if we need a framebuffer but can't fit it in, reserve the last
 	// window as a framebuffer
-	if (fb_needed && first_fb >= NUM_HW_WINDOWS) {
+	if ((fb_needed && first_fb >= NUM_HW_WINDOWS) ||
+			(!fb_needed && list->numHwLayers > NUM_HW_WINDOWS)) {
+		fb_needed = true;
 		first_fb = NUM_HW_WINDOWS - 1;
-		for (size_t i = first_fb + 1; i < list->numHwLayers; i++)
+		for (size_t i = first_fb; i < list->numHwLayers; i++)
 			list->hwLayers[i].compositionType = HWC_FRAMEBUFFER;
 	}
 
