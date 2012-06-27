@@ -143,7 +143,7 @@ int cam_int_qbuf(node_info_t *node, int index)
     v4l2_buf.length     = node->planes;
 
     for(i = 0; i < node->planes; i++){
-        v4l2_buf.m.planes[i].m.userptr = (unsigned long)(node->buffer[index].virBuffer[i]);
+        v4l2_buf.m.planes[i].m.fd = (int)(node->buffer[index].ionBuffer[i]);
         v4l2_buf.m.planes[i].length  = (unsigned long)(node->buffer[index].size[i]);
     }
 
@@ -559,7 +559,7 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id, int num_
         m_camera_info.preview.planes = 3;
         m_camera_info.preview.buffers = 8;  // to modify
         m_camera_info.preview.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-        m_camera_info.preview.memory = V4L2_MEMORY_USERPTR;
+        m_camera_info.preview.memory = V4L2_MEMORY_DMABUF;
 
 
         cam_int_s_input(&(m_camera_info.preview), m_camera_info.sensor_id); 
@@ -585,9 +585,11 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id, int num_
                     v4l2_buf.index      = i;
                     v4l2_buf.length     = 3;
 
-                    v4l2_buf.m.planes[0].m.userptr = (unsigned long)(virtAddr[0]);
-                    v4l2_buf.m.planes[1].m.userptr = (unsigned long)(virtAddr[2]);
-                    v4l2_buf.m.planes[2].m.userptr = (unsigned long)(virtAddr[1]);
+                    const private_handle_t *priv_handle = reinterpret_cast<const private_handle_t *>(buffers[i]);
+
+                    v4l2_buf.m.planes[0].m.fd = priv_handle->fd;
+                    v4l2_buf.m.planes[1].m.fd = priv_handle->u_fd;
+                    v4l2_buf.m.planes[2].m.fd = priv_handle->v_fd;
 
                     // HACK
                     m_streamThread->m_parameters.grallocVirtAddr[i] = virtAddr[0];
@@ -760,7 +762,7 @@ void ExynosCameraHWInterface2::m_sensorThreadInitialize(SignalDrivenThread * sel
     m_camera_info.sensor.planes = 2;
     m_camera_info.sensor.buffers = 8;
     m_camera_info.sensor.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    m_camera_info.sensor.memory = V4L2_MEMORY_USERPTR;
+    m_camera_info.sensor.memory = V4L2_MEMORY_DMABUF;
     m_camera_info.sensor.ionClient = m_ionCameraClient;
 
     for(i = 0; i < m_camera_info.sensor.buffers; i++){
@@ -789,7 +791,7 @@ void ExynosCameraHWInterface2::m_sensorThreadInitialize(SignalDrivenThread * sel
     m_camera_info.isp.planes = 1;
     m_camera_info.isp.buffers = 1;
     m_camera_info.isp.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-    m_camera_info.isp.memory = V4L2_MEMORY_USERPTR;
+    m_camera_info.isp.memory = V4L2_MEMORY_DMABUF;
     m_camera_info.isp.ionClient = m_ionCameraClient;
 
     for(i = 0; i < m_camera_info.isp.buffers; i++){
@@ -818,7 +820,7 @@ void ExynosCameraHWInterface2::m_sensorThreadInitialize(SignalDrivenThread * sel
     m_camera_info.capture.planes = 1;
     m_camera_info.capture.buffers = 8;
     m_camera_info.capture.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    m_camera_info.capture.memory = V4L2_MEMORY_USERPTR;
+    m_camera_info.capture.memory = V4L2_MEMORY_DMABUF;
     m_camera_info.capture.ionClient = m_ionCameraClient;
 
     for(i = 0; i < m_camera_info.capture.buffers; i++){
@@ -1021,10 +1023,11 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
             v4l2_buf.index      = ret;
             v4l2_buf.length     = 3;
 
+            const private_handle_t *priv_handle = reinterpret_cast<const private_handle_t *>(*buf);
 
-            v4l2_buf.m.planes[0].m.userptr = (unsigned long)(virtAddr[0]);
-            v4l2_buf.m.planes[1].m.userptr = (unsigned long)(virtAddr[2]);
-            v4l2_buf.m.planes[2].m.userptr = (unsigned long)(virtAddr[1]);
+            v4l2_buf.m.planes[0].m.fd = priv_handle->fd;
+            v4l2_buf.m.planes[1].m.fd = priv_handle->u_fd;
+            v4l2_buf.m.planes[2].m.fd = priv_handle->v_fd;
 
             // HACK
             v4l2_buf.m.planes[0].length  = 1920*1088;
