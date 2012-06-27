@@ -20,7 +20,7 @@ LOCAL_CFLAGS += -DGAIA_FW_BETA
 
 LOCAL_SHARED_LIBRARIES += libexynosutils libhwjpeg libexynosv4l2 libcsc libion_exynos
 
-LOCAL_MODULE := camera.exynos5
+LOCAL_MODULE := oldcamera.exynos5
 
 LOCAL_MODULE_TAGS := optional
 
