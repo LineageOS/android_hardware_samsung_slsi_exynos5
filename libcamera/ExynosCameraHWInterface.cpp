@@ -34,6 +34,9 @@
  *
  */
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 //#define LOG_NDEBUG 0
 #define LOG_TAG "ExynosCameraHWInterface"
 #include <utils/Log.h>
@@ -3483,7 +3486,7 @@ void ExynosCameraHWInterface::m_savePostView(const char *fname, uint8_t *buf, ui
     uint32_t written = 0;
 
     ALOGD("opening file [%s]", fname);
-    int fd = open(fname, O_RDWR | O_CREAT);
+    int fd = open(fname, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
     if (fd < 0) {
         ALOGE("failed to create file [%s]: %s", fname, strerror(errno));
         return;
