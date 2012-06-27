@@ -123,12 +123,8 @@ static enum s3c_fb_pixel_format exynos5_format_to_s3c_format(int format)
 	switch (format) {
 	case HAL_PIXEL_FORMAT_RGBA_8888:
 		return S3C_FB_PIXEL_FORMAT_RGBA_8888;
-	case HAL_PIXEL_FORMAT_RGB_888:
-		return S3C_FB_PIXEL_FORMAT_RGB_888;
-	case HAL_PIXEL_FORMAT_RGB_565:
-		return S3C_FB_PIXEL_FORMAT_RGB_565;
-	case HAL_PIXEL_FORMAT_BGRA_8888:
-		return S3C_FB_PIXEL_FORMAT_BGRA_8888;
+	case HAL_PIXEL_FORMAT_RGBX_8888:
+		return S3C_FB_PIXEL_FORMAT_RGBX_8888;
 	case HAL_PIXEL_FORMAT_RGBA_5551:
 		return S3C_FB_PIXEL_FORMAT_RGBA_5551;
 	case HAL_PIXEL_FORMAT_RGBA_4444:
@@ -147,7 +143,8 @@ static bool exynos5_format_is_supported(int format)
 static bool exynos5_format_is_supported_by_gscaler(int format)
 {
 	switch(format) {
-	case HAL_PIXEL_FORMAT_RGB_888:
+	case HAL_PIXEL_FORMAT_RGBA_8888:
+	case HAL_PIXEL_FORMAT_RGBX_8888:
 	case HAL_PIXEL_FORMAT_RGB_565:
 	case HAL_PIXEL_FORMAT_YV12:
 		return true;
@@ -161,13 +158,9 @@ static uint8_t exynos5_format_to_bpp(int format)
 {
 	switch (format) {
 	case HAL_PIXEL_FORMAT_RGBA_8888:
-	case HAL_PIXEL_FORMAT_BGRA_8888:
+	case HAL_PIXEL_FORMAT_RGBX_8888:
 		return 32;
 
-	case HAL_PIXEL_FORMAT_RGB_888:
-		return 24;
-
-	case HAL_PIXEL_FORMAT_RGB_565:
 	case HAL_PIXEL_FORMAT_RGBA_5551:
 	case HAL_PIXEL_FORMAT_RGBA_4444:
 		return 16;
@@ -316,8 +309,8 @@ static void exynos5_config_handle(private_handle_t *handle,
 	cfg.stride = handle->stride * bpp / 8;
 }
 
-
-static void exynos5_config_overlay(hwc_layer_t *layer, s3c_fb_win_config &cfg)
+static void exynos5_config_overlay(hwc_layer_t *layer, s3c_fb_win_config &cfg,
+		const private_module_t *gralloc_module)
 {
 	if (!layer)
 		return;
@@ -326,6 +319,10 @@ static void exynos5_config_overlay(hwc_layer_t *layer, s3c_fb_win_config &cfg)
 		hwc_color_t color = layer->backgroundColor;
 		cfg.state = cfg.S3C_FB_WIN_STATE_COLOR;
 		cfg.color = (color.r << 16) | (color.g << 8) | color.b;
+		cfg.x = 0;
+		cfg.y = 0;
+		cfg.w = gralloc_module->xres;
+		cfg.h = gralloc_module->yres;
 		return;
 	}
 
@@ -347,7 +344,8 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
 			hwc_rect_t rect = { 0, 0, fb->width, fb->height };
 			exynos5_config_handle(fb, rect, rect, config[i]);
 		} else
-			exynos5_config_overlay(pdata->overlays[i], config[i]);
+			exynos5_config_overlay(pdata->overlays[i], config[i],
+					pdata->pdev->gralloc_module);
 		dump_config(config[i]);
 	}
 
