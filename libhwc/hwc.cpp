@@ -49,7 +49,7 @@ struct hwc_callback_entry
 };
 typedef android::Vector<struct hwc_callback_entry> hwc_callback_queue_t;
 
-const size_t NUM_HW_WINDOWS = 5;
+const size_t NUM_HW_WINDOWS = 2;
 const size_t NO_FB_NEEDED = NUM_HW_WINDOWS + 1;
 
 struct exynos5_hwc_composer_device_t;
@@ -172,14 +172,14 @@ static uint8_t exynos5_format_to_bpp(int format)
 }
 
 bool exynos5_supports_overlay(hwc_layer_t &layer, size_t i) {
-/*	private_handle_t *handle = private_handle_t::dynamicCast(layer.handle);
+	private_handle_t *handle = private_handle_t::dynamicCast(layer.handle);
 
 	if (!handle) {
-		ALOGW("\tlayer %u: handle is NULL", i);
+		ALOGV("\tlayer %u: handle is NULL", i);
 		return false;
 	}
 	if (!exynos5_format_is_supported(handle->format)) {
-		ALOGW("\tlayer %u: pixel format %u not supported", i,
+		ALOGV("\tlayer %u: pixel format %u not supported", i,
 				handle->format);
 		return false;
 	}
@@ -187,19 +187,16 @@ bool exynos5_supports_overlay(hwc_layer_t &layer, size_t i) {
 		// TODO: this can be made into an overlay if a gscaler
 		// unit is available.  Also some size and pixel format
 		// limitations (see 46-3 of datasheet)
-		ALOGW("\tlayer %u: scaling and transforming not supported", i);
+		ALOGV("\tlayer %u: scaling and transforming not supported", i);
 		return false;
 	}
 	if (layer.blending != HWC_BLENDING_NONE) {
 		// TODO: support this
-		ALOGW("\tlayer %u: blending not supported", i);
+		ALOGV("\tlayer %u: blending not supported", i);
 		return false;
 	}
 
-	return true;*/
-
-	return false;
-	// for debugging purposes, everything goes into a framebuffer
+	return true;
 }
 
 static int exynos5_prepare(hwc_composer_device_t *dev, hwc_layer_list_t* list)
