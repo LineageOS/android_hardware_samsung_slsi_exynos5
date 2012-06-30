@@ -29,6 +29,8 @@
 
 #include <EGL/egl.h>
 
+#define HWC_REMOVE_DEPRECATED_VERSIONS 1
+
 #include <cutils/log.h>
 #include <hardware/gralloc.h>
 #include <hardware/hardware.h>
@@ -52,16 +54,21 @@ typedef android::Vector<struct hwc_callback_entry> hwc_callback_queue_t;
 const size_t NUM_HW_WINDOWS = 2;
 const size_t NO_FB_NEEDED = NUM_HW_WINDOWS + 1;
 
-struct exynos5_hwc_composer_device_t;
+struct exynos5_hwc_composer_device_1_t;
 
 struct exynos5_hwc_post_data_t {
-	exynos5_hwc_composer_device_t	*pdev;
-	hwc_layer_t		*overlays[NUM_HW_WINDOWS];
+	exynos5_hwc_composer_device_1_t	*pdev;
+    int                 overlay_map[NUM_HW_WINDOWS];
+	hwc_layer_1_t		overlays[NUM_HW_WINDOWS];
+    int                 num_overlays;
 	size_t			fb_window;
+    int                 fence;
+    pthread_mutex_t     completion_lock;
+    pthread_cond_t      completion;
 };
 
-struct exynos5_hwc_composer_device_t {
-	hwc_composer_device_t	base;
+struct exynos5_hwc_composer_device_1_t {
+	hwc_composer_device_1_t	base;
 
 	int			fd;
 	exynos5_hwc_post_data_t	bufs;
@@ -71,7 +78,7 @@ struct exynos5_hwc_composer_device_t {
 	pthread_t		vsync_thread;
 };
 
-static void dump_layer(hwc_layer_t const *l)
+static void dump_layer(hwc_layer_1_t const *l)
 {
 	ALOGV("\ttype=%d, flags=%08x, handle=%p, tr=%02x, blend=%04x, "
 			"{%d,%d,%d,%d}, {%d,%d,%d,%d}",
@@ -112,7 +119,7 @@ static void dump_config(s3c_fb_win_config &c)
 inline int WIDTH(const hwc_rect &rect) { return rect.right - rect.left; }
 inline int HEIGHT(const hwc_rect &rect) { return rect.bottom - rect.top; }
 
-static bool is_scaled(const hwc_layer_t &layer)
+static bool is_scaled(const hwc_layer_1_t &layer)
 {
 	return WIDTH(layer.displayFrame) != WIDTH(layer.sourceCrop) ||
 			HEIGHT(layer.displayFrame) != HEIGHT(layer.sourceCrop);
@@ -171,7 +178,7 @@ static uint8_t exynos5_format_to_bpp(int format)
 	}
 }
 
-bool exynos5_supports_overlay(hwc_layer_t &layer, size_t i) {
+bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i) {
 	private_handle_t *handle = private_handle_t::dynamicCast(layer.handle);
 
 	if (!handle) {
@@ -199,23 +206,26 @@ bool exynos5_supports_overlay(hwc_layer_t &layer, size_t i) {
 	return true;
 }
 
-static int exynos5_prepare(hwc_composer_device_t *dev, hwc_layer_list_t* list)
+static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* list)
 {
 	if (!list)
 		return 0;
 
 	ALOGV("preparing %u layers", list->numHwLayers);
 
-	exynos5_hwc_composer_device_t *pdev =
-			(exynos5_hwc_composer_device_t *)dev;
+	exynos5_hwc_composer_device_1_t *pdev =
+			(exynos5_hwc_composer_device_1_t *)dev;
 	memset(pdev->bufs.overlays, 0, sizeof(pdev->bufs.overlays));
+
+    for (size_t i = 0; i < NUM_HW_WINDOWS; i++)
+        pdev->bufs.overlay_map[i] = -1;
 
 	bool fb_needed = false;
 	size_t first_fb = 0, last_fb;
 
 	// find unsupported overlays
 	for (size_t i = 0; i < list->numHwLayers; i++) {
-		hwc_layer_t &layer = list->hwLayers[i];
+		hwc_layer_1_t &layer = list->hwLayers[i];
 
 		if (layer.compositionType == HWC_BACKGROUND) {
 			ALOGV("\tlayer %u: background supported", i);
@@ -255,7 +265,7 @@ static int exynos5_prepare(hwc_composer_device_t *dev, hwc_layer_list_t* list)
 
 	// assign as many overlays as possible to windows
 	for (size_t i = 0; i < list->numHwLayers; i++) {
-		hwc_layer_t &layer = list->hwLayers[i];
+		hwc_layer_1_t &layer = list->hwLayers[i];
 
 		if (nextWindow == NUM_HW_WINDOWS) {
 			ALOGV("not enough windows to assign layer %u", i);
@@ -272,7 +282,7 @@ static int exynos5_prepare(hwc_composer_device_t *dev, hwc_layer_list_t* list)
 
 		if (layer.compositionType != HWC_FRAMEBUFFER) {
 			ALOGV("assigning layer %u to window %u", i, nextWindow);
-			pdev->bufs.overlays[nextWindow] = &layer;
+			pdev->bufs.overlay_map[nextWindow] = i;
 			nextWindow++;
 		}
 	}
@@ -308,12 +318,9 @@ static void exynos5_config_handle(private_handle_t *handle,
 	cfg.stride = handle->stride * bpp / 8;
 }
 
-static void exynos5_config_overlay(hwc_layer_t *layer, s3c_fb_win_config &cfg,
+static void exynos5_config_overlay(hwc_layer_1_t *layer, s3c_fb_win_config &cfg,
 		const private_module_t *gralloc_module)
 {
-	if (!layer)
-		return;
-
 	if (layer->compositionType == HWC_BACKGROUND) {
 		hwc_color_t color = layer->backgroundColor;
 		cfg.state = cfg.S3C_FB_WIN_STATE_COLOR;
@@ -342,9 +349,17 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
 		if (i == pdata->fb_window) {
 			hwc_rect_t rect = { 0, 0, fb->width, fb->height };
 			exynos5_config_handle(fb, rect, rect, config[i]);
-		} else
-			exynos5_config_overlay(pdata->overlays[i], config[i],
+		} else if ( pdata->overlay_map[i] != -1) {
+			exynos5_config_overlay(&pdata->overlays[i], config[i],
 					pdata->pdev->gralloc_module);
+            if (pdata->overlays[i].acquireFenceFd != -1) {
+                int err = sync_wait(pdata->overlays[i].acquireFenceFd, 100);
+                if (err != 0)
+                    ALOGW("fence for layer %zu didn't signal in 100 ms: %s",
+                          i, strerror(errno));
+                close(pdata->overlays[i].acquireFenceFd);
+            }
+        }
 		dump_config(config[i]);
 	}
 
@@ -352,16 +367,17 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
 	if (ret < 0)
 		ALOGE("ioctl S3CFB_WIN_CONFIG failed: %d", errno);
 
-	sync_wait(win_data.fence, 1000);
-	close(win_data.fence);
-	free(pdata);
+    pthread_mutex_lock(&pdata->completion_lock);
+    pdata->fence = win_data.fence;
+    pthread_cond_signal(&pdata->completion);
+    pthread_mutex_unlock(&pdata->completion_lock);
 }
 
-static int exynos5_set(struct hwc_composer_device *dev, hwc_display_t dpy,
-		hwc_surface_t sur, hwc_layer_list_t* list)
+static int exynos5_set(struct hwc_composer_device_1 *dev, hwc_display_t dpy,
+		hwc_surface_t sur, hwc_layer_list_1_t* list)
 {
-	exynos5_hwc_composer_device_t *pdev =
-			(exynos5_hwc_composer_device_t *)dev;
+	exynos5_hwc_composer_device_1_t *pdev =
+			(exynos5_hwc_composer_device_1_t *)dev;
 
 	if (!dpy || !sur)
 		return 0;
@@ -371,56 +387,83 @@ static int exynos5_set(struct hwc_composer_device *dev, hwc_display_t dpy,
 	exynos5_hwc_post_data_t *data = NULL;
 
 	if (list) {
+        for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
+            if (pdev->bufs.overlay_map[i] != -1) {
+                pdev->bufs.overlays[i] =
+                    list->hwLayers[pdev->bufs.overlay_map[i]];
+            }
+        }
+
 		data = (exynos5_hwc_post_data_t *)
 				malloc(sizeof(exynos5_hwc_post_data_t));
 		memcpy(data, &pdev->bufs, sizeof(pdev->bufs));
 
+        data->fence = -1;
+        pthread_mutex_init(&data->completion_lock, NULL);
+        pthread_cond_init(&data->completion, NULL);
+
 		if (pdev->bufs.fb_window == NO_FB_NEEDED) {
 			exynos5_post_callback(data, NULL);
-			return 0;
-		}
+		} else {
 
-		struct hwc_callback_entry entry;
-		entry.callback = exynos5_post_callback;
-		entry.data = data;
+            struct hwc_callback_entry entry;
+            entry.callback = exynos5_post_callback;
+            entry.data = data;
 
-		queue = reinterpret_cast<hwc_callback_queue_t *>(
-			pdev->gralloc_module->queue);
-		lock = const_cast<pthread_mutex_t *>(
-			&pdev->gralloc_module->queue_lock);
+            queue = reinterpret_cast<hwc_callback_queue_t *>(
+                pdev->gralloc_module->queue);
+            lock = const_cast<pthread_mutex_t *>(
+                &pdev->gralloc_module->queue_lock);
 
-		pthread_mutex_lock(lock);
-		queue->push_front(entry);
-		pthread_mutex_unlock(lock);
+            pthread_mutex_lock(lock);
+            queue->push_front(entry);
+            pthread_mutex_unlock(lock);
+
+            EGLBoolean success = eglSwapBuffers((EGLDisplay)dpy, (EGLSurface)sur);
+            if (!success) {
+                ALOGE("HWC_EGL_ERROR");
+                if (list) {
+                    pthread_mutex_lock(lock);
+                    queue->removeAt(0);
+                    pthread_mutex_unlock(lock);
+                    free(data);
+                }
+                return HWC_EGL_ERROR;
+            }
+        }
 	}
 
-	EGLBoolean success = eglSwapBuffers((EGLDisplay)dpy, (EGLSurface)sur);
-	if (!success) {
-		ALOGE("HWC_EGL_ERROR");
-		if (list) {
-			pthread_mutex_lock(lock);
-			queue->removeAt(0);
-			pthread_mutex_unlock(lock);
-			free(data);
-		}
-		return HWC_EGL_ERROR;
-	}
 
+    pthread_mutex_lock(&data->completion_lock);
+    while (data->fence == -1)
+        pthread_cond_wait(&data->completion, &data->completion_lock);
+    pthread_mutex_unlock(&data->completion_lock);
+
+    for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
+        if (pdev->bufs.overlay_map[i] != -1) {
+            int dup_fd = dup(data->fence);
+            if (dup_fd < 0)
+                ALOGW("release fence dup failed: %s", strerror(errno));
+            list->hwLayers[pdev->bufs.overlay_map[i]].releaseFenceFd = dup_fd;
+        }
+    }
+    close(data->fence);
+    free(data);
 	return 0;
 }
 
-static void exynos5_registerProcs(struct hwc_composer_device* dev,
+static void exynos5_registerProcs(struct hwc_composer_device_1* dev,
 		hwc_procs_t const* procs)
 {
-	struct exynos5_hwc_composer_device_t* pdev =
-			(struct exynos5_hwc_composer_device_t*)dev;
+	struct exynos5_hwc_composer_device_1_t* pdev =
+			(struct exynos5_hwc_composer_device_1_t*)dev;
 	pdev->procs = const_cast<hwc_procs_t *>(procs);
 }
 
-static int exynos5_query(struct hwc_composer_device* dev, int what, int *value)
+static int exynos5_query(struct hwc_composer_device_1* dev, int what, int *value)
 {
-	struct exynos5_hwc_composer_device_t *pdev =
-			(struct exynos5_hwc_composer_device_t *)dev;
+	struct exynos5_hwc_composer_device_1_t *pdev =
+			(struct exynos5_hwc_composer_device_1_t *)dev;
 
 	switch (what) {
 	case HWC_BACKGROUND_LAYER_SUPPORTED:
@@ -438,11 +481,11 @@ static int exynos5_query(struct hwc_composer_device* dev, int what, int *value)
 	return 0;
 }
 
-static int exynos5_eventControl(struct hwc_composer_device *dev, int event,
+static int exynos5_eventControl(struct hwc_composer_device_1 *dev, int event,
 		int enabled)
 {
-	struct exynos5_hwc_composer_device_t *pdev =
-			(struct exynos5_hwc_composer_device_t *)dev;
+	struct exynos5_hwc_composer_device_1_t *pdev =
+			(struct exynos5_hwc_composer_device_1_t *)dev;
 
 	switch (event) {
 	case HWC_EVENT_VSYNC:
@@ -459,7 +502,7 @@ static int exynos5_eventControl(struct hwc_composer_device *dev, int event,
 	return -EINVAL;
 }
 
-static void handle_vsync_uevent(struct exynos5_hwc_composer_device_t *pdev,
+static void handle_vsync_uevent(struct exynos5_hwc_composer_device_1_t *pdev,
 		const char *buff, int len)
 {
 	uint64_t timestamp = 0;
@@ -484,8 +527,8 @@ static void handle_vsync_uevent(struct exynos5_hwc_composer_device_t *pdev,
 
 static void *hwc_vsync_thread(void *data)
 {
-	struct exynos5_hwc_composer_device_t *pdev =
-			(struct exynos5_hwc_composer_device_t *)data;
+	struct exynos5_hwc_composer_device_1_t *pdev =
+			(struct exynos5_hwc_composer_device_1_t *)data;
 	char uevent_desc[4096];
 	memset(uevent_desc, 0, sizeof(uevent_desc));
 
@@ -505,7 +548,7 @@ static void *hwc_vsync_thread(void *data)
 	return NULL;
 }
 
-struct hwc_methods exynos5_methods = {
+struct hwc_methods_1 exynos5_methods = {
 	eventControl: exynos5_eventControl,
 };
 
@@ -520,8 +563,8 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
 		return -EINVAL;
 	}
 
-	struct exynos5_hwc_composer_device_t *dev;
-	dev = (struct exynos5_hwc_composer_device_t *)malloc(sizeof(*dev));
+	struct exynos5_hwc_composer_device_1_t *dev;
+	dev = (struct exynos5_hwc_composer_device_1_t *)malloc(sizeof(*dev));
 	memset(dev, 0, sizeof(*dev));
 
 	if (hw_get_module(GRALLOC_HARDWARE_MODULE_ID,
@@ -539,7 +582,7 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
 	}
 
 	dev->base.common.tag = HARDWARE_DEVICE_TAG;
-	dev->base.common.version = HWC_DEVICE_API_VERSION_0_3;
+	dev->base.common.version = HWC_DEVICE_API_VERSION_1_0;
 	dev->base.common.module = const_cast<hw_module_t *>(module);
 	dev->base.common.close = exynos5_close;
 
@@ -571,8 +614,8 @@ err_get_module:
 
 static int exynos5_close(hw_device_t *device)
 {
-	struct exynos5_hwc_composer_device_t *dev =
-			(struct exynos5_hwc_composer_device_t *)device;
+	struct exynos5_hwc_composer_device_1_t *dev =
+			(struct exynos5_hwc_composer_device_1_t *)device;
 	close(dev->fd);
 	return 0;
 }
