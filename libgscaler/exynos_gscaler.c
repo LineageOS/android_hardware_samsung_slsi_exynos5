@@ -726,7 +726,7 @@ set_hw:
 
     req_buf.count  = 1;
     req_buf.type   = info->buf_type;
-    req_buf.memory = V4L2_MEMORY_USERPTR;
+    req_buf.memory = V4L2_MEMORY_DMABUF;
     if (exynos_v4l2_reqbufs(fd, &req_buf) < 0) {
         ALOGE("%s::exynos_v4l2_reqbufs() fail", __func__);
         return false;
@@ -751,12 +751,12 @@ static bool m_exynos_gsc_set_addr(
 
     info->buffer.index    = 0;
     info->buffer.type     = info->buf_type;
-    info->buffer.memory   = V4L2_MEMORY_USERPTR;
+    info->buffer.memory   = V4L2_MEMORY_DMABUF;
     info->buffer.m.planes = info->planes;
     info->buffer.length   = info->format.fmt.pix_mp.num_planes;
 
     for (i = 0; i < info->format.fmt.pix_mp.num_planes; i++) {
-        info->buffer.m.planes[i].m.userptr = (unsigned long)info->addr[i];
+        info->buffer.m.planes[i].m.fd = (int)info->addr[i];
         info->buffer.m.planes[i].length    = plane_size[i];
         info->buffer.m.planes[i].bytesused = 0;
     }
@@ -1616,7 +1616,7 @@ int exynos_gsc_out_config(void *handle,
     }
 
     reqbuf.type   = fmt.type;
-    reqbuf.memory = V4L2_MEMORY_USERPTR;
+    reqbuf.memory = V4L2_MEMORY_DMABUF;
     reqbuf.count  = MAX_BUFFERS_GSCALER_OUT;
 
     if (exynos_v4l2_reqbufs(gsc_handle->gsc_vd_entity->fd, &reqbuf) < 0) {
@@ -1657,7 +1657,7 @@ int exynos_gsc_out_run(void *handle,
     src_planes = (src_planes == -1) ? 1 : src_planes;
 
     buf.type     = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-    buf.memory   = V4L2_MEMORY_USERPTR;
+    buf.memory   = V4L2_MEMORY_DMABUF;
     buf.length   = src_planes;
     buf.index    = gsc_handle->src.src_buf_idx;
     buf.m.planes = planes;
@@ -1673,7 +1673,7 @@ int exynos_gsc_out_run(void *handle,
     }
 
     for (i = 0; i < buf.length; i++) {
-        buf.m.planes[i].m.userptr = (unsigned long)gsc_handle->src.addr[i];
+        buf.m.planes[i].m.fd = (int)gsc_handle->src.addr[i];
         buf.m.planes[i].length    = plane_size[i];
         buf.m.planes[i].bytesused = plane_size[i];
     }
@@ -1715,7 +1715,7 @@ int exynos_gsc_out_run(void *handle,
         memset(&planes[i], 0, sizeof(struct v4l2_plane));
 
     buf.type     = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-    buf.memory   = V4L2_MEMORY_USERPTR;
+    buf.memory   = V4L2_MEMORY_DMABUF;
     buf.length   = src_planes;
     buf.m.planes = planes;
 
@@ -1764,7 +1764,7 @@ SKIP_STREAMOFF:
     /* Clear Buffer */
     /*todo: support for other buffer type & memory */
     reqbuf.type   = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-    reqbuf.memory = V4L2_MEMORY_USERPTR;
+    reqbuf.memory = V4L2_MEMORY_DMABUF;
     reqbuf.count  = 0;
 
     if (exynos_v4l2_reqbufs(gsc_handle->gsc_vd_entity->fd, &reqbuf) < 0) {
