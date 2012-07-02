@@ -18,8 +18,8 @@
 /*
  * @file      Exynos_OMX_Mpeg4dec.c
  * @brief
- * @author    SeungBeom Kim (sbcrux.kim@samsung.com)
  * @author    Yunji Kim (yunji.kim@samsung.com)
+ * @author    SeungBeom Kim (sbcrux.kim@samsung.com)
  * @version   2.0.0
  * @history
  *   2012.02.20 : Create

@@ -75,7 +75,7 @@ inline void Exynos_UpdateFrameSize(OMX_COMPONENTTYPE *pOMXComponent)
             exynosOutputPort->portDefinition.nBufferSize = (width * height * 3) / 2;
     }
 
-  return ;
+    return;
 }
 
 OMX_BOOL Exynos_Check_BufferProcess_State(EXYNOS_OMX_BASECOMPONENT *pExynosComponent, OMX_U32 nPortIndex)
@@ -678,7 +678,7 @@ OMX_ERRORTYPE Exynos_OMX_DstInputBufferProcess(OMX_HANDLETYPE hComponent)
                     ret = Exynos_OutputBufferGetQueue(pExynosComponent);
                     if (ret != OMX_ErrorNone) {
                         Exynos_OSAL_MutexUnlock(dstInputUseBuffer->bufferMutex);
-                       break;
+                        break;
                     }
                     Exynos_Shared_BufferToData(dstInputUseBuffer, &dstInputData, ONE_PLANE);
                     Exynos_ResetDataBuffer(dstInputUseBuffer);

@@ -37,19 +37,19 @@
 
 OSCL_EXPORT_REF int Exynos_OMX_COMPONENT_Library_Register(ExynosRegisterComponentType **exynosComponents)
 {
-	FunctionIn();
+    FunctionIn();
 
-	if (exynosComponents == NULL)
-		goto EXIT;
+    if (exynosComponents == NULL)
+        goto EXIT;
 
-	/* component 1 - video decoder H.264 */
-	Exynos_OSAL_Strcpy(exynosComponents[0]->componentName, EXYNOS_OMX_COMPONENT_H264_ENC);
-	Exynos_OSAL_Strcpy(exynosComponents[0]->roles[0], EXYNOS_OMX_COMPONENT_H264_ENC_ROLE);
-	exynosComponents[0]->totalRoleNum = MAX_COMPONENT_ROLE_NUM;
+    /* component 1 - video decoder H.264 */
+    Exynos_OSAL_Strcpy(exynosComponents[0]->componentName, EXYNOS_OMX_COMPONENT_H264_ENC);
+    Exynos_OSAL_Strcpy(exynosComponents[0]->roles[0], EXYNOS_OMX_COMPONENT_H264_ENC_ROLE);
+    exynosComponents[0]->totalRoleNum = MAX_COMPONENT_ROLE_NUM;
 
 EXIT:
-	FunctionOut();
+    FunctionOut();
 
-	return MAX_COMPONENT_NUM;
+    return MAX_COMPONENT_NUM;
 }
 

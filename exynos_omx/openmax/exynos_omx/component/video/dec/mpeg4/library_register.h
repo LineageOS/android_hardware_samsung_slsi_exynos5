@@ -33,7 +33,7 @@
 
 
 #define OSCL_EXPORT_REF __attribute__((visibility("default")))
-#define MAX_COMPONENT_NUM              2
+#define MAX_COMPONENT_NUM         2
 #define MAX_COMPONENT_ROLE_NUM    1
 
 /* MPEG4 */
@@ -57,4 +57,3 @@ OSCL_EXPORT_REF int Exynos_OMX_COMPONENT_Library_Register(
 #endif
 
 #endif
-

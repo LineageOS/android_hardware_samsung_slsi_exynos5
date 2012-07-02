@@ -482,7 +482,6 @@ static void Change_H263Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
     Set_H263Enc_Param(pExynosComponent);
 }
 
-
 OMX_ERRORTYPE GetCodecInputPrivateData(OMX_PTR codecBuffer, OMX_PTR addr[], OMX_U32 size[])
 {
     OMX_ERRORTYPE       ret = OMX_ErrorNone;
@@ -490,7 +489,6 @@ OMX_ERRORTYPE GetCodecInputPrivateData(OMX_PTR codecBuffer, OMX_PTR addr[], OMX_
 EXIT:
     return ret;
 }
-
 
 OMX_ERRORTYPE GetCodecOutputPrivateData(OMX_PTR codecBuffer, OMX_PTR *pVirtAddr, OMX_U32 *dataSize)
 {

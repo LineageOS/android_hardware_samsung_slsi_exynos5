@@ -176,7 +176,7 @@ EXIT:
     return ret;
 }
 
-static OMX_ERRORTYPE useAndroidNativeBuffer(
+OMX_ERRORTYPE useAndroidNativeBuffer(
     EXYNOS_OMX_BASEPORT      *pExynosPort,
     OMX_BUFFERHEADERTYPE **ppBufferHdr,
     OMX_U32                nPortIndex,
@@ -212,7 +212,6 @@ static OMX_ERRORTYPE useAndroidNativeBuffer(
         goto EXIT;
     }
     Exynos_OSAL_Memset(temp_bufferHeader, 0, sizeof(OMX_BUFFERHEADERTYPE));
-
 
     for (i = 0; i < pExynosPort->portDefinition.nBufferCountActual; i++) {
         if (pExynosPort->bufferStateAllocate[i] == BUFFER_STATE_FREE) {
@@ -550,18 +549,18 @@ OMX_ERRORTYPE Exynos_OSAL_GetInfoFromMetaData(OMX_IN OMX_BYTE pBuffer,
     Exynos_OSAL_Memcpy(&type, (MetadataBufferType *)pBuffer, sizeof(MetadataBufferType));
 
     if (type == kMetadataBufferTypeCameraSource) {
-		void *pAddress = NULL;
+        void *pAddress = NULL;
 
         /* Address. of Y */
         Exynos_OSAL_Memcpy(&pAddress, pBuffer + sizeof(MetadataBufferType), sizeof(void *));
-		ppBuf[0] = (void *)pAddress;
+        ppBuf[0] = (void *)pAddress;
 
         /* Address. of CbCr */
         Exynos_OSAL_Memcpy(&pAddress, pBuffer + sizeof(MetadataBufferType) + sizeof(void *), sizeof(void *));
-		ppBuf[1] = (void *)pAddress;
+        ppBuf[1] = (void *)pAddress;
 
     } else if (type == kMetadataBufferTypeGrallocSource) {
-		buffer_handle_t    pBufHandle;
+        buffer_handle_t    pBufHandle;
 
         /* buffer_handle_t */
         Exynos_OSAL_Memcpy(&pBufHandle, pBuffer + sizeof(MetadataBufferType), sizeof(buffer_handle_t));

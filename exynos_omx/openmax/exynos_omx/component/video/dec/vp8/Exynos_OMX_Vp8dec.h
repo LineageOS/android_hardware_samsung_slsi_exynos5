@@ -36,18 +36,18 @@
 
 typedef struct _EXYNOS_MFC_VP8DEC_HANDLE
 {
-    OMX_HANDLETYPE hMFCHandle;
-    OMX_U32  indexTimestamp;
-    OMX_U32  outputIndexTimestamp;
-    OMX_BOOL       bConfiguredMFCSrc;
-    OMX_BOOL       bConfiguredMFCDst;
-    OMX_U32        MAXDPBNum;
+    OMX_HANDLETYPE             hMFCHandle;
+    OMX_U32                    indexTimestamp;
+    OMX_U32                    outputIndexTimestamp;
+    OMX_BOOL                   bConfiguredMFCSrc;
+    OMX_BOOL                   bConfiguredMFCDst;
+    OMX_U32                    MAXDPBNum;
 
     ExynosVideoColorFormatType MFCOutputColorType;
-    ExynosVideoDecOps *pDecOps;
-    ExynosVideoDecBufferOps *pInbufOps;
-    ExynosVideoDecBufferOps *pOutbufOps;
-    ExynosVideoGeometry      codecOutbufConf;
+    ExynosVideoDecOps         *pDecOps;
+    ExynosVideoDecBufferOps   *pInbufOps;
+    ExynosVideoDecBufferOps   *pOutbufOps;
+    ExynosVideoGeometry        codecOutbufConf;
 } EXYNOS_MFC_VP8DEC_HANDLE;
 
 typedef struct _EXYNOS_VP8DEC_HANDLE

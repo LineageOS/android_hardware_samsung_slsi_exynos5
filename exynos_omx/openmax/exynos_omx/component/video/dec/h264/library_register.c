@@ -57,4 +57,3 @@ EXIT:
 
     return MAX_COMPONENT_NUM;
 }
-

@@ -36,11 +36,11 @@
 #include "Exynos_OMX_Basecomponent.h"
 #include "ExynosVideoApi.h"
 
-#define MAX_VIDEO_INPUTBUFFER_NUM    5
-#define MAX_VIDEO_OUTPUTBUFFER_NUM   2
+#define MAX_VIDEO_INPUTBUFFER_NUM           5
+#define MAX_VIDEO_OUTPUTBUFFER_NUM          2
 
-#define DEFAULT_FRAME_WIDTH          176
-#define DEFAULT_FRAME_HEIGHT         144
+#define DEFAULT_FRAME_WIDTH                 176
+#define DEFAULT_FRAME_HEIGHT                144
 
 #define DEFAULT_VIDEO_INPUT_BUFFER_SIZE    (DEFAULT_FRAME_WIDTH * DEFAULT_FRAME_HEIGHT) * 2
 #define DEFAULT_VIDEO_OUTPUT_BUFFER_SIZE   (DEFAULT_FRAME_WIDTH * DEFAULT_FRAME_HEIGHT * 3) / 2

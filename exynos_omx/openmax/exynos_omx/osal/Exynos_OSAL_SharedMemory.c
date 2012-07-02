@@ -301,4 +301,3 @@ OMX_PTR Exynos_OSAL_SharedMemory_IONToVirt(OMX_HANDLETYPE handle, int ion_addr)
 EXIT:
     return pBuffer;
 }
-

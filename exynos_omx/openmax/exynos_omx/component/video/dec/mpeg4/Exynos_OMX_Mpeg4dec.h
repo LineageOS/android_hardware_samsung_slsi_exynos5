@@ -18,8 +18,8 @@
 /*
  * @file        Exynos_OMX_Mpeg4dec.h
  * @brief
- * @author      SeungBeom Kim (sbcrux.kim@samsung.com)
  * @author      Yunji Kim (yunji.kim@samsung.com)
+ * @author      SeungBeom Kim (sbcrux.kim@samsung.com)
  * @version     2.0.0
  * @history
  *   2012.02.20 : Create
@@ -60,19 +60,19 @@ typedef struct _BitmapInfoHhr
 
 typedef struct _EXYNOS_MFC_MPEG4DEC_HANDLE
 {
-    OMX_HANDLETYPE hMFCHandle;
-    OMX_U32        indexTimestamp;
-    OMX_U32        outputIndexTimestamp;
-    OMX_BOOL       bConfiguredMFCSrc;
-    OMX_BOOL       bConfiguredMFCDst;
-    OMX_U32        MAXDPBNum;
-    CODEC_TYPE     codecType;
+    OMX_HANDLETYPE             hMFCHandle;
+    OMX_U32                    indexTimestamp;
+    OMX_U32                    outputIndexTimestamp;
+    OMX_BOOL                   bConfiguredMFCSrc;
+    OMX_BOOL                   bConfiguredMFCDst;
+    OMX_U32                    MAXDPBNum;
+    CODEC_TYPE                 codecType;
 
     ExynosVideoColorFormatType MFCOutputColorType;
-    ExynosVideoDecOps *pDecOps;
-    ExynosVideoDecBufferOps *pInbufOps;
-    ExynosVideoDecBufferOps *pOutbufOps;
-    ExynosVideoGeometry      codecOutbufConf;
+    ExynosVideoDecOps         *pDecOps;
+    ExynosVideoDecBufferOps   *pInbufOps;
+    ExynosVideoDecBufferOps   *pOutbufOps;
+    ExynosVideoGeometry        codecOutbufConf;
 } EXYNOS_MFC_MPEG4DEC_HANDLE;
 
 typedef struct _EXYNOS_MPEG4DEC_HANDLE
@@ -83,7 +83,7 @@ typedef struct _EXYNOS_MPEG4DEC_HANDLE
     OMX_VIDEO_PARAM_ERRORCORRECTIONTYPE errorCorrectionType[ALL_PORT_NUM];
 
     /* EXYNOS MFC Codec specific */
-    EXYNOS_MFC_MPEG4DEC_HANDLE             hMFCMpeg4Handle;
+    EXYNOS_MFC_MPEG4DEC_HANDLE          hMFCMpeg4Handle;
 
     OMX_BOOL bSourceStart;
     OMX_BOOL bDestinationStart;

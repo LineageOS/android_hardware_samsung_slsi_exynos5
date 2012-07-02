@@ -191,7 +191,7 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
     }
 
     if (pExynosPort->bufferProcessType == BUFFER_SHARE) {
-         temp_buffer = Exynos_OSAL_SharedMemory_Alloc(pVideoDec->hSharedMemory, nSizeBytes, NORMAL_MEMORY);
+        temp_buffer = Exynos_OSAL_SharedMemory_Alloc(pVideoDec->hSharedMemory, nSizeBytes, NORMAL_MEMORY);
         if (temp_buffer == NULL) {
             ret = OMX_ErrorInsufficientResources;
             goto EXIT;
@@ -566,7 +566,7 @@ OMX_ERRORTYPE Exynos_OMX_BufferFlush(OMX_COMPONENTTYPE *pOMXComponent, OMX_S32 n
         }
 
         pExynosComponent->pExynosPort[nPortIndex].bIsPortFlushed = OMX_FALSE;
-        Exynos_OSAL_Log(EXYNOS_LOG_TRACE,"OMX_CommandFlush EventCmdComplete, port:%d", pOMXComponent, nPortIndex);
+        Exynos_OSAL_Log(EXYNOS_LOG_TRACE,"OMX_CommandFlush EventCmdComplete, port:%d", nPortIndex);
         if (bEvent == OMX_TRUE)
             pExynosComponent->pCallbacks->EventHandler((OMX_HANDLETYPE)pOMXComponent,
                             pExynosComponent->callbackData,
@@ -1321,7 +1321,7 @@ OMX_ERRORTYPE Exynos_OMX_VideoEncodeSetParameter(
                 goto EXIT;
             }
         }
-        if(pPortDefinition->nBufferCountActual < pExynosPort->portDefinition.nBufferCountMin) {
+        if (pPortDefinition->nBufferCountActual < pExynosPort->portDefinition.nBufferCountMin) {
             ret = OMX_ErrorBadParameter;
             goto EXIT;
         }
