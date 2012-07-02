@@ -92,9 +92,6 @@ typedef struct _EXYNOS_OMX_BASECOMPONENT
     OMX_BOOL                    getAllDelayBuffer;
     OMX_BOOL                    reInputData;
 
-    /* Android CapabilityFlags */
-    OMXComponentCapabilityFlagsType capabilityFlags;
-
     OMX_BOOL bUseFlagEOF;
     OMX_BOOL bSaveFlagEOS;
 

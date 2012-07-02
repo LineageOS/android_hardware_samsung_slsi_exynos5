@@ -152,20 +152,6 @@ typedef enum _EXYNOS_OMX_BUFFERPROCESS_TYPE
     BUFFER_ANBSHARE = 0x08
 } EXYNOS_OMX_BUFFERPROCESS_TYPE;
 
-/* for Android PV OpenCore*/
-typedef struct _OMXComponentCapabilityFlagsType
-{
-    /* OMX COMPONENT CAPABILITY RELATED MEMBERS */
-    OMX_BOOL iIsOMXComponentMultiThreaded;
-    OMX_BOOL iOMXComponentSupportsExternalOutputBufferAlloc;
-    OMX_BOOL iOMXComponentSupportsExternalInputBufferAlloc;
-    OMX_BOOL iOMXComponentSupportsMovableInputBuffers;
-    OMX_BOOL iOMXComponentSupportsPartialFrames;
-    OMX_BOOL iOMXComponentUsesNALStartCodes;
-    OMX_BOOL iOMXComponentCanHandleIncompleteFrames;
-    OMX_BOOL iOMXComponentUsesFullAVCFrames;
-} OMXComponentCapabilityFlagsType;
-
 typedef struct _EXYNOS_OMX_VIDEO_PROFILELEVEL
 {
     OMX_S32  profile;

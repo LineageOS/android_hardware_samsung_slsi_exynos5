@@ -951,13 +951,6 @@ OMX_ERRORTYPE Exynos_OMX_GetParameter(
     }
 
     switch (nParamIndex) {
-    case (OMX_INDEXTYPE)OMX_COMPONENT_CAPABILITY_TYPE_INDEX:
-    {
-        /* For Android PV OpenCORE */
-        OMXComponentCapabilityFlagsType *capabilityFlags = (OMXComponentCapabilityFlagsType *)ComponentParameterStructure;
-        Exynos_OSAL_Memcpy(capabilityFlags, &pExynosComponent->capabilityFlags, sizeof(OMXComponentCapabilityFlagsType));
-    }
-        break;
     case OMX_IndexParamAudioInit:
     case OMX_IndexParamVideoInit:
     case OMX_IndexParamImageInit:

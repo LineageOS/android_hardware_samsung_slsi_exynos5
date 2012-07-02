@@ -2305,16 +2305,6 @@ OSCL_EXPORT_REF OMX_ERRORTYPE Exynos_OMX_ComponentInit(OMX_HANDLETYPE hComponent
     pExynosComponent->specVersion.s.nRevision     = REVISION_NUMBER;
     pExynosComponent->specVersion.s.nStep         = STEP_NUMBER;
 
-    /* Android CapabilityFlags */
-    pExynosComponent->capabilityFlags.iIsOMXComponentMultiThreaded                   = OMX_TRUE;
-    pExynosComponent->capabilityFlags.iOMXComponentSupportsExternalInputBufferAlloc  = OMX_TRUE;
-    pExynosComponent->capabilityFlags.iOMXComponentSupportsExternalOutputBufferAlloc = OMX_TRUE;
-    pExynosComponent->capabilityFlags.iOMXComponentSupportsMovableInputBuffers       = OMX_FALSE;
-    pExynosComponent->capabilityFlags.iOMXComponentSupportsPartialFrames             = OMX_FALSE;
-    pExynosComponent->capabilityFlags.iOMXComponentUsesNALStartCodes                 = OMX_TRUE;
-    pExynosComponent->capabilityFlags.iOMXComponentCanHandleIncompleteFrames         = OMX_TRUE;
-    pExynosComponent->capabilityFlags.iOMXComponentUsesFullAVCFrames                 = OMX_TRUE;
-
     /* Input port */
     pExynosPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
     pExynosPort->portDefinition.format.video.nFrameWidth = DEFAULT_FRAME_WIDTH;
