@@ -119,7 +119,6 @@ static void *MFC_Encoder_Init(void)
 {
     ExynosVideoEncContext *pCtx     = NULL;
     pthread_mutex_t       *pMutex   = NULL;
-
     int needCaps = (V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT | V4L2_CAP_STREAMING);
 
     pCtx = (ExynosVideoEncContext *)malloc(sizeof(*pCtx));
@@ -143,6 +142,8 @@ static void *MFC_Encoder_Init(void)
 
     pCtx->bStreamonInbuf = VIDEO_FALSE;
     pCtx->bStreamonOutbuf = VIDEO_FALSE;
+
+    pCtx->nMemoryType = V4L2_MEMORY_DMABUF;
 
     pMutex = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
     if (pMutex == NULL) {
@@ -1169,7 +1170,7 @@ static ExynosVideoErrorType MFC_Encoder_Setup_Inbuf(
     req.count = nBufferCount;
 
     if (pCtx->bShareInbuf == VIDEO_TRUE)
-        req.memory = V4L2_MEMORY_USERPTR;
+        req.memory = pCtx->nMemoryType;
     else
         req.memory = V4L2_MEMORY_MMAP;
 
@@ -1292,7 +1293,7 @@ static ExynosVideoErrorType MFC_Encoder_Setup_Outbuf(
     req.count = nBufferCount;
 
     if (pCtx->bShareOutbuf == VIDEO_TRUE)
-        req.memory = V4L2_MEMORY_USERPTR;
+        req.memory = pCtx->nMemoryType;
     else
         req.memory = V4L2_MEMORY_MMAP;
 
@@ -1816,7 +1817,7 @@ static ExynosVideoErrorType MFC_Encoder_Enqueue_Inbuf(
     buf.index = index;
 
     if (pCtx->bShareInbuf == VIDEO_TRUE) {
-        buf.memory = V4L2_MEMORY_USERPTR;
+        buf.memory = pCtx->nMemoryType;
         for (i = 0; i < nPlanes; i++) {
             buf.m.planes[i].m.userptr = (unsigned long)pBuffer[i];
             buf.m.planes[i].length = pCtx->pInbuf[index].planes[i].allocSize;
@@ -1903,7 +1904,7 @@ static ExynosVideoErrorType MFC_Encoder_Enqueue_Outbuf(
     buf.index = index;
 
     if (pCtx->bShareOutbuf == VIDEO_TRUE) {
-        buf.memory = V4L2_MEMORY_USERPTR;
+        buf.memory = pCtx->nMemoryType;
         for (i = 0; i < nPlanes; i++) {
             buf.m.planes[i].m.userptr = pCtx->pOutbuf[index].planes[i].addr;
             buf.m.planes[i].length = pCtx->pOutbuf[index].planes[i].allocSize;
@@ -1991,7 +1992,7 @@ static ExynosVideoBuffer *MFC_Encoder_Dequeue_Inbuf(void *pHandle)
     buf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
 
     if (pCtx->bShareInbuf == VIDEO_TRUE)
-        buf.memory = V4L2_MEMORY_USERPTR;
+        buf.memory = pCtx->nMemoryType;
     else
         buf.memory = V4L2_MEMORY_MMAP;
 
@@ -2037,7 +2038,7 @@ static ExynosVideoBuffer *MFC_Encoder_Dequeue_Outbuf(void *pHandle)
     buf.length = 1;
 
     if (pCtx->bShareOutbuf == VIDEO_TRUE)
-        buf.memory = V4L2_MEMORY_USERPTR;
+        buf.memory = pCtx->nMemoryType;
     else
         buf.memory = V4L2_MEMORY_MMAP;
 

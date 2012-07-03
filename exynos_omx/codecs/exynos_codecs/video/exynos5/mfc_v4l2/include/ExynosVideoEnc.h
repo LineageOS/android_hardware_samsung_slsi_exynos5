@@ -41,6 +41,7 @@ typedef struct _ExynosVideoEncContext {
     void                *pPrivate;
     void                *pInMutex;
     void                *pOutMutex;
+    int                  nMemoryType;
 } ExynosVideoEncContext;
 
 #endif /* _EXYNOS_VIDEO_ENC_H_ */

@@ -137,12 +137,13 @@ static void *MFC_Decoder_Init(void)
     pCtx->bStreamonInbuf = VIDEO_FALSE;
     pCtx->bStreamonOutbuf = VIDEO_FALSE;
 
+    pCtx->nMemoryType = V4L2_MEMORY_DMABUF;
+
     pMutex = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
     if (pMutex == NULL) {
         ALOGE("%s: Failed to allocate mutex about input buffer", __func__);
         goto EXIT_QUERYCAP_FAIL;
     }
-
     if (pthread_mutex_init(pMutex, NULL) != 0) {
         free(pMutex);
         goto EXIT_QUERYCAP_FAIL;
@@ -154,7 +155,6 @@ static void *MFC_Decoder_Init(void)
         ALOGE("%s: Failed to allocate mutex about output buffer", __func__);
         goto EXIT_QUERYCAP_FAIL;
     }
-
     if (pthread_mutex_init(pMutex, NULL) != 0) {
         free(pMutex);
         goto EXIT_QUERYCAP_FAIL;
@@ -826,7 +826,7 @@ static ExynosVideoErrorType MFC_Decoder_Setup_Inbuf(
     req.count = nBufferCount;
 
     if (pCtx->bShareInbuf == VIDEO_TRUE)
-        req.memory = V4L2_MEMORY_DMABUF;
+        req.memory = pCtx->nMemoryType;
     else
         req.memory = V4L2_MEMORY_MMAP;
 
@@ -942,7 +942,7 @@ static ExynosVideoErrorType MFC_Decoder_Setup_Outbuf(
     req.count = nBufferCount;
 
     if (pCtx->bShareOutbuf == VIDEO_TRUE)
-        req.memory = V4L2_MEMORY_DMABUF;
+        req.memory = pCtx->nMemoryType;
     else
         req.memory = V4L2_MEMORY_MMAP;
 
@@ -1419,7 +1419,7 @@ static ExynosVideoErrorType MFC_Decoder_Enqueue_Inbuf(
     buf.index = index;
 
     if (pCtx->bShareInbuf == VIDEO_TRUE) {
-        buf.memory = V4L2_MEMORY_DMABUF;
+        buf.memory = pCtx->nMemoryType;
         for (i = 0; i < nPlanes; i++) {
             buf.m.planes[i].m.fd = pCtx->pInbuf[index].planes[i].fd;
             buf.m.planes[i].length = pCtx->pInbuf[index].planes[i].allocSize;
@@ -1509,7 +1509,7 @@ static ExynosVideoErrorType MFC_Decoder_Enqueue_Outbuf(
     buf.index = index;
 
     if (pCtx->bShareOutbuf == VIDEO_TRUE) {
-        buf.memory = V4L2_MEMORY_DMABUF;
+        buf.memory = pCtx->nMemoryType;
         for (i = 0; i < nPlanes; i++) {
             buf.m.planes[i].m.fd = pCtx->pOutbuf[index].planes[i].fd;
             buf.m.planes[i].length = pCtx->pOutbuf[index].planes[i].allocSize;
@@ -1576,7 +1576,7 @@ static ExynosVideoBuffer *MFC_Decoder_Dequeue_Inbuf(void *pHandle)
     buf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
 
     if (pCtx->bShareInbuf == VIDEO_TRUE)
-        buf.memory = V4L2_MEMORY_DMABUF;
+        buf.memory = pCtx->nMemoryType;
     else
         buf.memory = V4L2_MEMORY_MMAP;
 
@@ -1649,11 +1649,10 @@ static ExynosVideoBuffer *MFC_Decoder_Dequeue_Outbuf(void *pHandle)
     }
 
     memset(&buf, 0, sizeof(buf));
-
     buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 
     if (pCtx->bShareOutbuf == VIDEO_TRUE)
-        buf.memory = V4L2_MEMORY_DMABUF;
+        buf.memory = pCtx->nMemoryType;
     else
         buf.memory = V4L2_MEMORY_MMAP;
 
