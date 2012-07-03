@@ -33,6 +33,7 @@
 #include <cutils/log.h>
 #include <cutils/atomic.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 
 #include "Exynos_OSAL_SharedMemory.h"
 #include "ion.h"
@@ -40,33 +41,32 @@
 #define EXYNOS_LOG_OFF
 #include "Exynos_OSAL_Log.h"
 
-
 static int mem_cnt = 0;
 
-
-struct SEC_OMX_SHAREDMEM_LIST;
-typedef struct _SEC_OMX_SHAREDMEM_LIST
+struct EXYNOS_SHAREDMEM_LIST;
+typedef struct _EXYNOS_SHAREDMEM_LIST
 {
-    OMX_U32 ion_buffer;
-    OMX_PTR mapAddr;
-    OMX_U32 allocSize;
-    struct _SEC_OMX_SHAREDMEM_LIST *nextMemory;
-} SEC_OMX_SHAREDMEM_LIST;
+    OMX_U32                        IONBuffer;
+    OMX_PTR                        mapAddr;
+    OMX_U32                        allocSize;
+    struct _EXYNOS_SHAREDMEM_LIST *pNextMemory;
+} EXYNOS_SHAREDMEM_LIST;
 
-typedef struct _EXYNOS_OMX_SHARE_MEMORY
+typedef struct _EXYNOS_SHARED_MEMORY
 {
-    OMX_HANDLETYPE pIONHandle;
-    SEC_OMX_SHAREDMEM_LIST *pAllocMemory;
-    OMX_HANDLETYPE SMMutex;
-} EXYNOS_OMX_SHARE_MEMORY;
+    OMX_HANDLETYPE         hIONHandle;
+    EXYNOS_SHAREDMEM_LIST *pAllocMemory;
+    OMX_HANDLETYPE         hSMMutex;
+} EXYNOS_SHARED_MEMORY;
 
 
 OMX_HANDLETYPE Exynos_OSAL_SharedMemory_Open()
 {
-    EXYNOS_OMX_SHARE_MEMORY *pHandle = NULL;
-    ion_client IONClient = 0;
-    pHandle = (EXYNOS_OMX_SHARE_MEMORY *)Exynos_OSAL_Malloc(sizeof(EXYNOS_OMX_SHARE_MEMORY));
-    Exynos_OSAL_Memset(pHandle, 0, sizeof(EXYNOS_OMX_SHARE_MEMORY));
+    EXYNOS_SHARED_MEMORY *pHandle = NULL;
+    ion_client            IONClient = 0;
+
+    pHandle = (EXYNOS_SHARED_MEMORY *)Exynos_OSAL_Malloc(sizeof(EXYNOS_SHARED_MEMORY));
+    Exynos_OSAL_Memset(pHandle, 0, sizeof(EXYNOS_SHARED_MEMORY));
     if (pHandle == NULL)
         goto EXIT;
 
@@ -78,9 +78,9 @@ OMX_HANDLETYPE Exynos_OSAL_SharedMemory_Open()
         goto EXIT;
     }
 
-    pHandle->pIONHandle = IONClient;
+    pHandle->hIONHandle = IONClient;
 
-    Exynos_OSAL_MutexCreate(&pHandle->SMMutex);
+    Exynos_OSAL_MutexCreate(&pHandle->hSMMutex);
 
 EXIT:
     return (OMX_HANDLETYPE)pHandle;
@@ -88,34 +88,66 @@ EXIT:
 
 void Exynos_OSAL_SharedMemory_Close(OMX_HANDLETYPE handle)
 {
-    EXYNOS_OMX_SHARE_MEMORY *pHandle = (EXYNOS_OMX_SHARE_MEMORY *)handle;
+    EXYNOS_SHARED_MEMORY  *pHandle = (EXYNOS_SHARED_MEMORY *)handle;
+    EXYNOS_SHAREDMEM_LIST *pSMList = NULL;
+    EXYNOS_SHAREDMEM_LIST *pCurrentElement = NULL;
+    EXYNOS_SHAREDMEM_LIST *pDeleteElement = NULL;
 
-    Exynos_OSAL_MutexTerminate(pHandle->SMMutex);
-    pHandle->SMMutex = NULL;
+    if (pHandle == NULL)
+        goto EXIT;
 
-    ion_client_destroy((ion_client)pHandle->pIONHandle);
-    pHandle->pIONHandle = NULL;
+    Exynos_OSAL_MutexLock(pHandle->hSMMutex);
+    pCurrentElement = pSMList = pHandle->pAllocMemory;
+
+    while (pCurrentElement != NULL) {
+        pDeleteElement = pCurrentElement;
+        pCurrentElement = pCurrentElement->pNextMemory;
+
+        if (ion_unmap(pDeleteElement->mapAddr, pDeleteElement->allocSize))
+            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "ion_unmap fail");
+
+        pDeleteElement->mapAddr = NULL;
+        pDeleteElement->allocSize = 0;
+
+        ion_free(pDeleteElement->IONBuffer);
+        pDeleteElement->IONBuffer = 0;
+
+        Exynos_OSAL_Free(pDeleteElement);
+
+        mem_cnt--;
+        Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "SharedMemory free count: %d", mem_cnt);
+    }
+
+    pHandle->pAllocMemory = pSMList = NULL;
+    Exynos_OSAL_MutexUnlock(pHandle->hSMMutex);
+
+    Exynos_OSAL_MutexTerminate(pHandle->hSMMutex);
+    pHandle->hSMMutex = NULL;
+
+    ion_client_destroy((ion_client)pHandle->hIONHandle);
+    pHandle->hIONHandle = NULL;
 
     Exynos_OSAL_Free(pHandle);
 
+EXIT:
     return;
 }
 
 OMX_PTR Exynos_OSAL_SharedMemory_Alloc(OMX_HANDLETYPE handle, OMX_U32 size, MEMORY_TYPE memoryType)
 {
-    EXYNOS_OMX_SHARE_MEMORY *pHandle = (EXYNOS_OMX_SHARE_MEMORY *)handle;
-    SEC_OMX_SHAREDMEM_LIST *SMList = NULL;
-    SEC_OMX_SHAREDMEM_LIST *Element = NULL;
-    SEC_OMX_SHAREDMEM_LIST *currentElement = NULL;
-    ion_buffer IONBuffer = 0;
-    OMX_PTR pBuffer = NULL;
+    EXYNOS_SHARED_MEMORY  *pHandle         = (EXYNOS_SHARED_MEMORY *)handle;
+    EXYNOS_SHAREDMEM_LIST *pSMList         = NULL;
+    EXYNOS_SHAREDMEM_LIST *pElement        = NULL;
+    EXYNOS_SHAREDMEM_LIST *pCurrentElement = NULL;
+    ion_buffer             IONBuffer       = 0;
+    OMX_PTR                pBuffer         = NULL;
     unsigned int heap;
 
     if (pHandle == NULL)
         goto EXIT;
 
-    Element = (SEC_OMX_SHAREDMEM_LIST *)Exynos_OSAL_Malloc(sizeof(SEC_OMX_SHAREDMEM_LIST));
-    Exynos_OSAL_Memset(Element, 0, sizeof(SEC_OMX_SHAREDMEM_LIST));
+    pElement = (EXYNOS_SHAREDMEM_LIST *)Exynos_OSAL_Malloc(sizeof(EXYNOS_SHAREDMEM_LIST));
+    Exynos_OSAL_Memset(pElement, 0, sizeof(EXYNOS_SHAREDMEM_LIST));
 
     if (memoryType == SECURE_MEMORY)
         heap = ION_HEAP_EXYNOS_VIDEO_MASK;
@@ -126,39 +158,40 @@ OMX_PTR Exynos_OSAL_SharedMemory_Alloc(OMX_HANDLETYPE handle, OMX_U32 size, MEMO
     else
         return NULL;
 
-    IONBuffer = (OMX_PTR)ion_alloc((ion_client)pHandle->pIONHandle, size, 0, heap, 0);
+    IONBuffer = ion_alloc((ion_client)pHandle->hIONHandle, size, 0, heap, 0);
 
     if (IONBuffer <= 0) {
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "ion_alloc Error: %d", IONBuffer);
-        Exynos_OSAL_Free((void*)Element);
+        Exynos_OSAL_Free((OMX_PTR)pElement);
         goto EXIT;
     }
 
     pBuffer = ion_map(IONBuffer, size, 0);
-    if (pBuffer == NULL) {
+    if (pBuffer == MAP_FAILED) {
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "ion_map Error");
         ion_free(IONBuffer);
-        Exynos_OSAL_Free((void*)Element);
+        Exynos_OSAL_Free((OMX_PTR)pElement);
+        pBuffer = NULL;
         goto EXIT;
     }
 
-    Element->ion_buffer = IONBuffer;
-    Element->mapAddr = pBuffer;
-    Element->allocSize = size;
-    Element->nextMemory = NULL;
+    pElement->IONBuffer = IONBuffer;
+    pElement->mapAddr = pBuffer;
+    pElement->allocSize = size;
+    pElement->pNextMemory = NULL;
 
-    Exynos_OSAL_MutexLock(pHandle->SMMutex);
-    SMList = pHandle->pAllocMemory;
-    if (SMList == NULL) {
-        pHandle->pAllocMemory = SMList = Element;
+    Exynos_OSAL_MutexLock(pHandle->hSMMutex);
+    pSMList = pHandle->pAllocMemory;
+    if (pSMList == NULL) {
+        pHandle->pAllocMemory = pSMList = pElement;
     } else {
-        currentElement = SMList;
-        while (currentElement->nextMemory != NULL) {
-            currentElement = currentElement->nextMemory;
+        pCurrentElement = pSMList;
+        while (pCurrentElement->pNextMemory != NULL) {
+            pCurrentElement = pCurrentElement->pNextMemory;
         }
-        currentElement->nextMemory = Element;
+        pCurrentElement->pNextMemory = pElement;
     }
-    Exynos_OSAL_MutexUnlock(pHandle->SMMutex);
+    Exynos_OSAL_MutexUnlock(pHandle->hSMMutex);
 
     mem_cnt++;
     Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "SharedMemory alloc count: %d", mem_cnt);
@@ -169,51 +202,53 @@ EXIT:
 
 void Exynos_OSAL_SharedMemory_Free(OMX_HANDLETYPE handle, OMX_PTR pBuffer)
 {
-    EXYNOS_OMX_SHARE_MEMORY *pHandle = (EXYNOS_OMX_SHARE_MEMORY *)handle;
-    SEC_OMX_SHAREDMEM_LIST *SMList = NULL;
-    SEC_OMX_SHAREDMEM_LIST *currentElement = NULL;
-    SEC_OMX_SHAREDMEM_LIST *deleteElement = NULL;
+    EXYNOS_SHARED_MEMORY  *pHandle         = (EXYNOS_SHARED_MEMORY *)handle;
+    EXYNOS_SHAREDMEM_LIST *pSMList         = NULL;
+    EXYNOS_SHAREDMEM_LIST *pCurrentElement = NULL;
+    EXYNOS_SHAREDMEM_LIST *pDeleteElement  = NULL;
 
     if (pHandle == NULL)
         goto EXIT;
 
-    Exynos_OSAL_MutexLock(pHandle->SMMutex);
-    SMList = pHandle->pAllocMemory;
-    if (SMList == NULL) {
-        Exynos_OSAL_MutexUnlock(pHandle->SMMutex);
+    Exynos_OSAL_MutexLock(pHandle->hSMMutex);
+    pSMList = pHandle->pAllocMemory;
+    if (pSMList == NULL) {
+        Exynos_OSAL_MutexUnlock(pHandle->hSMMutex);
         goto EXIT;
     }
 
-    currentElement = SMList;
-    if (SMList->mapAddr == pBuffer) {
-        deleteElement = SMList;
-        pHandle->pAllocMemory = SMList = SMList->nextMemory;
+    pCurrentElement = pSMList;
+    if (pSMList->mapAddr == pBuffer) {
+        pDeleteElement = pSMList;
+        pHandle->pAllocMemory = pSMList = pSMList->pNextMemory;
     } else {
-        while ((currentElement != NULL) && (((SEC_OMX_SHAREDMEM_LIST *)(currentElement->nextMemory))->mapAddr != pBuffer))
-            currentElement = currentElement->nextMemory;
+        while ((pCurrentElement != NULL) && (((EXYNOS_SHAREDMEM_LIST *)(pCurrentElement->pNextMemory)) != NULL) &&
+               (((EXYNOS_SHAREDMEM_LIST *)(pCurrentElement->pNextMemory))->mapAddr != pBuffer))
+            pCurrentElement = pCurrentElement->pNextMemory;
 
-        if (((SEC_OMX_SHAREDMEM_LIST *)(currentElement->nextMemory))->mapAddr == pBuffer) {
-            deleteElement = currentElement->nextMemory;
-            currentElement->nextMemory = deleteElement->nextMemory;
-        } else if (currentElement == NULL) {
-            Exynos_OSAL_MutexUnlock(pHandle->SMMutex);
+        if ((((EXYNOS_SHAREDMEM_LIST *)(pCurrentElement->pNextMemory)) != NULL) &&
+            (((EXYNOS_SHAREDMEM_LIST *)(pCurrentElement->pNextMemory))->mapAddr == pBuffer)) {
+            pDeleteElement = pCurrentElement->pNextMemory;
+            pCurrentElement->pNextMemory = pDeleteElement->pNextMemory;
+        } else {
+            Exynos_OSAL_MutexUnlock(pHandle->hSMMutex);
             Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Can not find SharedMemory");
             goto EXIT;
         }
     }
-    Exynos_OSAL_MutexUnlock(pHandle->SMMutex);
+    Exynos_OSAL_MutexUnlock(pHandle->hSMMutex);
 
-    if (ion_unmap(deleteElement->mapAddr, deleteElement->allocSize)) {
+    if (ion_unmap(pDeleteElement->mapAddr, pDeleteElement->allocSize)) {
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "ion_unmap fail");
         goto EXIT;
     }
-    deleteElement->mapAddr = NULL;
-    deleteElement->allocSize = 0;
+    pDeleteElement->mapAddr = NULL;
+    pDeleteElement->allocSize = 0;
 
-    ion_free(deleteElement->ion_buffer);
-    deleteElement->ion_buffer = 0;
+    ion_free(pDeleteElement->IONBuffer);
+    pDeleteElement->IONBuffer = 0;
 
-    Exynos_OSAL_Free(deleteElement);
+    Exynos_OSAL_Free(pDeleteElement);
 
     mem_cnt--;
     Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "SharedMemory free count: %d", mem_cnt);
@@ -224,39 +259,41 @@ EXIT:
 
 int Exynos_OSAL_SharedMemory_VirtToION(OMX_HANDLETYPE handle, OMX_PTR pBuffer)
 {
-    EXYNOS_OMX_SHARE_MEMORY *pHandle = (EXYNOS_OMX_SHARE_MEMORY *)handle;
-    SEC_OMX_SHAREDMEM_LIST *SMList = NULL;
-    SEC_OMX_SHAREDMEM_LIST *currentElement = NULL;
-    SEC_OMX_SHAREDMEM_LIST *findElement = NULL;
+    EXYNOS_SHARED_MEMORY  *pHandle         = (EXYNOS_SHARED_MEMORY *)handle;
+    EXYNOS_SHAREDMEM_LIST *pSMList         = NULL;
+    EXYNOS_SHAREDMEM_LIST *pCurrentElement = NULL;
+    EXYNOS_SHAREDMEM_LIST *pFindElement    = NULL;
     int ion_addr = 0;
-    if (pHandle == NULL)
+    if (pHandle == NULL || pBuffer == NULL)
         goto EXIT;
 
-    Exynos_OSAL_MutexLock(pHandle->SMMutex);
-    SMList = pHandle->pAllocMemory;
-    if (SMList == NULL) {
-        Exynos_OSAL_MutexUnlock(pHandle->SMMutex);
+    Exynos_OSAL_MutexLock(pHandle->hSMMutex);
+    pSMList = pHandle->pAllocMemory;
+    if (pSMList == NULL) {
+        Exynos_OSAL_MutexUnlock(pHandle->hSMMutex);
         goto EXIT;
     }
 
-    currentElement = SMList;
-    if (SMList->mapAddr == pBuffer) {
-        findElement = SMList;
+    pCurrentElement = pSMList;
+    if (pSMList->mapAddr == pBuffer) {
+        pFindElement = pSMList;
     } else {
-        while ((currentElement != NULL) && (((SEC_OMX_SHAREDMEM_LIST *)(currentElement->nextMemory))->mapAddr != pBuffer))
-            currentElement = currentElement->nextMemory;
+        while ((pCurrentElement != NULL) && (((EXYNOS_SHAREDMEM_LIST *)(pCurrentElement->pNextMemory)) != NULL) &&
+               (((EXYNOS_SHAREDMEM_LIST *)(pCurrentElement->pNextMemory))->mapAddr != pBuffer))
+            pCurrentElement = pCurrentElement->pNextMemory;
 
-        if (((SEC_OMX_SHAREDMEM_LIST *)(currentElement->nextMemory))->mapAddr == pBuffer) {
-            findElement = currentElement->nextMemory;
-        } else if (currentElement == NULL) {
-            Exynos_OSAL_MutexUnlock(pHandle->SMMutex);
+        if ((((EXYNOS_SHAREDMEM_LIST *)(pCurrentElement->pNextMemory)) != NULL) &&
+            (((EXYNOS_SHAREDMEM_LIST *)(pCurrentElement->pNextMemory))->mapAddr == pBuffer)) {
+            pFindElement = pCurrentElement->pNextMemory;
+        } else {
+            Exynos_OSAL_MutexUnlock(pHandle->hSMMutex);
             Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Can not find SharedMemory");
             goto EXIT;
         }
     }
-    Exynos_OSAL_MutexUnlock(pHandle->SMMutex);
+    Exynos_OSAL_MutexUnlock(pHandle->hSMMutex);
 
-    ion_addr = findElement->ion_buffer;
+    ion_addr = pFindElement->IONBuffer;
 
 EXIT:
     return ion_addr;
@@ -264,39 +301,41 @@ EXIT:
 
 OMX_PTR Exynos_OSAL_SharedMemory_IONToVirt(OMX_HANDLETYPE handle, int ion_addr)
 {
-    EXYNOS_OMX_SHARE_MEMORY *pHandle = (EXYNOS_OMX_SHARE_MEMORY *)handle;
-    SEC_OMX_SHAREDMEM_LIST *SMList = NULL;
-    SEC_OMX_SHAREDMEM_LIST *currentElement = NULL;
-    SEC_OMX_SHAREDMEM_LIST *findElement = NULL;
+    EXYNOS_SHARED_MEMORY  *pHandle         = (EXYNOS_SHARED_MEMORY *)handle;
+    EXYNOS_SHAREDMEM_LIST *pSMList         = NULL;
+    EXYNOS_SHAREDMEM_LIST *pCurrentElement = NULL;
+    EXYNOS_SHAREDMEM_LIST *pFindElement    = NULL;
     OMX_PTR pBuffer = NULL;
-    if (pHandle == NULL)
+    if (pHandle == NULL || ion_addr == 0)
         goto EXIT;
 
-    Exynos_OSAL_MutexLock(pHandle->SMMutex);
-    SMList = pHandle->pAllocMemory;
-    if (SMList == NULL) {
-        Exynos_OSAL_MutexUnlock(pHandle->SMMutex);
+    Exynos_OSAL_MutexLock(pHandle->hSMMutex);
+    pSMList = pHandle->pAllocMemory;
+    if (pSMList == NULL) {
+        Exynos_OSAL_MutexUnlock(pHandle->hSMMutex);
         goto EXIT;
     }
 
-    currentElement = SMList;
-    if (SMList->ion_buffer == ion_addr) {
-        findElement = SMList;
+    pCurrentElement = pSMList;
+    if (pSMList->IONBuffer == ion_addr) {
+        pFindElement = pSMList;
     } else {
-        while ((currentElement != NULL) && (((SEC_OMX_SHAREDMEM_LIST *)(currentElement->nextMemory))->ion_buffer != ion_addr))
-            currentElement = currentElement->nextMemory;
+        while ((pCurrentElement != NULL) && (((EXYNOS_SHAREDMEM_LIST *)(pCurrentElement->pNextMemory)) != NULL) &&
+               (((EXYNOS_SHAREDMEM_LIST *)(pCurrentElement->pNextMemory))->IONBuffer != ion_addr))
+            pCurrentElement = pCurrentElement->pNextMemory;
 
-        if (((SEC_OMX_SHAREDMEM_LIST *)(currentElement->nextMemory))->ion_buffer == ion_addr) {
-            findElement = currentElement->nextMemory;
-        } else if (currentElement == NULL) {
-            Exynos_OSAL_MutexUnlock(pHandle->SMMutex);
+        if ((((EXYNOS_SHAREDMEM_LIST *)(pCurrentElement->pNextMemory)) != NULL) &&
+            (((EXYNOS_SHAREDMEM_LIST *)(pCurrentElement->pNextMemory))->IONBuffer == ion_addr)) {
+            pFindElement = pCurrentElement->pNextMemory;
+        } else {
+            Exynos_OSAL_MutexUnlock(pHandle->hSMMutex);
             Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Can not find SharedMemory");
             goto EXIT;
         }
     }
-    Exynos_OSAL_MutexUnlock(pHandle->SMMutex);
+    Exynos_OSAL_MutexUnlock(pHandle->hSMMutex);
 
-    pBuffer = findElement->mapAddr;
+    pBuffer = pFindElement->mapAddr;
 
 EXIT:
     return pBuffer;
