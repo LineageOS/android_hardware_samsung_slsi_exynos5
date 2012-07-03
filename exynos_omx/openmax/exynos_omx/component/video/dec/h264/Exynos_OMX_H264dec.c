@@ -710,10 +710,10 @@ OMX_ERRORTYPE H264CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DAT
     }
 
     /* get dpb count */
-    pH264Dec->hMFCH264Handle.MAXDPBNum = pDecOps->Get_ActualBufferCount(hMFCHandle);
+    pH264Dec->hMFCH264Handle.maxDPBNum = pDecOps->Get_ActualBufferCount(hMFCHandle);
     if (pVideoDec->bThumbnailMode == OMX_FALSE)
-        pH264Dec->hMFCH264Handle.MAXDPBNum += EXTRA_DPB_NUM;
-    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "H264CodecSetup nOutbufs: %d", pH264Dec->hMFCH264Handle.MAXDPBNum);
+        pH264Dec->hMFCH264Handle.maxDPBNum += EXTRA_DPB_NUM;
+    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "H264CodecSetup nOutbufs: %d", pH264Dec->hMFCH264Handle.maxDPBNum);
 
     pH264Dec->hMFCH264Handle.bConfiguredMFCSrc = OMX_TRUE;
 
@@ -763,14 +763,14 @@ OMX_ERRORTYPE H264CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DAT
     } else if (pExynosOutputPort->bufferProcessType == BUFFER_SHARE) {
         if ((pExynosInputPort->portDefinition.format.video.nFrameWidth != pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameWidth) ||
             (pExynosInputPort->portDefinition.format.video.nFrameHeight != pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameHeight) ||
-            (pExynosOutputPort->portDefinition.nBufferCountActual != pH264Dec->hMFCH264Handle.MAXDPBNum)) {
+            (pExynosOutputPort->portDefinition.nBufferCountActual != pH264Dec->hMFCH264Handle.maxDPBNum)) {
             pExynosInputPort->portDefinition.format.video.nFrameWidth = pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameWidth;
             pExynosInputPort->portDefinition.format.video.nFrameHeight = pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameHeight;
             pExynosInputPort->portDefinition.format.video.nStride = ((pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameWidth + 15) & (~15));
             pExynosInputPort->portDefinition.format.video.nSliceHeight = ((pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameHeight + 15) & (~15));
 
-            pExynosOutputPort->portDefinition.nBufferCountActual = pH264Dec->hMFCH264Handle.MAXDPBNum - 2;
-            pExynosOutputPort->portDefinition.nBufferCountMin = pH264Dec->hMFCH264Handle.MAXDPBNum - 2;
+            pExynosOutputPort->portDefinition.nBufferCountActual = pH264Dec->hMFCH264Handle.maxDPBNum - 2;
+            pExynosOutputPort->portDefinition.nBufferCountMin = pH264Dec->hMFCH264Handle.maxDPBNum - 2;
 
             Exynos_UpdateFrameSize(pOMXComponent);
             pExynosOutputPort->exceptionFlag = NEED_PORT_DISABLE;
@@ -814,7 +814,7 @@ OMX_ERRORTYPE H264CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
     FunctionIn();
 
     /* get dpb count */
-    nOutbufs = pH264Dec->hMFCH264Handle.MAXDPBNum;
+    nOutbufs = pH264Dec->hMFCH264Handle.maxDPBNum;
 
     /* should be done before prepare output buffer */
     if (pOutbufOps->Enable_Cacheable(hMFCHandle) != VIDEO_ERROR_NONE) {

@@ -39,7 +39,7 @@ typedef struct _EXYNOS_MFC_H264DEC_HANDLE
     OMX_U32                    outputIndexTimestamp;
     OMX_BOOL                   bConfiguredMFCSrc;
     OMX_BOOL                   bConfiguredMFCDst;
-    OMX_U32                    MAXDPBNum;
+    OMX_U32                    maxDPBNum;
 
     ExynosVideoColorFormatType MFCOutputColorType;
     ExynosVideoDecOps         *pDecOps;

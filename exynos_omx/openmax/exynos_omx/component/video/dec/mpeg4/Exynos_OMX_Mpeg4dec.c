@@ -817,10 +817,10 @@ OMX_ERRORTYPE Mpeg4CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DA
     }
 
     /* get dpb count */
-    pMpeg4Dec->hMFCMpeg4Handle.MAXDPBNum = pDecOps->Get_ActualBufferCount(hMFCHandle);
+    pMpeg4Dec->hMFCMpeg4Handle.maxDPBNum = pDecOps->Get_ActualBufferCount(hMFCHandle);
     if (pVideoDec->bThumbnailMode == OMX_FALSE)
-        pMpeg4Dec->hMFCMpeg4Handle.MAXDPBNum += EXTRA_DPB_NUM;
-    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "Mpeg4CodecSetup nOutbufs: %d", pMpeg4Dec->hMFCMpeg4Handle.MAXDPBNum);
+        pMpeg4Dec->hMFCMpeg4Handle.maxDPBNum += EXTRA_DPB_NUM;
+    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "Mpeg4CodecSetup nOutbufs: %d", pMpeg4Dec->hMFCMpeg4Handle.maxDPBNum);
 
     pMpeg4Dec->hMFCMpeg4Handle.bConfiguredMFCSrc = OMX_TRUE;
 
@@ -847,14 +847,14 @@ OMX_ERRORTYPE Mpeg4CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DA
     } else if (pExynosOutputPort->bufferProcessType == BUFFER_SHARE) {
         if ((pExynosInputPort->portDefinition.format.video.nFrameWidth != pMpeg4Dec->hMFCMpeg4Handle.codecOutbufConf.nFrameWidth) ||
             (pExynosInputPort->portDefinition.format.video.nFrameHeight != pMpeg4Dec->hMFCMpeg4Handle.codecOutbufConf.nFrameHeight) ||
-            (pExynosOutputPort->portDefinition.nBufferCountActual != pMpeg4Dec->hMFCMpeg4Handle.MAXDPBNum)) {
+            (pExynosOutputPort->portDefinition.nBufferCountActual != pMpeg4Dec->hMFCMpeg4Handle.maxDPBNum)) {
             pExynosInputPort->portDefinition.format.video.nFrameWidth = pMpeg4Dec->hMFCMpeg4Handle.codecOutbufConf.nFrameWidth;
             pExynosInputPort->portDefinition.format.video.nFrameHeight = pMpeg4Dec->hMFCMpeg4Handle.codecOutbufConf.nFrameHeight;
             pExynosInputPort->portDefinition.format.video.nStride = ((pMpeg4Dec->hMFCMpeg4Handle.codecOutbufConf.nFrameWidth + 15) & (~15));
             pExynosInputPort->portDefinition.format.video.nSliceHeight = ((pMpeg4Dec->hMFCMpeg4Handle.codecOutbufConf.nFrameHeight + 15) & (~15));
 
-            pExynosOutputPort->portDefinition.nBufferCountActual = pMpeg4Dec->hMFCMpeg4Handle.MAXDPBNum - 2;
-            pExynosOutputPort->portDefinition.nBufferCountMin = pMpeg4Dec->hMFCMpeg4Handle.MAXDPBNum - 2;
+            pExynosOutputPort->portDefinition.nBufferCountActual = pMpeg4Dec->hMFCMpeg4Handle.maxDPBNum - 2;
+            pExynosOutputPort->portDefinition.nBufferCountMin = pMpeg4Dec->hMFCMpeg4Handle.maxDPBNum - 2;
 
             Exynos_UpdateFrameSize(pOMXComponent);
             pExynosOutputPort->exceptionFlag = NEED_PORT_DISABLE;
@@ -899,7 +899,7 @@ OMX_ERRORTYPE Mpeg4CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
     FunctionIn();
 
     /* get dpb count */
-    nOutbufs = pMpeg4Dec->hMFCMpeg4Handle.MAXDPBNum;
+    nOutbufs = pMpeg4Dec->hMFCMpeg4Handle.maxDPBNum;
 
     /* should be done before prepare output buffer */
     if (pOutbufOps->Enable_Cacheable(hMFCHandle) != VIDEO_ERROR_NONE) {
