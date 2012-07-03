@@ -151,8 +151,7 @@ void Exynos_Wait_ProcessPause(EXYNOS_OMX_BASECOMPONENT *pExynosComponent, OMX_U3
         (pExynosComponent->currentState == OMX_StateIdle) ||
         (pExynosComponent->transientState == EXYNOS_OMX_TransStateLoadedToIdle) ||
         (pExynosComponent->transientState == EXYNOS_OMX_TransStateExecutingToIdle)) &&
-        (pExynosComponent->transientState != EXYNOS_OMX_TransStateIdleToLoaded)&&
-//        ((!CHECK_PORT_BEING_FLUSHED(exynosOMXInputPort) && !CHECK_PORT_BEING_FLUSHED(exynosOMXOutputPort)))) {
+        (pExynosComponent->transientState != EXYNOS_OMX_TransStateIdleToLoaded) &&
         (!CHECK_PORT_BEING_FLUSHED(exynosOMXPort))) {
         Exynos_OSAL_SignalWait(pExynosComponent->pExynosPort[nPortIndex].pauseEvent, DEF_MAX_WAIT_TIME);
         Exynos_OSAL_SignalReset(pExynosComponent->pExynosPort[nPortIndex].pauseEvent);
@@ -387,19 +386,18 @@ OMX_BOOL Exynos_Preprocessor_InputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
                                                         pExynosComponent->callbackData,
                                                         OMX_EventError, OMX_ErrorUndefined, 0, NULL);
                 flagEOF = OMX_FALSE;
-                // We don't need data-reset? // JH Chang
             }
 
             if (((exynosInputPort->bStoreMetaData == OMX_TRUE) && (eColorFormat == OMX_COLOR_FormatAndroidOpaque)) ||
                 (exynosInputPort->bStoreMetaData == OMX_FALSE)) {
-                    Exynos_InputBufferReturn(pOMXComponent);
+                Exynos_InputBufferReturn(pOMXComponent);
             } else {
                 inputUseBuffer->dataValid = OMX_TRUE;
             }
         }
 
         if ((srcInputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS) {
-            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "bSaveFlagEOS : OMX_TRUE");
+            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "bSaveFlagEOS : OMX_TRUE");
             srcInputData->dataLen = 0;
             srcInputData->remainDataLen = 0;
             pExynosComponent->bSaveFlagEOS = OMX_TRUE;
@@ -451,13 +449,11 @@ OMX_BOOL Exynos_Postprocess_OutputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
                 pExynosComponent->checkTimeStamp.needSetStartTimeStamp = OMX_FALSE;
                 pExynosComponent->checkTimeStamp.needCheckStartTimeStamp = OMX_FALSE;
             } else {
-                // We don't need data-reset? // JH Chang
                 Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "drop frame after seeking");
                 ret = OMX_TRUE;
                 goto EXIT;
             }
         } else if (pExynosComponent->checkTimeStamp.needSetStartTimeStamp == OMX_TRUE) {
-            // We don't need data-reset? // JH Chang
             ret = OMX_TRUE;
             Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "not set check timestame after seeking");
             goto EXIT;
@@ -477,13 +473,9 @@ OMX_BOOL Exynos_Postprocess_OutputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
 
                 ret = OMX_TRUE;
 
-                // We don't need data-reset? // JH Chang
-
                 if ((outputUseBuffer->remainDataLen > 0) ||
                     (outputUseBuffer->nFlags & OMX_BUFFERFLAG_EOS)) {
-                    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%s:%d", __FUNCTION__, __LINE__);
                     Exynos_OutputBufferReturn(pOMXComponent);
-                    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%s:%d", __FUNCTION__, __LINE__);
                 }
             } else {
                 Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "output buffer is smaller than encoded data size Out Length");
@@ -491,7 +483,6 @@ OMX_BOOL Exynos_Postprocess_OutputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
                                                         pExynosComponent->callbackData,
                                                         OMX_EventError, OMX_ErrorUndefined, 0, NULL);
                 ret = OMX_FALSE;
-                // We don't need data-reset? // JH Chang
             }
         } else if (exynosOutputPort->bufferProcessType == BUFFER_SHARE) {
             if ((outputUseBuffer->remainDataLen > 0) ||
@@ -570,7 +561,6 @@ OMX_ERRORTYPE Exynos_OMX_SrcInputBufferProcess(OMX_HANDLETYPE hComponent)
             ret = pVideoEnc->exynos_codec_srcInputProcess(pOMXComponent, pSrcInputData);
             Exynos_ResetCodecData(pSrcInputData);
             Exynos_OSAL_MutexUnlock(srcInputUseBuffer->bufferMutex);
-
             if (ret == OMX_ErrorCodecInit)
                 pVideoEnc->bExitBufferProcessThread = OMX_TRUE;
         }
@@ -618,7 +608,6 @@ OMX_ERRORTYPE Exynos_OMX_SrcOutputBufferProcess(OMX_HANDLETYPE hComponent)
                     if (codecBuffer != NULL)
                         Exynos_CodecBufferEnQueue(pExynosComponent, INPUT_PORT_INDEX, codecBuffer);
                 }
-
                 if (exynosInputPort->bufferProcessType == BUFFER_SHARE) {
                     Exynos_Shared_DataToBuffer(&srcOutputData, srcOutputUseBuffer);
                     Exynos_InputBufferReturn(pOMXComponent);
@@ -755,7 +744,6 @@ OMX_ERRORTYPE Exynos_OMX_DstOutputBufferProcess(OMX_HANDLETYPE hComponent)
 
             if ((exynosOutputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
                 OMX_PTR codecBuffer;
-                //ENCODE_CODEC_EXTRA_BUFFERINFO *pBufferInfo = (ENCODE_CODEC_EXTRA_BUFFERINFO *)&pDstOutputData->extInfo;
                 codecBuffer = pDstOutputData->pPrivate;
                 if (codecBuffer != NULL) {
                     Exynos_CodecBufferEnQueue(pExynosComponent, OUTPUT_PORT_INDEX, codecBuffer);
@@ -789,13 +777,11 @@ static OMX_ERRORTYPE Exynos_OMX_SrcInputProcessThread(OMX_PTR threadData)
         ret = OMX_ErrorBadParameter;
         goto EXIT;
     }
-
     pOMXComponent = (OMX_COMPONENTTYPE *)threadData;
     ret = Exynos_OMX_Check_SizeVersion(pOMXComponent, sizeof(OMX_COMPONENTTYPE));
     if (ret != OMX_ErrorNone) {
         goto EXIT;
     }
-
     pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
     Exynos_OMX_SrcInputBufferProcess(pOMXComponent);
 
@@ -820,13 +806,11 @@ static OMX_ERRORTYPE Exynos_OMX_SrcOutputProcessThread(OMX_PTR threadData)
         ret = OMX_ErrorBadParameter;
         goto EXIT;
     }
-
     pOMXComponent = (OMX_COMPONENTTYPE *)threadData;
     ret = Exynos_OMX_Check_SizeVersion(pOMXComponent, sizeof(OMX_COMPONENTTYPE));
     if (ret != OMX_ErrorNone) {
         goto EXIT;
     }
-
     pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
     Exynos_OMX_SrcOutputBufferProcess(pOMXComponent);
 
@@ -851,13 +835,11 @@ static OMX_ERRORTYPE Exynos_OMX_DstInputProcessThread(OMX_PTR threadData)
         ret = OMX_ErrorBadParameter;
         goto EXIT;
     }
-
     pOMXComponent = (OMX_COMPONENTTYPE *)threadData;
     ret = Exynos_OMX_Check_SizeVersion(pOMXComponent, sizeof(OMX_COMPONENTTYPE));
     if (ret != OMX_ErrorNone) {
         goto EXIT;
     }
-
     pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
     Exynos_OMX_DstInputBufferProcess(pOMXComponent);
 
@@ -882,13 +864,11 @@ static OMX_ERRORTYPE Exynos_OMX_DstOutputProcessThread(OMX_PTR threadData)
         ret = OMX_ErrorBadParameter;
         goto EXIT;
     }
-
     pOMXComponent = (OMX_COMPONENTTYPE *)threadData;
     ret = Exynos_OMX_Check_SizeVersion(pOMXComponent, sizeof(OMX_COMPONENTTYPE));
     if (ret != OMX_ErrorNone) {
         goto EXIT;
     }
-
     pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
     Exynos_OMX_DstOutputBufferProcess(pOMXComponent);
 
@@ -966,14 +946,12 @@ OMX_ERRORTYPE Exynos_OMX_BufferProcess_Terminate(OMX_HANDLETYPE hComponent)
     Exynos_OSAL_ThreadTerminate(pVideoEnc->hDstInputThread);
     pVideoEnc->hDstInputThread = NULL;
 
-    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%s:%d", __FUNCTION__, __LINE__);
     pVideoEnc->exynos_codec_stop(pOMXComponent, INPUT_PORT_INDEX);
     pVideoEnc->exynos_codec_bufferProcessRun(pOMXComponent, INPUT_PORT_INDEX);
     Exynos_OSAL_SignalSet(pExynosComponent->pExynosPort[INPUT_PORT_INDEX].pauseEvent);
     Exynos_OSAL_ThreadTerminate(pVideoEnc->hSrcOutputThread);
     pVideoEnc->hSrcOutputThread = NULL;
 
-    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%s:%d", __FUNCTION__, __LINE__);
     pVideoEnc->exynos_codec_stop(pOMXComponent, OUTPUT_PORT_INDEX);
     pVideoEnc->exynos_codec_bufferProcessRun(pOMXComponent, INPUT_PORT_INDEX);
     Exynos_OSAL_SignalSet(pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX].pauseEvent);

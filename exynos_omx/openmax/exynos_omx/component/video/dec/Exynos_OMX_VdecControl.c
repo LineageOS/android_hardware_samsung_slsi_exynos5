@@ -68,8 +68,6 @@ OMX_ERRORTYPE Exynos_OMX_UseBuffer(
 
     FunctionIn();
 
-    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%s: idx=%d sz=%d pBuffer=%p\n", __func__, nPortIndex, nSizeBytes, pBuffer);
-
     if (hComponent == NULL) {
         ret = OMX_ErrorBadParameter;
         goto EXIT;
@@ -589,7 +587,6 @@ EXIT:
     return ret;
 }
 
-
 OMX_ERRORTYPE Exynos_InputBufferReturn(OMX_COMPONENTTYPE *pOMXComponent)
 {
     OMX_ERRORTYPE          ret = OMX_ErrorNone;
@@ -961,7 +958,7 @@ OMX_ERRORTYPE Exynos_CodecBufferReset(EXYNOS_OMX_BASECOMPONENT *pExynosComponent
     }
     while (1) {
         int cnt = 0;
-        Exynos_OSAL_Get_SemaphoreCount(pExynosPort->codecSemID, &cnt); 
+        Exynos_OSAL_Get_SemaphoreCount(pExynosPort->codecSemID, &cnt);
         if (cnt > 0)
             Exynos_OSAL_SemaphoreWait(pExynosPort->codecSemID);
         else
@@ -974,7 +971,6 @@ EXIT:
 
     return ret;
 }
-
 
 OMX_ERRORTYPE Exynos_OMX_VideoDecodeGetParameter(
     OMX_IN OMX_HANDLETYPE hComponent,
@@ -1326,13 +1322,11 @@ OMX_ERRORTYPE Exynos_OMX_VideoDecodeGetConfig(
     if (ret != OMX_ErrorNone) {
         goto EXIT;
     }
-
     if (pOMXComponent->pComponentPrivate == NULL) {
         ret = OMX_ErrorBadParameter;
         goto EXIT;
     }
     pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
-
     if (pComponentConfigStructure == NULL) {
         ret = OMX_ErrorBadParameter;
         goto EXIT;
@@ -1374,13 +1368,11 @@ OMX_ERRORTYPE Exynos_OMX_VideoDecodeSetConfig(
     if (ret != OMX_ErrorNone) {
         goto EXIT;
     }
-
     if (pOMXComponent->pComponentPrivate == NULL) {
         ret = OMX_ErrorBadParameter;
         goto EXIT;
     }
     pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
-
     if (pComponentConfigStructure == NULL) {
         ret = OMX_ErrorBadParameter;
         goto EXIT;

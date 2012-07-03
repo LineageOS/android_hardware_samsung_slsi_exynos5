@@ -49,7 +49,6 @@
 #define DEFAULT_MFC_INPUT_BUFFER_SIZE       1920 * 1080 * 3 / 2
 
 #define MFC_OUTPUT_BUFFER_NUM_MAX           16 * 2
-#define MFC_OUTPUT_BUFFER_PLANE             2
 #define DEFAULT_MFC_OUTPUT_YBUFFER_SIZE     1920 * 1080
 #define DEFAULT_MFC_OUTPUT_CBUFFER_SIZE     1920 * 1080 / 2
 
@@ -57,6 +56,9 @@
 #define OUTPUT_PORT_SUPPORTFORMAT_NUM_MAX   4
 
 #define EXTRA_DPB_NUM                       5
+
+#define MFC_INPUT_BUFFER_PLANE              1
+#define MFC_OUTPUT_BUFFER_PLANE             2
 
 typedef struct
 {

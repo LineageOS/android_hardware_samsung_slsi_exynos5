@@ -305,8 +305,7 @@ OMX_ERRORTYPE Exynos_OMX_FreeBuffer(
                         nPortIndex, NULL);
     }
 
-    for (i = 0; i < pExynosPort->portDefinition.nBufferCountActual; i++) { // JH Chang for test
-//    for (i = 0; i < /*pExynosPort->portDefinition.nBufferCountActual*/MAX_BUFFER_NUM; i++) {
+    for (i = 0; i < /*pExynosPort->portDefinition.nBufferCountActual*/MAX_BUFFER_NUM; i++) {
         if (((pExynosPort->bufferStateAllocate[i] | BUFFER_STATE_FREE) != 0) && (pExynosPort->extendBufferHeader[i].OMXBufferHeader != NULL)) {
             if (pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer == pBufferHdr->pBuffer) {
                 if (pExynosPort->bufferStateAllocate[i] & BUFFER_STATE_ALLOCATED) {
@@ -710,7 +709,6 @@ OMX_ERRORTYPE Exynos_InputBufferGetQueue(EXYNOS_OMX_BASECOMPONENT *pExynosCompon
                 ret = OMX_ErrorUndefined;
                 goto EXIT;
             }
-
             if (message->messageType == EXYNOS_OMX_CommandFakeBuffer) {
                 ret = OMX_ErrorCodecFlush;
                 goto EXIT;
@@ -819,7 +817,6 @@ OMX_ERRORTYPE Exynos_FlushOutputBufferReturn(OMX_COMPONENTTYPE *pOMXComponent, E
                             OUTPUT_PORT_INDEX,
                             bufferHeader->nFlags, NULL);
         }
-
         Exynos_OMX_OutputBufferReturn(pOMXComponent, bufferHeader);
     }
 
@@ -1380,7 +1377,6 @@ OMX_ERRORTYPE Exynos_OMX_VideoEncodeGetConfig(
         ret = OMX_ErrorBadParameter;
         goto EXIT;
     }
-
     pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
     if (pExynosComponent->currentState == OMX_StateInvalid) {
         ret = OMX_ErrorInvalidState;
@@ -1453,7 +1449,6 @@ OMX_ERRORTYPE Exynos_OMX_VideoEncodeSetConfig(
         ret = OMX_ErrorBadParameter;
         goto EXIT;
     }
-
     pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
     if (pExynosComponent->currentState == OMX_StateInvalid) {
         ret = OMX_ErrorInvalidState;

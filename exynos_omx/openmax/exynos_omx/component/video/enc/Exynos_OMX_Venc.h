@@ -55,6 +55,9 @@
 #define INPUT_PORT_SUPPORTFORMAT_NUM_MAX    5
 #define OUTPUT_PORT_SUPPORTFORMAT_NUM_MAX   1
 
+#define MFC_INPUT_BUFFER_PLANE              2
+#define MFC_OUTPUT_BUFFER_PLANE             1
+
 // The largest metadata buffer size advertised
 // when metadata buffer mode is used for video encoding
 #define  MAX_INPUT_METADATA_BUFFER_SIZE (64)
@@ -85,7 +88,6 @@ typedef struct _CODEC_ENC_OUTPUT_BUFFER
 typedef struct _EXYNOS_OMX_VIDEOENC_COMPONENT
 {
     OMX_HANDLETYPE hCodecHandle;
-//    EXYNOS_CODEC_NBENC_THREAD NBEncThread;
     OMX_BOOL bFirstFrame;
     CODEC_ENC_INPUT_BUFFER *pMFCEncInputBuffer[MFC_INPUT_BUFFER_NUM_MAX];
     CODEC_ENC_OUTPUT_BUFFER *pMFCEncOutputBuffer[MFC_OUTPUT_BUFFER_NUM_MAX];
