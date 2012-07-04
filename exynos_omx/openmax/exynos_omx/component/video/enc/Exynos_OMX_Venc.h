@@ -107,7 +107,6 @@ typedef struct _EXYNOS_OMX_VIDEOENC_COMPONENT
     OMX_VIDEO_CONTROLRATETYPE eControlRate[ALL_PORT_NUM];
     OMX_VIDEO_PARAM_QUANTIZATIONTYPE quantization;
 
-    OMX_HANDLETYPE           headerGeneratedEvent;
     OMX_BOOL bFirstOutput;
 
     /* CSC handle */
