@@ -741,24 +741,6 @@ OMX_ERRORTYPE H264CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DAT
     pExynosOutputPort->cropRectangle.nWidth = pH264Dec->hMFCH264Handle.codecOutbufConf.cropRect.nWidth;
     pExynosOutputPort->cropRectangle.nHeight = pH264Dec->hMFCH264Handle.codecOutbufConf.cropRect.nHeight;
 
-    if ((pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameWidth != pH264Dec->hMFCH264Handle.codecOutbufConf.cropRect.nWidth) ||
-        (pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameHeight != pH264Dec->hMFCH264Handle.codecOutbufConf.cropRect.nHeight)) {
-        /* Check Crop */
-        pExynosInputPort->portDefinition.format.video.nFrameWidth = pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameWidth;
-        pExynosInputPort->portDefinition.format.video.nFrameHeight = pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameHeight;
-        pExynosInputPort->portDefinition.format.video.nStride = ((pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameWidth + 15) & (~15));
-        pExynosInputPort->portDefinition.format.video.nSliceHeight = ((pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameHeight + 15) & (~15));
-        Exynos_UpdateFrameSize(pOMXComponent);
-
-        /** Send crop info call back **/
-        (*(pExynosComponent->pCallbacks->EventHandler))
-            (pOMXComponent,
-             pExynosComponent->callbackData,
-             OMX_EventPortSettingsChanged, /* The command was completed */
-             OMX_DirOutput, /* This is the port index */
-             OMX_IndexConfigCommonOutputCrop,
-             NULL);
-    }
     if ((pExynosOutputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
         if ((pExynosInputPort->portDefinition.format.video.nFrameWidth != pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameWidth) ||
             (pExynosInputPort->portDefinition.format.video.nFrameHeight != pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameHeight)) {
@@ -804,6 +786,25 @@ OMX_ERRORTYPE H264CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DAT
                  NULL);
         }
     }
+    if ((pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameWidth != pH264Dec->hMFCH264Handle.codecOutbufConf.cropRect.nWidth) ||
+        (pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameHeight != pH264Dec->hMFCH264Handle.codecOutbufConf.cropRect.nHeight)) {
+        /* Check Crop */
+        pExynosInputPort->portDefinition.format.video.nFrameWidth = pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameWidth;
+        pExynosInputPort->portDefinition.format.video.nFrameHeight = pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameHeight;
+        pExynosInputPort->portDefinition.format.video.nStride = ((pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameWidth + 15) & (~15));
+        pExynosInputPort->portDefinition.format.video.nSliceHeight = ((pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameHeight + 15) & (~15));
+        Exynos_UpdateFrameSize(pOMXComponent);
+
+        /** Send crop info call back **/
+        (*(pExynosComponent->pCallbacks->EventHandler))
+            (pOMXComponent,
+             pExynosComponent->callbackData,
+             OMX_EventPortSettingsChanged, /* The command was completed */
+             OMX_DirOutput, /* This is the port index */
+             OMX_IndexConfigCommonOutputCrop,
+             NULL);
+    }
+
     Exynos_OSAL_SleepMillisec(0);
     ret = OMX_ErrorInputDataDecodeYet;
     H264CodecStop(pOMXComponent, INPUT_PORT_INDEX);
