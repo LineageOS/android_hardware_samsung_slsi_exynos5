@@ -58,8 +58,8 @@ int calc_plane(int width, int height)
     mbX = (width + 15)/16;
     mbY = (height + 15)/16;
 
-    if (width * height < 2048 * 1024)
-        mbY = (mbY + 1) / 2 * 2;
+    /* Alignment for interlaced processing */
+    mbY = (mbY + 1) / 2 * 2;
 
     return (mbX * 16) * (mbY * 16);
 }
@@ -96,9 +96,9 @@ inline void Exynos_UpdateFrameSize(OMX_COMPONENTTYPE *pOMXComponent)
             width = exynosOutputPort->portDefinition.format.video.nFrameWidth;
             height = exynosOutputPort->portDefinition.format.video.nFrameHeight;
             if (width && height) {
-                exynosOutputPort->portDefinition.nBufferSize =
-                    ALIGN_TO_8KB(ALIGN_TO_128B(width) * ALIGN_TO_32B(height)) \
-                    + ALIGN_TO_8KB(ALIGN_TO_128B(width) * ALIGN_TO_32B(height/2));
+                int YBufferSize = calc_plane(width, height);
+                int CBufferSize = calc_plane(width, height >> 1);
+                exynosOutputPort->portDefinition.nBufferSize = YBufferSize + CBufferSize;
             }
             break;
         default:
