@@ -752,17 +752,16 @@ OMX_ERRORTYPE H264CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DAT
     FunctionIn();
 
     if ((oneFrameSize <= 0) && (pSrcInputData->nFlags & OMX_BUFFERFLAG_EOS)) {
-        EXYNOS_OMX_DATA *pDstOutputData = &pExynosOutputPort->processData;
-
-        ret = Exynos_OutputBufferGetQueue(pExynosComponent);
-        if (ret != OMX_ErrorNone) {
+        OMX_BUFFERHEADERTYPE *OMXBuffer = NULL;
+        OMXBuffer = Exynos_OutputBufferGetQueue_Direct(pExynosComponent);
+        if (OMXBuffer == NULL) {
             ret = OMX_ErrorUndefined;
             goto EXIT;
         }
-        pDstOutputData->timeStamp = pSrcInputData->timeStamp;
-        pDstOutputData->nFlags = pSrcInputData->nFlags;
 
-        Exynos_Postprocess_OutputData(pOMXComponent, pDstOutputData);
+        OMXBuffer->nTimeStamp = pSrcInputData->timeStamp;
+        OMXBuffer->nFlags = pSrcInputData->nFlags;
+        Exynos_OMX_OutputBufferReturn(pOMXComponent, OMXBuffer);
 
         ret = OMX_ErrorNone;
         goto EXIT;

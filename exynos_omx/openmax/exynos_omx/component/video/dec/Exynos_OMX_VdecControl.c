@@ -889,6 +889,42 @@ EXIT:
 
 }
 
+OMX_BUFFERHEADERTYPE *Exynos_OutputBufferGetQueue_Direct(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
+{
+    OMX_BUFFERHEADERTYPE  *retBuffer = NULL;
+    EXYNOS_OMX_BASEPORT   *pExynosPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
+    EXYNOS_OMX_MESSAGE    *message = NULL;
+
+    FunctionIn();
+
+    if (pExynosComponent->currentState != OMX_StateExecuting) {
+        retBuffer = NULL;
+        goto EXIT;
+    } else if ((pExynosComponent->transientState != EXYNOS_OMX_TransStateExecutingToIdle) &&
+               (!CHECK_PORT_BEING_FLUSHED(pExynosPort))){
+        Exynos_OSAL_SemaphoreWait(pExynosPort->bufferSemID);
+
+        message = (EXYNOS_OMX_MESSAGE *)Exynos_OSAL_Dequeue(&pExynosPort->bufferQ);
+        if (message == NULL) {
+            retBuffer = NULL;
+            goto EXIT;
+        }
+        if (message->messageType == EXYNOS_OMX_CommandFakeBuffer) {
+            Exynos_OSAL_Free(message);
+            retBuffer = NULL;
+            goto EXIT;
+        }
+
+        retBuffer  = (OMX_BUFFERHEADERTYPE *)(message->pCmdData);
+        Exynos_OSAL_Free(message);
+    }
+
+EXIT:
+    FunctionOut();
+
+    return retBuffer;
+}
+
 OMX_ERRORTYPE Exynos_CodecBufferEnQueue(EXYNOS_OMX_BASECOMPONENT *pExynosComponent, OMX_U32 PortIndex, OMX_PTR data)
 {
     OMX_ERRORTYPE       ret = OMX_ErrorNone;
