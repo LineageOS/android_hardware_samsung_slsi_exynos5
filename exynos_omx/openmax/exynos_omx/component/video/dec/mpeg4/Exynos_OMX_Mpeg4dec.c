@@ -420,6 +420,21 @@ OMX_ERRORTYPE Mpeg4CodecOpen(EXYNOS_MPEG4DEC_HANDLE *pMpeg4Dec)
     ret = OMX_ErrorNone;
 
 EXIT:
+    if (ret != OMX_ErrorNone) {
+        if (pDecOps != NULL) {
+            Exynos_OSAL_Free(pDecOps);
+            pMpeg4Dec->hMFCMpeg4Handle.pDecOps = NULL;
+        }
+        if (pInbufOps != NULL) {
+            Exynos_OSAL_Free(pInbufOps);
+            pMpeg4Dec->hMFCMpeg4Handle.pInbufOps = NULL;
+        }
+        if (pOutbufOps != NULL) {
+            Exynos_OSAL_Free(pOutbufOps);
+            pMpeg4Dec->hMFCMpeg4Handle.pOutbufOps = NULL;
+        }
+    }
+
     FunctionOut();
 
     return ret;
@@ -550,9 +565,9 @@ OMX_ERRORTYPE Mpeg4CodecStop(OMX_COMPONENTTYPE *pOMXComponent, OMX_U32 nPortInde
     pInbufOps  = pMpeg4Dec->hMFCMpeg4Handle.pInbufOps;
     pOutbufOps = pMpeg4Dec->hMFCMpeg4Handle.pOutbufOps;
 
-    if (nPortIndex == INPUT_PORT_INDEX)
+    if ((nPortIndex == INPUT_PORT_INDEX) && (pInbufOps != NULL))
         pInbufOps->Stop(hMFCHandle);
-    else if (nPortIndex == OUTPUT_PORT_INDEX)
+    else if ((nPortIndex == OUTPUT_PORT_INDEX) && (pOutbufOps != NULL))
         pOutbufOps->Stop(hMFCHandle);
 
     ret = OMX_ErrorNone;

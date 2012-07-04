@@ -235,6 +235,21 @@ OMX_ERRORTYPE VP8CodecOpen(EXYNOS_VP8DEC_HANDLE *pVp8Dec)
     ret = OMX_ErrorNone;
 
 EXIT:
+    if (ret != OMX_ErrorNone) {
+        if (pDecOps != NULL) {
+            Exynos_OSAL_Free(pDecOps);
+            pVp8Dec->hMFCVp8Handle.pDecOps = NULL;
+        }
+        if (pInbufOps != NULL) {
+            Exynos_OSAL_Free(pInbufOps);
+            pVp8Dec->hMFCVp8Handle.pInbufOps = NULL;
+        }
+        if (pOutbufOps != NULL) {
+            Exynos_OSAL_Free(pOutbufOps);
+            pVp8Dec->hMFCVp8Handle.pOutbufOps = NULL;
+        }
+    }
+
     FunctionOut();
 
     return ret;
@@ -365,9 +380,9 @@ OMX_ERRORTYPE VP8CodecStop(OMX_COMPONENTTYPE *pOMXComponent, OMX_U32 nPortIndex)
     pInbufOps  = pVp8Dec->hMFCVp8Handle.pInbufOps;
     pOutbufOps = pVp8Dec->hMFCVp8Handle.pOutbufOps;
 
-    if (nPortIndex == INPUT_PORT_INDEX)
+    if ((nPortIndex == INPUT_PORT_INDEX) && (pInbufOps != NULL))
         pInbufOps->Stop(hMFCHandle);
-    else if (nPortIndex == OUTPUT_PORT_INDEX)
+    else if ((nPortIndex == OUTPUT_PORT_INDEX) && (pOutbufOps != NULL))
         pOutbufOps->Stop(hMFCHandle);
 
     ret = OMX_ErrorNone;
@@ -1010,7 +1025,7 @@ OMX_ERRORTYPE Exynos_VP8Dec_GetConfig(
 
     FunctionIn();
 
-    if (hComponent == NULL) {
+    if (hComponent == NULL || pComponentConfigStructure == NULL) {
         ret = OMX_ErrorBadParameter;
         goto EXIT;
     }
@@ -1024,11 +1039,6 @@ OMX_ERRORTYPE Exynos_VP8Dec_GetConfig(
         goto EXIT;
     }
     pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
-
-    if (pComponentConfigStructure == NULL) {
-        ret = OMX_ErrorBadParameter;
-        goto EXIT;
-    }
     if (pExynosComponent->currentState == OMX_StateInvalid) {
         ret = OMX_ErrorInvalidState;
         goto EXIT;
@@ -1057,7 +1067,7 @@ OMX_ERRORTYPE Exynos_VP8Dec_SetConfig(
 
     FunctionIn();
 
-    if (hComponent == NULL) {
+    if (hComponent == NULL || pComponentConfigStructure == NULL) {
         ret = OMX_ErrorBadParameter;
         goto EXIT;
     }
@@ -1071,11 +1081,6 @@ OMX_ERRORTYPE Exynos_VP8Dec_SetConfig(
         goto EXIT;
     }
     pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
-
-    if (pComponentConfigStructure == NULL) {
-        ret = OMX_ErrorBadParameter;
-        goto EXIT;
-    }
     if (pExynosComponent->currentState == OMX_StateInvalid) {
         ret = OMX_ErrorInvalidState;
         goto EXIT;

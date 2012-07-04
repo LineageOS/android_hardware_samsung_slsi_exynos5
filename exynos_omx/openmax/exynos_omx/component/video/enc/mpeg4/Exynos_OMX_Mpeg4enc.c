@@ -582,6 +582,21 @@ OMX_ERRORTYPE Mpeg4CodecOpen(EXYNOS_MPEG4ENC_HANDLE *pMpeg4Enc)
     ret = OMX_ErrorNone;
 
 EXIT:
+    if (ret != OMX_ErrorNone) {
+        if (pEncOps != NULL) {
+            Exynos_OSAL_Free(pEncOps);
+            pMpeg4Enc->hMFCMpeg4Handle.pEncOps = NULL;
+        }
+        if (pInbufOps != NULL) {
+            Exynos_OSAL_Free(pInbufOps);
+            pMpeg4Enc->hMFCMpeg4Handle.pInbufOps = NULL;
+        }
+        if (pOutbufOps != NULL) {
+            Exynos_OSAL_Free(pOutbufOps);
+            pMpeg4Enc->hMFCMpeg4Handle.pOutbufOps = NULL;
+        }
+    }
+
     FunctionOut();
 
     return ret;
@@ -1889,7 +1904,6 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_Terminate(OMX_COMPONENTTYPE *pOMXComponent)
         Exynos_OSAL_QueueTerminate(&pExynosInputPort->codecBufferQ);
         Exynos_OSAL_SemaphoreTerminate(pExynosInputPort->codecSemID);
     } else if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
-
         /*************/
         /*    TBD    */
         /*************/
@@ -1909,7 +1923,6 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_Terminate(OMX_COMPONENTTYPE *pOMXComponent)
         Exynos_OSAL_QueueTerminate(&pExynosOutputPort->codecBufferQ);
         Exynos_OSAL_SemaphoreTerminate(pExynosOutputPort->codecSemID);
     } else if (pExynosOutputPort->bufferProcessType == BUFFER_SHARE) {
-
         /*************/
         /*    TBD    */
         /*************/

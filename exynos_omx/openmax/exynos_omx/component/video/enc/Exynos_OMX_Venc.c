@@ -204,7 +204,6 @@ OMX_BOOL Exynos_Preprocessor_InputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
                 Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%s:%d YAddr: 0x%x CbCrAddr: 0x%x", __FUNCTION__, __LINE__, (unsigned int)ppBuf[0], (unsigned int)ppBuf[0]);
             }
 #endif
-
             /* reset dataBuffer */
             Exynos_ResetDataBuffer(inputUseBuffer);
             flagEOF = OMX_TRUE;
@@ -486,7 +485,7 @@ OMX_BOOL Exynos_Postprocess_OutputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
             }
         } else if (exynosOutputPort->bufferProcessType == BUFFER_SHARE) {
             if ((outputUseBuffer->remainDataLen > 0) ||
-                (outputUseBuffer->nFlags & OMX_BUFFERFLAG_EOS) ||
+                ((outputUseBuffer->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS) ||
                 (CHECK_PORT_BEING_FLUSHED(exynosOutputPort)))
                 Exynos_OutputBufferReturn(pOMXComponent);
         }

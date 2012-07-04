@@ -316,6 +316,21 @@ OMX_ERRORTYPE H264CodecOpen(EXYNOS_H264DEC_HANDLE *pH264Dec)
     ret = OMX_ErrorNone;
 
 EXIT:
+    if (ret != OMX_ErrorNone) {
+        if (pDecOps != NULL) {
+            Exynos_OSAL_Free(pDecOps);
+            pH264Dec->hMFCH264Handle.pDecOps = NULL;
+        }
+        if (pInbufOps != NULL) {
+            Exynos_OSAL_Free(pInbufOps);
+            pH264Dec->hMFCH264Handle.pInbufOps = NULL;
+        }
+        if (pOutbufOps != NULL) {
+            Exynos_OSAL_Free(pOutbufOps);
+            pH264Dec->hMFCH264Handle.pOutbufOps = NULL;
+        }
+    }
+
     FunctionOut();
 
     return ret;

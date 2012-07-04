@@ -686,7 +686,7 @@ EXIT:
 
 OMX_ERRORTYPE Exynos_InputBufferGetQueue(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
 {
-    OMX_ERRORTYPE          ret = OMX_ErrorNone;
+    OMX_ERRORTYPE          ret = OMX_ErrorUndefined;
     EXYNOS_OMX_BASEPORT   *pExynosPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
     EXYNOS_OMX_MESSAGE    *message = NULL;
     EXYNOS_OMX_DATABUFFER *inputUseBuffer = NULL;
@@ -708,6 +708,7 @@ OMX_ERRORTYPE Exynos_InputBufferGetQueue(EXYNOS_OMX_BASECOMPONENT *pExynosCompon
                 goto EXIT;
             }
             if (message->messageType == EXYNOS_OMX_CommandFakeBuffer) {
+                Exynos_OSAL_Free(message);
                 ret = OMX_ErrorCodecFlush;
                 goto EXIT;
             }
@@ -829,7 +830,7 @@ EXIT:
 
 OMX_ERRORTYPE Exynos_OutputBufferGetQueue(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
 {
-    OMX_ERRORTYPE       ret = OMX_ErrorNone;
+    OMX_ERRORTYPE       ret = OMX_ErrorUndefined;
     EXYNOS_OMX_BASEPORT   *pExynosPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
     EXYNOS_OMX_MESSAGE    *message = NULL;
     EXYNOS_OMX_DATABUFFER *outputUseBuffer = NULL;
@@ -855,6 +856,7 @@ OMX_ERRORTYPE Exynos_OutputBufferGetQueue(EXYNOS_OMX_BASECOMPONENT *pExynosCompo
                 goto EXIT;
             }
             if (message->messageType == EXYNOS_OMX_CommandFakeBuffer) {
+                Exynos_OSAL_Free(message);
                 ret = OMX_ErrorCodecFlush;
                 goto EXIT;
             }
