@@ -227,6 +227,19 @@ OMX_BOOL Exynos_Preprocessor_InputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
         if (exynosInputPort->bufferProcessType == BUFFER_SHARE) {
             Exynos_Shared_BufferToData(inputUseBuffer, srcInputData, ONE_PLANE);
 
+            if (pVideoDec->bDRMPlayerMode == OMX_TRUE) {
+                OMX_PTR dataBuffer = NULL;
+
+                dataBuffer = Exynos_OSAL_SharedMemory_IONToVirt(pVideoDec->hSharedMemory,
+                                                            srcInputData->buffer.singlePlaneBuffer.dataBuffer);
+                if (dataBuffer == NULL) {
+                    ret = OMX_FALSE;
+                    goto EXIT;
+                }
+
+                srcInputData->buffer.singlePlaneBuffer.dataBuffer = dataBuffer;
+            }
+
             /* reset dataBuffer */
             Exynos_ResetDataBuffer(inputUseBuffer);
 

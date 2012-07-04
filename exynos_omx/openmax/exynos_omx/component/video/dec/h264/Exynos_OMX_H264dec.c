@@ -1535,7 +1535,14 @@ OMX_ERRORTYPE Exynos_H264Dec_Init(OMX_COMPONENTTYPE *pOMXComponent)
 #if 0//defined(USE_CSC_GSCALER)
     csc_method = CSC_METHOD_HW; //in case of Use ION buffer.
 #endif
-    pVideoDec->csc_handle = csc_init(csc_method);
+    if (pVideoDec->bDRMPlayerMode == OMX_TRUE) {
+        pVideoDec->csc_handle = csc_init(CSC_METHOD_HW);
+        csc_set_hw_property(pVideoDec->csc_handle, CSC_HW_PROPERTY_FIXED_NODE, 2);
+        csc_set_hw_property(pVideoDec->csc_handle, CSC_HW_PROPERTY_MODE_DRM, pVideoDec->bDRMPlayerMode);
+    } else {
+        pVideoDec->csc_handle = csc_init(csc_method);
+    }
+
     if (pVideoDec->csc_handle == NULL) {
         ret = OMX_ErrorInsufficientResources;
         goto EXIT;
@@ -1652,8 +1659,9 @@ OMX_ERRORTYPE Exynos_H264Dec_SrcIn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_
         ret = H264CodecDstSetup(pOMXComponent);
     }
 
-    if ((Check_H264_StartCode(pSrcInputData->buffer.singlePlaneBuffer.dataBuffer, oneFrameSize) == OMX_TRUE) ||
-        ((pSrcInputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS)){
+    if (((pVideoDec->bDRMPlayerMode == OMX_TRUE) ||
+            (Check_H264_StartCode(pSrcInputData->buffer.singlePlaneBuffer.dataBuffer, oneFrameSize) == OMX_TRUE)) ||
+        ((pSrcInputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS)) {
         pExynosComponent->timeStamp[pH264Dec->hMFCH264Handle.indexTimestamp] = pSrcInputData->timeStamp;
         pExynosComponent->nFlags[pH264Dec->hMFCH264Handle.indexTimestamp] = pSrcInputData->nFlags;
         Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "input timestamp %lld us (%.2f secs), Tag: %d, nFlags: 0x%x", pSrcInputData->timeStamp, pSrcInputData->timeStamp / 1E6, pH264Dec->hMFCH264Handle.indexTimestamp, pSrcInputData->nFlags);
