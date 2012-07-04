@@ -155,6 +155,7 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
     OMX_U8                *temp_buffer = NULL;
     int                    temp_buffer_fd = -1;
     OMX_U32                i = 0;
+    MEMORY_TYPE            mem_type;
 
     FunctionIn();
 
@@ -192,29 +193,20 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
     }
 
     if (pExynosPort->bufferProcessType == BUFFER_SHARE) {
-        temp_buffer = Exynos_OSAL_SharedMemory_Alloc(pVideoDec->hSharedMemory, nSizeBytes, NORMAL_MEMORY);
-        if (temp_buffer == NULL) {
-            ret = OMX_ErrorInsufficientResources;
-            goto EXIT;
-        }
-        temp_buffer_fd = Exynos_OSAL_SharedMemory_VirtToION(pVideoDec->hSharedMemory, temp_buffer);
+        mem_type = NORMAL_MEMORY;
     } else {
-        temp_buffer = Exynos_OSAL_Malloc(sizeof(OMX_U8) * nSizeBytes);
-        if (temp_buffer == NULL) {
-            ret = OMX_ErrorInsufficientResources;
-            goto EXIT;
-        }
+        mem_type = SYSTEM_MEMORY;
     }
+    temp_buffer = Exynos_OSAL_SharedMemory_Alloc(pVideoDec->hSharedMemory, nSizeBytes, mem_type);
+    if (temp_buffer == NULL) {
+        ret = OMX_ErrorInsufficientResources;
+        goto EXIT;
+    }
+    temp_buffer_fd = Exynos_OSAL_SharedMemory_VirtToION(pVideoDec->hSharedMemory, temp_buffer);
 
     temp_bufferHeader = (OMX_BUFFERHEADERTYPE *)Exynos_OSAL_Malloc(sizeof(OMX_BUFFERHEADERTYPE));
     if (temp_bufferHeader == NULL) {
-        if (pExynosPort->bufferProcessType == BUFFER_SHARE) {
-            Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, temp_buffer);
-        } else {
-            Exynos_OSAL_Free(temp_buffer);
-        }
-
-        temp_buffer = NULL;
+        Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, temp_buffer);
         ret = OMX_ErrorInsufficientResources;
         goto EXIT;
     }
@@ -247,11 +239,7 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
     }
 
     Exynos_OSAL_Free(temp_bufferHeader);
-    if (pExynosPort->bufferProcessType == BUFFER_SHARE) {
-        Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, temp_buffer);
-    } else {
-        Exynos_OSAL_Free(temp_buffer);
-    }
+    Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, temp_buffer);
 
     ret = OMX_ErrorInsufficientResources;
 
@@ -312,11 +300,7 @@ OMX_ERRORTYPE Exynos_OMX_FreeBuffer(
         if (((pExynosPort->bufferStateAllocate[i] | BUFFER_STATE_FREE) != 0) && (pExynosPort->extendBufferHeader[i].OMXBufferHeader != NULL)) {
             if (pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer == pBufferHdr->pBuffer) {
                 if (pExynosPort->bufferStateAllocate[i] & BUFFER_STATE_ALLOCATED) {
-                    if (pExynosPort->bufferProcessType == BUFFER_SHARE) {
-                        Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer);
-                    } else {
-                        Exynos_OSAL_Free(pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer);
-                    }
+                    Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer);
                     pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer = NULL;
                     pBufferHdr->pBuffer = NULL;
                 } else if (pExynosPort->bufferStateAllocate[i] & BUFFER_STATE_ASSIGNED) {

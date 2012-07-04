@@ -155,7 +155,7 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
     EXYNOS_OMX_BASEPORT      *pExynosPort = NULL;
     OMX_BUFFERHEADERTYPE  *temp_bufferHeader = NULL;
     OMX_U8                *temp_buffer = NULL;
-    int                    temp_buffer_fd;
+    int                    temp_buffer_fd = -1;
     OMX_U32                i = 0;
     MEMORY_TYPE            mem_type;
 
@@ -200,10 +200,7 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
         mem_type = NORMAL_MEMORY;
     } else {
         mem_type = SYSTEM_MEMORY;
-        Exynos_OSAL_Log(EXYNOS_LOG_WARNING, "%s: using system memory to alloc %d bytes\n", __func__,
-                        nSizeBytes);
     }
-
     temp_buffer = Exynos_OSAL_SharedMemory_Alloc(pVideoDec->hSharedMemory, nSizeBytes, mem_type);
     if (temp_buffer == NULL) {
         ret = OMX_ErrorInsufficientResources;
@@ -225,13 +222,12 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
             pExynosPort->extendBufferHeader[i].buf_fd[0] = temp_buffer_fd;
             pExynosPort->bufferStateAllocate[i] = (BUFFER_STATE_ALLOCATED | HEADER_STATE_ALLOCATED);
             INIT_SET_SIZE_VERSION(temp_bufferHeader, OMX_BUFFERHEADERTYPE);
-            temp_bufferHeader->pBuffer        = temp_buffer;
+            if (mem_type == SECURE_MEMORY)
+                temp_bufferHeader->pBuffer = temp_buffer_fd;
+            else
+                temp_bufferHeader->pBuffer = temp_buffer;
             temp_bufferHeader->nAllocLen      = nSizeBytes;
             temp_bufferHeader->pAppPrivate    = pAppPrivate;
-            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%s: allocated buf %d (hdr=%p) addr=%p sz=%ld fd=%d\n",
-                            __func__, i, &pExynosPort->extendBufferHeader[i], temp_buffer, nSizeBytes,
-                            temp_buffer_fd);
-
             if (nPortIndex == INPUT_PORT_INDEX)
                 temp_bufferHeader->nInputPortIndex = INPUT_PORT_INDEX;
             else
@@ -311,7 +307,12 @@ OMX_ERRORTYPE Exynos_OMX_FreeBuffer(
         if (((pExynosPort->bufferStateAllocate[i] | BUFFER_STATE_FREE) != 0) && (pExynosPort->extendBufferHeader[i].OMXBufferHeader != NULL)) {
             if (pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer == pBufferHdr->pBuffer) {
                 if (pExynosPort->bufferStateAllocate[i] & BUFFER_STATE_ALLOCATED) {
-                    Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer);
+                    if ((pVideoDec->bDRMPlayerMode == OMX_TRUE) && (nPortIndex == INPUT_PORT_INDEX)) {
+                        OMX_PTR mapBuffer = Exynos_OSAL_SharedMemory_IONToVirt(pVideoDec->hSharedMemory, (int)pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer);
+                        Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, mapBuffer);
+                    } else {
+                        Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer);
+                    }
                     pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer = NULL;
                     pBufferHdr->pBuffer = NULL;
                 } else if (pExynosPort->bufferStateAllocate[i] & BUFFER_STATE_ASSIGNED) {
