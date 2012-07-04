@@ -68,29 +68,20 @@ typedef struct
     void *pAddrC;
 } CODEC_ENC_ADDR_INFO;
 
-typedef struct _CODEC_ENC_INPUT_BUFFER
+typedef struct _CODEC_ENC_BUFFER
 {
-    void *YVirAddr; // virtual address of Y
-    void *CVirAddr; // virtual address of CbCr
-    int YBufferSize; // input buffer alloc size of Y
-    int CBufferSize; // input buffer alloc size of CbCr
-    int YDataSize;  // input size of Y data
-    int CDataSize;  // input size of CbCr data
-} CODEC_ENC_INPUT_BUFFER;
-
-typedef struct _CODEC_ENC_OUTPUT_BUFFER
-{
-    void *VirAddr;      // virtual address
-    int   bufferSize;   // input buffer alloc size
-    int   dataSize;     // Data length
-} CODEC_ENC_OUTPUT_BUFFER;
+    void *pVirAddr[MAX_BUFFER_PLANE];   /* virtual address   */
+    int   bufferSize[MAX_BUFFER_PLANE]; /* buffer alloc size */
+    int   fd[MAX_BUFFER_PLANE];  /* buffer FD */
+    int   dataSize;              /* total data length */
+} CODEC_ENC_BUFFER;
 
 typedef struct _EXYNOS_OMX_VIDEOENC_COMPONENT
 {
     OMX_HANDLETYPE hCodecHandle;
     OMX_BOOL bFirstFrame;
-    CODEC_ENC_INPUT_BUFFER *pMFCEncInputBuffer[MFC_INPUT_BUFFER_NUM_MAX];
-    CODEC_ENC_OUTPUT_BUFFER *pMFCEncOutputBuffer[MFC_OUTPUT_BUFFER_NUM_MAX];
+    CODEC_ENC_BUFFER *pMFCEncInputBuffer[MFC_INPUT_BUFFER_NUM_MAX];
+    CODEC_ENC_BUFFER *pMFCEncOutputBuffer[MFC_OUTPUT_BUFFER_NUM_MAX];
 
     /* Buffer Process */
     OMX_BOOL       bExitBufferProcessThread;

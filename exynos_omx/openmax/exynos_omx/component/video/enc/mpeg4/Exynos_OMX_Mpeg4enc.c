@@ -818,8 +818,8 @@ OMX_ERRORTYPE Mpeg4CodecEnQueueAllBuffer(OMX_COMPONENTTYPE *pOMXComponent, OMX_U
 
         for (i = 0; i < MFC_INPUT_BUFFER_NUM_MAX; i++)  {
             Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncInputBuffer[%d]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]);
-            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncInputBuffer[%d]->YVirAddr: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->YVirAddr);
-            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncInputBuffer[%d]->CVirAddr: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->CVirAddr);
+            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[0]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0]);
+            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[1]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1]);
 
             Exynos_CodecBufferEnQueue(pExynosComponent, INPUT_PORT_INDEX, pVideoEnc->pMFCEncInputBuffer[i]);
         }
@@ -836,7 +836,8 @@ OMX_ERRORTYPE Mpeg4CodecEnQueueAllBuffer(OMX_COMPONENTTYPE *pOMXComponent, OMX_U
             pOutbufOps->Get_Buffer(hMFCHandle, i, &pBuffer);
             Exynos_CodecBufferEnQueue(pExynosComponent, OUTPUT_PORT_INDEX, (OMX_PTR)pBuffer);
             Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncOutputBuffer[%d]: 0x%x", i, pVideoEnc->pMFCEncOutputBuffer[i]);
-            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncOutputBuffer[%d]->YVirAddr: 0x%x", i, pVideoEnc->pMFCEncOutputBuffer[i]->VirAddr);
+            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[0]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0]);
+            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[1]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1]);
         }
         pOutbufOps->Clear_Queue(hMFCHandle);
     } else {
@@ -937,17 +938,18 @@ OMX_ERRORTYPE Mpeg4CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DA
         goto EXIT;
     }
 
-    OMX_PTR pTempAddress[MFC_INPUT_BUFFER_PLANE] = {NULL, NULL};
-    OMX_U32 TempAllocSize[MFC_INPUT_BUFFER_PLANE] = {0, 0};
+    ExynosVideoPlane planes[MFC_INPUT_BUFFER_PLANE];
+    int plane;
+
     if ((pExynosInputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
         /* Register input buffer */
         for (i = 0; i < MFC_INPUT_BUFFER_NUM_MAX; i++) {
-            pTempAddress[0] = pVideoEnc->pMFCEncInputBuffer[i]->YVirAddr;
-            pTempAddress[1] = pVideoEnc->pMFCEncInputBuffer[i]->CVirAddr;
-            TempAllocSize[0] = pVideoEnc->pMFCEncInputBuffer[i]->YBufferSize;
-            TempAllocSize[1] = pVideoEnc->pMFCEncInputBuffer[i]->CBufferSize;
-            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "%s:%d", __FUNCTION__, __LINE__);
-            if (pInbufOps->Register(hMFCHandle, pTempAddress, TempAllocSize) != VIDEO_ERROR_NONE) {
+            for (plane = 0; plane < MFC_INPUT_BUFFER_PLANE; plane++) {
+                planes[plane].addr = pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[plane];
+                planes[plane].allocSize = pVideoEnc->pMFCEncInputBuffer[i]->bufferSize[plane];
+                planes[plane].fd = pVideoEnc->pMFCEncInputBuffer[i]->fd[plane];
+            }
+            if (pInbufOps->Register(hMFCHandle, planes, MFC_INPUT_BUFFER_PLANE) != VIDEO_ERROR_NONE) {
                 Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to Register input buffer");
                 ret = OMX_ErrorInsufficientResources;
                 goto EXIT;
@@ -955,20 +957,13 @@ OMX_ERRORTYPE Mpeg4CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DA
         }
     } else if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
         if (pExynosInputPort->bStoreMetaData == OMX_TRUE) {
-            TempAllocSize[0] = ALIGN_TO_16B(pExynosInputPort->portDefinition.format.video.nFrameWidth) *
-                                ALIGN_TO_16B(pExynosInputPort->portDefinition.format.video.nFrameHeight);
-            TempAllocSize[1] = ALIGN(TempAllocSize[0]/2,256);
-        }
-        /* Register input buffer */
-        for (i = 0; i < pExynosInputPort->portDefinition.nBufferCountActual; i++) {
-            if (pInbufOps->Register(pMpeg4Enc->hMFCMpeg4Handle.hMFCHandle,
-                        (unsigned char **)&pExynosInputPort->extendBufferHeader[i].OMXBufferHeader->pBuffer,
-                        (pExynosInputPort->bStoreMetaData ? (unsigned int *)TempAllocSize :
-                        (unsigned int *)&pExynosInputPort->extendBufferHeader[i].OMXBufferHeader->nAllocLen)) != VIDEO_ERROR_NONE) {
-                Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to Register input buffer");
-                ret = OMX_ErrorInsufficientResources;
-                goto EXIT;
-            }
+            /*************/
+            /*    TBD    */
+            /*************/
+            /* Does not require any actions. */
+        } else {
+            ret = OMX_ErrorNotImplemented;
+            goto EXIT;
         }
     }
 
@@ -1043,42 +1038,51 @@ OMX_ERRORTYPE Mpeg4CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
     }
 
     OMX_U32 dataLen[MFC_OUTPUT_BUFFER_PLANE] = {0};
-Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "nFrameWidth:%d, nFrameHeight:%d, OutBufferSize:%d",
-    pExynosOutputPort->portDefinition.format.video.nFrameWidth, pExynosOutputPort->portDefinition.format.video.nFrameHeight, OutBufferSize);
     if ((pExynosOutputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
         /* Register input buffer */
         for (i = 0; i < MFC_OUTPUT_BUFFER_NUM_MAX; i++) {
-            pVideoEnc->pMFCEncOutputBuffer[i] = (CODEC_ENC_OUTPUT_BUFFER *)Exynos_OSAL_Malloc(sizeof(CODEC_ENC_OUTPUT_BUFFER));
-            pVideoEnc->pMFCEncOutputBuffer[i]->VirAddr =
+            ExynosVideoPlane plane;
+            pVideoEnc->pMFCEncOutputBuffer[i] = (CODEC_ENC_BUFFER *)Exynos_OSAL_Malloc(sizeof(CODEC_ENC_BUFFER));
+            pVideoEnc->pMFCEncOutputBuffer[i]->pVirAddr[0] =
                 (void *)Exynos_OSAL_SharedMemory_Alloc(pVideoEnc->hSharedMemory, OutBufferSize, NORMAL_MEMORY);
-            pVideoEnc->pMFCEncOutputBuffer[i]->bufferSize = OutBufferSize;
-
-            if (pVideoEnc->pMFCEncOutputBuffer[i]->VirAddr == NULL) {
+            if (pVideoEnc->pMFCEncOutputBuffer[i]->pVirAddr[0] == NULL) {
                 Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to Alloc output buffer");
                 ret = OMX_ErrorInsufficientResources;
                 goto EXIT;
             }
-            if (pOutbufOps->Register(hMFCHandle,
-                                     &pVideoEnc->pMFCEncOutputBuffer[i]->VirAddr,
-                                     &pVideoEnc->pMFCEncOutputBuffer[i]->bufferSize) != VIDEO_ERROR_NONE) {
+            pVideoEnc->pMFCEncOutputBuffer[i]->fd[0] =
+                Exynos_OSAL_SharedMemory_VirtToION(pVideoEnc->hSharedMemory, pVideoEnc->pMFCEncOutputBuffer[i]->pVirAddr[0]);
+            pVideoEnc->pMFCEncOutputBuffer[i]->bufferSize[0] = OutBufferSize;
+
+            plane.addr = pVideoEnc->pMFCEncOutputBuffer[i]->pVirAddr[0];
+            plane.fd = pVideoEnc->pMFCEncOutputBuffer[i]->fd[0];
+            plane.allocSize = pVideoEnc->pMFCEncOutputBuffer[i]->bufferSize[0];
+
+            if (pOutbufOps->Register(hMFCHandle, &plane, MFC_OUTPUT_BUFFER_PLANE) != VIDEO_ERROR_NONE) {
                 Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to Register output buffer");
                 ret = OMX_ErrorInsufficientResources;
                 goto EXIT;
             }
-            pOutbufOps->Enqueue(hMFCHandle, (unsigned char **)&pVideoEnc->pMFCEncOutputBuffer[i]->VirAddr, (unsigned int *)dataLen, MFC_OUTPUT_BUFFER_PLANE, NULL);
+            pOutbufOps->Enqueue(hMFCHandle, (unsigned char **)pVideoEnc->pMFCEncOutputBuffer[i]->pVirAddr,
+                                (unsigned int *)dataLen, MFC_OUTPUT_BUFFER_PLANE, NULL);
         }
     } else if ((pExynosOutputPort->bufferProcessType & BUFFER_SHARE) == BUFFER_SHARE) {
         /* Register input buffer */
         /*************/
         /*    TBD    */
         /*************/
+        ExynosVideoPlane plane;
         for (i = 0; i < pExynosOutputPort->portDefinition.nBufferCountActual; i++) {
-            if (pOutbufOps->Register(hMFCHandle, &pExynosOutputPort->extendBufferHeader[i].OMXBufferHeader->pBuffer, &pExynosOutputPort->extendBufferHeader[i].OMXBufferHeader->nAllocLen) != VIDEO_ERROR_NONE) {
+            plane.addr = pExynosOutputPort->extendBufferHeader[i].OMXBufferHeader->pBuffer;
+            plane.fd = pExynosOutputPort->extendBufferHeader[i].buf_fd[0];
+            plane.allocSize = OutBufferSize;
+            if (pOutbufOps->Register(hMFCHandle, &plane, MFC_OUTPUT_BUFFER_PLANE) != VIDEO_ERROR_NONE) {
                 Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to Register input buffer");
                 ret = OMX_ErrorInsufficientResources;
                 goto EXIT;
             }
-            pOutbufOps->Enqueue(hMFCHandle, &pExynosOutputPort->extendBufferHeader[i].OMXBufferHeader->pBuffer, (unsigned int *)dataLen, MFC_OUTPUT_BUFFER_PLANE, NULL);
+            pOutbufOps->Enqueue(hMFCHandle, (unsigned char **)&pExynosOutputPort->extendBufferHeader[i].OMXBufferHeader->pBuffer,
+                                   (unsigned int *)dataLen, MFC_OUTPUT_BUFFER_PLANE, NULL);
         }
     }
 
@@ -1111,9 +1115,7 @@ Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "nFrameWidth:%d, nFrameHeight:%d, OutBufferSiz
                             OMXBuffer->pBuffer,
                             pVideoBuffer->planes[0].addr,
                             pVideoBuffer->planes[0].dataSize);
-        Exynos_OSAL_Memcpy(OMXBuffer->pBuffer,
-                           pVideoBuffer->planes[0].addr,
-                           pVideoBuffer->planes[0].dataSize);
+        Exynos_OSAL_Memcpy(OMXBuffer->pBuffer, pVideoBuffer->planes[0].addr, pVideoBuffer->planes[0].dataSize);
         OMXBuffer->nFilledLen = pVideoBuffer->planes[0].dataSize;
         OMXBuffer->nOffset = 0;
         OMXBuffer->nTimeStamp = 0;
@@ -1759,27 +1761,34 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_Init(OMX_COMPONENTTYPE *pOMXComponent)
         Exynos_OSAL_QueueCreate(&pExynosInputPort->codecBufferQ, MAX_QUEUE_ELEMENTS);
 
         for (i = 0; i < MFC_INPUT_BUFFER_NUM_MAX; i++) {
-            pVideoEnc->pMFCEncInputBuffer[i] = Exynos_OSAL_Malloc(sizeof(CODEC_ENC_INPUT_BUFFER));
+            pVideoEnc->pMFCEncInputBuffer[i] = Exynos_OSAL_Malloc(sizeof(CODEC_ENC_BUFFER));
             /* Use ION Allocator */
             /*Alloc Y-Buffer */
-            pVideoEnc->pMFCEncInputBuffer[i]->YVirAddr = (void *)Exynos_OSAL_SharedMemory_Alloc(pVideoEnc->hSharedMemory, DEFAULT_MFC_INPUT_YBUFFER_SIZE, NORMAL_MEMORY);
-            pVideoEnc->pMFCEncInputBuffer[i]->YBufferSize = DEFAULT_MFC_INPUT_YBUFFER_SIZE;
-            pVideoEnc->pMFCEncInputBuffer[i]->YDataSize = 0;
+            pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0] = (void *)Exynos_OSAL_SharedMemory_Alloc(pVideoEnc->hSharedMemory, DEFAULT_MFC_INPUT_YBUFFER_SIZE, NORMAL_MEMORY);
+            pVideoEnc->pMFCEncInputBuffer[i]->fd[0] = Exynos_OSAL_SharedMemory_VirtToION(pVideoEnc->hSharedMemory, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0]);
+            pVideoEnc->pMFCEncInputBuffer[i]->bufferSize[0] = DEFAULT_MFC_INPUT_YBUFFER_SIZE;
             /*Alloc C-Buffer */
-            pVideoEnc->pMFCEncInputBuffer[i]->CVirAddr = (void *)Exynos_OSAL_SharedMemory_Alloc(pVideoEnc->hSharedMemory, DEFAULT_MFC_INPUT_CBUFFER_SIZE, NORMAL_MEMORY);
-            pVideoEnc->pMFCEncInputBuffer[i]->CBufferSize = DEFAULT_MFC_INPUT_CBUFFER_SIZE;
-            pVideoEnc->pMFCEncInputBuffer[i]->CDataSize = 0;
+            pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1] = (void *)Exynos_OSAL_SharedMemory_Alloc(pVideoEnc->hSharedMemory, DEFAULT_MFC_INPUT_CBUFFER_SIZE, NORMAL_MEMORY);
+            pVideoEnc->pMFCEncInputBuffer[i]->fd[1] = Exynos_OSAL_SharedMemory_VirtToION(pVideoEnc->hSharedMemory, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1]);
+            pVideoEnc->pMFCEncInputBuffer[i]->bufferSize[1] = DEFAULT_MFC_INPUT_CBUFFER_SIZE;
 
-            if ((pVideoEnc->pMFCEncInputBuffer[i]->YVirAddr == NULL) ||
-                (pVideoEnc->pMFCEncInputBuffer[i]->CVirAddr == NULL)) {
+            pVideoEnc->pMFCEncInputBuffer[i]->dataSize = 0;
+
+            if ((pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0] == NULL) ||
+                (pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1] == NULL)) {
                 Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Fail input buffer");
                 ret = OMX_ErrorInsufficientResources;
                 goto EXIT;
             }
 
+            /* MFC input buffers are 1 plane. */
+            pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[2] = NULL;
+            pVideoEnc->pMFCEncInputBuffer[i]->fd[2] = -1;
+            pVideoEnc->pMFCEncInputBuffer[i]->bufferSize[2] = 0;
+
             Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "pVideoEnc->pMFCEncInputBuffer[%d]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]);
-            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "pVideoEnc->pMFCEncInputBuffer[%d]->YVirAddr: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->YVirAddr);
-            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "pVideoEnc->pMFCEncInputBuffer[%d]->CVirAddr: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->CVirAddr);
+            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[0]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0]);
+            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[1]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1]);
 
             Exynos_CodecBufferEnQueue(pExynosComponent, INPUT_PORT_INDEX, pVideoEnc->pMFCEncInputBuffer[i]);
         }
@@ -1843,7 +1852,7 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_Terminate(OMX_COMPONENTTYPE *pOMXComponent)
     ExynosVideoEncBufferOps *pInbufOps  = pMpeg4Enc->hMFCMpeg4Handle.pInbufOps;
     ExynosVideoEncBufferOps *pOutbufOps = pMpeg4Enc->hMFCMpeg4Handle.pOutbufOps;
 
-    int i = 0;
+    int i = 0, plane = 0;
 
     FunctionIn();
 
@@ -1862,8 +1871,8 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_Terminate(OMX_COMPONENTTYPE *pOMXComponent)
     if ((pExynosOutputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
         for (i = 0; i < MFC_OUTPUT_BUFFER_NUM_MAX; i++) {
             if (pVideoEnc->pMFCEncOutputBuffer[i] != NULL) {
-                if (pVideoEnc->pMFCEncOutputBuffer[i]->VirAddr != NULL)
-                    Exynos_OSAL_SharedMemory_Free(pVideoEnc->hSharedMemory, pVideoEnc->pMFCEncOutputBuffer[i]->VirAddr);
+                if (pVideoEnc->pMFCEncOutputBuffer[i]->pVirAddr[0] != NULL)
+                    Exynos_OSAL_SharedMemory_Free(pVideoEnc->hSharedMemory, pVideoEnc->pMFCEncOutputBuffer[i]->pVirAddr[0]);
                 Exynos_OSAL_Free(pVideoEnc->pMFCEncOutputBuffer[i]);
                 pVideoEnc->pMFCEncOutputBuffer[i] = NULL;
             }
@@ -1881,10 +1890,10 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_Terminate(OMX_COMPONENTTYPE *pOMXComponent)
     if ((pExynosInputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
         for (i = 0; i < MFC_INPUT_BUFFER_NUM_MAX; i++) {
             if (pVideoEnc->pMFCEncInputBuffer[i] != NULL) {
-                if (pVideoEnc->pMFCEncInputBuffer[i]->YVirAddr != NULL)
-                    Exynos_OSAL_SharedMemory_Free(pVideoEnc->hSharedMemory, pVideoEnc->pMFCEncInputBuffer[i]->YVirAddr);
-                if (pVideoEnc->pMFCEncInputBuffer[i]->CVirAddr != NULL)
-                    Exynos_OSAL_SharedMemory_Free(pVideoEnc->hSharedMemory, pVideoEnc->pMFCEncInputBuffer[i]->CVirAddr);
+                for (plane = 0; plane < MFC_INPUT_BUFFER_PLANE; plane++) {
+                    if (pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[plane] != NULL)
+                        Exynos_OSAL_SharedMemory_Free(pVideoEnc->hSharedMemory, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[plane]);
+                }
                 Exynos_OSAL_Free(pVideoEnc->pMFCEncInputBuffer[i]);
                 pVideoEnc->pMFCEncInputBuffer[i] = NULL;
             }
@@ -1935,8 +1944,9 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_SrcIn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX
 
     if ((pSrcInputData->dataLen >= 0) ||
         ((pSrcInputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS)) {
-        OMX_PTR pMFCYUVVirBuffer[MFC_INPUT_BUFFER_PLANE] = {NULL, NULL};
         OMX_U32 pMFCYUVDataSize[MFC_INPUT_BUFFER_PLANE]  = {NULL, NULL};
+        ExynosVideoPlane planes[MFC_INPUT_BUFFER_PLANE];
+        int plane;
 
         pExynosComponent->timeStamp[pMpeg4Enc->hMFCMpeg4Handle.indexTimestamp] = pSrcInputData->timeStamp;
         pExynosComponent->nFlags[pMpeg4Enc->hMFCMpeg4Handle.indexTimestamp] = pSrcInputData->nFlags;
@@ -1947,22 +1957,39 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_SrcIn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX
 
         /* queue work for input buffer */
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Exynos_Mpeg4Enc_SrcIn(): oneFrameSize: %d, bufferHeader: 0x%x", oneFrameSize, pSrcInputData->bufferHeader);
-        CODEC_ENC_INPUT_BUFFER *codecInputBuffer = (CODEC_ENC_INPUT_BUFFER *)pSrcInputData->pPrivate;
+        pMFCYUVDataSize[0] = pExynosInputPort->portDefinition.format.video.nFrameWidth * pExynosInputPort->portDefinition.format.video.nFrameHeight;
+        pMFCYUVDataSize[1] = pMFCYUVDataSize[0] / 2;
 
-        pMFCYUVVirBuffer[0] = pSrcInputData->buffer.multiPlaneBuffer.dataBuffer[0];
-        pMFCYUVVirBuffer[1] = pSrcInputData->buffer.multiPlaneBuffer.dataBuffer[1];
+        codecReturn = pInbufOps->Enqueue(hMFCHandle, (unsigned char **)pSrcInputData->buffer.multiPlaneBuffer.dataBuffer,
+                                    (unsigned int *)pMFCYUVDataSize, MFC_INPUT_BUFFER_PLANE, pSrcInputData->bufferHeader);
+#ifdef USE_METADATABUFFERTYPE
+        if ((codecReturn == VIDEO_ERROR_NOBUFFERS) &&
+            (pExynosInputPort->bStoreMetaData == OMX_TRUE) &&
+            (pExynosInputPort->bufferProcessType == BUFFER_SHARE)) {
+            OMX_U32 nAllocLen[MFC_INPUT_BUFFER_PLANE] = {0, 0};
+            nAllocLen[0] = ALIGN_TO_16B(pExynosInputPort->portDefinition.format.video.nFrameWidth) *
+                                ALIGN_TO_16B(pExynosInputPort->portDefinition.format.video.nFrameHeight);
+            nAllocLen[1] = ALIGN(nAllocLen[0]/2,256);
+            for (plane = 0; plane < MFC_INPUT_BUFFER_PLANE; plane++) {
+                planes[plane].addr = pSrcInputData->buffer.multiPlaneBuffer.dataBuffer[plane];
+                planes[plane].allocSize = nAllocLen[plane];
+                planes[plane].fd = pSrcInputData->buffer.multiPlaneBuffer.fd[plane];
+            }
 
-        if ((pExynosInputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
-            CODEC_ENC_INPUT_BUFFER *codecInputBuffer = (CODEC_ENC_INPUT_BUFFER *)pSrcInputData->pPrivate;
-            pMFCYUVDataSize[0] = codecInputBuffer->YDataSize;
-            pMFCYUVDataSize[1] = codecInputBuffer->CDataSize;
-        } else if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
-            pMFCYUVDataSize[0] = pExynosInputPort->portDefinition.format.video.nFrameWidth * pExynosInputPort->portDefinition.format.video.nFrameHeight;
-            pMFCYUVDataSize[1] = pMFCYUVDataSize[0]/2;
+            /* Register input buffer */
+            for (i = 0; i < pExynosInputPort->portDefinition.nBufferCountActual; i++) {
+                if (pInbufOps->Register(pMpeg4Enc->hMFCMpeg4Handle.hMFCHandle,
+                            planes, MFC_INPUT_BUFFER_PLANE) != VIDEO_ERROR_NONE) {
+                    Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to Register input buffer");
+                    ret = OMX_ErrorInsufficientResources;
+                    goto EXIT;
+                }
+            }
+            codecReturn = pInbufOps->Enqueue(hMFCHandle, (unsigned char **)pSrcInputData->buffer.multiPlaneBuffer.dataBuffer,
+                                        (unsigned int *)pMFCYUVDataSize, MFC_INPUT_BUFFER_PLANE, pSrcInputData->bufferHeader);
+
         }
-
-        codecReturn = pInbufOps->Enqueue(hMFCHandle, (unsigned char **)pMFCYUVVirBuffer,
-                              (unsigned int *)pMFCYUVDataSize, MFC_INPUT_BUFFER_PLANE, pSrcInputData->bufferHeader);
+#endif
         if (codecReturn != VIDEO_ERROR_NONE) {
             Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "%s: %d: Failed - pInbufOps->Enqueue", __FUNCTION__, __LINE__);
             ret = (OMX_ERRORTYPE)OMX_ErrorCodecEncode;
@@ -2017,16 +2044,18 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_SrcOut(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OM
         pSrcOutputData->pPrivate = NULL;
         pSrcOutputData->bufferHeader = NULL;
     } else {
-        pSrcOutputData->buffer.multiPlaneBuffer.dataBuffer[0] = pVideoBuffer->planes[0].addr;
-        pSrcOutputData->buffer.multiPlaneBuffer.dataBuffer[1] = pVideoBuffer->planes[1].addr;
-        pSrcOutputData->buffer.multiPlaneBuffer.dataBuffer[2] = pVideoBuffer->planes[2].addr;
+        int plane = 0;
+        for (plane = 0; plane < MFC_INPUT_BUFFER_PLANE; plane++) {
+            pSrcOutputData->buffer.multiPlaneBuffer.dataBuffer[plane] = pVideoBuffer->planes[plane].addr;
+            pSrcOutputData->buffer.multiPlaneBuffer.fd[plane] = pVideoBuffer->planes[plane].fd;
+        }
         pSrcOutputData->allocSize = pVideoBuffer->planes[0].allocSize +
                                         pVideoBuffer->planes[1].allocSize +
                                         pVideoBuffer->planes[2].allocSize;
 
         if ((pExynosInputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
             int i = 0;
-            while (pSrcOutputData->buffer.multiPlaneBuffer.dataBuffer[0] != pVideoEnc->pMFCEncInputBuffer[i]->YVirAddr) {
+            while (pSrcOutputData->buffer.multiPlaneBuffer.dataBuffer[0] != pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0]) {
                 if (i >= MFC_INPUT_BUFFER_NUM_MAX) {
                     Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "%s: %d: Failed - Lost buffer", __FUNCTION__, __LINE__);
                     ret = (OMX_ERRORTYPE)OMX_ErrorCodecEncode;
@@ -2034,8 +2063,7 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_SrcOut(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OM
                 }
                 i++;
             }
-            pVideoEnc->pMFCEncInputBuffer[i]->YDataSize = 0;
-            pVideoEnc->pMFCEncInputBuffer[i]->CDataSize = 0;
+            pVideoEnc->pMFCEncInputBuffer[i]->dataSize = 0;
             pSrcOutputData->pPrivate = pVideoEnc->pMFCEncInputBuffer[i];
         }
 
@@ -2071,8 +2099,7 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_DstIn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX
         goto EXIT;
     }
 
-    codecReturn = pOutbufOps->Enqueue(hMFCHandle,
-                     (unsigned char **)&pDstInputData->buffer.singlePlaneBuffer.dataBuffer,
+    codecReturn = pOutbufOps->Enqueue(hMFCHandle, (unsigned char **)&pDstInputData->buffer.singlePlaneBuffer.dataBuffer,
                      (unsigned int *)&dataLen, MFC_OUTPUT_BUFFER_PLANE, pDstInputData->bufferHeader);
 
     if (codecReturn != VIDEO_ERROR_NONE) {
@@ -2120,6 +2147,7 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_DstOut(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OM
     pMpeg4Enc->hMFCMpeg4Handle.outputIndexTimestamp %= MAX_TIMESTAMP;
 
     pDstOutputData->buffer.singlePlaneBuffer.dataBuffer = pVideoBuffer->planes[0].addr;
+    pDstOutputData->buffer.singlePlaneBuffer.fd = pVideoBuffer->planes[0].fd;
     pDstOutputData->allocSize   = pVideoBuffer->planes[0].allocSize;
     pDstOutputData->dataLen     = pVideoBuffer->planes[0].dataSize;
     pDstOutputData->remainDataLen = pVideoBuffer->planes[0].dataSize;
@@ -2152,6 +2180,7 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_DstOut(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OM
 
     if ((displayStatus == VIDEO_FRAME_STATUS_CHANGE_RESOL) ||
         ((pDstOutputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS)) {
+        Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%x displayStatus:%d, nFlags0x%x", pExynosComponent, displayStatus, pDstOutputData->nFlags);
         pDstOutputData->remainDataLen = 0;
     }
 

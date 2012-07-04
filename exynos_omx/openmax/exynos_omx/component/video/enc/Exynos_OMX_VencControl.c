@@ -153,6 +153,7 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
     EXYNOS_OMX_BASEPORT      *pExynosPort = NULL;
     OMX_BUFFERHEADERTYPE  *temp_bufferHeader = NULL;
     OMX_U8                *temp_buffer = NULL;
+    int                    temp_buffer_fd = -1;
     OMX_U32                i = 0;
 
     FunctionIn();
@@ -196,6 +197,7 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
             ret = OMX_ErrorInsufficientResources;
             goto EXIT;
         }
+        temp_buffer_fd = Exynos_OSAL_SharedMemory_VirtToION(pVideoDec->hSharedMemory, temp_buffer);
     } else {
         temp_buffer = Exynos_OSAL_Malloc(sizeof(OMX_U8) * nSizeBytes);
         if (temp_buffer == NULL) {
@@ -221,6 +223,7 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
     for (i = 0; i < pExynosPort->portDefinition.nBufferCountActual; i++) {
         if (pExynosPort->bufferStateAllocate[i] == BUFFER_STATE_FREE) {
             pExynosPort->extendBufferHeader[i].OMXBufferHeader = temp_bufferHeader;
+            pExynosPort->extendBufferHeader[i].buf_fd[0] = temp_buffer_fd;
             pExynosPort->bufferStateAllocate[i] = (BUFFER_STATE_ALLOCATED | HEADER_STATE_ALLOCATED);
             INIT_SET_SIZE_VERSION(temp_bufferHeader, OMX_BUFFERHEADERTYPE);
             temp_bufferHeader->pBuffer        = temp_buffer;
