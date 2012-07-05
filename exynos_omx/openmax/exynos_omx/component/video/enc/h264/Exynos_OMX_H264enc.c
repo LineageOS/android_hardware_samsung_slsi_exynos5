@@ -459,7 +459,7 @@ OMX_ERRORTYPE H264CodecOpen(EXYNOS_H264ENC_HANDLE *pH264Enc)
     }
 
     /* alloc context, open, querycap */
-    pH264Enc->hMFCH264Handle.hMFCHandle = pH264Enc->hMFCH264Handle.pEncOps->Init();
+    pH264Enc->hMFCH264Handle.hMFCHandle = pH264Enc->hMFCH264Handle.pEncOps->Init(V4L2_MEMORY_DMABUF);
     if (pH264Enc->hMFCH264Handle.hMFCHandle == NULL) {
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to allocate context buffer");
         ret = OMX_ErrorInsufficientResources;

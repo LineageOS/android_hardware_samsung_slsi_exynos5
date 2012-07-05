@@ -18,6 +18,8 @@
 #ifndef _EXYNOS_VIDEO_API_H_
 #define _EXYNOS_VIDEO_API_H_
 
+#include "exynos_v4l2.h"
+
 /* Fixed */
 #define VIDEO_BUFFER_MAX_PLANES 3
 
@@ -216,7 +218,7 @@ typedef struct _ExynosVideoEncParam {
 typedef struct _ExynosVideoDecOps {
     unsigned int            nSize;
 
-    void *                (*Init)(void);
+    void *                (*Init)(int nMemoryType);
     ExynosVideoErrorType  (*Finalize)(void *pHandle);
 
     /* Add new ops at the end of structure, no order change */
@@ -233,7 +235,7 @@ typedef struct _ExynosVideoDecOps {
 
 typedef struct _ExynosVideoEncOps {
     unsigned int           nSize;
-    void *               (*Init)(void);
+    void *               (*Init)(int nMemoryType);
     ExynosVideoErrorType (*Finalize)(void *pHandle);
 
     /* Add new ops at the end of structure, no order change */

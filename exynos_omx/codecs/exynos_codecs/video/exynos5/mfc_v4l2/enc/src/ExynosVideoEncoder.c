@@ -41,7 +41,6 @@
 
 #include "ExynosVideoApi.h"
 #include "ExynosVideoEnc.h"
-#include "exynos_v4l2.h"
 
 /* #define LOG_NDEBUG 0 */
 #define LOG_TAG "ExynosVideoEncoder"
@@ -115,7 +114,7 @@ static unsigned int __ColorFormatType_To_V4L2PixelFormat(ExynosVideoColorFormatT
 /*
  * [Encoder OPS] Init
  */
-static void *MFC_Encoder_Init(void)
+static void *MFC_Encoder_Init(int nMemoryType)
 {
     ExynosVideoEncContext *pCtx     = NULL;
     pthread_mutex_t       *pMutex   = NULL;
@@ -143,7 +142,7 @@ static void *MFC_Encoder_Init(void)
     pCtx->bStreamonInbuf = VIDEO_FALSE;
     pCtx->bStreamonOutbuf = VIDEO_FALSE;
 
-    pCtx->nMemoryType = V4L2_MEMORY_DMABUF;
+    pCtx->nMemoryType = nMemoryType;
 
     pMutex = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
     if (pMutex == NULL) {

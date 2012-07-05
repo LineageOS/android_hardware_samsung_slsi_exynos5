@@ -575,7 +575,7 @@ OMX_ERRORTYPE Mpeg4CodecOpen(EXYNOS_MPEG4ENC_HANDLE *pMpeg4Enc)
     }
 
     /* alloc context, open, querycap */
-    pMpeg4Enc->hMFCMpeg4Handle.hMFCHandle = pMpeg4Enc->hMFCMpeg4Handle.pEncOps->Init();
+    pMpeg4Enc->hMFCMpeg4Handle.hMFCHandle = pMpeg4Enc->hMFCMpeg4Handle.pEncOps->Init(V4L2_MEMORY_DMABUF);
     if (pMpeg4Enc->hMFCMpeg4Handle.hMFCHandle == NULL) {
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to allocate context buffer");
         ret = OMX_ErrorInsufficientResources;
