@@ -43,6 +43,7 @@
 #include "ump.h"
 #include "ion.h"
 #include "gralloc_priv.h"
+#include "exynos_gscaler.h"
 
 struct hwc_callback_entry
 {
@@ -76,6 +77,10 @@ struct exynos5_hwc_composer_device_1_t {
 	const private_module_t	*gralloc_module;
 	hwc_procs_t		*procs;
 	pthread_t		vsync_thread;
+
+	bool hdmi_hpd;
+	bool hdmi_mirroring;
+	void *hdmi_gsc;
 };
 
 static void dump_layer(hwc_layer_1_t const *l)
@@ -178,6 +183,81 @@ static uint8_t exynos5_format_to_bpp(int format)
 	}
 }
 
+static int hdmi_enable(struct exynos5_hwc_composer_device_1_t *dev)
+{
+	if (dev->hdmi_mirroring)
+		return 0;
+
+	exynos_gsc_img src_info;
+	exynos_gsc_img dst_info;
+
+	// TODO: Don't hardcode
+	int src_w = 2560;
+	int src_h = 1600;
+	int dst_w = 1920;
+	int dst_h = 1080;
+
+	dev->hdmi_gsc = exynos_gsc_create_exclusive(3, GSC_OUTPUT_MODE, GSC_OUT_TV);
+	if (!dev->hdmi_gsc) {
+		ALOGE("%s: exynos_gsc_create_exclusive failed", __func__);
+		return -ENODEV;
+	}
+
+	memset(&src_info, 0, sizeof(src_info));
+	memset(&dst_info, 0, sizeof(dst_info));
+
+	src_info.w = src_w;
+	src_info.h = src_h;
+	src_info.fw = src_w;
+	src_info.fh = src_h;
+	src_info.format = HAL_PIXEL_FORMAT_BGRA_8888;
+
+	dst_info.w = dst_w;
+	dst_info.h = dst_h;
+	dst_info.fw = dst_w;
+	dst_info.fh = dst_h;
+	dst_info.format = HAL_PIXEL_FORMAT_RGBA_8888;
+
+	int ret = exynos_gsc_config_exclusive(dev->hdmi_gsc, &src_info, &dst_info);
+	if (ret < 0) {
+		ALOGE("%s: exynos_gsc_config_exclusive failed %d", __func__, ret);
+		exynos_gsc_destroy(dev->hdmi_gsc);
+		dev->hdmi_gsc = NULL;
+		return ret;
+	}
+
+	dev->hdmi_mirroring = true;
+	return 0;
+}
+
+static void hdmi_disable(struct exynos5_hwc_composer_device_1_t *dev)
+{
+	if (!dev->hdmi_mirroring)
+		return;
+	exynos_gsc_destroy(dev->hdmi_gsc);
+	dev->hdmi_gsc = NULL;
+	dev->hdmi_mirroring = false;
+}
+
+static int hdmi_output(struct exynos5_hwc_composer_device_1_t *dev, private_handle_t *fb)
+{
+	exynos_gsc_img src_info;
+	exynos_gsc_img dst_info;
+
+	memset(&src_info, 0, sizeof(src_info));
+	memset(&dst_info, 0, sizeof(dst_info));
+
+	src_info.yaddr = fb->fd;
+
+	int ret = exynos_gsc_run_exclusive(dev->hdmi_gsc, &src_info, &dst_info);
+	if (ret < 0) {
+		ALOGE("%s: exynos_gsc_run_exclusive failed %d", __func__, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i) {
 	private_handle_t *handle = private_handle_t::dynamicCast(layer.handle);
 
@@ -217,6 +297,14 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* lis
 			(exynos5_hwc_composer_device_1_t *)dev;
 	memset(pdev->bufs.overlays, 0, sizeof(pdev->bufs.overlays));
 
+	bool force_fb = false;
+	if (pdev->hdmi_hpd) {
+		hdmi_enable(pdev);
+		force_fb = true;
+	} else {
+		hdmi_disable(pdev);
+	}
+
     for (size_t i = 0; i < NUM_HW_WINDOWS; i++)
         pdev->bufs.overlay_map[i] = -1;
 
@@ -227,12 +315,12 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* lis
 	for (size_t i = 0; i < list->numHwLayers; i++) {
 		hwc_layer_1_t &layer = list->hwLayers[i];
 
-		if (layer.compositionType == HWC_BACKGROUND) {
+		if (layer.compositionType == HWC_BACKGROUND && !force_fb) {
 			ALOGV("\tlayer %u: background supported", i);
 			continue;
 		}
 
-		if (exynos5_supports_overlay(list->hwLayers[i], i)) {
+		if (exynos5_supports_overlay(list->hwLayers[i], i) && !force_fb) {
 			ALOGV("\tlayer %u: overlay supported", i);
 			layer.compositionType = HWC_OVERLAY;
 			continue;
@@ -366,6 +454,9 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
 	int ret = ioctl(pdata->pdev->fd, S3CFB_WIN_CONFIG, &win_data);
 	if (ret < 0)
 		ALOGE("ioctl S3CFB_WIN_CONFIG failed: %d", errno);
+
+	if (pdata->pdev->hdmi_mirroring)
+		hdmi_output(pdata->pdev, fb);
 
     pthread_mutex_lock(&pdata->completion_lock);
     pdata->fence = win_data.fence;
@@ -502,6 +593,27 @@ static int exynos5_eventControl(struct hwc_composer_device_1 *dev, int event,
 	return -EINVAL;
 }
 
+static void handle_hdmi_uevent(struct exynos5_hwc_composer_device_1_t *pdev,
+		const char *buff, int len)
+{
+	const char *s = buff;
+	s += strlen(s) + 1;
+
+	while (*s) {
+		if (!strncmp(s, "SWITCH_STATE=", strlen("SWITCH_STATE=")))
+			pdev->hdmi_hpd = atoi(s + strlen("SWITCH_STATE=")) == 1;
+
+		s += strlen(s) + 1;
+		if (s - buff >= len)
+			break;
+	}
+
+	ALOGV("HDMI HPD changed to %s", pdev->hdmi_hpd ? "enabled" : "disabled");
+
+	if (pdev->procs && pdev->procs->invalidate)
+		pdev->procs->invalidate(pdev->procs);
+}
+
 static void handle_vsync_uevent(struct exynos5_hwc_composer_device_1_t *pdev,
 		const char *buff, int len)
 {
@@ -543,6 +655,11 @@ static void *hwc_vsync_thread(void *data)
 				"change@/devices/platform/exynos5-fb.1");
 		if (vsync)
 			handle_vsync_uevent(pdev, uevent_desc, len);
+
+		bool hdmi = !strcmp(uevent_desc,
+				"change@/devices/virtual/switch/hdmi");
+		if (hdmi)
+			handle_hdmi_uevent(pdev, uevent_desc, len);
 	}
 
 	return NULL;
@@ -558,6 +675,7 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
 		struct hw_device_t **device)
 {
 	int ret;
+	int sw_fd;
 
 	if (strcmp(name, HWC_HARDWARE_COMPOSER)) {
 		return -EINVAL;
@@ -579,6 +697,13 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
 		ALOGE("failed to open framebuffer");
 		ret = dev->fd;
 		goto err_get_module;
+	}
+
+	sw_fd = open("/sys/class/switch/hdmi/state", O_RDONLY);
+	if (sw_fd) {
+		char val;
+		if (read(sw_fd, &val, 1) == 1 && val == '1')
+			dev->hdmi_hpd = true;
 	}
 
 	dev->base.common.tag = HARDWARE_DEVICE_TAG;

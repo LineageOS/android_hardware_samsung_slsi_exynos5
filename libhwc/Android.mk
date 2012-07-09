@@ -22,11 +22,12 @@ include $(CLEAR_VARS)
 LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR_SHARED_LIBRARIES)/hw
 LOCAL_SHARED_LIBRARIES := liblog libcutils libEGL libGLESv1_CM libhardware \
-    libhardware_legacy libump_mali libion_exynos libutils libsync
+    libhardware_legacy libump_mali libion_exynos libutils libsync libexynosgscaler
 LOCAL_CFLAGS += -DLOG_TAG=\"hwcomposer\"
 
 LOCAL_C_INCLUDES := \
-    $(LOCAL_PATH)/../include
+    $(LOCAL_PATH)/../include \
+    $(LOCAL_PATH)/../libexynosutils
 
 LOCAL_SRC_FILES := hwc.cpp
 
