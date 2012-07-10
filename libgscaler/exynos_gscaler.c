@@ -1467,6 +1467,7 @@ int exynos_gsc_out_config(void *handle,
     unsigned int hflip;
     unsigned int vflip;
     unsigned int plane_size[NUM_OF_GSC_PLANES];
+    bool rgb;
 
     struct v4l2_rect dst_rect;
     int32_t      src_color_space;
@@ -1491,7 +1492,8 @@ int exynos_gsc_out_config(void *handle,
     src_color_space = HAL_PIXEL_FORMAT_2_V4L2_PIX(src_img->format);
     dst_color_space = HAL_PIXEL_FORMAT_2_V4L2_PIX(dst_img->format);
     src_planes = get_yuv_planes(src_color_space);
-    src_planes = (src_planes == -1) ? 1 : src_planes;
+    rgb = src_planes == -1;
+    src_planes = rgb ? 1 : src_planes;
     rotateValueHAL2GSC(dst_img->rot, &rotate, &hflip, &vflip);
 
     if (m_exynos_gsc_check_src_size(&gsc_handle->src_img.fw, &gsc_handle->src_img.fh,
@@ -1519,7 +1521,8 @@ int exynos_gsc_out_config(void *handle,
     sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
     sd_fmt.format.width  = gsc_handle->dst_img.fw;
     sd_fmt.format.height = gsc_handle->dst_img.fh;
-    sd_fmt.format.code   = V4L2_MBUS_FMT_YUV8_1X24;
+    sd_fmt.format.code   = rgb ? V4L2_MBUS_FMT_XRGB8888_4X8_LE :
+                                    V4L2_MBUS_FMT_YUV8_1X24;
     if (exynos_subdev_s_fmt(gsc_handle->gsc_sd_entity->fd, &sd_fmt) < 0) {
             ALOGE("%s::GSC subdev set format failed", __func__);
             return -1;
@@ -1547,7 +1550,8 @@ int exynos_gsc_out_config(void *handle,
     sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
     sd_fmt.format.width  = gsc_handle->dst_img.w;
     sd_fmt.format.height = gsc_handle->dst_img.h;
-    sd_fmt.format.code   = V4L2_MBUS_FMT_YUV8_1X24;
+    sd_fmt.format.code   = rgb ? V4L2_MBUS_FMT_XRGB8888_4X8_LE :
+                                    V4L2_MBUS_FMT_YUV8_1X24;
     if (exynos_subdev_s_fmt(gsc_handle->sink_sd_entity->fd, &sd_fmt) < 0) {
         ALOGE("%s::sink:set format failed (PAD=%d)", __func__, sd_fmt.pad);
         return -1;
