@@ -315,7 +315,7 @@ static int m_exynos_gsc_output_create(
     gsc_handle->out_mode = out_mode;
     /* GSCX => FIMD_WINX : arbitrary linking is not allowed */
     if ((out_mode == GSC_OUT_FIMD) &&
-        (dev_num > 1))
+        (dev_num > 2))
         return -1;
 
     /* media0 */
