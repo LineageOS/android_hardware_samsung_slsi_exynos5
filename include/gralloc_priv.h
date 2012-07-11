@@ -169,6 +169,9 @@ struct private_handle_t
     }
 
     private_handle_t(int flags, int size, int base, int lock_state, int fb_file, int fb_offset):
+        fd(fb_file),
+        u_fd(0),
+        v_fd(0),
         magic(sMagic),
         flags(flags),
         size(size),
@@ -178,9 +181,7 @@ struct private_handle_t
         pid(getpid()),
         ump_id(UMP_INVALID_SECURE_ID),
         ump_mem_handle(UMP_INVALID_MEMORY_HANDLE),
-        fd(fb_file),
-        u_fd(0),
-        v_fd(0),
+        offset(fb_offset),
         format(0),
         usage(0),
         width(0),
@@ -189,8 +190,7 @@ struct private_handle_t
         stride(0),
         yaddr(0),
         uoffset(0),
-        voffset(0),
-        offset(fb_offset)
+        voffset(0)
     {
         version = sizeof(native_handle);
         numFds = sNumFds;
