@@ -1492,8 +1492,8 @@ int exynos_gsc_out_config(void *handle,
     src_color_space = HAL_PIXEL_FORMAT_2_V4L2_PIX(src_img->format);
     dst_color_space = HAL_PIXEL_FORMAT_2_V4L2_PIX(dst_img->format);
     src_planes = get_yuv_planes(src_color_space);
-    rgb = src_planes == -1;
-    src_planes = rgb ? 1 : src_planes;
+    src_planes = (src_planes == -1) ? 1 : src_planes;
+    rgb = get_yuv_planes(dst_color_space) == -1;
     rotateValueHAL2GSC(dst_img->rot, &rotate, &hflip, &vflip);
 
     if (m_exynos_gsc_check_src_size(&gsc_handle->src_img.fw, &gsc_handle->src_img.fh,
