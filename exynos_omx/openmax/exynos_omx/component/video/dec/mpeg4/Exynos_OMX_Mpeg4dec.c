@@ -917,12 +917,13 @@ OMX_ERRORTYPE Mpeg4CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
     /* get dpb count */
     nOutbufs = pMpeg4Dec->hMFCMpeg4Handle.maxDPBNum;
 
-    /* should be done before prepare output buffer */
-    if (pOutbufOps->Enable_Cacheable(hMFCHandle) != VIDEO_ERROR_NONE) {
-        ret = OMX_ErrorInsufficientResources;
-        goto EXIT;
+    if ((pExynosOutputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
+        /* should be done before prepare output buffer */
+        if (pOutbufOps->Enable_Cacheable(hMFCHandle) != VIDEO_ERROR_NONE) {
+            ret = OMX_ErrorInsufficientResources;
+            goto EXIT;
+        }
     }
-
     pOutbufOps->Set_Shareable(hMFCHandle);
     if (pOutbufOps->Setup(hMFCHandle, nOutbufs) != VIDEO_ERROR_NONE) {
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to setup output buffer");

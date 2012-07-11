@@ -728,10 +728,12 @@ OMX_ERRORTYPE VP8CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
     /* get dpb count */
     nOutbufs = pVp8Dec->hMFCVp8Handle.maxDPBNum;
 
-    /* should be done before prepare output buffer */
-    if (pOutbufOps->Enable_Cacheable(hMFCHandle) != VIDEO_ERROR_NONE) {
-        ret = OMX_ErrorInsufficientResources;
-        goto EXIT;
+    if ((pExynosOutputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
+        /* should be done before prepare output buffer */
+        if (pOutbufOps->Enable_Cacheable(hMFCHandle) != VIDEO_ERROR_NONE) {
+            ret = OMX_ErrorInsufficientResources;
+            goto EXIT;
+        }
     }
 
     pOutbufOps->Set_Shareable(hMFCHandle);

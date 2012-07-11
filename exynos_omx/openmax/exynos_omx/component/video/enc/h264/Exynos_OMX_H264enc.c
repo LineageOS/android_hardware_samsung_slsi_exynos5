@@ -795,10 +795,12 @@ OMX_ERRORTYPE H264CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DAT
         inputBufferNumber = MFC_INPUT_BUFFER_NUM_MAX;
     }
 
-    /* should be done before prepare input buffer */
-    if (pInbufOps->Enable_Cacheable(hMFCHandle) != VIDEO_ERROR_NONE) {
-        ret = OMX_ErrorInsufficientResources;
-        goto EXIT;
+    if ((pExynosInputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
+        /* should be done before prepare input buffer */
+        if (pInbufOps->Enable_Cacheable(hMFCHandle) != VIDEO_ERROR_NONE) {
+            ret = OMX_ErrorInsufficientResources;
+            goto EXIT;
+        }
     }
 
     /* set input buffer geometry */

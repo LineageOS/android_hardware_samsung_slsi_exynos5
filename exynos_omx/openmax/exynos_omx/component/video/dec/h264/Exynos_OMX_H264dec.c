@@ -833,10 +833,12 @@ OMX_ERRORTYPE H264CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
     /* get dpb count */
     nOutbufs = pH264Dec->hMFCH264Handle.maxDPBNum;
 
-    /* should be done before prepare output buffer */
-    if (pOutbufOps->Enable_Cacheable(hMFCHandle) != VIDEO_ERROR_NONE) {
-        ret = OMX_ErrorInsufficientResources;
-        goto EXIT;
+    if ((pExynosOutputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
+        /* should be done before prepare output buffer */
+        if (pOutbufOps->Enable_Cacheable(hMFCHandle) != VIDEO_ERROR_NONE) {
+            ret = OMX_ErrorInsufficientResources;
+            goto EXIT;
+        }
     }
 
     pOutbufOps->Set_Shareable(hMFCHandle);
