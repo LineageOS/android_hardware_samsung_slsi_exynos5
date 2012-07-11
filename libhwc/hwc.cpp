@@ -216,7 +216,7 @@ static int hdmi_enable(struct exynos5_hwc_composer_device_1_t *dev)
 	dst_info.h = dst_h;
 	dst_info.fw = dst_w;
 	dst_info.fh = dst_h;
-	dst_info.format = HAL_PIXEL_FORMAT_RGBA_8888;
+	dst_info.format = HAL_PIXEL_FORMAT_YV12;
 
 	int ret = exynos_gsc_config_exclusive(dev->hdmi_gsc, &src_info, &dst_info);
 	if (ret < 0) {
