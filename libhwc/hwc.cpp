@@ -665,8 +665,24 @@ static void *hwc_vsync_thread(void *data)
 	return NULL;
 }
 
+static int exynos5_blank(struct hwc_composer_device_1 *dev, int blank)
+{
+    struct exynos5_hwc_composer_device_1_t *pdev =
+            (struct exynos5_hwc_composer_device_1_t *)dev;
+
+    int fb_blank = blank ? FB_BLANK_POWERDOWN : FB_BLANK_UNBLANK;
+    int err = ioctl(pdev->fd, FBIOBLANK, fb_blank);
+    if (err < 0) {
+        ALOGE("%sblank ioctl failed", blank ? "" : "un");
+        return -errno;
+    }
+
+    return 0;
+}
+
 struct hwc_methods_1 exynos5_methods = {
 	eventControl: exynos5_eventControl,
+    blank: exynos5_blank,
 };
 
 static int exynos5_close(hw_device_t* device);
