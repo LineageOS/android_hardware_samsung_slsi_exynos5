@@ -52,8 +52,9 @@ struct hwc_callback_entry
 };
 typedef android::Vector<struct hwc_callback_entry> hwc_callback_queue_t;
 
-const size_t NUM_HW_WINDOWS = 2;
+const size_t NUM_HW_WINDOWS = 5;
 const size_t NO_FB_NEEDED = NUM_HW_WINDOWS + 1;
+const size_t MAX_PIXELS = 2560 * 1600 * 2;
 
 struct exynos5_hwc_composer_device_1_t;
 
@@ -123,6 +124,13 @@ static void dump_config(s3c_fb_win_config &c)
 
 inline int WIDTH(const hwc_rect &rect) { return rect.right - rect.left; }
 inline int HEIGHT(const hwc_rect &rect) { return rect.bottom - rect.top; }
+template<typename T> inline T max(T a, T b) { return (a > b) ? a : b; }
+template<typename T> inline T min(T a, T b) { return (a < b) ? a : b; }
+
+static bool is_transformed(const hwc_layer_1_t &layer)
+{
+	return layer.transform != 0;
+}
 
 static bool is_scaled(const hwc_layer_1_t &layer)
 {
@@ -271,10 +279,11 @@ bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i) {
 		return false;
 	}
 	if (is_scaled(layer)) {
-		// TODO: this can be made into an overlay if a gscaler
-		// unit is available.  Also some size and pixel format
-		// limitations (see 46-3 of datasheet)
-		ALOGV("\tlayer %u: scaling and transforming not supported", i);
+		ALOGV("\tlayer %u: scaling not supported", i);
+		return false;
+	}
+	if (is_transformed(layer)) {
+		ALOGV("\tlayer %u: transformations not supported", i);
 		return false;
 	}
 	if (layer.blending != HWC_BLENDING_NONE) {
@@ -284,6 +293,24 @@ bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i) {
 	}
 
 	return true;
+}
+
+inline bool intersect(const hwc_rect &r1, const hwc_rect &r2)
+{
+	return !(r1.left > r2.right ||
+		r1.right < r2.left ||
+		r1.top > r2.bottom ||
+		r1.bottom < r2.top);
+}
+
+inline hwc_rect intersection(const hwc_rect &r1, const hwc_rect &r2)
+{
+	hwc_rect i;
+	i.top = max(r1.top, r2.top);
+	i.bottom = min(r1.bottom, r2.bottom);
+	i.left = max(r1.left, r2.left);
+	i.right = min(r1.right, r2.right);
+	return i;
 }
 
 static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* list)
@@ -309,7 +336,7 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* lis
         pdev->bufs.overlay_map[i] = -1;
 
 	bool fb_needed = false;
-	size_t first_fb = 0, last_fb;
+	size_t first_fb = 0, last_fb = 0;
 
 	// find unsupported overlays
 	for (size_t i = 0; i < list->numHwLayers; i++) {
@@ -339,27 +366,95 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* lis
 		for (size_t i = first_fb; i < last_fb; i++)
 			list->hwLayers[i].compositionType = HWC_FRAMEBUFFER;
 
-	// if we need a framebuffer but can't fit it in, reserve the last
-	// window as a framebuffer
-	if ((fb_needed && first_fb >= NUM_HW_WINDOWS) ||
-			(!fb_needed && list->numHwLayers > NUM_HW_WINDOWS)) {
-		fb_needed = true;
-		first_fb = NUM_HW_WINDOWS - 1;
-		for (size_t i = first_fb; i < list->numHwLayers; i++)
-			list->hwLayers[i].compositionType = HWC_FRAMEBUFFER;
-	}
+	// Incrementally try to add our supported layers to hardware windows.
+	// If adding a layer would violate a hardware constraint, force it
+	// into the framebuffer and try again.  (Revisiting the entire list is
+	// necessary because adding a layer to the framebuffer can cause other
+	// windows to retroactively violate constraints.)
+	bool changed;
+	do {
+		android::Vector<hwc_rect> rects;
+		android::Vector<hwc_rect> overlaps;
+		size_t pixels_left, windows_left;
+
+		if (fb_needed) {
+			hwc_rect_t fb_rect;
+			fb_rect.top = fb_rect.left = 0;
+			fb_rect.right = pdev->gralloc_module->xres - 1;
+			fb_rect.bottom = pdev->gralloc_module->yres - 1;
+			pixels_left = MAX_PIXELS - pdev->gralloc_module->xres *
+					pdev->gralloc_module->yres;
+			windows_left = NUM_HW_WINDOWS - 1;
+			rects.push_back(fb_rect);
+		}
+		else {
+			pixels_left = MAX_PIXELS;
+			windows_left = NUM_HW_WINDOWS;
+		}
+		changed = false;
+
+		for (size_t i = 0; i < list->numHwLayers; i++) {
+			hwc_layer_1_t &layer = list->hwLayers[i];
+
+			// we've already accounted for the framebuffer above
+			if (layer.compositionType == HWC_FRAMEBUFFER)
+				continue;
+
+			// only layer 0 can be HWC_BACKGROUND, so we can
+			// unconditionally allow it without extra checks
+			if (layer.compositionType == HWC_BACKGROUND) {
+				windows_left--;
+				continue;
+			}
+
+			size_t pixels_needed = WIDTH(layer.displayFrame) *
+					HEIGHT(layer.displayFrame);
+			bool can_compose = windows_left && pixels_needed <= pixels_left;
+
+			// hwc_rect_t right and bottom values are normally exclusive;
+			// the intersection logic is simpler if we make them inclusive
+			hwc_rect_t visible_rect = layer.displayFrame;
+			visible_rect.right--; visible_rect.bottom--;
+
+			// no more than 2 layers can overlap on a given pixel
+			for (size_t j = 0; can_compose && j < overlaps.size(); j++) {
+				if (intersect(visible_rect, overlaps.itemAt(j)))
+					can_compose = false;
+			}
+
+			if (!can_compose) {
+				layer.compositionType = HWC_FRAMEBUFFER;
+				if (!fb_needed) {
+					first_fb = last_fb = i;
+					fb_needed = true;
+				}
+				else {
+					first_fb = min(i, first_fb);
+					last_fb = max(i, last_fb);
+				}
+				changed = true;
+				break;
+			}
+
+			for (size_t j = 0; j < rects.size(); j++) {
+				const hwc_rect_t &other_rect = rects.itemAt(j);
+				if (intersect(visible_rect, other_rect))
+					overlaps.push_back(intersection(visible_rect, other_rect));
+			}
+			rects.push_back(visible_rect);
+			pixels_left -= pixels_needed;
+			windows_left--;
+		}
+
+		if (changed)
+			for (size_t i = first_fb; i < last_fb; i++)
+				list->hwLayers[i].compositionType = HWC_FRAMEBUFFER;
+	} while(changed);
 
 	unsigned int nextWindow = 0;
 
-	// assign as many overlays as possible to windows
 	for (size_t i = 0; i < list->numHwLayers; i++) {
 		hwc_layer_1_t &layer = list->hwLayers[i];
-
-		if (nextWindow == NUM_HW_WINDOWS) {
-			ALOGV("not enough windows to assign layer %u", i);
-			layer.compositionType = HWC_FRAMEBUFFER;
-			continue;
-		}
 
 		if (fb_needed && i == first_fb) {
 			ALOGV("assigning framebuffer to window %u\n",
