@@ -27,7 +27,7 @@
  *   Initial Release
  */
 
-//#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 1
 #define LOG_TAG "MetadataConverter"
 #include <utils/Log.h>
 
@@ -44,7 +44,7 @@ MetadataConverter::MetadataConverter()
 
 MetadataConverter::~MetadataConverter()
 {
-    ALOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __FUNCTION__);
     return;
 }
 
@@ -54,7 +54,7 @@ status_t MetadataConverter::CheckEntryTypeMismatch(camera_metadata_entry_t * ent
     if (!(entry->type==type))
     {
         ALOGV("DEBUG(%s):Metadata Missmatch tag(%s) type (%d) count(%d)",
-            __func__, get_camera_metadata_tag_name(entry->tag), entry->type, entry->count);
+            __FUNCTION__, get_camera_metadata_tag_name(entry->tag), entry->type, entry->count);
         return BAD_VALUE;
     }
     return NO_ERROR;
@@ -66,20 +66,20 @@ status_t MetadataConverter::CheckEntryTypeMismatch(camera_metadata_entry_t * ent
     if (!((entry->type==type)&&(entry->count==count)))
     {
         ALOGV("DEBUG(%s):Metadata Missmatch tag(%s) type (%d) count(%d)",
-            __func__, get_camera_metadata_tag_name(entry->tag), entry->type, entry->count);
+            __FUNCTION__, get_camera_metadata_tag_name(entry->tag), entry->type, entry->count);
         return BAD_VALUE;
     }
     return NO_ERROR;
 }
 
-status_t MetadataConverter::ToInternalCtl(camera_metadata_t * request, camera2_ctl_metadata_NEW_t * dst)
+status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_ctl_metadata_NEW_t * dst)
 {
     uint32_t    num_entry = 0;
     uint32_t    index = 0;
     uint32_t    i = 0;
     camera_metadata_entry_t curr_entry;
 
-    ALOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __FUNCTION__);
     if (request == NULL || dst == NULL)
         return BAD_VALUE;
 
@@ -437,21 +437,23 @@ status_t MetadataConverter::ToInternalCtl(camera_metadata_t * request, camera2_c
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 1))
                     break;
                 dst->ctl.request.id = curr_entry.data.i32[0];
-                ALOGV("DEBUG(%s): ANDROID_REQUEST_ID (%d)",  __func__,  dst->ctl.request.id);
+                ALOGV("DEBUG(%s): ANDROID_REQUEST_ID (%d)",  __FUNCTION__,  dst->ctl.request.id);
                 break;
 
             case ANDROID_REQUEST_METADATA_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
                 dst->ctl.request.metadataMode = (metadata_mode_NEW_t)curr_entry.data.u8[0];
-                ALOGV("DEBUG(%s): ANDROID_REQUEST_METADATA_MODE (%d)",  __func__, (int)( dst->ctl.request.metadataMode));
+                ALOGV("DEBUG(%s): ANDROID_REQUEST_METADATA_MODE (%d)",  __FUNCTION__, (int)( dst->ctl.request.metadataMode));
                 break;
 
             case ANDROID_REQUEST_OUTPUT_STREAMS:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE))
                     break;
-                for (i=0 ; i<curr_entry.count ; i++)
+                for (i=0 ; i<curr_entry.count ; i++) {
                     dst->ctl.request.outputStreams[i] = curr_entry.data.u8[i];
+                    ALOGV("DEBUG(%s): OUTPUT_STREAM[%d] = %d ",  __FUNCTION__, i, (int)(dst->ctl.request.outputStreams[i]));
+                }
                 dst->ctl.request.numOutputStream = curr_entry.count;
                 break;
 
@@ -459,11 +461,11 @@ status_t MetadataConverter::ToInternalCtl(camera_metadata_t * request, camera2_c
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 1))
                     break;
                 dst->ctl.request.frameCount = curr_entry.data.i32[0];
-                ALOGV("DEBUG(%s): ANDROID_REQUEST_FRAME_COUNT (%d)",  __func__, dst->ctl.request.frameCount);
+                ALOGV("DEBUG(%s): ANDROID_REQUEST_FRAME_COUNT (%d)",  __FUNCTION__, dst->ctl.request.frameCount);
                 break;
 
             default:
-                ALOGD("DEBUG(%s):Bad Metadata tag (%d)",  __func__, curr_entry.tag);
+                ALOGD("DEBUG(%s):Bad Metadata tag (%d)",  __FUNCTION__, curr_entry.tag);
                 break;
             }
         }
@@ -479,7 +481,7 @@ status_t MetadataConverter::ToDynamicMetadata(camera2_ctl_metadata_NEW_t * metad
 {
     status_t    res;
 
-    ALOGV("DEBUG(%s): TEMP version using original request METADATA", __func__);
+    ALOGV("DEBUG(%s): TEMP version using original request METADATA", __FUNCTION__);
     if (0 != add_camera_metadata_entry(dst, ANDROID_REQUEST_ID,
                 &(metadata->ctl.request.id), 1))
         return NO_MEMORY;
@@ -495,13 +497,16 @@ status_t MetadataConverter::ToDynamicMetadata(camera2_ctl_metadata_NEW_t * metad
 
 
     if (metadata->ctl.request.metadataMode == METADATA_MODE_NONE_NEW) {
-        ALOGV("DEBUG(%s): METADATA_MODE_NONE", __func__);
+        ALOGV("DEBUG(%s): METADATA_MODE_NONE", __FUNCTION__);
         return NO_ERROR;
     }
 
-     ALOGV("DEBUG(%s): METADATA_MODE_FULL", __func__);
+    ALOGV("DEBUG(%s): METADATA_MODE_FULL", __FUNCTION__);
 
-
+    if (0 != add_camera_metadata_entry(dst, ANDROID_SENSOR_TIMESTAMP,
+                &(metadata->dm.sensor.timeStamp), 1))
+        return NO_MEMORY;
+    ALOGV("DEBUG(%s): Timestamp: %lld", __FUNCTION__, metadata->dm.sensor.timeStamp);
     return NO_ERROR;
 
 

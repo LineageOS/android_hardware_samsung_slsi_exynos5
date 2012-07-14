@@ -99,11 +99,14 @@ const uint32_t Sensor::kAvailableSensitivities[5] =
 const uint32_t Sensor::kDefaultSensitivity = 100;
 
 
-const uint32_t kAvailableFormats[3] = {
+const uint32_t kAvailableFormats[5] = {
         HAL_PIXEL_FORMAT_RAW_SENSOR,
+        HAL_PIXEL_FORMAT_BLOB,
+        HAL_PIXEL_FORMAT_RGBA_8888,
         HAL_PIXEL_FORMAT_YV12,
         HAL_PIXEL_FORMAT_YCrCb_420_SP
 };
+
 
 const uint32_t kAvailableRawSizes[2] = {
     //640, 480
@@ -124,8 +127,12 @@ const uint64_t kAvailableProcessedMinDurations[1] = {
 };
 
 const uint32_t kAvailableJpegSizes[2] = {
-    //640, 480
-    Sensor::kResolution[0], Sensor::kResolution[1]
+    1280, 960,
+//    1280, 1080,
+//    2560, 1920,
+//    1280, 720,
+//    640, 480
+    //Sensor::kResolution[0], Sensor::kResolution[1]
 };
 
 const uint64_t kAvailableJpegMinDurations[1] = {
@@ -324,6 +331,9 @@ status_t constructStaticInfo(
     };
     ADD_OR_SIZE(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES,
             jpegThumbnailSizes, sizeof(jpegThumbnailSizes)/sizeof(int32_t));
+
+    static const int32_t jpegMaxSize = 5*1024*1024;
+    ADD_OR_SIZE(ANDROID_JPEG_MAX_SIZE, &jpegMaxSize, 1);
 
     // android.stats
 
