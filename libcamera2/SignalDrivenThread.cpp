@@ -25,7 +25,12 @@
  * <b>Revision History: </b>
  * - 2012/05/31 : Sungjoong Kang(sj3.kang@samsung.com) \n
  *   Initial Release
+ *
+ * - 2012/07/10 : Sungjoong Kang(sj3.kang@samsung.com) \n
+ *   2nd Release
+ *
  */
+
 //#define LOG_NDEBUG 0
 #define LOG_TAG "SignalDrivenThread"
 #include <utils/Log.h>
@@ -36,14 +41,24 @@ namespace android {
 
 
 SignalDrivenThread::SignalDrivenThread()
+    :Thread(false)
 {
+    ALOGV("DEBUG(SignalDrivenThread() ):");
+    m_processingSignal = 0;
+    m_receivedSignal = 0;
 }
 
+void SignalDrivenThread::Start(const char* name,
+                            int32_t priority, size_t stack)
+{
+    ALOGV("DEBUG(SignalDrivenThread::Start() ):");
+    run(name, priority, stack);
+}
 SignalDrivenThread::SignalDrivenThread(const char* name,
                             int32_t priority, size_t stack)
     :Thread(false)
 {
-    ALOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(SignalDrivenThread( , , )):");
     m_processingSignal = 0;
     m_receivedSignal = 0;
     run(name, priority, stack);
@@ -52,16 +67,16 @@ SignalDrivenThread::SignalDrivenThread(const char* name,
 
 SignalDrivenThread::~SignalDrivenThread()
 {
-    ALOGV("DEBUG(%s):", __func__);
+    ALOGV("DEBUG(%s):", __FUNCTION__);
     return;
 }
 
 status_t SignalDrivenThread::SetSignal(uint32_t signal)
 {
-    ALOGV("DEBUG(%s):Setting Signal (%x)", __func__, signal);
+    ALOGV("DEBUG(%s):Setting Signal (%x)", __FUNCTION__, signal);
 
     Mutex::Autolock lock(m_signalMutex);
-    ALOGV("DEBUG(%s):Signal Set     (%x) - prev(%x)", __func__, signal, m_receivedSignal);
+    ALOGV("DEBUG(%s):Signal Set     (%x) - prev(%x)", __FUNCTION__, signal, m_receivedSignal);
     m_receivedSignal |= signal;
     m_threadCondition.signal();
     return NO_ERROR;
@@ -69,7 +84,7 @@ status_t SignalDrivenThread::SetSignal(uint32_t signal)
 
 uint32_t SignalDrivenThread::GetProcessingSignal()
 {
-    ALOGV("DEBUG(%s): Signal (%x)", __func__, m_processingSignal);
+    ALOGV("DEBUG(%s): Signal (%x)", __FUNCTION__, m_processingSignal);
 
     return m_processingSignal;
 }
@@ -95,7 +110,7 @@ bool SignalDrivenThread::threadLoop()
 {
     {
         Mutex::Autolock lock(m_signalMutex);
-        ALOGV("DEBUG(%s):Waiting Signal", __func__);
+        ALOGV("DEBUG(%s):Waiting Signal", __FUNCTION__);
         while (!m_receivedSignal)
         {
             m_threadCondition.wait(m_signalMutex);
@@ -103,21 +118,21 @@ bool SignalDrivenThread::threadLoop()
         m_processingSignal = m_receivedSignal;
         m_receivedSignal = 0;
     }
-    ALOGV("DEBUG(%s):Got Signal (%x)", __func__, m_processingSignal);
+    ALOGV("DEBUG(%s):Got Signal (%x)", __FUNCTION__, m_processingSignal);
 
     if (m_processingSignal & SIGNAL_THREAD_TERMINATE)
     {
-        ALOGV("DEBUG(%s):Thread Terminating", __func__);
+        ALOGV("DEBUG(%s):Thread Terminating", __FUNCTION__);
         return (false);
     }
     else if (m_processingSignal & SIGNAL_THREAD_PAUSE)
     {
-        ALOGV("DEBUG(%s):Thread Paused", __func__);
+        ALOGV("DEBUG(%s):Thread Paused", __FUNCTION__);
         return (true);
     }
 
-    threadLoopInternal();
-    return (true);
+    threadFunctionInternal();
+    return true;
 }
 
 

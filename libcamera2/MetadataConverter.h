@@ -46,7 +46,7 @@ public:
     MetadataConverter();
     ~MetadataConverter();
 
-    status_t ToInternalCtl(camera_metadata_t * request, camera2_ctl_metadata_NEW_t * dst);
+    status_t ToInternalShot(camera_metadata_t * request, camera2_ctl_metadata_NEW_t * dst);
 	status_t ToDynamicMetadata(camera2_ctl_metadata_NEW_t * metadata, camera_metadata_t * dst);
 
 private:

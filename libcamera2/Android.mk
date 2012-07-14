@@ -10,19 +10,13 @@ LOCAL_C_INCLUDES += \
 	hardware/samsung_slsi/exynos5/include \
 	frameworks/native/include \
 	system/media/camera/include
-#	$(LOCAL_PATH)/../include \
-#	$(TOP)/system/media/camera/include \
-#	$(TOP)/system/media/camera/include/system \
-#	$(TOP)/device/samsung/$(TARGET_BOARD_PLATFORM)/include \
-#	$(TOP)/device/samsung/$(TARGET_BOARD_PLATFORM)/libcamera \
-#	$(TOP)/device/samsung/smdk_common/libexynosutils \
-#	$(TOP)/device/samsung/smdk_common/libcsc
 
 LOCAL_SRC_FILES:= \
 	SignalDrivenThread.cpp \
 	MetadataConverter.cpp \
 	ExynosCameraHWInterface2.cpp \
-	StaticInformation_temp.cpp
+	StaticInformation_temp.cpp \
+	ExynosJpegEncoderForCamera.cpp
 
 
 LOCAL_SHARED_LIBRARIES:= libutils libcutils libbinder liblog libcamera_client libhardware
@@ -30,7 +24,6 @@ LOCAL_SHARED_LIBRARIES:= libutils libcutils libbinder liblog libcamera_client li
 LOCAL_CFLAGS += -DGAIA_FW_BETA
 
 LOCAL_SHARED_LIBRARIES += libexynosutils libhwjpeg libexynosv4l2 libcsc libion_exynos libcamera_metadata
-#LOCAL_SHARED_LIBRARIES += libexynosutils libhwjpeg libexynosv4l2 libcsc libion libexynoscamera libcamera_metadata
 
 LOCAL_MODULE := camera.exynos5
 

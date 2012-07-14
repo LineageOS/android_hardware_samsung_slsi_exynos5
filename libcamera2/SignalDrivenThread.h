@@ -25,8 +25,12 @@
  * <b>Revision History: </b>
  * - 2012/05/31 : Sungjoong Kang(sj3.kang@samsung.com) \n
  *   Initial Release
+ *
+ * - 2012/07/10 : Sungjoong Kang(sj3.kang@samsung.com) \n
+ *   2nd Release
+ *
  */
- 
+
 
 
 #ifndef SIGNAL_DRIVEN_THREAD_H
@@ -41,31 +45,31 @@ namespace android {
 
 #define SIGNAL_THREAD_COMMON_LAST   (1<<3)
 
-class SignalDrivenThread : public Thread {
+class SignalDrivenThread:public Thread {
 public:
                         SignalDrivenThread();
-                        SignalDrivenThread(const char* name, 
+                        SignalDrivenThread(const char *name,
                             int32_t priority, size_t stack);
     virtual             ~SignalDrivenThread();
 
             status_t    SetSignal(uint32_t signal);
-            
 
             uint32_t    GetProcessingSignal();
             //void        ClearProcessingSignal(uint32_t signal);
-               
+            void        Start(const char *name,
+                            int32_t priority, size_t stack);
 
 private:
             status_t    readyToRun();
     virtual status_t    readyToRunInternal() = 0;
-    
+
             bool        threadLoop();
-    virtual void        threadLoopInternal() = 0;
+    virtual void        threadFunctionInternal() = 0;
 
             void        ClearSignal();
-    
+
             uint32_t    m_receivedSignal;
-            uint32_t    m_processingSignal;  
+            uint32_t    m_processingSignal;
 
             Mutex       m_signalMutex;
             Condition   m_threadCondition;
@@ -74,4 +78,3 @@ private:
 }; // namespace android
 
 #endif
-
