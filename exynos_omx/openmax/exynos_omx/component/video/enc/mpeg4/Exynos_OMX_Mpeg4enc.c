@@ -791,7 +791,6 @@ OMX_ERRORTYPE Mpeg4CodecEnQueueAllBuffer(OMX_COMPONENTTYPE *pOMXComponent, OMX_U
     EXYNOS_OMX_BASEPORT           *pExynosInputPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
     EXYNOS_OMX_BASEPORT           *pExynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
     int i, nOutbufs;
-    OMX_PTR pDeQ = NULL;
 
     ExynosVideoEncOps       *pEncOps    = pMpeg4Enc->hMFCMpeg4Handle.pEncOps;
     ExynosVideoEncBufferOps *pInbufOps  = pMpeg4Enc->hMFCMpeg4Handle.pInbufOps;
@@ -964,7 +963,7 @@ OMX_ERRORTYPE Mpeg4CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
 
     /* bConfiguredMFCDst should be set true before waiting headerGeneratedEvent event.
      * To make sure that the first dequeued destination buffer is enqueued before Mpeg4CodecDstSetup returns.
-     * If bConfiguredMFCDst is not set to be true, 
+     * If bConfiguredMFCDst is not set to be true,
      * Exynos_Mpeg4Enc_dstInputBufferProcess returns without enqueuing the first dequeued destination buffer.
      */
     pMpeg4Enc->hMFCMpeg4Handle.bConfiguredMFCDst = OMX_TRUE;
@@ -1959,12 +1958,6 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_SrcIn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX
     EXYNOS_OMX_BASEPORT *pExynosInputPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
     EXYNOS_OMX_BASEPORT *pExynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
     OMX_U32  oneFrameSize = pSrcInputData->dataLen;
-    OMX_S32  setConfVal = 0;
-    int      bufWidth = 0;
-    int      bufHeight = 0;
-    OMX_U32  FrameBufferYSize = 0;
-    OMX_U32  FrameBufferUVSize = 0;
-    OMX_BOOL outputDataValid = OMX_FALSE;
     ExynosVideoEncOps       *pEncOps    = pMpeg4Enc->hMFCMpeg4Handle.pEncOps;
     ExynosVideoEncBufferOps *pInbufOps  = pMpeg4Enc->hMFCMpeg4Handle.pInbufOps;
     ExynosVideoEncBufferOps *pOutbufOps = pMpeg4Enc->hMFCMpeg4Handle.pOutbufOps;

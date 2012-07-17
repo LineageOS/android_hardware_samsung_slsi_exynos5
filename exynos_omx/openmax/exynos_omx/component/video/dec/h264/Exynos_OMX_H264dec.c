@@ -519,7 +519,6 @@ OMX_ERRORTYPE H264CodecEnQueueAllBuffer(OMX_COMPONENTTYPE *pOMXComponent, OMX_U3
     EXYNOS_OMX_BASEPORT           *pExynosInputPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
     EXYNOS_OMX_BASEPORT           *pExynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
     int i, nOutbufs;
-    OMX_PTR pDeQ = NULL;
 
     ExynosVideoDecOps       *pDecOps    = pH264Dec->hMFCH264Handle.pDecOps;
     ExynosVideoDecBufferOps *pInbufOps  = pH264Dec->hMFCH264Handle.pInbufOps;
@@ -574,12 +573,6 @@ OMX_ERRORTYPE H264CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DAT
     EXYNOS_OMX_BASEPORT           *pExynosInputPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
     EXYNOS_OMX_BASEPORT           *pExynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
     OMX_U32                     oneFrameSize = pSrcInputData->dataLen;
-    OMX_S32                     setConfVal = 0;
-    int                         bufWidth = 0;
-    int                         bufHeight = 0;
-    OMX_U32                     FrameBufferYSize = 0;
-    OMX_U32                     FrameBufferUVSize = 0;
-    OMX_BOOL                    outputDataValid = OMX_FALSE;
 
     ExynosVideoDecOps       *pDecOps    = pH264Dec->hMFCH264Handle.pDecOps;
     ExynosVideoDecBufferOps *pInbufOps  = pH264Dec->hMFCH264Handle.pInbufOps;
@@ -811,18 +804,11 @@ OMX_ERRORTYPE H264CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
     void                          *hMFCHandle = pH264Dec->hMFCH264Handle.hMFCHandle;
     EXYNOS_OMX_BASEPORT           *pExynosInputPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
     EXYNOS_OMX_BASEPORT           *pExynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
-    OMX_S32                     setConfVal = 0;
-    int                         bufWidth = 0;
-    int                         bufHeight = 0;
-    OMX_U32                     FrameBufferYSize = 0;
-    OMX_U32                     FrameBufferUVSize = 0;
-    OMX_BOOL                    outputDataValid = OMX_FALSE;
 
     ExynosVideoDecOps       *pDecOps    = pH264Dec->hMFCH264Handle.pDecOps;
     ExynosVideoDecBufferOps *pInbufOps  = pH264Dec->hMFCH264Handle.pInbufOps;
     ExynosVideoDecBufferOps *pOutbufOps = pH264Dec->hMFCH264Handle.pOutbufOps;
-    ExynosVideoGeometry      bufferConf;
-    OMX_U32                  inputBufferNumber = 0;
+
     int i, nOutbufs;
 
     FunctionIn();
@@ -1649,12 +1635,6 @@ OMX_ERRORTYPE Exynos_H264Dec_SrcIn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_
     EXYNOS_OMX_BASEPORT *pExynosInputPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
     EXYNOS_OMX_BASEPORT *pExynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
     OMX_U32  oneFrameSize = pSrcInputData->dataLen;
-    OMX_S32  setConfVal = 0;
-    int      bufWidth = 0;
-    int      bufHeight = 0;
-    OMX_U32  FrameBufferYSize = 0;
-    OMX_U32  FrameBufferUVSize = 0;
-    OMX_BOOL outputDataValid = OMX_FALSE;
     ExynosVideoDecOps       *pDecOps    = pH264Dec->hMFCH264Handle.pDecOps;
     ExynosVideoDecBufferOps *pInbufOps  = pH264Dec->hMFCH264Handle.pInbufOps;
     ExynosVideoDecBufferOps *pOutbufOps = pH264Dec->hMFCH264Handle.pOutbufOps;

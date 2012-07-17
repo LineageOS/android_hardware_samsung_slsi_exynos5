@@ -438,7 +438,6 @@ OMX_ERRORTYPE VP8CodecEnQueueAllBuffer(OMX_COMPONENTTYPE *pOMXComponent, OMX_U32
     EXYNOS_OMX_BASEPORT           *pExynosInputPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
     EXYNOS_OMX_BASEPORT           *pExynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
     int i, nOutbufs;
-    OMX_PTR pDeQ = NULL;
 
     ExynosVideoDecOps       *pDecOps    = pVp8Dec->hMFCVp8Handle.pDecOps;
     ExynosVideoDecBufferOps *pInbufOps  = pVp8Dec->hMFCVp8Handle.pInbufOps;
@@ -493,12 +492,6 @@ OMX_ERRORTYPE VP8CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA
     EXYNOS_OMX_BASEPORT           *pExynosInputPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
     EXYNOS_OMX_BASEPORT           *pExynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
     OMX_U32                     oneFrameSize = pSrcInputData->dataLen;
-    OMX_S32                     setConfVal = 0;
-    int                         bufWidth = 0;
-    int                         bufHeight = 0;
-    OMX_U32                     FrameBufferYSize = 0;
-    OMX_U32                     FrameBufferUVSize = 0;
-    OMX_BOOL                    outputDataValid = OMX_FALSE;
 
     ExynosVideoDecOps       *pDecOps    = pVp8Dec->hMFCVp8Handle.pDecOps;
     ExynosVideoDecBufferOps *pInbufOps  = pVp8Dec->hMFCVp8Handle.pInbufOps;
@@ -706,18 +699,11 @@ OMX_ERRORTYPE VP8CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
     void                          *hMFCHandle = pVp8Dec->hMFCVp8Handle.hMFCHandle;
     EXYNOS_OMX_BASEPORT           *pExynosInputPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
     EXYNOS_OMX_BASEPORT           *pExynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
-    OMX_S32                     setConfVal = 0;
-    int                         bufWidth = 0;
-    int                         bufHeight = 0;
-    OMX_U32                     FrameBufferYSize = 0;
-    OMX_U32                     FrameBufferUVSize = 0;
-    OMX_BOOL                    outputDataValid = OMX_FALSE;
 
     ExynosVideoDecOps       *pDecOps    = pVp8Dec->hMFCVp8Handle.pDecOps;
     ExynosVideoDecBufferOps *pInbufOps  = pVp8Dec->hMFCVp8Handle.pInbufOps;
     ExynosVideoDecBufferOps *pOutbufOps = pVp8Dec->hMFCVp8Handle.pOutbufOps;
-    ExynosVideoGeometry      bufferConf;
-    OMX_U32                  inputBufferNumber = 0;
+
     int i, nOutbufs;
 
 
@@ -1394,12 +1380,6 @@ OMX_ERRORTYPE Exynos_VP8Dec_SrcIn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_D
     EXYNOS_OMX_BASEPORT *pExynosInputPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
     EXYNOS_OMX_BASEPORT *pExynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
     OMX_U32  oneFrameSize = pSrcInputData->dataLen;
-    OMX_S32  setConfVal = 0;
-    int      bufWidth = 0;
-    int      bufHeight = 0;
-    OMX_U32  FrameBufferYSize = 0;
-    OMX_U32  FrameBufferUVSize = 0;
-    OMX_BOOL outputDataValid = OMX_FALSE;
     ExynosVideoDecOps       *pDecOps    = pVp8Dec->hMFCVp8Handle.pDecOps;
     ExynosVideoDecBufferOps *pInbufOps  = pVp8Dec->hMFCVp8Handle.pInbufOps;
     ExynosVideoDecBufferOps *pOutbufOps = pVp8Dec->hMFCVp8Handle.pOutbufOps;
