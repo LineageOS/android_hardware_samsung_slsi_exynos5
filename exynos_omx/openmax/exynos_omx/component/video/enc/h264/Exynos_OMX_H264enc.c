@@ -872,7 +872,6 @@ OMX_ERRORTYPE H264CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
     ExynosVideoEncBufferOps *pInbufOps  = pH264Enc->hMFCH264Handle.pInbufOps;
     ExynosVideoEncBufferOps *pOutbufOps = pH264Enc->hMFCH264Handle.pOutbufOps;
     ExynosVideoGeometry      bufferConf;
-    OMX_U32                  inputBufferNumber = 0;
     int i, nOutbufs;
 
     FunctionIn();

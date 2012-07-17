@@ -993,7 +993,6 @@ OMX_ERRORTYPE Mpeg4CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
     ExynosVideoEncBufferOps *pInbufOps  = pMpeg4Enc->hMFCMpeg4Handle.pInbufOps;
     ExynosVideoEncBufferOps *pOutbufOps = pMpeg4Enc->hMFCMpeg4Handle.pOutbufOps;
     ExynosVideoGeometry      bufferConf;
-    OMX_U32                  inputBufferNumber = 0;
     int i, nOutbufs;
 
     FunctionIn();
