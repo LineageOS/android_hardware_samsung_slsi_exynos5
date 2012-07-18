@@ -790,7 +790,7 @@ OMX_ERRORTYPE H264CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DAT
     bufferConf.nFrameHeight = pExynosInputPort->portDefinition.format.video.nFrameHeight;
     pInbufOps->Set_Shareable(hMFCHandle);
     if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
-        inputBufferNumber = MAX_VIDEO_INPUTBUFFER_NUM;
+        inputBufferNumber = MAX_VIDEO_INPUTBUFFER_NUM; /* Need change to number of camera buffer */
     } else if ((pExynosInputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
         inputBufferNumber = MFC_INPUT_BUFFER_NUM_MAX;
     }
@@ -1773,13 +1773,11 @@ OMX_ERRORTYPE Exynos_H264Enc_SrcIn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_
             }
 
             /* Register input buffer */
-            for (i = 0; i < pExynosInputPort->portDefinition.nBufferCountActual; i++) {
-                if (pInbufOps->Register(pH264Enc->hMFCH264Handle.hMFCHandle,
-                            planes, MFC_INPUT_BUFFER_PLANE) != VIDEO_ERROR_NONE) {
-                    Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to Register input buffer");
-                    ret = OMX_ErrorInsufficientResources;
-                    goto EXIT;
-                }
+            if (pInbufOps->Register(pH264Enc->hMFCH264Handle.hMFCHandle,
+                        planes, MFC_INPUT_BUFFER_PLANE) != VIDEO_ERROR_NONE) {
+                Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to Register input buffer");
+                ret = OMX_ErrorInsufficientResources;
+                goto EXIT;
             }
             codecReturn = pInbufOps->Enqueue(hMFCHandle, (unsigned char **)pSrcInputData->buffer.multiPlaneBuffer.dataBuffer,
                                         (unsigned int *)pMFCYUVDataSize, MFC_INPUT_BUFFER_PLANE, pSrcInputData->bufferHeader);
