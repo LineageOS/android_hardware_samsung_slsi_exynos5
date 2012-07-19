@@ -804,7 +804,8 @@ OMX_ERRORTYPE VP8CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
                     ret = OMX_ErrorInsufficientResources;
                     goto EXIT;
                 }
-                pOutbufOps->Enqueue(hMFCHandle, planes, (unsigned int *)dataLen, MFC_OUTPUT_BUFFER_PLANE, NULL);
+                pOutbufOps->Enqueue(hMFCHandle, (unsigned char **)pExynosOutputPort->extendBufferHeader[i].pYUVBuf,
+                              (unsigned int *)dataLen, MFC_OUTPUT_BUFFER_PLANE, NULL);
             }
         } else {
             ret = OMX_ErrorNotImplemented;
