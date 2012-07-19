@@ -911,7 +911,7 @@ OMX_ERRORTYPE Mpeg4CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DA
     bufferConf.nFrameHeight = pExynosInputPort->portDefinition.format.video.nFrameHeight;
     pInbufOps->Set_Shareable(hMFCHandle);
     if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
-        inputBufferNumber = MAX_VIDEO_INPUTBUFFER_NUM; /* Need change to number of camera buffer */
+        inputBufferNumber = MAX_CAMERA_INPUTBUFFER_NUM; /* Need change to number of camera buffer */
     } else if ((pExynosInputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
         inputBufferNumber = MFC_INPUT_BUFFER_NUM_MAX;
     }
