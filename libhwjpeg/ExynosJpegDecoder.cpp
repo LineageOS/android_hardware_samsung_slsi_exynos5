@@ -75,21 +75,21 @@ int ExynosJpegDecoder::setJpegConfig(void *pConfig)
     return ExynosJpegBase::setJpegConfig(MODE_DECODE, pConfig);
 }
 
-int ExynosJpegDecoder::getInBuf(char **pcBuf, int *piInputSize)
+int ExynosJpegDecoder::getInBuf(int *piBuf, int *piInputSize)
 {
-    return getBuf(t_bFlagCreateInBuf, &t_stJpegInbuf, pcBuf, piInputSize, \
+    return getBuf(t_bFlagCreateInBuf, &t_stJpegInbuf, piBuf, piInputSize, \
                         NUM_JPEG_DEC_IN_PLANES, NUM_JPEG_DEC_IN_PLANES);
 }
 
-int ExynosJpegDecoder::getOutBuf(char **pcBuf, int *piOutputSize, int iSize)
+int ExynosJpegDecoder::getOutBuf(int *piBuf, int *piOutputSize, int iSize)
 {
-    return getBuf(t_bFlagCreateOutBuf, &t_stJpegOutbuf, pcBuf, piOutputSize, iSize, t_iPlaneNum);
+    return getBuf(t_bFlagCreateOutBuf, &t_stJpegOutbuf, piBuf, piOutputSize, iSize, t_iPlaneNum);
 }
 
-int  ExynosJpegDecoder::setInBuf(char *pcBuf, int iSize)
+int  ExynosJpegDecoder::setInBuf(int iBuf, int iSize)
 {
     int iRet = ERROR_NONE;
-    iRet = setBuf(&t_stJpegInbuf, &pcBuf, &iSize, NUM_JPEG_DEC_IN_PLANES);
+    iRet = setBuf(&t_stJpegInbuf, &iBuf, &iSize, NUM_JPEG_DEC_IN_PLANES);
 
     if (iRet == ERROR_NONE) {
         t_bFlagCreateInBuf = true;
@@ -98,10 +98,10 @@ int  ExynosJpegDecoder::setInBuf(char *pcBuf, int iSize)
     return iRet;
 }
 
-int  ExynosJpegDecoder::setOutBuf(char **pcBuf, int *iSize)
+int  ExynosJpegDecoder::setOutBuf(int *piBuf, int *iSize)
 {
     int iRet = ERROR_NONE;
-    iRet = setBuf(&t_stJpegOutbuf, pcBuf, iSize, t_iPlaneNum);
+    iRet = setBuf(&t_stJpegOutbuf, piBuf, iSize, t_iPlaneNum);
 
     if (iRet == ERROR_NONE) {
         t_bFlagCreateOutBuf = true;
