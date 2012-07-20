@@ -34,6 +34,8 @@
 extern "C" {
 #endif
 
+#define CSC_MAX_PLANES 3
+
 typedef enum _CSC_ERRORCODE {
     CSC_ErrorNone = 0,
     CSC_Error,
@@ -329,11 +331,8 @@ CSC_ERRORCODE csc_set_dst_format(
  *   error code
  */
 CSC_ERRORCODE csc_set_src_buffer(
-    void           *handle,
-    unsigned char  *y,
-    unsigned char  *u,
-    unsigned char  *v,
-    int             ion_fd);
+    void *handle,
+    void *addr[CSC_MAX_PLANES]);
 
 /*
  * Setup destination buffer
@@ -354,11 +353,8 @@ CSC_ERRORCODE csc_set_src_buffer(
  *   error code
  */
 CSC_ERRORCODE csc_set_dst_buffer(
-    void           *handle,
-    unsigned char  *y,
-    unsigned char  *u,
-    unsigned char  *v,
-    int             ion_fd);
+    void *handle,
+    void *addr[CSC_MAX_PLANES]);
 
 /*
  * Convert color space with presetup color format

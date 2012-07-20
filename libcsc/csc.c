@@ -54,7 +54,6 @@
 #endif
 
 #define GSCALER_IMG_ALIGN 16
-#define CSC_MAX_PLANES 3
 #define ALIGN(x, a)       (((x) + (a) - 1) & ~((a) - 1))
 
 typedef enum _CSC_PLANE {
@@ -83,8 +82,7 @@ typedef struct _CSC_FORMAT {
 } CSC_FORMAT;
 
 typedef struct _CSC_BUFFER {
-    unsigned char *planes[CSC_MAX_PLANES];
-    int ion_fd;
+    void *planes[CSC_MAX_PLANES];
 } CSC_BUFFER;
 
 typedef struct _CSC_HW_PROPERTY {
@@ -430,28 +428,19 @@ static CSC_ERRORCODE csc_set_buffer(
 {
     CSC_HANDLE *csc_handle;
     CSC_ERRORCODE ret = CSC_ErrorNone;
-    void *src_addr[3] = {NULL, };
-    void *dst_addr[3] = {NULL, };
 
     if (handle == NULL)
         return CSC_ErrorNotInit;
 
     csc_handle = (CSC_HANDLE *)handle;
     if (csc_handle->csc_method == CSC_METHOD_HW) {
-        src_addr[0] = csc_handle->src_buffer.planes[CSC_Y_PLANE];
-        src_addr[1] = csc_handle->src_buffer.planes[CSC_U_PLANE];
-        src_addr[2] = csc_handle->src_buffer.planes[CSC_V_PLANE];
-        dst_addr[0] = csc_handle->dst_buffer.planes[CSC_Y_PLANE];
-        dst_addr[1] = csc_handle->dst_buffer.planes[CSC_U_PLANE];
-        dst_addr[2] = csc_handle->dst_buffer.planes[CSC_V_PLANE];
-
         switch (csc_handle->csc_hw_type) {
         case CSC_HW_TYPE_FIMC:
             break;
 #ifdef ENABLE_GSCALER
         case CSC_HW_TYPE_GSCALER:
-            exynos_gsc_set_src_addr(csc_handle->csc_hw_handle, src_addr);
-            exynos_gsc_set_dst_addr(csc_handle->csc_hw_handle, dst_addr);
+            exynos_gsc_set_src_addr(csc_handle->csc_hw_handle, csc_handle->src_buffer.planes);
+            exynos_gsc_set_dst_addr(csc_handle->csc_hw_handle, csc_handle->dst_buffer.planes);
             break;
 #endif
         default:
@@ -676,45 +665,37 @@ CSC_ERRORCODE csc_set_dst_format(
 }
 
 CSC_ERRORCODE csc_set_src_buffer(
-    void           *handle,
-    unsigned char  *y,
-    unsigned char  *u,
-    unsigned char  *v,
-    int             ion_fd)
+    void *handle,
+    void *addr[3])
 {
     CSC_HANDLE *csc_handle;
     CSC_ERRORCODE ret = CSC_ErrorNone;
-    void *addr[3] = {NULL, };
 
     if (handle == NULL)
         return CSC_ErrorNotInit;
 
     csc_handle = (CSC_HANDLE *)handle;
-    csc_handle->src_buffer.planes[CSC_Y_PLANE] = y;
-    csc_handle->src_buffer.planes[CSC_U_PLANE] = u;
-    csc_handle->src_buffer.planes[CSC_V_PLANE] = v;
+    csc_handle->src_buffer.planes[CSC_Y_PLANE] = addr[0];
+    csc_handle->src_buffer.planes[CSC_U_PLANE] = addr[1];
+    csc_handle->src_buffer.planes[CSC_V_PLANE] = addr[2];
 
     return ret;
 }
 
 CSC_ERRORCODE csc_set_dst_buffer(
-    void           *handle,
-    unsigned char  *y,
-    unsigned char  *u,
-    unsigned char  *v,
-    int             ion_fd)
+    void *handle,
+    void *addr[3])
 {
     CSC_HANDLE *csc_handle;
     CSC_ERRORCODE ret = CSC_ErrorNone;
-    void *addr[3] = {NULL, };
 
     if (handle == NULL)
         return CSC_ErrorNotInit;
 
     csc_handle = (CSC_HANDLE *)handle;
-    csc_handle->dst_buffer.planes[CSC_Y_PLANE] = y;
-    csc_handle->dst_buffer.planes[CSC_U_PLANE] = u;
-    csc_handle->dst_buffer.planes[CSC_V_PLANE] = v;
+    csc_handle->dst_buffer.planes[CSC_Y_PLANE] = addr[0];
+    csc_handle->dst_buffer.planes[CSC_U_PLANE] = addr[1];
+    csc_handle->dst_buffer.planes[CSC_V_PLANE] = addr[2];
 
     return ret;
 }
