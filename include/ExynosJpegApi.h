@@ -68,7 +68,7 @@ public:
 
     struct BUFFER{
         int     numOfPlanes;
-        char *addr[JPEG_MAX_PLANE_CNT];
+        int     addr[JPEG_MAX_PLANE_CNT];
         int     size[JPEG_MAX_PLANE_CNT];
     };
 
@@ -130,7 +130,6 @@ protected:
     int t_v4l2SetFmt(int iFd, enum v4l2_buf_type eType, struct CONFIG *pstConfig);
     int t_v4l2GetFmt(int iFd, enum v4l2_buf_type eType, struct CONFIG *pstConfig);
     int t_v4l2Reqbufs(int iFd, int iBufCount, struct BUF_INFO *pstBufInfo);
-    int t_v4l2Querybuf(int iFd, struct BUF_INFO *pstBufInfo, struct BUFFER *pstBuf);
     int t_v4l2Qbuf(int iFd, struct BUF_INFO *pstBufInfo, struct BUFFER *pstBuf);
     int t_v4l2Dqbuf(int iFd, enum v4l2_buf_type eType, enum v4l2_memory eMemory, int iNumPlanes);
     int t_v4l2StreamOn(int iFd, enum v4l2_buf_type eType);
@@ -145,8 +144,8 @@ protected:
     int setJpegFormat(enum MODE eMode, int iV4l2JpegFormat);
     int setColorBufSize(enum MODE eMode, int *piBufSize, int iSize);
     int setColorBufSize(int iFormat, int *piBufSize, int iSize, int width, int height);
-    int getBuf(bool bCreateBuf, struct BUFFER *pstBuf, char **pcBuf, int *iBufSize, int iSize, int iPlaneNum);
-    int setBuf(struct BUFFER *pstBuf, char **pcBuf, int *iSize, int iPlaneNum);
+    int getBuf(bool bCreateBuf, struct BUFFER *pstBuf, int *piBuf, int *iBufSize, int iSize, int iPlaneNum);
+    int setBuf(struct BUFFER *pstBuf, int *piBuf, int *iSize, int iPlaneNum);
     int updateConfig(enum MODE eMode, int iInBufs, int iOutBufs, int iInBufPlanes, int iOutBufPlanes);
     int execute(int iInBufPlanes, int iOutBufPlanes);
 };
@@ -173,11 +172,11 @@ public:
 
     int     setJpegConfig(void* pConfig);
 
-    int     getInBuf(char **pcBuf, int *piInputSize, int iSize);
-    int     getOutBuf(char **pcBuf, int *piOutputSize);
+    int     getInBuf(int *piBuf, int *piInputSize, int iSize);
+    int     getOutBuf(int *piBuf, int *piOutputSize);
 
-    int     setInBuf(char **pcBuf, int *iSize);
-    int     setOutBuf(char *pcBuf, int iSize);
+    int     setInBuf(int *piBuf, int *iSize);
+    int     setOutBuf(int iBuf, int iSize);
 
     int     getSize(int *piWidth, int *piHeight);
     int     getColorFormat(void);
@@ -207,11 +206,11 @@ public:
 
     int     setJpegConfig(void* pConfig);
 
-    int     getInBuf(char **pcBuf, int *piInputSize);
-    int     getOutBuf(char **pcBuf, int *piOutputSize, int iSize);
+    int     getInBuf(int *piBuf, int *piInputSize);
+    int     getOutBuf(int *picBuf, int *piOutputSize, int iSize);
 
-    int     setInBuf(char *pcBuf, int iSize);
-    int     setOutBuf(char **pcBuf, int *iSize);
+    int     setInBuf(int iBuf, int iSize);
+    int     setOutBuf(int *piBuf, int *iSize);
 
     int     getSize(int *piWidth, int *piHeight);
     int     setColorFormat(int iV4l2ColorFormat);
