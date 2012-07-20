@@ -56,13 +56,13 @@ static unsigned int m_gsc_get_plane_count(
     case V4L2_PIX_FMT_RGB444:
     case V4L2_PIX_FMT_YUYV:
     case V4L2_PIX_FMT_UYVY:
+    case V4L2_PIX_FMT_NV16:
+    case V4L2_PIX_FMT_NV61:
         plane_count = 1;
         break;
     case V4L2_PIX_FMT_NV12M:
     case V4L2_PIX_FMT_NV12MT_16X16:
     case V4L2_PIX_FMT_NV21:
-    case V4L2_PIX_FMT_NV16:
-    case V4L2_PIX_FMT_NV61:
         plane_count = 2;
         break;
     case V4L2_PIX_FMT_YVU420M:
