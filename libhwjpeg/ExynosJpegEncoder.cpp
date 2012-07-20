@@ -72,21 +72,21 @@ int ExynosJpegEncoder::setJpegConfig(void *pConfig)
     return ExynosJpegBase::setJpegConfig(MODE_ENCODE, pConfig);
 }
 
- int ExynosJpegEncoder::getInBuf(char **pcBuf, int *piInputSize, int iSize)
+ int ExynosJpegEncoder::getInBuf(int *piBuf, int *piInputSize, int iSize)
 {
-    return getBuf(t_bFlagCreateInBuf, &t_stJpegInbuf, pcBuf, piInputSize, iSize, t_iPlaneNum);
+    return getBuf(t_bFlagCreateInBuf, &t_stJpegInbuf, piBuf, piInputSize, iSize, t_iPlaneNum);
 }
 
-int ExynosJpegEncoder::getOutBuf(char **pcBuf, int *piOutputSize)
+int ExynosJpegEncoder::getOutBuf(int *piBuf, int *piOutputSize)
 {
-    return getBuf(t_bFlagCreateOutBuf, &t_stJpegOutbuf, pcBuf, piOutputSize, \
+    return getBuf(t_bFlagCreateOutBuf, &t_stJpegOutbuf, piBuf, piOutputSize, \
         NUM_JPEG_ENC_OUT_PLANES, NUM_JPEG_ENC_OUT_PLANES);
 }
 
-int ExynosJpegEncoder::setInBuf(char **pcBuf, int *iSize)
+int ExynosJpegEncoder::setInBuf(int *piBuf, int *iSize)
 {
     int iRet = ERROR_NONE;
-    iRet = setBuf(&t_stJpegInbuf, pcBuf, iSize, t_iPlaneNum);
+    iRet = setBuf(&t_stJpegInbuf, piBuf, iSize, t_iPlaneNum);
 
     if (iRet == ERROR_NONE) {
         t_bFlagCreateInBuf = true;
@@ -95,10 +95,10 @@ int ExynosJpegEncoder::setInBuf(char **pcBuf, int *iSize)
     return iRet;
 }
 
-int  ExynosJpegEncoder::setOutBuf(char *pcBuf, int iSize)
+int  ExynosJpegEncoder::setOutBuf(int iBuf, int iSize)
 {
     int iRet = ERROR_NONE;
-    iRet = setBuf(&t_stJpegOutbuf, &pcBuf, &iSize, NUM_JPEG_ENC_OUT_PLANES);
+    iRet = setBuf(&t_stJpegOutbuf, &iBuf, &iSize, NUM_JPEG_ENC_OUT_PLANES);
 
     if (iRet == ERROR_NONE) {
         t_bFlagCreateOutBuf = true;

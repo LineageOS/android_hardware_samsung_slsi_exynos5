@@ -194,43 +194,6 @@ int ExynosJpegBase::t_v4l2Reqbufs(int iFd, int iBufCount, struct BUF_INFO *pstBu
     return iRet;
 }
 
-int ExynosJpegBase::t_v4l2Querybuf(int iFd, struct BUF_INFO *pstBufInfo, struct BUFFER *pstBuf)
-{
-    struct v4l2_buffer v4l2_buf;
-    struct v4l2_plane plane[JPEG_MAX_PLANE_CNT];
-    int iRet = ERROR_NONE;
-    int i;
-
-    memset(plane, 0, (int)JPEG_MAX_PLANE_CNT * sizeof(struct v4l2_plane));
-
-    v4l2_buf.index = 0;
-    v4l2_buf.type = pstBufInfo->buf_type;
-    v4l2_buf.memory = pstBufInfo->memory;
-    v4l2_buf.length = pstBufInfo->numOfPlanes;
-    v4l2_buf.m.planes = plane;
-
-    iRet = ioctl(iFd, VIDIOC_QUERYBUF, &v4l2_buf);
-    if (iRet < 0) {
-        JPEG_ERROR_LOG("[%s:%d]: VIDIOC_QUERYBUF failed\n", __func__, iRet);
-        return iRet;
-    }
-
-    for (i= 0; i < v4l2_buf.length; i++) {
-        pstBuf->size[i] = v4l2_buf.m.planes[i].length;
-        pstBuf->addr[i] = (char *) mmap(0,
-            pstBuf->size[i],
-            PROT_READ | PROT_WRITE, MAP_SHARED, iFd,
-            v4l2_buf.m.planes[i].m.mem_offset);
-
-        if ((pstBuf->addr[i] == MAP_FAILED) || (pstBuf->size[i] <= 0)) {
-            JPEG_ERROR_LOG("[%s]: mmap failed\n", __func__);
-            return ERROR_MMAP_FAILED;
-        }
-    }
-
-    return iRet;
-}
-
 int ExynosJpegBase::t_v4l2Qbuf(int iFd, struct BUF_INFO *pstBufInfo, struct BUFFER *pstBuf)
 {
     struct v4l2_buffer v4l2_buf;
@@ -248,9 +211,9 @@ int ExynosJpegBase::t_v4l2Qbuf(int iFd, struct BUF_INFO *pstBufInfo, struct BUFF
     v4l2_buf.length = pstBufInfo->numOfPlanes;
     v4l2_buf.m.planes = plane;
 
-    if (pstBufInfo->memory == V4L2_MEMORY_USERPTR) {
+    if (pstBufInfo->memory == V4L2_MEMORY_DMABUF) {
         for (i = 0; i < pstBufInfo->numOfPlanes; i++) {
-            v4l2_buf.m.planes[i].m.userptr = (unsigned long)pstBuf->addr[i];
+            v4l2_buf.m.planes[i].m.fd = (unsigned long)pstBuf->addr[i];
             v4l2_buf.m.planes[i].length = pstBuf->size[i];
         }
     }
@@ -480,11 +443,7 @@ int ExynosJpegBase::setJpegConfig(enum MODE eMode, void *pConfig)
     case MODE_ENCODE:
         switch (t_stJpegConfig.pix.enc_fmt.in_fmt) {
         case V4L2_PIX_FMT_YUV420:
-            t_iPlaneNum = 3;
-            break;
         case V4L2_PIX_FMT_NV16:
-            t_iPlaneNum = 2;
-            break;
         case V4L2_PIX_FMT_YUYV:
         case V4L2_PIX_FMT_RGB565X:
         case V4L2_PIX_FMT_BGR32:
@@ -500,11 +459,7 @@ int ExynosJpegBase::setJpegConfig(enum MODE eMode, void *pConfig)
     case MODE_DECODE:
         switch (t_stJpegConfig.pix.dec_fmt.out_fmt) {
         case V4L2_PIX_FMT_YUV420:
-            t_iPlaneNum = 3;
-            break;
         case V4L2_PIX_FMT_NV16:
-            t_iPlaneNum = 2;
-            break;
         case V4L2_PIX_FMT_YUYV:
         case V4L2_PIX_FMT_RGB565X:
         case V4L2_PIX_FMT_BGR32:
@@ -535,7 +490,7 @@ void *ExynosJpegBase::getJpegConfig(void)
     return &t_stJpegConfig;
 }
 
-int ExynosJpegBase::getBuf(bool bCreateBuf, struct BUFFER *pstBuf, char **pcBuf, int *iBufSize, int iSize, int iPlaneNum)
+int ExynosJpegBase::getBuf(bool bCreateBuf, struct BUFFER *pstBuf, int *piBuf, int *iBufSize, int iSize, int iPlaneNum)
 {
     if (t_bFlagCreate == false) {
         return ERROR_JPEG_DEVICE_NOT_CREATE_YET;
@@ -545,7 +500,7 @@ int ExynosJpegBase::getBuf(bool bCreateBuf, struct BUFFER *pstBuf, char **pcBuf,
         return ERROR_BUF_NOT_SET_YET;
     }
 
-     if ((pcBuf == NULL) || (iSize == 0)) {
+     if ((piBuf == NULL) || (iSize == 0)) {
         return ERROR_BUFFR_IS_NULL;
      }
 
@@ -554,7 +509,7 @@ int ExynosJpegBase::getBuf(bool bCreateBuf, struct BUFFER *pstBuf, char **pcBuf,
      }
 
     for (int i=0;i<iPlaneNum;i++) {
-        pcBuf[i] = pstBuf->addr[i];
+        piBuf[i] = pstBuf->addr[i];
     }
 
     for (int i=0;i<iPlaneNum;i++) {
@@ -564,7 +519,7 @@ int ExynosJpegBase::getBuf(bool bCreateBuf, struct BUFFER *pstBuf, char **pcBuf,
     return ERROR_NONE;
 }
 
-int ExynosJpegBase::setBuf(struct BUFFER *pstBuf, char **pcBuf, int *iSize, int iPlaneNum)
+int ExynosJpegBase::setBuf(struct BUFFER *pstBuf, int *piBuf, int *iSize, int iPlaneNum)
 {
     if (t_bFlagCreate == false) {
         return ERROR_JPEG_DEVICE_NOT_CREATE_YET;
@@ -575,7 +530,7 @@ int ExynosJpegBase::setBuf(struct BUFFER *pstBuf, char **pcBuf, int *iSize, int 
     }
 
     for(int i=0;i<iPlaneNum;i++) {
-        if (pcBuf[i] == NULL) {
+        if (piBuf[i] == NULL) {
             memset(pstBuf, 0, sizeof(struct BUFFER));
             return ERROR_BUFFR_IS_NULL;
         }
@@ -583,7 +538,7 @@ int ExynosJpegBase::setBuf(struct BUFFER *pstBuf, char **pcBuf, int *iSize, int 
             memset(pstBuf, 0, sizeof(struct BUFFER));
             return ERROR_BUFFER_TOO_SMALL;
         }
-        pstBuf->addr[i] = pcBuf[i];
+        pstBuf->addr[i] = piBuf[i];
         pstBuf->size[i] = iSize[i];
     }
 
@@ -640,11 +595,7 @@ int ExynosJpegBase::setColorFormat(enum MODE eMode, int iV4l2ColorFormat)
 
     switch (iV4l2ColorFormat) {
     case V4L2_PIX_FMT_YUV420:
-        t_iPlaneNum = 3;
-        break;
     case V4L2_PIX_FMT_NV16:
-        t_iPlaneNum = 2;
-        break;
     case V4L2_PIX_FMT_YUYV:
     case V4L2_PIX_FMT_RGB565X:
     case V4L2_PIX_FMT_BGR32:
@@ -721,6 +672,7 @@ int ExynosJpegBase::setColorBufSize(int iFormat, int *piBufSize, int iSize, int 
     switch (iFormat) {
     case V4L2_PIX_FMT_YUYV:
     case V4L2_PIX_FMT_RGB565X:
+    case V4L2_PIX_FMT_NV16:
         pBufSize[0] = width*height*2;
         pBufSize[1] = 0;
         pBufSize[2] = 0;
@@ -731,15 +683,10 @@ int ExynosJpegBase::setColorBufSize(int iFormat, int *piBufSize, int iSize, int 
         pBufSize[1] = 0;
         pBufSize[2] = 0;
         break;
-    case V4L2_PIX_FMT_NV16:
-        pBufSize[0] = width*height;
-        pBufSize[1] = width*height;
-        pBufSize[2] = 0;
-        break;
     case V4L2_PIX_FMT_YUV420:
-        pBufSize[0] = width*height;
-        pBufSize[1] = width*height/4;
-        pBufSize[2] = width*height/4;
+        pBufSize[0] = (width*height*3)/2;
+        pBufSize[1] = 0;
+        pBufSize[2] = 0;
         break;
     default:
         pBufSize[0] = width*height*4;
@@ -782,7 +729,7 @@ int ExynosJpegBase::updateConfig(enum MODE eMode, int iInBufs, int iOutBufs, int
 
     stBufInfo.numOfPlanes = iInBufs;
     stBufInfo.buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-    stBufInfo.memory = V4L2_MEMORY_USERPTR;
+    stBufInfo.memory = V4L2_MEMORY_DMABUF;
 
     iRet = t_v4l2Reqbufs(t_iJpegFd, iInBufs, &stBufInfo);
     if (iRet < 0) {
@@ -823,7 +770,7 @@ int ExynosJpegBase::execute(int iInBufPlanes, int iOutBufPlanes)
     stBufInfo.numOfPlanes = iInBufPlanes;
     stBufInfo.buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
 
-    stBufInfo.memory = V4L2_MEMORY_USERPTR;
+    stBufInfo.memory = V4L2_MEMORY_DMABUF;
 
     iRet = t_v4l2Qbuf(t_iJpegFd, &stBufInfo, &t_stJpegInbuf);
     if (iRet < 0) {
