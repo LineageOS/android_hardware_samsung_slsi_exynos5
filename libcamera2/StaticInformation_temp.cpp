@@ -15,7 +15,7 @@ public:
     /**
      * Static sensor characteristics
      */
-    static const unsigned int kResolution[2];
+    static const unsigned int kResolution[2][2];
 
     static const nsecs_t kExposureTimeRange[2];
     static const nsecs_t kFrameDurationRange[2];
@@ -52,8 +52,18 @@ public:
 
 };
 
-const unsigned int Sensor::kResolution[2]  = {1920, 1080};
+const unsigned int Sensor::kResolution[2][2]  = {
+                {1920, 1080}, /* back */
+                {1280, 720}, /* front */
+};
 
+const unsigned int kResolution0[4]  = {
+                1920, 1080, 1280, 720 /* back */
+};
+
+const unsigned int kResolution1[2]  = {
+                1280, 720, /* front */
+};
 const nsecs_t Sensor::kExposureTimeRange[2] =
     {1000L, 30000000000L} ; // 1 us - 30 sec
 const nsecs_t Sensor::kFrameDurationRange[2] =
@@ -92,7 +102,7 @@ const float Sensor::kReadNoiseVarAfterGain =
 // minimum frame duration is purely a function of row readout time, at least
 // if there's a reasonable number of rows.
 const nsecs_t Sensor::kRowReadoutTime =
-            Sensor::kFrameDurationRange[0] / Sensor::kResolution[1];
+            Sensor::kFrameDurationRange[0] / Sensor::kResolution[0][1];
 
 const uint32_t Sensor::kAvailableSensitivities[5] =
     {100, 200, 400, 800, 1600};
@@ -108,26 +118,36 @@ const uint32_t kAvailableFormats[5] = {
 };
 
 
-const uint32_t kAvailableRawSizes[2] = {
+const uint32_t kAvailableRawSizes[2][2] = {
     //640, 480
-    Sensor::kResolution[0], Sensor::kResolution[1]
+   {Sensor::kResolution[0][0], Sensor::kResolution[0][1]},
+   {Sensor::kResolution[1][0], Sensor::kResolution[1][1]},
 };
 
 const uint64_t kAvailableRawMinDurations[1] = {
     Sensor::kFrameDurationRange[0]
 };
-
-const uint32_t kAvailableProcessedSizes[2] = {
+#if 1
+const uint32_t kAvailableProcessedSizes[2][2] = {
     //640, 480
-    Sensor::kResolution[0], Sensor::kResolution[1]
+    {Sensor::kResolution[0][0], Sensor::kResolution[0][1], },
+    {Sensor::kResolution[1][0], Sensor::kResolution[1][1], },
 };
+
+#else
+const uint32_t kAvailableProcessedSizes[2][4] = {
+    //640, 480
+    {Sensor::kResolution[0][0], Sensor::kResolution[0][1], 720, 480},
+    {Sensor::kResolution[1][0], Sensor::kResolution[1][1], 720, 480},
+};
+#endif
 
 const uint64_t kAvailableProcessedMinDurations[1] = {
     Sensor::kFrameDurationRange[0]
 };
 
 const uint32_t kAvailableJpegSizes[2] = {
-    1280, 960,
+    1280, 720,
 //    1280, 1080,
 //    2560, 1920,
 //    1280, 720,
@@ -140,6 +160,124 @@ const uint64_t kAvailableJpegMinDurations[1] = {
 };
 
 
+bool isSupportedPreviewSize(int cameraId, int width, int height)
+{
+    if (cameraId == 0) {
+        if ((width == 1280 && height == 720) || (width == 1920 && height == 1080))
+            return true;
+        else
+            return false;
+    }
+    else if (cameraId == 1) {
+        if ((width == 1280 && height == 720) )
+            return true;
+        else
+            return false;
+    }
+    else
+        return false;
+}
+
+bool isSupportedJpegSize(int cameraId, int width, int height)
+{
+    if (cameraId == 0) {
+        if ((width == 1920 && height == 1080) || (width == 1280 && height == 720))
+            return true;
+        else
+            return false;
+    }
+    else if (cameraId == 1) {
+        if (width == 1280 && height == 720)
+            return true;
+        else
+            return false;
+    }
+    else
+        return false;
+}
+
+int getSccOutputSizeX(int cameraId)
+{
+    if (cameraId == 0) {
+        //return 1280;
+        return 2560;
+    }
+    else if (cameraId == 1) {
+        //return 1280;
+        return 1392;
+    }
+    else
+        return 0;
+}    
+
+int getSccOutputSizeY(int cameraId)
+{
+    if (cameraId == 0) {
+        return 1920;
+        //return 720;
+    }
+    else if (cameraId == 1) {
+        //return 720;
+        return 1392;
+    }
+    else
+        return 0;
+}
+
+
+int getSensorOutputSizeX(int cameraId)
+{
+    if (cameraId == 0) {
+        return 2560 + 16;
+        //return 1280+16;
+    }
+    else if (cameraId == 1) {
+        return 1392+16;
+    }
+    else
+        return 0;
+}    
+
+int getSensorOutputSizeY(int cameraId)
+{
+    if (cameraId == 0) {
+        return 1920 + 10;
+        //return 720+10;
+    }
+    else if (cameraId == 1) {
+        return 1392+10;
+    }
+    else
+        return 0;
+}
+
+int getJpegOutputSizeX(int cameraId)
+{
+    if (cameraId == 0) {
+        // return 2560;
+        return 1280;
+    }
+    else if (cameraId == 1) {
+        return 1280;
+    }
+    else
+        return 0;
+}    
+
+int getJpegOutputSizeY(int cameraId)
+{
+    if (cameraId == 0) {
+        // return 1920; 
+        return 720;
+    }
+    else if (cameraId == 1) {
+        return 720;
+    }
+    else
+        return 0;
+}
+
+    
 status_t addOrSize(camera_metadata_t *request,
         bool sizeRequest,
         size_t *entryCount,
@@ -162,13 +300,12 @@ status_t addOrSize(camera_metadata_t *request,
 }
 status_t constructStaticInfo(
         camera_metadata_t **info,
+        int cameraId,
         bool sizeRequest) {
 
     size_t entryCount = 0;
     size_t dataCount = 0;
     status_t ret;
-
-    bool mFacingBack = 1;
 
 #define ADD_OR_SIZE( tag, data, count ) \
     if ( ( ret = addOrSize(*info, sizeRequest, &entryCount, &dataCount, \
@@ -220,12 +357,12 @@ status_t constructStaticInfo(
             geometricCorrectionMap,
             sizeof(geometricCorrectionMap)/sizeof(float));
 
-    int32_t lensFacing = mFacingBack ?
-            ANDROID_LENS_FACING_BACK : ANDROID_LENS_FACING_FRONT;
+    int32_t lensFacing = cameraId ?
+            ANDROID_LENS_FACING_FRONT : ANDROID_LENS_FACING_BACK;
     ADD_OR_SIZE(ANDROID_LENS_FACING, &lensFacing, 1);
 
     float lensPosition[3];
-    if (mFacingBack) {
+    if (cameraId == 0) {
         // Back-facing camera is center-top on device
         lensPosition[0] = 0;
         lensPosition[1] = 20;
@@ -257,12 +394,25 @@ status_t constructStaticInfo(
     static const float sensorPhysicalSize[2] = {3.20f, 2.40f}; // mm
     ADD_OR_SIZE(ANDROID_SENSOR_PHYSICAL_SIZE,
             sensorPhysicalSize, 2);
+    if (cameraId==0) {
+        ADD_OR_SIZE(ANDROID_SENSOR_PIXEL_ARRAY_SIZE, kResolution0,2);
+    }
+    else {
+        ADD_OR_SIZE(ANDROID_SENSOR_PIXEL_ARRAY_SIZE, kResolution1,2);
+    }
+    //ADD_OR_SIZE(ANDROID_SENSOR_PIXEL_ARRAY_SIZE,
+    //        Sensor::kResolution[cameraId], 2);
 
-    ADD_OR_SIZE(ANDROID_SENSOR_PIXEL_ARRAY_SIZE,
-            Sensor::kResolution, 2);
 
-    ADD_OR_SIZE(ANDROID_SENSOR_ACTIVE_ARRAY_SIZE,
-            Sensor::kResolution, 2);
+    if (cameraId==0) {
+        ADD_OR_SIZE(ANDROID_SENSOR_ACTIVE_ARRAY_SIZE, kResolution0,2);
+    }
+    else {
+        ADD_OR_SIZE(ANDROID_SENSOR_ACTIVE_ARRAY_SIZE, kResolution1,2);
+    }
+    
+    //ADD_OR_SIZE(ANDROID_SENSOR_ACTIVE_ARRAY_SIZE,
+    //        Sensor::kResolution[cameraId], 2);
 
     ADD_OR_SIZE(ANDROID_SENSOR_WHITE_LEVEL,
             &Sensor::kMaxRawValue, 1);
@@ -295,17 +445,20 @@ status_t constructStaticInfo(
             sizeof(kAvailableFormats)/sizeof(uint32_t));
 
     ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_RAW_SIZES,
-            kAvailableRawSizes,
+            kAvailableRawSizes[cameraId],
             sizeof(kAvailableRawSizes)/sizeof(uint32_t));
 
     ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_RAW_MIN_DURATIONS,
             kAvailableRawMinDurations,
             sizeof(kAvailableRawMinDurations)/sizeof(uint64_t));
 
-    ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES,
-            kAvailableProcessedSizes,
-            sizeof(kAvailableProcessedSizes)/sizeof(uint32_t));
 
+    if (cameraId==0) {
+        ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES, kResolution0,4);
+    }
+    else {
+        ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES, kResolution1,2);
+    }
     ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_PROCESSED_MIN_DURATIONS,
             kAvailableProcessedMinDurations,
             sizeof(kAvailableProcessedMinDurations)/sizeof(uint64_t));
@@ -401,7 +554,7 @@ status_t constructStaticInfo(
             sizeof(exposureCompensationRange)/sizeof(int32_t));
 
     static const int32_t availableTargetFpsRanges[] = {
-            5, 30
+            5, 30, 30, 30
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
             availableTargetFpsRanges,
@@ -640,7 +793,7 @@ status_t constructDefaultRequestInternal(
 
     /** android.scaler */
     static const int32_t cropRegion[3] = {
-        0, 0, Sensor::kResolution[0]
+        0, 0, Sensor::kResolution[0][0]
     };
     ADD_OR_SIZE(ANDROID_SCALER_CROP_REGION, cropRegion, 3);
 
@@ -722,7 +875,7 @@ status_t constructDefaultRequestInternal(
     ADD_OR_SIZE(ANDROID_CONTROL_AE_MODE, &aeMode, 1);
 
     static const int32_t controlRegions[5] = {
-        0, 0, Sensor::kResolution[0], Sensor::kResolution[1], 1000
+        0, 0, Sensor::kResolution[0][0], Sensor::kResolution[0][1], 1000
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AE_REGIONS, controlRegions, 5);
 

@@ -31,7 +31,7 @@
  *
  */
 
-//#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 1
 #define LOG_TAG "SignalDrivenThread"
 #include <utils/Log.h>
 
@@ -43,9 +43,10 @@ namespace android {
 SignalDrivenThread::SignalDrivenThread()
     :Thread(false)
 {
-    ALOGV("DEBUG(SignalDrivenThread() ):");
+    ALOGV("(SignalDrivenThread() ):");
     m_processingSignal = 0;
     m_receivedSignal = 0;
+    m_isTerminated = false;    
 }
 
 void SignalDrivenThread::Start(const char* name,
@@ -61,13 +62,14 @@ SignalDrivenThread::SignalDrivenThread(const char* name,
     ALOGV("DEBUG(SignalDrivenThread( , , )):");
     m_processingSignal = 0;
     m_receivedSignal = 0;
+    m_isTerminated = false;
     run(name, priority, stack);
     return;
 }
 
 SignalDrivenThread::~SignalDrivenThread()
 {
-    ALOGV("DEBUG(%s):", __FUNCTION__);
+    ALOGD("DEBUG(%s):", __func__);
     return;
 }
 
@@ -89,15 +91,10 @@ uint32_t SignalDrivenThread::GetProcessingSignal()
     return m_processingSignal;
 }
 
-/*
-void SignalDrivenThread::ClearProcessingSignal(uint32_t signal)
+bool SignalDrivenThread::IsTerminated()
 {
-    ALOGV("DEBUG(%s):Clearing Signal (%x) from (%x)", __func__, signal, m_processingSignal);
-
-    m_processingSignal &= ~(signal);
-    return;
+    return m_isTerminated;
 }
-*/
 
 status_t SignalDrivenThread::readyToRun()
 {
@@ -122,12 +119,13 @@ bool SignalDrivenThread::threadLoop()
 
     if (m_processingSignal & SIGNAL_THREAD_TERMINATE)
     {
-        ALOGV("DEBUG(%s):Thread Terminating", __FUNCTION__);
+        ALOGD("(%s): Thread Terminating by SIGNAL", __func__);
+        m_isTerminated = true;
         return (false);
     }
     else if (m_processingSignal & SIGNAL_THREAD_PAUSE)
     {
-        ALOGV("DEBUG(%s):Thread Paused", __FUNCTION__);
+        ALOGV("DEBUG(%s):Thread Paused", __func__);
         return (true);
     }
 
