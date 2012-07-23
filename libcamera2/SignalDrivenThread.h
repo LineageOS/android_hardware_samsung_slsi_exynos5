@@ -58,6 +58,7 @@ public:
             //void        ClearProcessingSignal(uint32_t signal);
             void        Start(const char *name,
                             int32_t priority, size_t stack);
+            bool        IsTerminated();
 
 private:
             status_t    readyToRun();
@@ -73,6 +74,7 @@ private:
 
             Mutex       m_signalMutex;
             Condition   m_threadCondition;
+            bool	    m_isTerminated;
 };
 
 }; // namespace android

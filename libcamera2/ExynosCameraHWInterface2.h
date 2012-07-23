@@ -60,12 +60,12 @@ namespace android {
 #define NUM_MAX_DEQUEUED_REQUEST    (8)
 /* #define NUM_MAX_REQUEST_MGR_ENTRY   NUM_MAX_DEQUEUED_REQUEST */
 #define NUM_MAX_REQUEST_MGR_ENTRY   (10)
-/* #define NUM_OF_STREAM_BUF           (15) */
 #define MAX_CAMERA_MEMORY_PLANE_NUM	(4)
 #define NUM_MAX_CAMERA_BUFFERS      (16)
 #define NUM_BAYER_BUFFERS           (8)
-#define SHOT_FRAME_DELAY            (3)
+#define NUM_SENSOR_QBUF             (4)
 
+#define PREVIEW_GSC_NODE_NUM (1)
 #define PICTURE_GSC_NODE_NUM (2)
 
 #define SIGNAL_MAIN_REQ_Q_NOT_EMPTY             (SIGNAL_THREAD_COMMON_LAST<<1)
@@ -77,6 +77,7 @@ namespace android {
 #define SIGNAL_STREAM_CHANGE_PARAMETER          (SIGNAL_THREAD_COMMON_LAST<<7)
 #define SIGNAL_THREAD_RELEASE                   (SIGNAL_THREAD_COMMON_LAST<<8)
 #define SIGNAL_ISP_START_BAYER_INPUT            (SIGNAL_THREAD_COMMON_LAST<<9)
+#define SIGNAL_ISP_START_BAYER_DEQUEUE          (SIGNAL_THREAD_COMMON_LAST<<10)
 
 #define SIGNAL_STREAM_DATA_COMING               (SIGNAL_THREAD_COMMON_LAST<<15)
 
@@ -91,13 +92,6 @@ enum sensor_name {
     SENSOR_NAME_END
 };
 
-/*
-typedef struct exynos_camera_memory {
-	ion_buffer ionBuffer[MAX_CAMERA_MEMORY_PLANE_NUM];
-	char *virBuffer[MAX_CAMERA_MEMORY_PLANE_NUM];
-	int size[MAX_CAMERA_MEMORY_PLANE_NUM];
-} exynos_camera_memory_t;
-*/
 
 typedef struct node_info {
     int fd;
@@ -106,7 +100,6 @@ typedef struct node_info {
     int format;
     int planes;
     int buffers;
-    //int currentBufferIndex;
     enum v4l2_memory memory;
     enum v4l2_buf_type type;
 	ion_client ionClient;
@@ -116,7 +109,6 @@ typedef struct node_info {
 
 typedef struct camera_hw_info {
     int sensor_id;
-    //int sensor_frame_count; // includes bubble
 
     node_info_t sensor;
     node_info_t isp;
@@ -135,14 +127,11 @@ typedef enum request_entry_status {
 
 typedef struct request_manager_entry {
     request_entry_status_t      status;
-    //int                         id;
     camera_metadata_t           *original_request;
     // TODO : allocate memory dynamically
-    // camera2_ctl_metadata_t  *internal_request;
     camera2_ctl_metadata_NEW_t  internal_shot;
     int                         output_stream_count;
     bool                         dynamic_meta_vaild;
-    //int                         request_serial_number;
 } request_manager_entry_t;
 
 class RequestManager {
@@ -156,20 +145,20 @@ public:
     void    DeregisterRequest(camera_metadata_t **deregistered_request);
     bool    PrepareFrame(size_t *num_entries, size_t *frame_size,
                 camera_metadata_t **prepared_frame);
-    //void    MarkProcessingRequest(exynos_camera_memory_t* buf);
-    //void    MarkProcessingRequest(ExynosBuffer* buf);
     int   MarkProcessingRequest(ExynosBuffer *buf);
-    //void    NotifyStreamOutput(uint32_t stream_id, int isp_processing_index);
-    //void      NotifyStreamOutput(ExynosBuffer* buf, uint32_t stream_id);
-    void      NotifyStreamOutput(int index, int stream_id);
-    //int     FindEntryIndexByRequestSerialNumber(int serial_num);
+    void      NotifyStreamOutput(int frameCnt, int stream_id);
     void    DumpInfoWithIndex(int index);
-    void    ApplyDynamicMetadata(int index);
+    void    ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext, int frameCnt);
     void    CheckCompleted(int index);
-    void    UpdateOutputStreamInfo(struct camera2_shot_ext *shot_ext, int index);
-    void    RegisterTimestamp(int index, nsecs_t *frameTime);
-    uint64_t  GetTimestamp(int index);
+    void    UpdateOutputStreamInfo(struct camera2_shot_ext *shot_ext, int frameCnt);
+    void    RegisterTimestamp(int frameCnt, nsecs_t *frameTime);
+    uint64_t  GetTimestamp(int frameCnt);
+    int     FindFrameCnt(struct camera2_shot_ext * shot_ext);
+    int     FindEntryIndexByFrameCnt(int frameCnt);
     void  Dump(void);
+    int                 GetNextIndex(int index);
+    void SetDefaultParameters(int cropX);
+    
 private:
 
     MetadataConverter               *m_metadataConverter;
@@ -186,8 +175,51 @@ private:
     //TODO : alloc dynamically
     char                            m_tempFrameMetadataBuf[2000];
     camera_metadata_t               *m_tempFrameMetadata;
-    //int32_t                         m_request_serial_number;
+
+    // HACK
+    int                             tempInitialSkipCnt;
+    int                             m_cropX;
+
 };
+
+
+typedef struct bayer_buf_entry {
+    int     status;
+    int     reqFrameCnt;
+    nsecs_t timeStamp;
+} bayer_buf_entry_t;
+
+
+class BayerBufManager {
+public:
+    BayerBufManager();
+    ~BayerBufManager();
+    int                 GetIndexForSensorEnqueue();
+    int                 MarkSensorEnqueue(int index);
+    int                 MarkSensorDequeue(int index, int reqFrameCnt, nsecs_t *timeStamp);
+    int                 GetIndexForIspEnqueue(int *reqFrameCnt);
+    int                 GetIndexForIspDequeue(int *reqFrameCnt);
+    int                 MarkIspEnqueue(int index);
+    int                 MarkIspDequeue(int index);
+    int                 GetNumOnSensor();
+    int                 GetNumOnHalFilled();
+    int                 GetNumOnIsp();
+
+private:
+    int                 GetNextIndex(int index);
+
+    int                 sensorEnqueueHead;
+    int                 sensorDequeueHead;
+    int                 ispEnqueueHead;
+    int                 ispDequeueHead;
+    int                 numOnSensor;
+    int                 numOnIsp;
+    int                 numOnHalFilled;
+    int                 numOnHalEmpty;
+
+    bayer_buf_entry_t   entries[NUM_BAYER_BUFFERS];
+};
+
 
 #define NOT_AVAILABLE           (0)
 #define REQUIRES_DQ_FROM_SVC    (1)
@@ -224,13 +256,24 @@ typedef struct stream_parameters {
             ExynosBuffer            svcBuffers[NUM_MAX_CAMERA_BUFFERS];
             int                     svcBufStatus[NUM_MAX_CAMERA_BUFFERS];
 
-            //buffer_handle_t         halBufHandle[NUM_MAX_CAMERA_BUFFERS];
-            //ExynosBuffer            halBuffers[NUM_MAX_CAMERA_BUFFERS];
-            //int                     halBufStatus[NUM_MAX_CAMERA_BUFFERS];
 	        ion_client              ionClient;
             node_info_t             node;
 } stream_parameters_t;
 
+typedef struct record_parameters {
+            uint32_t                outputWidth;
+            uint32_t                outputHeight;
+            int                     outputFormat;
+    const   camera2_stream_ops_t*   streamOps;
+            uint32_t                usage;
+            int                     numSvcBuffers;
+            int                     svcPlanes;
+            buffer_handle_t         svcBufHandle[NUM_MAX_CAMERA_BUFFERS];
+            ExynosBuffer            svcBuffers[NUM_MAX_CAMERA_BUFFERS];
+            int                     svcBufStatus[NUM_MAX_CAMERA_BUFFERS];
+            int                     m_svcBufIndex;
+            int                     numBufsInHal;
+} record_parameters_t;
 
 class ExynosCameraHWInterface2 : public virtual RefBase {
 public:
@@ -281,24 +324,7 @@ class MainThread : public SignalDrivenThread {
         }
         void        release(void);
     };
-/*
-    class MainThread : public SignalDrivenThread {
-        ExynosCameraHWInterface2 *mHardware;
-    public:
-        MainThread(ExynosCameraHWInterface2 *hw):
-            SignalDrivenThread("MainThread", PRIORITY_DEFAULT, 0),
-            mHardware(hw) { }
-        ~MainThread();
-        status_t readyToRunInternal() {
-            return NO_ERROR;
-        }
-        void threadFunctionInternal() {
-            mHardware->m_mainThreadFunc(this);
-            return;
-        }
-        void        release(void);
-    };
-*/
+
     class SensorThread : public SignalDrivenThread {
         ExynosCameraHWInterface2 *mHardware;
     public:
@@ -315,7 +341,7 @@ class MainThread : public SignalDrivenThread {
             mHardware->m_sensorThreadFunc(this);
             return;
         }
-        void            release(void);	
+        void            release(void);
     //private:
         bool            m_isBayerOutputEnabled;
         int             m_sensorFd;
@@ -357,6 +383,7 @@ class MainThread : public SignalDrivenThread {
             mHardware->m_streamThreadFunc(this);
             return;
         }
+        void        setRecordingParameter(record_parameters_t * recordParm);
         void        setParameter(stream_parameters_t * new_parameters);
         void        applyChange(void);
         void        release(void);
@@ -364,9 +391,11 @@ class MainThread : public SignalDrivenThread {
 
 
         uint8_t                         m_index;
+        bool                            m_activated;
     //private:
         stream_parameters_t             m_parameters;
-        stream_parameters_t             *m_tempParameters; 
+        stream_parameters_t             *m_tempParameters;
+        record_parameters_t             m_recordParameters;
         bool                            m_isBufferInit;
      };
 
@@ -376,22 +405,9 @@ class MainThread : public SignalDrivenThread {
     sp<StreamThread>    m_streamThreads[NUM_MAX_STREAM_THREAD];
 
 
-    int                 m_bayerBufStatus[NUM_BAYER_BUFFERS];
-    int                 m_bayerQueueList[NUM_BAYER_BUFFERS+SHOT_FRAME_DELAY];
-    int                 m_bayerQueueRequestList[NUM_BAYER_BUFFERS+SHOT_FRAME_DELAY];
-    int                 m_bayerDequeueList[NUM_BAYER_BUFFERS];
-    int                 m_numBayerQueueList;
-    int                 m_numBayerQueueListRemainder;
-    int                 m_numBayerDequeueList;
 
-    void                RegisterBayerQueueList(int bufIndex, int requestIndex);
-    void                DeregisterBayerQueueList(int bufIndex);
-    void                RegisterBayerDequeueList(int bufIndex);
-    int                 DeregisterBayerDequeueList(void);
-    int                 FindRequestEntryNumber(int bufIndex);
-    void                DumpFrameinfoWithBufIndex(int bufIndex);
-    
     RequestManager      *m_requestManager;
+    BayerBufManager     *m_BayerManager;
 
     void                m_mainThreadFunc(SignalDrivenThread * self);
     void                m_sensorThreadFunc(SignalDrivenThread * self);
@@ -410,9 +426,6 @@ class MainThread : public SignalDrivenThread {
                                              int zoom);
 	int				createIonClient(ion_client ionClient);
 	int					deleteIonClient(ion_client ionClient);
-    //int				allocCameraMemory(ion_client ionClient, exynos_camera_memory_t *buf, int iMemoryNum);
-	//void				freeCameraMemory(exynos_camera_memory_t *buf, int iMemoryNum);
-	//void				initCameraMemory(exynos_camera_memory_t *buf, int iMemoryNum);
 
     int				allocCameraMemory(ion_client ionClient, ExynosBuffer *buf, int iMemoryNum);
 	void				freeCameraMemory(ExynosBuffer *buf, int iMemoryNum);
@@ -424,8 +437,9 @@ class MainThread : public SignalDrivenThread {
                             ExynosRect *rect);
     exif_attribute_t    mExifInfo;
     void               *m_exynosPictureCSC;
+    void               *m_exynosVideoCSC;
 
-    int                 m_jpegEncodingRequestIndex;
+    int                 m_jpegEncodingFrameCnt;
 
     camera2_request_queue_src_ops_t     *m_requestQueueOps;
     camera2_frame_queue_dst_ops_t       *m_frameQueueOps;
@@ -450,13 +464,7 @@ class MainThread : public SignalDrivenThread {
 
     bool                                m_initFlag1;
     bool                                m_initFlag2;
-    int                                 m_ispInputIndex;
-    int                                 m_ispProcessingIndex;
-    int                                 m_ispThreadProcessingReq;
-    int                                 m_processingRequest;
-
-    int                                 m_numExpRemainingOutScp;
-    int                                 m_numExpRemainingOutScc;
+    int                                 m_ispProcessingFrameCnt;
 
     int                                 indexToQueue[3+1];
     int                                 m_fd_scp;
@@ -464,8 +472,19 @@ class MainThread : public SignalDrivenThread {
     bool                                m_scp_flushing;
     bool                                m_closing;
     ExynosBuffer                        m_resizeBuf;
+    ExynosBuffer                        m_resizeBuf2;    
     int                                 m_svcBufIndex;
     nsecs_t                             m_lastTimeStamp;
+    bool                                m_recordingEnabled;
+    int                                 m_previewOutput;
+    int                                 m_recordOutput;
+    bool                                m_needsRecordBufferInit;
+    int                                 lastFrameCnt;
+    int                                 m_savecnt;
+    int             				    m_cameraId;
+    bool                                m_scp_closing;
+    bool                                m_scp_closed;
+    
 };
 
 }; // namespace android
