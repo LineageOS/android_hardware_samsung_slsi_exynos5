@@ -267,6 +267,11 @@ static int hdmi_output(struct exynos5_hwc_composer_device_1_t *dev, private_hand
 
 bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i)
 {
+    if (layer.flags & HWC_SKIP_LAYER) {
+        ALOGV("\tlayer %u: skipping", i);
+        return false;
+    }
+
     private_handle_t *handle = private_handle_t::dynamicCast(layer.handle);
 
     if (!handle) {
@@ -477,7 +482,8 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* lis
 
     for (size_t i = 0; i < list->numHwLayers; i++) {
         dump_layer(&list->hwLayers[i]);
-        if(list->hwLayers[i].handle)
+        if(list->hwLayers[i].handle &&
+                !(list->hwLayers[i].flags & HWC_SKIP_LAYER))
             dump_handle(private_handle_t::dynamicCast(
                     list->hwLayers[i].handle));
     }
