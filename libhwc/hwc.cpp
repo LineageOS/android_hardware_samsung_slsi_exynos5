@@ -16,7 +16,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <poll.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -73,7 +72,6 @@ struct exynos5_hwc_composer_device_1_t {
     hwc_composer_device_1_t base;
 
     int                     fd;
-    int                     vsync_fd;
     exynos5_hwc_post_data_t bufs;
 
     const private_module_t  *gralloc_module;
@@ -710,23 +708,27 @@ static void handle_hdmi_uevent(struct exynos5_hwc_composer_device_1_t *pdev,
         pdev->procs->invalidate(pdev->procs);
 }
 
-static void handle_vsync_event(struct exynos5_hwc_composer_device_1_t *pdev)
+static void handle_vsync_uevent(struct exynos5_hwc_composer_device_1_t *pdev,
+        const char *buff, int len)
 {
+    uint64_t timestamp = 0;
+    const char *s = buff;
+
     if (!pdev->procs || !pdev->procs->vsync)
         return;
 
-    char buf[4096];
-    int err = read(pdev->vsync_fd, buf, sizeof(buf));
-    if (err < 0) {
-        ALOGE("error reading vsync timestamp: %s", strerror(errno));
-        return;
-    }
-    buf[sizeof(buf) - 1] = '\0';
+    s += strlen(s) + 1;
 
-    errno = 0;
-    uint64_t timestamp = strtoull(buf, NULL, 0);
-    if (!errno)
-        pdev->procs->vsync(pdev->procs, 0, timestamp);
+    while (*s) {
+        if (!strncmp(s, "VSYNC=", strlen("VSYNC=")))
+            timestamp = strtoull(s + strlen("VSYNC="), NULL, 0);
+
+        s += strlen(s) + 1;
+        if (s - buff >= len)
+            break;
+    }
+
+    pdev->procs->vsync(pdev->procs, 0, timestamp);
 }
 
 static void *hwc_vsync_thread(void *data)
@@ -739,35 +741,19 @@ static void *hwc_vsync_thread(void *data)
     setpriority(PRIO_PROCESS, 0, HAL_PRIORITY_URGENT_DISPLAY);
 
     uevent_init();
-
-    struct pollfd fds[2];
-    fds[0].fd = pdev->vsync_fd;
-    fds[0].events = POLLPRI;
-    fds[1].fd = uevent_get_fd();
-    fds[1].events = POLLIN;
-
     while (true) {
-        int err = poll(fds, 2, -1);
+        int len = uevent_next_event(uevent_desc,
+                sizeof(uevent_desc) - 2);
 
-        if (err > 0) {
-            if (fds[0].revents & POLLPRI) {
-                handle_vsync_event(pdev);
-            }
-            else if (fds[1].revents & POLLIN) {
-                int len = uevent_next_event(uevent_desc,
-                        sizeof(uevent_desc) - 2);
+        bool vsync = !strcmp(uevent_desc,
+                "change@/devices/platform/exynos5-fb.1");
+        if (vsync)
+            handle_vsync_uevent(pdev, uevent_desc, len);
 
-                bool hdmi = !strcmp(uevent_desc,
-                        "change@/devices/virtual/switch/hdmi");
-                if (hdmi)
-                    handle_hdmi_uevent(pdev, uevent_desc, len);
-            }
-        }
-        else if (err == -1) {
-            if (errno == EINTR)
-                break;
-            ALOGE("error in vsync thread: %s", strerror(errno));
-        }
+        bool hdmi = !strcmp(uevent_desc,
+                "change@/devices/virtual/switch/hdmi");
+        if (hdmi)
+            handle_hdmi_uevent(pdev, uevent_desc, len);
     }
 
     return NULL;
@@ -823,13 +809,6 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
         goto err_get_module;
     }
 
-    dev->vsync_fd = open("/sys/devices/platform/exynos5-fb.1/vsync", O_RDONLY);
-    if (dev->vsync_fd < 0) {
-        ALOGE("failed to open vsync attribute");
-        ret = dev->vsync_fd;
-        goto err_ioctl;
-    }
-
     sw_fd = open("/sys/class/switch/hdmi/state", O_RDONLY);
     if (sw_fd) {
         char val;
@@ -856,13 +835,11 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
     if (ret) {
         ALOGE("failed to start vsync thread: %s", strerror(ret));
         ret = -ret;
-        goto err_vsync;
+        goto err_ioctl;
     }
 
     return 0;
 
-err_vsync:
-    close(dev->vsync_fd);
 err_ioctl:
     close(dev->fd);
 err_get_module:
@@ -874,9 +851,6 @@ static int exynos5_close(hw_device_t *device)
 {
     struct exynos5_hwc_composer_device_1_t *dev =
             (struct exynos5_hwc_composer_device_1_t *)device;
-    pthread_kill(dev->vsync_thread, SIGTERM);
-    pthread_join(dev->vsync_thread, NULL);
-    close(dev->vsync_fd);
     close(dev->fd);
     return 0;
 }
