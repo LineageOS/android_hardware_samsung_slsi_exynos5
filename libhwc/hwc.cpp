@@ -40,7 +40,6 @@
 
 #include <sync/sync.h>
 
-#include "ump.h"
 #include "ion.h"
 #include "gralloc_priv.h"
 #include "exynos_gscaler.h"
