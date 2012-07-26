@@ -63,6 +63,7 @@ static unsigned int m_gsc_get_plane_count(
     case V4L2_PIX_FMT_NV12M:
     case V4L2_PIX_FMT_NV12MT_16X16:
     case V4L2_PIX_FMT_NV21:
+    case V4L2_PIX_FMT_NV21M:
         plane_count = 2;
         break;
     case V4L2_PIX_FMT_YVU420M:
@@ -110,6 +111,7 @@ static unsigned int m_gsc_get_plane_size(
     /* 2 planes */
     case V4L2_PIX_FMT_NV12M:
     case V4L2_PIX_FMT_NV21:
+    case V4L2_PIX_FMT_NV21M:
         plane_size[0] = width * height;
         plane_size[1] = width * (height / 2);
         plane_size[2] = 0;
@@ -262,6 +264,7 @@ static bool m_exynos_gsc_check_dst_size(
     case V4L2_PIX_FMT_NV12M:
     case V4L2_PIX_FMT_NV12MT:
     case V4L2_PIX_FMT_NV21:
+    case V4L2_PIX_FMT_NV21M:
     case V4L2_PIX_FMT_YUV420M:
     case V4L2_PIX_FMT_YVU420M:
         *new_w = m_exynos_gsc_multiple_of_n(*new_w, 2);
@@ -1373,6 +1376,7 @@ static bool get_plane_size(int V4L2_PIX,
         case V4L2_PIX_FMT_YUV420:
         case V4L2_PIX_FMT_NV12:
         case V4L2_PIX_FMT_NV21:
+        case V4L2_PIX_FMT_NV21M:
             size[0] = (frame_size * 3) >> 1;
             break;
         default:
