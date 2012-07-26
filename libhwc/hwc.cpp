@@ -713,8 +713,14 @@ static void handle_vsync_event(struct exynos5_hwc_composer_device_1_t *pdev)
     if (!pdev->procs || !pdev->procs->vsync)
         return;
 
+    int err = lseek(pdev->vsync_fd, 0, SEEK_SET);
+    if (err < 0) {
+        ALOGE("error seeking to vsync timestamp: %s", strerror(errno));
+        return;
+    }
+
     char buf[4096];
-    int err = read(pdev->vsync_fd, buf, sizeof(buf));
+    err = read(pdev->vsync_fd, buf, sizeof(buf));
     if (err < 0) {
         ALOGE("error reading vsync timestamp: %s", strerror(errno));
         return;
@@ -737,6 +743,13 @@ static void *hwc_vsync_thread(void *data)
     setpriority(PRIO_PROCESS, 0, HAL_PRIORITY_URGENT_DISPLAY);
 
     uevent_init();
+
+    char temp[4096];
+    int err = read(pdev->vsync_fd, temp, sizeof(temp));
+    if (err < 0) {
+        ALOGE("error reading vsync timestamp: %s", strerror(errno));
+        return NULL;
+    }
 
     struct pollfd fds[2];
     fds[0].fd = pdev->vsync_fd;
