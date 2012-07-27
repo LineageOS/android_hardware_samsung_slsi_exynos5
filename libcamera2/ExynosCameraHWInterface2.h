@@ -155,10 +155,10 @@ public:
     uint64_t  GetTimestamp(int frameCnt);
     int     FindFrameCnt(struct camera2_shot_ext * shot_ext);
     int     FindEntryIndexByFrameCnt(int frameCnt);
-    void  Dump(void);
-    int                 GetNextIndex(int index);
-    void SetDefaultParameters(int cropX);
-    
+    void    Dump(void);
+    int     GetNextIndex(int index);
+    void    SetDefaultParameters(int cropX);
+    void    SetInitialSkip(int count);
 private:
 
     MetadataConverter               *m_metadataConverter;
@@ -176,8 +176,7 @@ private:
     char                            m_tempFrameMetadataBuf[2000];
     camera_metadata_t               *m_tempFrameMetadata;
 
-    // HACK
-    int                             tempInitialSkipCnt;
+    int                             m_sensorPipelineSkipCnt;
     int                             m_cropX;
 
 };
@@ -397,6 +396,7 @@ class MainThread : public SignalDrivenThread {
         stream_parameters_t             *m_tempParameters;
         record_parameters_t             m_recordParameters;
         bool                            m_isBufferInit;
+        bool                            m_releasing;
      };
 
     sp<MainThread>      m_mainThread;
@@ -474,16 +474,15 @@ class MainThread : public SignalDrivenThread {
     ExynosBuffer                        m_resizeBuf;
     ExynosBuffer                        m_resizeBuf2;    
     int                                 m_svcBufIndex;
-    nsecs_t                             m_lastTimeStamp;
     bool                                m_recordingEnabled;
     int                                 m_previewOutput;
     int                                 m_recordOutput;
     bool                                m_needsRecordBufferInit;
     int                                 lastFrameCnt;
-    int                                 m_savecnt;
     int             				    m_cameraId;
     bool                                m_scp_closing;
     bool                                m_scp_closed;
+    bool                                m_sensor_drop;
     
 };
 
