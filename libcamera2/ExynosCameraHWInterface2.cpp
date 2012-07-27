@@ -1988,6 +1988,22 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
         shot_ext = (struct camera2_shot_ext *)(m_camera_info.sensor.buffer[index].virt.extP[1]);
         matchedFrameCnt = m_requestManager->FindFrameCnt(shot_ext);
         ALOGD("### Matched(%d) last(%d)", matchedFrameCnt, lastFrameCnt);
+#if 1
+        if (matchedFrameCnt != -1) {
+            while (matchedFrameCnt == lastFrameCnt) {
+                 m_BayerManager->MarkSensorDequeue(index, -1, &frameTime);
+                ALOGD("### Sensor DQBUF start");
+                index = cam_int_dqbuf(&(m_camera_info.sensor));
+                frameTime = systemTime();
+                ALOGD("### Sensor DQBUF done BayerIndex(%d)", index);
+                bool wait = false;
+                shot_ext = (struct camera2_shot_ext *)(m_camera_info.sensor.buffer[index].virt.extP[1]);
+                matchedFrameCnt = m_requestManager->FindFrameCnt(shot_ext);
+                ALOGD("### Matched(%d) last(%d)", matchedFrameCnt, lastFrameCnt);
+            }
+            lastFrameCnt = matchedFrameCnt;
+        }
+#else
         if (m_sensor_drop) {
             matchedFrameCnt = -1;
             m_sensor_drop = false;
@@ -2001,7 +2017,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
 			m_scp_closing = false;
 			m_scp_closed = false;
         }
-
+#endif
         m_BayerManager->MarkSensorDequeue(index, matchedFrameCnt, &frameTime);
 
         m_requestManager->RegisterTimestamp(matchedFrameCnt, &frameTime);
@@ -2227,6 +2243,8 @@ void ExynosCameraHWInterface2::m_ispThreadFunc(SignalDrivenThread * self)
             shot_ext->request_scp = 0;
             shot_ext->request_sensor = 0;
         }
+        //if (m_sensor_drop)
+        //    usleep(25000);
         cam_int_qbuf(&(m_camera_info.isp), bayerIndexToEnqueue);
         ALOGV("### isp QBUF done bayerIndex[%d] scp(%d)", bayerIndexToEnqueue, shot_ext->request_scp);
         m_BayerManager->MarkIspEnqueue(bayerIndexToEnqueue);
@@ -2247,7 +2265,6 @@ void ExynosCameraHWInterface2::m_ispThreadFunc(SignalDrivenThread * self)
         int bayerIndexToDequeue = 0;
         int processingFrameCnt = 0;
  	    ALOGV("DEBUG(%s): IspThread processing SIGNAL_ISP_START_BAYER_DEQUEUE", __FUNCTION__);
-
         bayerIndexToDequeue = m_BayerManager->GetIndexForIspDequeue(&processingFrameCnt);
         m_ispProcessingFrameCnt = processingFrameCnt;
         m_previewOutput = 0;
