@@ -1004,7 +1004,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             allocCase = 0;
         }
         else {
-            if ((m_streamThreads[0].get())->m_activated == TRUE) {
+            if ((m_streamThreads[0].get())->m_activated == true) {
                 ALOGV("DEBUG(%s): stream 0 exists and activated.", __FUNCTION__);
                 allocCase = 1;
             }
@@ -1038,7 +1038,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             usleep(100000); // TODO : guarantee the codes below will be run after readyToRunInternal()
 
             *format_actual = HAL_PIXEL_FORMAT_YV12;
-            *usage = GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_YUV_ADDR;
+            *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
             *max_buffers = 8;
 
             newParameters.streamType    = 0;
@@ -1080,7 +1080,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             usleep(100000); // TODO : guarantee the codes below will be run after readyToRunInternal()
 
             *format_actual = HAL_PIXEL_FORMAT_RGBA_8888;
-            *usage = GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_YUV_ADDR;
+            *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
             *max_buffers = 10;
 
             recordParameters.outputWidth   = width;
@@ -1183,8 +1183,8 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
                     //m_getAlignedYUVSize(HAL_PIXEL_FORMAT_2_V4L2_PIX(targetRecordParms->outputFormat),
                     //    targetRecordParms->outputWidth, targetRecordParms->outputHeight, &currentBuf);
                     currentBuf.fd.extFd[0] = priv_handle->fd;
-                    currentBuf.fd.extFd[1] = priv_handle->u_fd;
-                    currentBuf.fd.extFd[2] = priv_handle->v_fd;
+                    currentBuf.fd.extFd[1] = priv_handle->fd1;
+                    currentBuf.fd.extFd[2] = priv_handle->fd2;
                     ALOGV("DEBUG(%s):  yddr(%x), uoffset(%d), voffset(%d)", __FUNCTION__,priv_handle->yaddr, priv_handle->uoffset, priv_handle->voffset);
                     ALOGV("DEBUG(%s):  ion_size(%d), stride(%d), ", __FUNCTION__,priv_handle->size, priv_handle->stride);
                     for (plane_index=0 ; plane_index < targetRecordParms->svcPlanes ; plane_index++) {
@@ -1265,11 +1265,11 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
                     currentNode->width, currentNode->height, &currentBuf);
 
                 v4l2_buf.m.planes[0].m.fd = priv_handle->fd;
-                v4l2_buf.m.planes[2].m.fd = priv_handle->u_fd;
-                v4l2_buf.m.planes[1].m.fd = priv_handle->v_fd;
+                v4l2_buf.m.planes[2].m.fd = priv_handle->fd1;
+                v4l2_buf.m.planes[1].m.fd = priv_handle->fd2;
                 currentBuf.fd.extFd[0] = priv_handle->fd;
-                currentBuf.fd.extFd[2] = priv_handle->u_fd;
-                currentBuf.fd.extFd[1] = priv_handle->v_fd;
+                currentBuf.fd.extFd[2] = priv_handle->fd1;
+                currentBuf.fd.extFd[1] = priv_handle->fd2;
                 ALOGV("DEBUG(%s):  yddr(%x), uoffset(%d), voffset(%d)", __FUNCTION__,priv_handle->yaddr, priv_handle->uoffset, priv_handle->voffset);
                 ALOGV("DEBUG(%s):  ion_size(%d), stride(%d), ", __FUNCTION__,priv_handle->size, priv_handle->stride);
 
@@ -2851,8 +2851,8 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
                 v4l2_buf.length     = currentNode->planes;
 
                 v4l2_buf.m.planes[0].m.fd = priv_handle->fd;
-                v4l2_buf.m.planes[2].m.fd = priv_handle->u_fd;
-                v4l2_buf.m.planes[1].m.fd = priv_handle->v_fd;
+                v4l2_buf.m.planes[2].m.fd = priv_handle->fd1;
+                v4l2_buf.m.planes[1].m.fd = priv_handle->fd2;
                 for (plane_index=0 ; plane_index < v4l2_buf.length ; plane_index++) {
                     v4l2_buf.m.planes[plane_index].length  = currentBuf->size.extS[plane_index];
                     ALOGV("DEBUG(%s): plane(%d): fd(%d)  length(%d)",
