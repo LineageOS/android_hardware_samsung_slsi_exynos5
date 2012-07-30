@@ -43,6 +43,7 @@
 #include "ion.h"
 #include "gralloc_priv.h"
 #include "exynos_gscaler.h"
+#include "exynos_format.h"
 
 struct hwc_callback_entry {
     void (*callback)(void *, private_handle_t *);
@@ -53,18 +54,40 @@ typedef android::Vector<struct hwc_callback_entry> hwc_callback_queue_t;
 const size_t NUM_HW_WINDOWS = 5;
 const size_t NO_FB_NEEDED = NUM_HW_WINDOWS + 1;
 const size_t MAX_PIXELS = 2560 * 1600 * 2;
+const size_t NUM_GSC_UNITS = 4;
+const size_t GSC_W_ALIGNMENT = 16;
+const size_t GSC_H_ALIGNMENT = 16;
 
 struct exynos5_hwc_composer_device_1_t;
+
+struct exynos5_gsc_map_t {
+    enum {
+        GSC_NONE = 0,
+        GSC_M2M,
+        // TODO: GSC_LOCAL_PATH
+    } mode;
+    int idx;
+};
 
 struct exynos5_hwc_post_data_t {
     exynos5_hwc_composer_device_1_t *pdev;
     int                             overlay_map[NUM_HW_WINDOWS];
+    exynos5_gsc_map_t               gsc_map[NUM_HW_WINDOWS];
     hwc_layer_1_t                   overlays[NUM_HW_WINDOWS];
     int                             num_overlays;
     size_t                          fb_window;
     int                             fence;
     pthread_mutex_t                 completion_lock;
     pthread_cond_t                  completion;
+};
+
+const size_t NUM_GSC_DST_BUFS = 2;
+struct exynos5_gsc_data_t {
+    void            *gsc;
+    exynos_gsc_img  src_cfg;
+    exynos_gsc_img  dst_cfg;
+    buffer_handle_t dst_buf[NUM_GSC_DST_BUFS];
+    size_t          current_buf;
 };
 
 struct exynos5_hwc_composer_device_1_t {
@@ -75,13 +98,22 @@ struct exynos5_hwc_composer_device_1_t {
     exynos5_hwc_post_data_t bufs;
 
     const private_module_t  *gralloc_module;
+    alloc_device_t          *alloc_device;
     hwc_procs_t             *procs;
     pthread_t               vsync_thread;
 
     bool hdmi_hpd;
     bool hdmi_mirroring;
     void *hdmi_gsc;
+
+    exynos5_gsc_data_t      gsc[NUM_GSC_UNITS];
 };
+
+static void dump_handle(private_handle_t *h)
+{
+    ALOGV("\t\tformat = %d, width = %u, height = %u, stride = %u",
+            h->format, h->width, h->height, h->stride);
+}
 
 static void dump_layer(hwc_layer_1_t const *l)
 {
@@ -97,12 +129,9 @@ static void dump_layer(hwc_layer_1_t const *l)
             l->displayFrame.top,
             l->displayFrame.right,
             l->displayFrame.bottom);
-}
 
-static void dump_handle(private_handle_t *h)
-{
-    ALOGV("\t\tformat = %d, width = %u, height = %u, stride = %u",
-            h->format, h->width, h->height, h->stride);
+    if(l->handle && !(l->flags & HWC_SKIP_LAYER))
+        dump_handle(private_handle_t::dynamicCast(l->handle));
 }
 
 static void dump_config(s3c_fb_win_config &c)
@@ -121,6 +150,14 @@ static void dump_config(s3c_fb_win_config &c)
     }
 }
 
+static void dump_gsc_img(exynos_gsc_img &c)
+{
+    ALOGV("\tx = %u, y = %u, w = %u, h = %u, fw = %u, fh = %u",
+            c.x, c.y, c.w, c.h, c.fw, c.fh);
+    ALOGV("\taddr = {%u, %u, %u}, rot = %u, cacheable = %u, drmMode = %u",
+            c.yaddr, c.uaddr, c.vaddr, c.rot, c.cacheable, c.drmMode);
+}
+
 inline int WIDTH(const hwc_rect &rect) { return rect.right - rect.left; }
 inline int HEIGHT(const hwc_rect &rect) { return rect.bottom - rect.top; }
 template<typename T> inline T max(T a, T b) { return (a > b) ? a : b; }
@@ -129,6 +166,12 @@ template<typename T> inline T min(T a, T b) { return (a < b) ? a : b; }
 static bool is_transformed(const hwc_layer_1_t &layer)
 {
     return layer.transform != 0;
+}
+
+static bool is_rotated(const hwc_layer_1_t &layer)
+{
+    return (layer.transform & HAL_TRANSFORM_ROT_90) ||
+            (layer.transform & HAL_TRANSFORM_ROT_180);
 }
 
 static bool is_scaled(const hwc_layer_1_t &layer)
@@ -161,16 +204,39 @@ static bool exynos5_format_is_supported(int format)
 
 static bool exynos5_format_is_supported_by_gscaler(int format)
 {
-    switch(format) {
-    case HAL_PIXEL_FORMAT_RGBA_8888:
+    switch (format) {
     case HAL_PIXEL_FORMAT_RGBX_8888:
     case HAL_PIXEL_FORMAT_RGB_565:
     case HAL_PIXEL_FORMAT_YV12:
+    case HAL_PIXEL_FORMAT_YCbCr_420_P:
+    case HAL_PIXEL_FORMAT_YCbCr_422_SP:
+    case HAL_PIXEL_FORMAT_CUSTOM_YCbCr_422_SP:
+    case HAL_PIXEL_FORMAT_YCbCr_420_SP:
+    case HAL_PIXEL_FORMAT_CUSTOM_YCbCr_420_SP:
+    case HAL_PIXEL_FORMAT_YCbCr_422_I:
+    case HAL_PIXEL_FORMAT_CUSTOM_YCbCr_422_I:
+    case HAL_PIXEL_FORMAT_YCbCr_422_P:
+    case HAL_PIXEL_FORMAT_CbYCrY_422_I:
+    case HAL_PIXEL_FORMAT_CUSTOM_CbYCrY_422_I:
+    case HAL_PIXEL_FORMAT_YCrCb_422_SP:
+    case HAL_PIXEL_FORMAT_CUSTOM_YCrCb_422_SP:
+    case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+    case HAL_PIXEL_FORMAT_CUSTOM_YCrCb_420_SP:
+    case HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
+    case HAL_PIXEL_FORMAT_CUSTOM_YCbCr_420_SP_TILED:
+    case HAL_PIXEL_FORMAT_CUSTOM_YCrCb_422_I:
+    case HAL_PIXEL_FORMAT_CUSTOM_CrYCbY_422_I:
         return true;
 
     default:
         return false;
     }
+}
+
+static bool exynos5_format_requires_gscaler(int format)
+{
+    return exynos5_format_is_supported_by_gscaler(format) &&
+            format != HAL_PIXEL_FORMAT_RGBX_8888;
 }
 
 static uint8_t exynos5_format_to_bpp(int format)
@@ -188,6 +254,28 @@ static uint8_t exynos5_format_to_bpp(int format)
         ALOGW("unrecognized pixel format %u", format);
         return 0;
     }
+}
+
+static bool exynos5_supports_gscaler(hwc_layer_1_t &layer, int format)
+{
+    private_handle_t *handle = private_handle_t::dynamicCast(layer.handle);
+
+    int max_w = is_rotated(layer) ? 2048 : 4800;
+    int max_h = is_rotated(layer) ? 2048 : 3344;
+
+    bool rot90or270 = !!(layer.transform & HAL_TRANSFORM_ROT_90);
+    // n.b.: HAL_TRANSFORM_ROT_270 = HAL_TRANSFORM_ROT_90 |
+    //                               HAL_TRANSFORM_ROT_180
+
+    return exynos5_format_is_supported_by_gscaler(format) &&
+            handle->stride <= max_w &&
+            handle->stride % GSC_W_ALIGNMENT == 0 &&
+            handle->height <= max_h &&
+            handle->height % GSC_H_ALIGNMENT == 0 &&
+            // per 46.2
+            (!rot90or270 || layer.sourceCrop.top % 2 == 0) &&
+            (!rot90or270 || layer.sourceCrop.left % 2 == 0);
+            // per 46.3.1.6
 }
 
 static int hdmi_enable(struct exynos5_hwc_composer_device_1_t *dev)
@@ -278,18 +366,24 @@ bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i)
         ALOGV("\tlayer %u: handle is NULL", i);
         return false;
     }
-    if (!exynos5_format_is_supported(handle->format)) {
-        ALOGV("\tlayer %u: pixel format %u not supported", i,
-                handle->format);
-        return false;
-    }
-    if (is_scaled(layer)) {
-        ALOGV("\tlayer %u: scaling not supported", i);
-        return false;
-    }
-    if (is_transformed(layer)) {
-        ALOGV("\tlayer %u: transformations not supported", i);
-        return false;
+    if (exynos5_format_requires_gscaler(handle->format)) {
+        if (!exynos5_supports_gscaler(layer, handle->format)) {
+            ALOGV("\tlayer %u: gscaler required but not supported", i);
+            return false;
+        }
+    } else {
+        if (!exynos5_format_is_supported(handle->format)) {
+            ALOGV("\tlayer %u: pixel format %u not supported", i, handle->format);
+            return false;
+        }
+        if (is_scaled(layer)) {
+            ALOGV("\tlayer %u: scaling not supported", i);
+            return false;
+        }
+        if (is_transformed(layer)) {
+            ALOGV("\tlayer %u: transformations not supported", i);
+            return false;
+        }
     }
     if (layer.blending != HWC_BLENDING_NONE) {
         // TODO: support this
@@ -328,6 +422,7 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* lis
     exynos5_hwc_composer_device_1_t *pdev =
             (exynos5_hwc_composer_device_1_t *)dev;
     memset(pdev->bufs.overlays, 0, sizeof(pdev->bufs.overlays));
+    memset(pdev->bufs.gsc_map, 0, sizeof(pdev->bufs.gsc_map));
 
     bool force_fb = false;
     if (pdev->hdmi_hpd) {
@@ -349,12 +444,14 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* lis
 
         if (layer.compositionType == HWC_BACKGROUND && !force_fb) {
             ALOGV("\tlayer %u: background supported", i);
+            dump_layer(&list->hwLayers[i]);
             continue;
         }
 
         if (exynos5_supports_overlay(list->hwLayers[i], i) && !force_fb) {
             ALOGV("\tlayer %u: overlay supported", i);
             layer.compositionType = HWC_OVERLAY;
+            dump_layer(&list->hwLayers[i]);
             continue;
         }
 
@@ -364,6 +461,8 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* lis
         }
         last_fb = i;
         layer.compositionType = HWC_FRAMEBUFFER;
+
+        dump_layer(&list->hwLayers[i]);
     }
 
     // can't composite overlays sandwiched between framebuffers
@@ -380,7 +479,7 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* lis
     do {
         android::Vector<hwc_rect> rects;
         android::Vector<hwc_rect> overlaps;
-        size_t pixels_left, windows_left;
+        size_t pixels_left, windows_left, gsc_left = NUM_GSC_UNITS;
 
         if (fb_needed) {
             hwc_rect_t fb_rect;
@@ -396,10 +495,18 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* lis
             pixels_left = MAX_PIXELS;
             windows_left = NUM_HW_WINDOWS;
         }
+        if (pdev->hdmi_mirroring)
+            gsc_left--;
+
         changed = false;
 
         for (size_t i = 0; i < list->numHwLayers; i++) {
             hwc_layer_1_t &layer = list->hwLayers[i];
+            if (layer.flags & HWC_SKIP_LAYER)
+                continue;
+
+            private_handle_t *handle = private_handle_t::dynamicCast(
+                    layer.handle);
 
             // we've already accounted for the framebuffer above
             if (layer.compositionType == HWC_FRAMEBUFFER)
@@ -415,6 +522,9 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* lis
             size_t pixels_needed = WIDTH(layer.displayFrame) *
                     HEIGHT(layer.displayFrame);
             bool can_compose = windows_left && pixels_needed <= pixels_left;
+            bool gsc_required = exynos5_format_requires_gscaler(handle->format);
+            if (gsc_required)
+                can_compose = can_compose && gsc_left;
 
             // hwc_rect_t right and bottom values are normally exclusive;
             // the intersection logic is simpler if we make them inclusive
@@ -449,6 +559,8 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* lis
             rects.push_back(visible_rect);
             pixels_left -= pixels_needed;
             windows_left--;
+            if (gsc_required)
+                gsc_left--;
         }
 
         if (changed)
@@ -457,9 +569,12 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* lis
     } while(changed);
 
     unsigned int nextWindow = 0;
+    int nextGsc = 0;
 
     for (size_t i = 0; i < list->numHwLayers; i++) {
         hwc_layer_1_t &layer = list->hwLayers[i];
+        if (layer.flags & HWC_SKIP_LAYER)
+            continue;
 
         if (fb_needed && i == first_fb) {
             ALOGV("assigning framebuffer to window %u\n",
@@ -471,8 +586,26 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* lis
         if (layer.compositionType != HWC_FRAMEBUFFER) {
             ALOGV("assigning layer %u to window %u", i, nextWindow);
             pdev->bufs.overlay_map[nextWindow] = i;
+            if (layer.compositionType == HWC_OVERLAY) {
+                private_handle_t *handle =
+                        private_handle_t::dynamicCast(layer.handle);
+                if (exynos5_format_requires_gscaler(handle->format)) {
+                    ALOGV("\tusing gscaler %u", nextGsc);
+                    pdev->bufs.gsc_map[i].mode =
+                            exynos5_gsc_map_t::GSC_M2M;
+                    pdev->bufs.gsc_map[i].idx = nextGsc++;
+                }
+            }
             nextWindow++;
         }
+    }
+
+    for (size_t i = nextGsc; i < NUM_GSC_UNITS; i++) {
+        for (size_t j = 0; j < NUM_GSC_DST_BUFS; j++)
+            if (pdev->gsc[i].dst_buf[j])
+                pdev->alloc_device->free(pdev->alloc_device,
+                        pdev->gsc[i].dst_buf[j]);
+        memset(&pdev->gsc[i], 0, sizeof(pdev->gsc[i]));
     }
 
     if (fb_needed)
@@ -480,15 +613,140 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* lis
     else
         pdev->bufs.fb_window = NO_FB_NEEDED;
 
-    for (size_t i = 0; i < list->numHwLayers; i++) {
-        dump_layer(&list->hwLayers[i]);
-        if(list->hwLayers[i].handle &&
-                !(list->hwLayers[i].flags & HWC_SKIP_LAYER))
-            dump_handle(private_handle_t::dynamicCast(
-                    list->hwLayers[i].handle));
+    return 0;
+}
+
+static inline bool gsc_dst_cfg_changed(exynos_gsc_img &c1, exynos_gsc_img &c2)
+{
+    return c1.x != c2.x ||
+            c1.y != c2.y ||
+            c1.w != c2.w ||
+            c1.h != c2.h ||
+            c1.format != c2.format ||
+            c1.rot != c2.rot ||
+            c1.cacheable != c2.cacheable ||
+            c1.drmMode != c2.drmMode;
+}
+
+static inline bool gsc_src_cfg_changed(exynos_gsc_img &c1, exynos_gsc_img &c2)
+{
+    return gsc_dst_cfg_changed(c1, c2) ||
+            c1.fw != c2.fw ||
+            c1.fh != c2.fh;
+}
+
+static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
+        alloc_device_t* alloc_device, exynos5_gsc_data_t *gsc_data,
+        int gsc_idx)
+{
+    ALOGV("configuring gscaler %u for memory-to-memory", gsc_idx);
+
+    private_handle_t *src_handle = private_handle_t::dynamicCast(layer.handle);
+    buffer_handle_t dst_buf;
+    private_handle_t *dst_handle;
+    int ret = 0;
+
+    exynos_gsc_img src_cfg, dst_cfg;
+    memset(&src_cfg, 0, sizeof(src_cfg));
+    memset(&dst_cfg, 0, sizeof(dst_cfg));
+
+    src_cfg.x = layer.sourceCrop.left;
+    src_cfg.y = layer.sourceCrop.top;
+    src_cfg.w = WIDTH(layer.sourceCrop);
+    src_cfg.fw = src_handle->stride;
+    src_cfg.h = HEIGHT(layer.sourceCrop);
+    src_cfg.fh = src_handle->height;
+    src_cfg.yaddr = src_handle->fd;
+    src_cfg.uaddr = src_handle->fd1;
+    src_cfg.vaddr = src_handle->fd2;
+    src_cfg.format = src_handle->format;
+
+    dst_cfg.x = 0;
+    dst_cfg.y = 0;
+    dst_cfg.w = WIDTH(layer.displayFrame);
+    dst_cfg.h = HEIGHT(layer.displayFrame);
+    dst_cfg.format = HAL_PIXEL_FORMAT_RGBX_8888;
+    dst_cfg.rot = layer.transform;
+
+    ALOGV("source configuration:");
+    dump_gsc_img(src_cfg);
+
+    if (gsc_src_cfg_changed(src_cfg, gsc_data->src_cfg) ||
+            gsc_dst_cfg_changed(dst_cfg, gsc_data->dst_cfg)) {
+        int dst_stride;
+        int usage = GRALLOC_USAGE_SW_READ_NEVER |
+                GRALLOC_USAGE_SW_WRITE_NEVER |
+                GRALLOC_USAGE_HW_COMPOSER;
+        // TODO: add GRALLOC_USAGE_PROTECTED if source buffer is also protected
+
+        int w = ALIGN(WIDTH(layer.displayFrame), GSC_W_ALIGNMENT);
+        int h = ALIGN(HEIGHT(layer.displayFrame), GSC_H_ALIGNMENT);
+
+        for (size_t i = 0; i < NUM_GSC_DST_BUFS; i++) {
+            if (gsc_data->dst_buf[i]) {
+                alloc_device->free(alloc_device, gsc_data->dst_buf[i]);
+                gsc_data->dst_buf[i] = NULL;
+            }
+
+            int ret = alloc_device->alloc(alloc_device, w, h,
+                    HAL_PIXEL_FORMAT_RGBX_8888, usage, &gsc_data->dst_buf[i],
+                    &dst_stride);
+            if (ret < 0) {
+                ALOGE("failed to allocate destination buffer: %s",
+                        strerror(-ret));
+                goto err_alloc;
+            }
+        }
+
+        gsc_data->current_buf = 0;
     }
 
+    dst_buf = gsc_data->dst_buf[gsc_data->current_buf];
+    dst_handle = private_handle_t::dynamicCast(dst_buf);
+
+    dst_cfg.fw = dst_handle->stride;
+    dst_cfg.fh = dst_handle->height;
+    dst_cfg.yaddr = dst_handle->fd;
+
+    ALOGV("destination configuration:");
+    dump_gsc_img(dst_cfg);
+
+    gsc_data->gsc = exynos_gsc_create_exclusive(gsc_idx, GSC_M2M_MODE,
+            GSC_DUMMY);
+    if (!gsc_data->gsc) {
+        ALOGE("failed to create gscaler handle");
+        ret = -1;
+        goto err_alloc;
+    }
+
+    ret = exynos_gsc_config_exclusive(gsc_data->gsc, &src_cfg, &dst_cfg);
+    if (ret < 0) {
+        ALOGE("failed to configure gscaler %u", gsc_idx);
+        goto err_gsc_config;
+    }
+
+    ret = exynos_gsc_run_exclusive(gsc_data->gsc, &src_cfg, &dst_cfg);
+    if (ret < 0) {
+        ALOGE("failed to run gscaler %u", gsc_idx);
+        goto err_gsc_config;
+    }
+
+    gsc_data->src_cfg = src_cfg;
+    gsc_data->dst_cfg = dst_cfg;
+
     return 0;
+
+err_gsc_config:
+    exynos_gsc_destroy(gsc_data->gsc);
+    gsc_data->gsc = NULL;
+err_alloc:
+    for (size_t i = 0; i < NUM_GSC_DST_BUFS; i++) {
+        if (gsc_data->dst_buf[i]) {
+           alloc_device->free(alloc_device, gsc_data->dst_buf[i]);
+           gsc_data->dst_buf[i] = NULL;
+       }
+    }
+    return ret;
 }
 
 static void exynos5_config_handle(private_handle_t *handle,
@@ -532,21 +790,69 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
     struct s3c_fb_win_config_data win_data;
     struct s3c_fb_win_config *config = win_data.config;
     memset(config, 0, sizeof(win_data.config));
+
+    for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
+        if ( pdata->overlay_map[i] != -1) {
+            hwc_layer_1_t &layer = pdata->overlays[i];
+            private_handle_t *handle =
+                    private_handle_t::dynamicCast(layer.handle);
+
+            if (layer.acquireFenceFd != -1) {
+                int err = sync_wait(layer.acquireFenceFd, 100);
+                if (err != 0)
+                    ALOGW("fence for layer %zu didn't signal in 100 ms: %s",
+                          i, strerror(errno));
+                close(layer.acquireFenceFd);
+            }
+
+            if (pdata->gsc_map[i].mode == exynos5_gsc_map_t::GSC_M2M) {
+                int gsc_idx = pdata->gsc_map[i].idx;
+                exynos5_config_gsc_m2m(layer, pdata->pdev->alloc_device,
+                        &pdata->pdev->gsc[gsc_idx], gsc_idx);
+            }
+        }
+    }
+
     for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
         if (i == pdata->fb_window) {
             hwc_rect_t rect = { 0, 0, fb->width, fb->height };
             exynos5_config_handle(fb, rect, rect, config[i]);
         } else if ( pdata->overlay_map[i] != -1) {
-            exynos5_config_overlay(&pdata->overlays[i], config[i],
-                    pdata->pdev->gralloc_module);
-            if (pdata->overlays[i].acquireFenceFd != -1) {
-                int err = sync_wait(pdata->overlays[i].acquireFenceFd, 100);
-                if (err != 0)
-                    ALOGW("fence for layer %zu didn't signal in 100 ms: %s",
-                          i, strerror(errno));
-                close(pdata->overlays[i].acquireFenceFd);
+            hwc_layer_1_t &layer = pdata->overlays[i];
+            private_handle_t *handle =
+                    private_handle_t::dynamicCast(layer.handle);
+
+            if (pdata->gsc_map[i].mode == exynos5_gsc_map_t::GSC_M2M) {
+                int gsc_idx = pdata->gsc_map[i].idx;
+                exynos5_gsc_data_t &gsc = pdata->pdev->gsc[gsc_idx];
+
+                if (!gsc.gsc) {
+                    ALOGE("failed to queue gscaler %u input for layer %u",
+                            gsc_idx, i);
+                    continue;
+                }
+
+                int err = exynos_gsc_stop_exclusive(gsc.gsc);
+                exynos_gsc_destroy(gsc.gsc);
+                gsc.gsc = NULL;
+                if (err < 0) {
+                    ALOGE("failed to dequeue gscaler output for layer %u", i);
+                    continue;
+                }
+
+                buffer_handle_t dst_buf = gsc.dst_buf[gsc.current_buf];
+                gsc.current_buf = (gsc.current_buf + 1) % NUM_GSC_DST_BUFS;
+                private_handle_t *dst_handle =
+                        private_handle_t::dynamicCast(dst_buf);
+                exynos5_config_handle(dst_handle, layer.sourceCrop,
+                        layer.displayFrame, config[i]);
+            }
+            else {
+                exynos5_config_overlay(&layer, config[i],
+                        pdata->pdev->gralloc_module);
             }
         }
+        ALOGV("window %u configuration:", i);
         dump_config(config[i]);
     }
 
@@ -833,11 +1139,18 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
         goto err_get_module;
     }
 
+    if (gralloc_open((const hw_module_t *)dev->gralloc_module,
+            &dev->alloc_device)) {
+        ALOGE("failed to open gralloc");
+        ret = -EINVAL;
+        goto err_get_module;
+    }
+
     dev->fd = open("/dev/graphics/fb0", O_RDWR);
     if (dev->fd < 0) {
         ALOGE("failed to open framebuffer");
         ret = dev->fd;
-        goto err_get_module;
+        goto err_open_fb;
     }
 
     dev->vsync_fd = open("/sys/devices/platform/exynos5-fb.1/vsync", O_RDONLY);
@@ -882,6 +1195,8 @@ err_vsync:
     close(dev->vsync_fd);
 err_ioctl:
     close(dev->fd);
+err_open_fb:
+    gralloc_close(dev->alloc_device);
 err_get_module:
     free(dev);
     return ret;
@@ -893,6 +1208,14 @@ static int exynos5_close(hw_device_t *device)
             (struct exynos5_hwc_composer_device_1_t *)device;
     pthread_kill(dev->vsync_thread, SIGTERM);
     pthread_join(dev->vsync_thread, NULL);
+    for (size_t i = 0; i < NUM_GSC_UNITS; i++) {
+        if (dev->gsc[i].gsc)
+            exynos_gsc_destroy(dev->gsc[i].gsc);
+        for (size_t j = 0; i < NUM_GSC_DST_BUFS; j++)
+            if (dev->gsc[i].dst_buf[j])
+                dev->alloc_device->free(dev->alloc_device, dev->gsc[i].dst_buf[j]);
+    }
+    gralloc_close(dev->alloc_device);
     close(dev->vsync_fd);
     close(dev->fd);
     return 0;
