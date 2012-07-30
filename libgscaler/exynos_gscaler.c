@@ -1280,6 +1280,7 @@ int exynos_gsc_set_dst_addr(
 {
     struct GSC_HANDLE *gsc_handle;
     gsc_handle = (struct GSC_HANDLE *)handle;
+    int ret = 0;
 
     Exynos_gsc_In();
 
@@ -1297,6 +1298,7 @@ int exynos_gsc_set_dst_addr(
     if (gsc_handle->flag_exclusive_open == true) {
         if (m_exynos_gsc_set_addr(gsc_handle->gsc_fd, &gsc_handle->dst) == false) {
             ALOGE("%s::m_exynos_gsc_set_addr(dst) fail", __func__);
+            ret = -1;
         }
     }
 
@@ -1304,7 +1306,7 @@ int exynos_gsc_set_dst_addr(
 
     Exynos_gsc_Out();
 
-    return 0;
+    return ret;
 }
 
 static void rotateValueHAL2GSC(unsigned int transform,
