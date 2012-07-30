@@ -2021,7 +2021,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
         m_BayerManager->MarkSensorDequeue(index, matchedFrameCnt, &frameTime);
 
         m_requestManager->RegisterTimestamp(matchedFrameCnt, &frameTime);
-        ALOGD("### Sensor DQed BayerIndex[%d] passing to ISP. frameCnt(%d) timestamp(%lld)",
+        ALOGV("### Sensor DQed BayerIndex[%d] passing to ISP. frameCnt(%d) timestamp(%lld)",
             index, matchedFrameCnt, frameTime);
 
         if (!(m_ispThread.get()))
@@ -2051,9 +2051,9 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 shot_ext->request_scp = 0;
                 shot_ext->request_sensor = 0;
             }
-            ALOGD("### Sensor QBUF start BayerIndex[%d]", index);
+            ALOGV("### Sensor QBUF start BayerIndex[%d]", index);
             cam_int_qbuf(&(m_camera_info.sensor), index);
-            ALOGD("### Sensor QBUF done");
+            ALOGV("### Sensor QBUF done");
         }
         if (!m_closing){
             selfThread->SetSignal(SIGNAL_SENSOR_START_REQ_PROCESSING);
