@@ -1980,26 +1980,26 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
 
         }
 
-        ALOGD("### Sensor DQBUF start");
+        ALOGV("### Sensor DQBUF start");
         index = cam_int_dqbuf(&(m_camera_info.sensor));
         frameTime = systemTime();
-        ALOGD("### Sensor DQBUF done BayerIndex(%d)", index);
+        ALOGV("### Sensor DQBUF done BayerIndex(%d)", index);
         bool wait = false;
         shot_ext = (struct camera2_shot_ext *)(m_camera_info.sensor.buffer[index].virt.extP[1]);
         matchedFrameCnt = m_requestManager->FindFrameCnt(shot_ext);
-        ALOGD("### Matched(%d) last(%d)", matchedFrameCnt, lastFrameCnt);
+        ALOGV("### Matched(%d) last(%d)", matchedFrameCnt, lastFrameCnt);
 #if 1
         if (matchedFrameCnt != -1) {
             while (matchedFrameCnt == lastFrameCnt) {
                  m_BayerManager->MarkSensorDequeue(index, -1, &frameTime);
-                ALOGD("### Sensor DQBUF start");
+                ALOGV("### Sensor DQBUF start");
                 index = cam_int_dqbuf(&(m_camera_info.sensor));
                 frameTime = systemTime();
-                ALOGD("### Sensor DQBUF done BayerIndex(%d)", index);
+                ALOGV("### Sensor DQBUF done BayerIndex(%d)", index);
                 bool wait = false;
                 shot_ext = (struct camera2_shot_ext *)(m_camera_info.sensor.buffer[index].virt.extP[1]);
                 matchedFrameCnt = m_requestManager->FindFrameCnt(shot_ext);
-                ALOGD("### Matched(%d) last(%d)", matchedFrameCnt, lastFrameCnt);
+                ALOGV("### Matched(%d) last(%d)", matchedFrameCnt, lastFrameCnt);
             }
             lastFrameCnt = matchedFrameCnt;
         }
@@ -2056,7 +2056,6 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             ALOGD("### Sensor QBUF done");
         }
         if (!m_closing){
-            ALOGE("!m_closing");
             selfThread->SetSignal(SIGNAL_SENSOR_START_REQ_PROCESSING);
         }
         /*if (wait) {
@@ -2281,9 +2280,9 @@ void ExynosCameraHWInterface2::m_ispThreadFunc(SignalDrivenThread * self)
                 m_streamThreads[0]->SetSignal(SIGNAL_STREAM_DATA_COMING);
             }            
         }
-        ALOGD("### isp DQBUF start");
+        ALOGV("### isp DQBUF start");
         index = cam_int_dqbuf(&(m_camera_info.isp));
-        ALOGD("### isp DQBUF done bayerIndex(%d) for frameCnt(%d)", index, processingFrameCnt);
+        ALOGV("### isp DQBUF done bayerIndex(%d) for frameCnt(%d)", index, processingFrameCnt);
         shot_ext = (struct camera2_shot_ext *)(m_camera_info.sensor.buffer[index].virt.extP[1]);        
         ALOGV("(%s): SCP_CLOSING check sensor(%d) scc(%d) scp(%d) ", __FUNCTION__, 
            shot_ext->request_sensor, shot_ext->request_scc, shot_ext->request_scp);
