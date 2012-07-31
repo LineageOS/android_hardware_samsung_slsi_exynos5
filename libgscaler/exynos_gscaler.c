@@ -1280,6 +1280,7 @@ int exynos_gsc_set_dst_addr(
 {
     struct GSC_HANDLE *gsc_handle;
     gsc_handle = (struct GSC_HANDLE *)handle;
+    int ret = 0;
 
     Exynos_gsc_In();
 
@@ -1297,6 +1298,7 @@ int exynos_gsc_set_dst_addr(
     if (gsc_handle->flag_exclusive_open == true) {
         if (m_exynos_gsc_set_addr(gsc_handle->gsc_fd, &gsc_handle->dst) == false) {
             ALOGE("%s::m_exynos_gsc_set_addr(dst) fail", __func__);
+            ret = -1;
         }
     }
 
@@ -1304,7 +1306,7 @@ int exynos_gsc_set_dst_addr(
 
     Exynos_gsc_Out();
 
-    return 0;
+    return ret;
 }
 
 static void rotateValueHAL2GSC(unsigned int transform,
@@ -1785,12 +1787,10 @@ SKIP_STREAMOFF:
     return 0;
 }
 
-int exynos_gsc_convert(
-    void *handle)
+static int exynos_gsc_m2m_run_core(void *handle)
 {
     struct GSC_HANDLE *gsc_handle;
-    int ret    = -1;
-    int i      = 0;
+
     gsc_handle = (struct GSC_HANDLE *)handle;
 
     Exynos_gsc_In();
@@ -1800,15 +1800,7 @@ int exynos_gsc_convert(
         return -1;
     }
 
-    char mutex_name[32];
     bool flag_new_gsc = false;
-
-    exynos_mutex_lock(gsc_handle->op_mutex);
-
-    if (gsc_handle->flag_local_path == true) {
-        ALOGE("%s::this exynos_gsc is connected by another hw internaly. So, don't call exynos_gsc_convert()", __func__);
-        goto done;
-    }
 
     if (gsc_handle->flag_exclusive_open == false) {
         if (exynos_mutex_trylock(gsc_handle->cur_obj_mutex) == false) {
@@ -1873,13 +1865,106 @@ int exynos_gsc_convert(
         gsc_handle->dst.stream_on = true;
     }
 
+    Exynos_gsc_Out();
+
+    return 0;
+
+done:
+    return -1;
+}
+
+static int exynos_gsc_m2m_wait_frame_done(void *handle)
+{
+    struct GSC_HANDLE *gsc_handle;
+    struct v4l2_requestbuffers req_buf;
+
+    gsc_handle = (struct GSC_HANDLE *)handle;
+
+    Exynos_gsc_In();
+
+    if (handle == NULL) {
+        ALOGE("%s::handle == NULL() fail", __func__);
+        return -1;
+    }
+
+    if ((gsc_handle->src.stream_on == false) || (gsc_handle->dst.stream_on == false)) {
+        ALOGE("%s:: src_strean_on or dst_stream_on are false", __func__);
+        return -1;
+    }
+
     if (exynos_v4l2_dqbuf(gsc_handle->gsc_fd, &gsc_handle->src.buffer) < 0) {
         ALOGE("%s::exynos_v4l2_dqbuf(src) fail", __func__);
-        goto done;
+        return -1;
     }
 
     if (exynos_v4l2_dqbuf(gsc_handle->gsc_fd, &gsc_handle->dst.buffer) < 0) {
         ALOGE("%s::exynos_v4l2_dqbuf(dst) fail", __func__);
+        return -1;
+    }
+
+    if (exynos_v4l2_streamoff(gsc_handle->gsc_fd, gsc_handle->src.buf_type) < 0) {
+        ALOGE("%s::exynos_v4l2_streamoff(src) fail", __func__);
+        return -1;
+    }
+    gsc_handle->src.stream_on = false;
+
+    if (exynos_v4l2_streamoff(gsc_handle->gsc_fd, gsc_handle->dst.buf_type) < 0) {
+        ALOGE("%s::exynos_v4l2_streamoff(dst) fail", __func__);
+        return -1;
+    }
+    gsc_handle->dst.stream_on = false;
+
+    /* src: clear_buf */
+    req_buf.count  = 0;
+    req_buf.type   = gsc_handle->src.buf_type;
+    req_buf.memory = V4L2_MEMORY_DMABUF;
+    if (exynos_v4l2_reqbufs(gsc_handle->gsc_fd, &req_buf) < 0) {
+        ALOGE("%s::exynos_v4l2_reqbufs():src: fail", __func__);
+        return -1;
+    }
+
+    /* dst: clear_buf */
+    req_buf.count  = 0;
+    req_buf.type   = gsc_handle->dst.buf_type;
+    req_buf.memory = V4L2_MEMORY_DMABUF;
+    if (exynos_v4l2_reqbufs(gsc_handle->gsc_fd, &req_buf) < 0) {
+        ALOGE("%s::exynos_v4l2_reqbufs():dst: fail", __func__);
+        return -1;
+    }
+
+    Exynos_gsc_Out();
+
+     return 0;
+}
+
+int exynos_gsc_convert(
+    void *handle)
+{
+    struct GSC_HANDLE *gsc_handle;
+    int ret    = -1;
+    gsc_handle = (struct GSC_HANDLE *)handle;
+
+    Exynos_gsc_In();
+
+    if (handle == NULL) {
+        ALOGE("%s::handle == NULL() fail", __func__);
+        return -1;
+    }
+
+    exynos_mutex_lock(gsc_handle->op_mutex);
+
+    if (gsc_handle->flag_local_path == true) {
+        ALOGE("%s::this exynos_gsc is connected by another hw internaly. So, don't call exynos_gsc_convert()", __func__);
+            goto done;
+        }
+
+    if (exynos_gsc_m2m_run_core(handle) < 0) {
+        ALOGE("%s::exynos_gsc_run_core fail", __func__);
+            goto done;
+        }
+
+    if (exynos_gsc_m2m_wait_frame_done(handle) < 0) {
+        ALOGE("%s::exynos_gsc_m2m_wait_frame_done", __func__);
         goto done;
     }
 
@@ -1915,6 +2000,7 @@ int exynos_gsc_m2m_run(void *handle,
     if (ret < 0) {
         ALOGE("%s::fail: exynos_gsc_set_src_addr[%x %x %x]", __func__,
             (unsigned int)addr[0], (unsigned int)addr[1], (unsigned int)addr[2]);
+        return -1;
     }
 
     addr[0] = (void *)dst_img->yaddr;
@@ -1924,11 +2010,13 @@ int exynos_gsc_m2m_run(void *handle,
     if (ret < 0) {
         ALOGE("%s::fail: exynos_gsc_set_dst_addr[%x %x %x]", __func__,
             (unsigned int)addr[0], (unsigned int)addr[1], (unsigned int)addr[2]);
+        return -1;
     }
 
-    ret = exynos_gsc_convert(handle);
+    ret = exynos_gsc_m2m_run_core(handle);
      if (ret < 0) {
-        ALOGE("%s::fail: exynos_gsc_convert", __func__);
+        ALOGE("%s::fail: exynos_gsc_m2m_run_core", __func__);
+        return -1;
     }
 
     Exynos_gsc_Out();
@@ -1977,6 +2065,9 @@ int exynos_gsc_run_exclusive(void *handle,
 {
     struct GSC_HANDLE *gsc_handle;
     int ret = 0;
+
+    Exynos_gsc_In();
+
     gsc_handle = (struct GSC_HANDLE *)handle;
     if (handle == NULL) {
         ALOGE("%s::handle == NULL() fail", __func__);
@@ -1997,6 +2088,9 @@ int exynos_gsc_run_exclusive(void *handle,
     default:
         break;
     }
+
+    Exynos_gsc_Out();
+
     return ret;
 }
 
@@ -2015,7 +2109,7 @@ int exynos_gsc_stop_exclusive(void *handle)
 
     switch (gsc_handle->gsc_mode) {
     case GSC_M2M_MODE:
-        // nothing to do
+        ret = exynos_gsc_m2m_wait_frame_done(handle);
         break;
     case GSC_OUTPUT_MODE:
         ret = exynos_gsc_out_stop(handle);
