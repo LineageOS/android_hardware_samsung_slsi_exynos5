@@ -413,13 +413,12 @@ inline hwc_rect intersection(const hwc_rect &r1, const hwc_rect &r2)
     return i;
 }
 
-static int exynos5_prepare(hwc_composer_device_1_t *dev,
-        size_t numDisplays, hwc_display_contents_1_t** displays)
+static int exynos5_prepare(hwc_composer_device_1_t *dev, hwc_layer_list_1_t* list)
 {
-    if (!numDisplays || !displays)
+    if (!list)
         return 0;
 
-    ALOGV("preparing %u layers", displays[0]->numHwLayers);
+    ALOGV("preparing %u layers", list->numHwLayers);
 
     exynos5_hwc_composer_device_1_t *pdev =
             (exynos5_hwc_composer_device_1_t *)dev;
@@ -441,19 +440,19 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
     size_t first_fb = 0, last_fb = 0;
 
     // find unsupported overlays
-    for (size_t i = 0; i < displays[0]->numHwLayers; i++) {
-        hwc_layer_1_t &layer = displays[0]->hwLayers[i];
+    for (size_t i = 0; i < list->numHwLayers; i++) {
+        hwc_layer_1_t &layer = list->hwLayers[i];
 
         if (layer.compositionType == HWC_BACKGROUND && !force_fb) {
             ALOGV("\tlayer %u: background supported", i);
-            dump_layer(&displays[0]->hwLayers[i]);
+            dump_layer(&list->hwLayers[i]);
             continue;
         }
 
-        if (exynos5_supports_overlay(displays[0]->hwLayers[i], i) && !force_fb) {
+        if (exynos5_supports_overlay(list->hwLayers[i], i) && !force_fb) {
             ALOGV("\tlayer %u: overlay supported", i);
             layer.compositionType = HWC_OVERLAY;
-            dump_layer(&displays[0]->hwLayers[i]);
+            dump_layer(&list->hwLayers[i]);
             continue;
         }
 
@@ -464,13 +463,13 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
         last_fb = i;
         layer.compositionType = HWC_FRAMEBUFFER;
 
-        dump_layer(&displays[0]->hwLayers[i]);
+        dump_layer(&list->hwLayers[i]);
     }
 
     // can't composite overlays sandwiched between framebuffers
     if (fb_needed)
         for (size_t i = first_fb; i < last_fb; i++)
-            displays[0]->hwLayers[i].compositionType = HWC_FRAMEBUFFER;
+            list->hwLayers[i].compositionType = HWC_FRAMEBUFFER;
 
     // Incrementally try to add our supported layers to hardware windows.
     // If adding a layer would violate a hardware constraint, force it
@@ -502,8 +501,8 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
 
         changed = false;
 
-        for (size_t i = 0; i < displays[0]->numHwLayers; i++) {
-            hwc_layer_1_t &layer = displays[0]->hwLayers[i];
+        for (size_t i = 0; i < list->numHwLayers; i++) {
+            hwc_layer_1_t &layer = list->hwLayers[i];
             if (layer.flags & HWC_SKIP_LAYER)
                 continue;
 
@@ -567,14 +566,14 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
 
         if (changed)
             for (size_t i = first_fb; i < last_fb; i++)
-                displays[0]->hwLayers[i].compositionType = HWC_FRAMEBUFFER;
+                list->hwLayers[i].compositionType = HWC_FRAMEBUFFER;
     } while(changed);
 
     unsigned int nextWindow = 0;
     int nextGsc = 0;
 
-    for (size_t i = 0; i < displays[0]->numHwLayers; i++) {
-        hwc_layer_1_t &layer = displays[0]->hwLayers[i];
+    for (size_t i = 0; i < list->numHwLayers; i++) {
+        hwc_layer_1_t &layer = list->hwLayers[i];
         if (layer.flags & HWC_SKIP_LAYER)
             continue;
 
@@ -873,24 +872,24 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
     pthread_mutex_unlock(&pdata->completion_lock);
 }
 
-static int exynos5_set(struct hwc_composer_device_1 *dev,
-        size_t numDisplays, hwc_display_contents_1_t** displays)
+static int exynos5_set(struct hwc_composer_device_1 *dev, hwc_display_t dpy,
+        hwc_surface_t sur, hwc_layer_list_1_t* list)
 {
     exynos5_hwc_composer_device_1_t *pdev =
             (exynos5_hwc_composer_device_1_t *)dev;
 
-    if (!numDisplays || !displays || !displays[0] || !displays[0]->dpy || !displays[0]->sur)
+    if (!dpy || !sur)
         return 0;
 
     hwc_callback_queue_t *queue = NULL;
     pthread_mutex_t *lock = NULL;
     exynos5_hwc_post_data_t *data = NULL;
 
-    if (displays[0]->numHwLayers) {
+    if (list) {
         for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
             if (pdev->bufs.overlay_map[i] != -1) {
                 pdev->bufs.overlays[i] =
-                    displays[0]->hwLayers[pdev->bufs.overlay_map[i]];
+                    list->hwLayers[pdev->bufs.overlay_map[i]];
             }
         }
 
@@ -919,11 +918,11 @@ static int exynos5_set(struct hwc_composer_device_1 *dev,
             queue->push_front(entry);
             pthread_mutex_unlock(lock);
 
-            EGLBoolean success = eglSwapBuffers((EGLDisplay)displays[0]->dpy,
-                    (EGLSurface)displays[0]->sur);
+            EGLBoolean success = eglSwapBuffers((EGLDisplay)dpy,
+                    (EGLSurface)sur);
             if (!success) {
                 ALOGE("HWC_EGL_ERROR");
-                if (displays[0]) {
+                if (list) {
                     pthread_mutex_lock(lock);
                     queue->removeAt(0);
                     pthread_mutex_unlock(lock);
@@ -945,7 +944,7 @@ static int exynos5_set(struct hwc_composer_device_1 *dev,
             int dup_fd = dup(data->fence);
             if (dup_fd < 0)
                 ALOGW("release fence dup failed: %s", strerror(errno));
-            displays[0]->hwLayers[pdev->bufs.overlay_map[i]].releaseFenceFd = dup_fd;
+            list->hwLayers[pdev->bufs.overlay_map[i]].releaseFenceFd = dup_fd;
         }
     }
     close(data->fence);
@@ -982,8 +981,8 @@ static int exynos5_query(struct hwc_composer_device_1* dev, int what, int *value
     return 0;
 }
 
-static int exynos5_eventControl(struct hwc_composer_device_1 *dev, int dpy,
-        int event, int enabled)
+static int exynos5_eventControl(struct hwc_composer_device_1 *dev, int event,
+        int enabled)
 {
     struct exynos5_hwc_composer_device_1_t *pdev =
             (struct exynos5_hwc_composer_device_1_t *)dev;
@@ -1100,7 +1099,7 @@ static void *hwc_vsync_thread(void *data)
     return NULL;
 }
 
-static int exynos5_blank(struct hwc_composer_device_1 *dev, int dpy, int blank)
+static int exynos5_blank(struct hwc_composer_device_1 *dev, int blank)
 {
     struct exynos5_hwc_composer_device_1_t *pdev =
             (struct exynos5_hwc_composer_device_1_t *)dev;
