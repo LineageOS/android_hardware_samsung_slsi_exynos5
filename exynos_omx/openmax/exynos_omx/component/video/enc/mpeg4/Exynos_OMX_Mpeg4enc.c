@@ -1004,7 +1004,7 @@ OMX_ERRORTYPE Mpeg4CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
         if (pMpeg4Enc->hMFCMpeg4Handle.codecType == CODEC_TYPE_MPEG4)
             bufferConf.eCompressionFormat = VIDEO_CODING_MPEG4;
         else
-            bufferConf.eCompressionFormat = OMX_VIDEO_CodingH263;
+            bufferConf.eCompressionFormat = VIDEO_CODING_H263;
         bufferConf.nSizeImage = OutBufferSize;
 
         if (pOutbufOps->Set_Geometry(pMpeg4Enc->hMFCMpeg4Handle.hMFCHandle, &bufferConf) != VIDEO_ERROR_NONE) {
