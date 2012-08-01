@@ -668,7 +668,7 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     dst_cfg.y = 0;
     dst_cfg.w = WIDTH(layer.displayFrame);
     dst_cfg.h = HEIGHT(layer.displayFrame);
-    dst_cfg.format = HAL_PIXEL_FORMAT_RGBX_8888;
+    dst_cfg.format = HAL_PIXEL_FORMAT_BGRA_8888;
     dst_cfg.rot = layer.transform;
 
     ALOGV("source configuration:");
