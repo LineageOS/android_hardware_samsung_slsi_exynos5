@@ -30,3 +30,11 @@ PRODUCT_PACKAGES += \
 # hw composer HAL
 PRODUCT_PACKAGES += \
 	hwcomposer.exynos5
+
+# MobiCore
+PRODUCT_PACKAGES += \
+	libMcClient \
+	libMcRegistry \
+	libPaApi \
+	mcDriverDaemon \
+	gdmcprov
