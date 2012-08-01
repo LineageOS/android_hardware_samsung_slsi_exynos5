@@ -68,6 +68,7 @@ static unsigned int m_gsc_get_plane_count(
         break;
     case V4L2_PIX_FMT_YVU420M:
     case V4L2_PIX_FMT_YUV422P:
+    case V4L2_PIX_FMT_YUV420M:
         plane_count = 3;
         break;
     default:
