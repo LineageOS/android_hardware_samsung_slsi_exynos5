@@ -222,7 +222,7 @@ OMX_BOOL Exynos_CSC_InputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA 
             OMX_U32 stride;
             int imageSize;
 
-            Exynos_OSAL_LockANB((OMX_U32)ppBuf[0], nFrameWidth, nFrameHeight, OMX_COLOR_FormatAndroidOpaque, &stride, planes);
+            Exynos_OSAL_LockANBHandle((OMX_U32)ppBuf[0], nFrameWidth, nFrameHeight, OMX_COLOR_FormatAndroidOpaque, planes);
             imageSize = nFrameWidth * nFrameHeight * 3; /* RGB888 */
 
             if (csc_method == CSC_METHOD_HW)
