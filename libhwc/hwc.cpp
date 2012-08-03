@@ -257,7 +257,8 @@ static uint8_t exynos5_format_to_bpp(int format)
     }
 }
 
-static bool exynos5_supports_gscaler(hwc_layer_1_t &layer, int format)
+static bool exynos5_supports_gscaler(hwc_layer_1_t &layer, int format,
+        bool local_path)
 {
     private_handle_t *handle = private_handle_t::dynamicCast(layer.handle);
 
@@ -268,11 +269,27 @@ static bool exynos5_supports_gscaler(hwc_layer_1_t &layer, int format)
     // n.b.: HAL_TRANSFORM_ROT_270 = HAL_TRANSFORM_ROT_90 |
     //                               HAL_TRANSFORM_ROT_180
 
+    int src_w = WIDTH(layer.sourceCrop), src_h = HEIGHT(layer.sourceCrop);
+    int dest_w, dest_h;
+    if (rot90or270) {
+        dest_w = HEIGHT(layer.displayFrame);
+        dest_h = WIDTH(layer.displayFrame);
+    } else {
+        dest_w = WIDTH(layer.displayFrame);
+        dest_h = HEIGHT(layer.displayFrame);
+    }
+    int max_downscale = local_path ? 4 : 16;
+    const int max_upscale = 8;
+
     return exynos5_format_is_supported_by_gscaler(format) &&
             handle->stride <= max_w &&
             handle->stride % GSC_W_ALIGNMENT == 0 &&
+            src_w <= dest_w * max_downscale &&
+            dest_w <= src_w * max_upscale &&
             handle->height <= max_h &&
             handle->height % GSC_H_ALIGNMENT == 0 &&
+            src_h <= dest_h * max_downscale &&
+            dest_h <= src_h * max_upscale &&
             // per 46.2
             (!rot90or270 || layer.sourceCrop.top % 2 == 0) &&
             (!rot90or270 || layer.sourceCrop.left % 2 == 0);
@@ -368,7 +385,7 @@ bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i)
         return false;
     }
     if (exynos5_format_requires_gscaler(handle->format)) {
-        if (!exynos5_supports_gscaler(layer, handle->format)) {
+        if (!exynos5_supports_gscaler(layer, handle->format, false)) {
             ALOGV("\tlayer %u: gscaler required but not supported", i);
             return false;
         }
