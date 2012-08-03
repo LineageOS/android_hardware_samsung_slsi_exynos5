@@ -410,15 +410,17 @@ OMX_ERRORTYPE Exynos_OSAL_SetANBParameter(
             ret = OMX_ErrorBadPortIndex;
             goto EXIT;
         }
-         /* ANB and DPB Buffer Sharing */
+
+        /* ANB and DPB Buffer Sharing */
+        pExynosPort->bIsANBEnabled = pANBParams->enable;
         if ((portIndex == OUTPUT_PORT_INDEX) &&
+            (pExynosPort->bIsANBEnabled == OMX_TRUE) &&
             ((pExynosPort->bufferProcessType & BUFFER_ANBSHARE) == BUFFER_ANBSHARE)) {
             pExynosPort->bufferProcessType = BUFFER_SHARE;
             pExynosPort->portDefinition.format.video.eColorFormat = (OMX_COLOR_FORMATTYPE)OMX_COLOR_FormatYUV420SemiPlanar;
 //            pExynosPort->portDefinition.format.video.eColorFormat = (OMX_COLOR_FORMATTYPE)OMX_SEC_COLOR_FormatNV12Tiled;
             Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "OMX_IndexParamEnableAndroidBuffers & bufferProcessType change to BUFFER_SHARE");
         }
-        pExynosPort->bIsANBEnabled = pANBParams->enable;
     }
         break;
 
