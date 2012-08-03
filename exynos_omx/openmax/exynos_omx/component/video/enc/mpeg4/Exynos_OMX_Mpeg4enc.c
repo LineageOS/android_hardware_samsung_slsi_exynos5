@@ -1787,9 +1787,9 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_Init(OMX_COMPONENTTYPE *pOMXComponent)
             pVideoEnc->pMFCEncInputBuffer[i]->fd[2] = -1;
             pVideoEnc->pMFCEncInputBuffer[i]->bufferSize[2] = 0;
 
-            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "pVideoEnc->pMFCEncInputBuffer[%d]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]);
-            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[0]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0]);
-            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[1]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1]);
+            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncInputBuffer[%d]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]);
+            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[0]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0]);
+            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[1]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1]);
 
             Exynos_CodecBufferEnQueue(pExynosComponent, INPUT_PORT_INDEX, pVideoEnc->pMFCEncInputBuffer[i]);
         }
@@ -1957,7 +1957,7 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_SrcIn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX
         pMpeg4Enc->hMFCMpeg4Handle.indexTimestamp %= MAX_TIMESTAMP;
 
         /* queue work for input buffer */
-        Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Exynos_Mpeg4Enc_SrcIn(): oneFrameSize: %d, bufferHeader: 0x%x", oneFrameSize, pSrcInputData->bufferHeader);
+        Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "Exynos_Mpeg4Enc_SrcIn(): oneFrameSize: %d, bufferHeader: 0x%x", oneFrameSize, pSrcInputData->bufferHeader);
         pMFCYUVDataSize[0] = pExynosInputPort->portDefinition.format.video.nFrameWidth * pExynosInputPort->portDefinition.format.video.nFrameHeight;
         pMFCYUVDataSize[1] = pMFCYUVDataSize[0] / 2;
 
