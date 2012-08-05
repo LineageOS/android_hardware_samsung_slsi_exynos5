@@ -475,7 +475,6 @@ class MainThread : public SignalDrivenThread {
     bool                                m_scp_flushing;
     bool                                m_closing;
     ExynosBuffer                        m_resizeBuf;
-    ExynosBuffer                        m_resizeBuf2;    
     bool                                m_recordingEnabled;
     int                                 m_previewOutput;
     int                                 m_recordOutput;
