@@ -675,7 +675,6 @@ static bool m_exynos_gsc_set_format(
 
         // skip s_fmt
         ALOGV("%s::fmt, crop is same with old-one, so skip s_fmt crop..", __func__);
-        return true;
     }
 
 set_hw:
