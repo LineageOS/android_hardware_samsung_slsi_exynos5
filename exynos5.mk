@@ -33,8 +33,4 @@ PRODUCT_PACKAGES += \
 
 # MobiCore
 PRODUCT_PACKAGES += \
-	libMcClient \
-	libMcRegistry \
-	libPaApi \
-	mcDriverDaemon \
-	gdmcprov
+	mcDriverDaemon

@@ -4,9 +4,7 @@
 #
 # =============================================================================
 
-PROJECT_PATH := $(call my-dir)
-
-$(call import-module,$(COMP_PATH_MobiCoreDriverLib))
+LOCAL_PATH := $(call my-dir)
 
 # Include the Scripts
-include $(PROJECT_PATH)/jni/Android.mk
+include $(LOCAL_PATH)/src/Android.mk

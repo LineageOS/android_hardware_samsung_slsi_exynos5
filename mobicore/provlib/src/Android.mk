@@ -3,16 +3,16 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE      := gdmcprov
-LOCAL_MODULE_TAGS := eng
+LOCAL_MODULE_TAGS := optional
 
 LOCAL_C_INCLUDES  := $(LOCAL_PATH)/../inc_private \
                      $(LOCAL_PATH)/../inc_public \
                      $(MC_INCLUDE_DIR)
 
-LOCAL_SRC_FILES   := ../src/gdmcprovlib.cpp \
-                     ../src/crc32.c \
-                     ../src/mobicore.c \
-                     ../src/gdmcdevicebinding.cpp
+LOCAL_SRC_FILES   := gdmcprovlib.cpp \
+                     crc32.c \
+                     mobicore.c \
+                     gdmcdevicebinding.cpp
 
 LOCAL_CFLAGS      := -O2 -Wall -fomit-frame-pointer -DANDROID_ARM -DARM -D_LENDIAN -D_32BIT \
                      -fvisibility=hidden -I$(OPENSSL_INC_DIR) \
@@ -27,10 +27,6 @@ LOCAL_CPPFLAGS    := -O2 -Wall -fomit-frame-pointer -DANDROID_ARM -DARM -D_LENDI
                      -fvisibility-inlines-hidden -fvisibility=hidden \
                      -DGDMCPROVLIB_VERSION=0x01000001 -D$(MC_DEBUG)
 
-LOCAL_LDFLAGS     := -Wl,-rpath-link,$(SYSTEM_LIB_DIR) \
-                     -L$(SYSTEM_LIB_DIR)
-
-LOCAL_SHARED_LIBRARIES  := $(GDM_PROVLIB_SHARED_LIBS)
+LOCAL_SHARED_LIBRARIES  := libMcClient
 
 include $(BUILD_SHARED_LIBRARY)
-   
