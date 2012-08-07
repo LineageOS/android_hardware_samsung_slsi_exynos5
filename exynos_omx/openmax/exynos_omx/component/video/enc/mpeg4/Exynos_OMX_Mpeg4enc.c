@@ -243,23 +243,28 @@ static void Set_Mpeg4Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
     pCommonParam->CbPadVal     = 0;
     pCommonParam->CrPadVal     = 0;
 
-    switch ((EXYNOS_OMX_COLOR_FORMATTYPE)pExynosInputPort->portDefinition.format.video.eColorFormat) {
-    case OMX_COLOR_FormatYUV420SemiPlanar:
-    case OMX_COLOR_FormatYUV420Planar: /* Converted to NV12 in Exynos_Preprocessor_InputData */
+    if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
+        if (pVideoEnc->ANBColorFormat == OMX_SEC_COLOR_FormatNV21Linear)
+            pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV12;
+        if (pVideoEnc->ANBColorFormat == OMX_SEC_COLOR_FormatNV12Tiled)
+            pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV12_TILED;
+    } else {
+        switch ((EXYNOS_OMX_COLOR_FORMATTYPE)pExynosInputPort->portDefinition.format.video.eColorFormat) {
+        case OMX_COLOR_FormatYUV420SemiPlanar:
+        case OMX_COLOR_FormatYUV420Planar: /* Converted to NV12 in Exynos_CSC_InputData */
 #ifdef USE_METADATABUFFERTYPE
-    case OMX_COLOR_FormatAndroidOpaque:
+        case OMX_COLOR_FormatAndroidOpaque:
 #endif
-        pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV12;
-        break;
-    case OMX_SEC_COLOR_FormatNV12Tiled:
-        pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV12_TILED;
-        break;
-    case OMX_SEC_COLOR_FormatNV21Linear:
-        pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV21;
-        break;
-    default:
-        pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV12_TILED;
-        break;
+            pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV12;
+            break;
+        case OMX_SEC_COLOR_FormatNV21Linear:
+            pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV21;
+            break;
+        case OMX_SEC_COLOR_FormatNV12Tiled:
+        default:
+            pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV12_TILED;
+            break;
+        }
     }
 
     /* Mpeg4 specific parameters */
@@ -339,23 +344,28 @@ static void Set_H263Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
     pCommonParam->CbPadVal     = 0;
     pCommonParam->CrPadVal     = 0;
 
-    switch ((EXYNOS_OMX_COLOR_FORMATTYPE)pExynosInputPort->portDefinition.format.video.eColorFormat) {
-    case OMX_COLOR_FormatYUV420SemiPlanar:
-    case OMX_COLOR_FormatYUV420Planar: /* Converted to NV12 in Exynos_Preprocessor_InputData */
+    if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
+        if (pVideoEnc->ANBColorFormat == OMX_SEC_COLOR_FormatNV21Linear)
+            pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV12;
+        if (pVideoEnc->ANBColorFormat == OMX_SEC_COLOR_FormatNV12Tiled)
+            pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV12_TILED;
+    } else {
+        switch ((EXYNOS_OMX_COLOR_FORMATTYPE)pExynosInputPort->portDefinition.format.video.eColorFormat) {
+        case OMX_COLOR_FormatYUV420SemiPlanar:
+        case OMX_COLOR_FormatYUV420Planar: /* Converted to NV12 in Exynos_CSC_InputData */
 #ifdef USE_METADATABUFFERTYPE
-    case OMX_COLOR_FormatAndroidOpaque:
+        case OMX_COLOR_FormatAndroidOpaque:
 #endif
-        pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV12;
-        break;
-    case OMX_SEC_COLOR_FormatNV12Tiled:
-        pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV12_TILED;
-        break;
-    case OMX_SEC_COLOR_FormatNV21Linear:
-        pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV21;
-        break;
-    default:
-        pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV12_TILED;
-        break;
+            pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV12;
+            break;
+        case OMX_SEC_COLOR_FormatNV21Linear:
+            pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV21;
+            break;
+        case OMX_SEC_COLOR_FormatNV12Tiled:
+        default:
+            pCommonParam->FrameMap = VIDEO_COLORFORMAT_NV12_TILED;
+            break;
+        }
     }
 
     /* H263 specific parameters */
@@ -906,7 +916,7 @@ OMX_ERRORTYPE Mpeg4CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DA
 
     /* input buffer info: only 3 config values needed */
     Exynos_OSAL_Memset(&bufferConf, 0, sizeof(bufferConf));
-    bufferConf.eColorFormat = VIDEO_COLORFORMAT_NV12;
+    bufferConf.eColorFormat = pEncParam->commonParam.FrameMap;//VIDEO_COLORFORMAT_NV12;
     bufferConf.nFrameWidth = pExynosInputPort->portDefinition.format.video.nFrameWidth;
     bufferConf.nFrameHeight = pExynosInputPort->portDefinition.format.video.nFrameHeight;
     pInbufOps->Set_Shareable(hMFCHandle);
@@ -1732,7 +1742,6 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_Init(OMX_COMPONENTTYPE *pOMXComponent)
 
     pMpeg4Enc->hMFCMpeg4Handle.bConfiguredMFCSrc = OMX_FALSE;
     pMpeg4Enc->hMFCMpeg4Handle.bConfiguredMFCDst = OMX_FALSE;
-    pVideoEnc->bFirstOutput = OMX_FALSE;
     pExynosComponent->bUseFlagEOF = OMX_TRUE;
     pExynosComponent->bSaveFlagEOS = OMX_FALSE;
 
@@ -1757,47 +1766,50 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_Init(OMX_COMPONENTTYPE *pOMXComponent)
     pInbufOps  = pMpeg4Enc->hMFCMpeg4Handle.pInbufOps;
     pOutbufOps = pMpeg4Enc->hMFCMpeg4Handle.pOutbufOps;
 
-    if ((pExynosInputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
-        Exynos_OSAL_SemaphoreCreate(&pExynosInputPort->codecSemID);
-        Exynos_OSAL_QueueCreate(&pExynosInputPort->codecBufferQ, MAX_QUEUE_ELEMENTS);
+    if ((pExynosInputPort->bStoreMetaData != OMX_TRUE) &&
+        (eColorFormat != OMX_COLOR_FormatAndroidOpaque)) {
+        if ((pExynosInputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
+            Exynos_OSAL_SemaphoreCreate(&pExynosInputPort->codecSemID);
+            Exynos_OSAL_QueueCreate(&pExynosInputPort->codecBufferQ, MAX_QUEUE_ELEMENTS);
 
-        for (i = 0; i < MFC_INPUT_BUFFER_NUM_MAX; i++) {
-            pVideoEnc->pMFCEncInputBuffer[i] = Exynos_OSAL_Malloc(sizeof(CODEC_ENC_BUFFER));
-            /* Use ION Allocator */
-            /*Alloc Y-Buffer */
-            pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0] = (void *)Exynos_OSAL_SharedMemory_Alloc(pVideoEnc->hSharedMemory, DEFAULT_MFC_INPUT_YBUFFER_SIZE, NORMAL_MEMORY);
-            pVideoEnc->pMFCEncInputBuffer[i]->fd[0] = Exynos_OSAL_SharedMemory_VirtToION(pVideoEnc->hSharedMemory, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0]);
-            pVideoEnc->pMFCEncInputBuffer[i]->bufferSize[0] = DEFAULT_MFC_INPUT_YBUFFER_SIZE;
-            /*Alloc C-Buffer */
-            pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1] = (void *)Exynos_OSAL_SharedMemory_Alloc(pVideoEnc->hSharedMemory, DEFAULT_MFC_INPUT_CBUFFER_SIZE, NORMAL_MEMORY);
-            pVideoEnc->pMFCEncInputBuffer[i]->fd[1] = Exynos_OSAL_SharedMemory_VirtToION(pVideoEnc->hSharedMemory, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1]);
-            pVideoEnc->pMFCEncInputBuffer[i]->bufferSize[1] = DEFAULT_MFC_INPUT_CBUFFER_SIZE;
+            for (i = 0; i < MFC_INPUT_BUFFER_NUM_MAX; i++) {
+                pVideoEnc->pMFCEncInputBuffer[i] = Exynos_OSAL_Malloc(sizeof(CODEC_ENC_BUFFER));
+                /* Use ION Allocator */
+                /*Alloc Y-Buffer */
+                pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0] = (void *)Exynos_OSAL_SharedMemory_Alloc(pVideoEnc->hSharedMemory, DEFAULT_MFC_INPUT_YBUFFER_SIZE, NORMAL_MEMORY);
+                pVideoEnc->pMFCEncInputBuffer[i]->fd[0] = Exynos_OSAL_SharedMemory_VirtToION(pVideoEnc->hSharedMemory, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0]);
+                pVideoEnc->pMFCEncInputBuffer[i]->bufferSize[0] = DEFAULT_MFC_INPUT_YBUFFER_SIZE;
+                /*Alloc C-Buffer */
+                pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1] = (void *)Exynos_OSAL_SharedMemory_Alloc(pVideoEnc->hSharedMemory, DEFAULT_MFC_INPUT_CBUFFER_SIZE, NORMAL_MEMORY);
+                pVideoEnc->pMFCEncInputBuffer[i]->fd[1] = Exynos_OSAL_SharedMemory_VirtToION(pVideoEnc->hSharedMemory, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1]);
+                pVideoEnc->pMFCEncInputBuffer[i]->bufferSize[1] = DEFAULT_MFC_INPUT_CBUFFER_SIZE;
 
-            pVideoEnc->pMFCEncInputBuffer[i]->dataSize = 0;
+                pVideoEnc->pMFCEncInputBuffer[i]->dataSize = 0;
 
-            if ((pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0] == NULL) ||
-                (pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1] == NULL)) {
-                Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Fail input buffer");
-                ret = OMX_ErrorInsufficientResources;
-                goto EXIT;
+                if ((pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0] == NULL) ||
+                    (pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1] == NULL)) {
+                    Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Fail input buffer");
+                    ret = OMX_ErrorInsufficientResources;
+                    goto EXIT;
+                }
+
+                /* MFC input buffers are 1 plane. */
+                pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[2] = NULL;
+                pVideoEnc->pMFCEncInputBuffer[i]->fd[2] = -1;
+                pVideoEnc->pMFCEncInputBuffer[i]->bufferSize[2] = 0;
+
+                Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "pVideoEnc->pMFCEncInputBuffer[%d]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]);
+                Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[0]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0]);
+                Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[1]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1]);
+
+                Exynos_CodecBufferEnQueue(pExynosComponent, INPUT_PORT_INDEX, pVideoEnc->pMFCEncInputBuffer[i]);
             }
-
-            /* MFC input buffers are 1 plane. */
-            pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[2] = NULL;
-            pVideoEnc->pMFCEncInputBuffer[i]->fd[2] = -1;
-            pVideoEnc->pMFCEncInputBuffer[i]->bufferSize[2] = 0;
-
-            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncInputBuffer[%d]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]);
-            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[0]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0]);
-            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[1]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1]);
-
-            Exynos_CodecBufferEnQueue(pExynosComponent, INPUT_PORT_INDEX, pVideoEnc->pMFCEncInputBuffer[i]);
+        } else if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
+            /*************/
+            /*    TBD    */
+            /*************/
+            /* Does not require any actions. */
         }
-    } else if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
-        /*************/
-        /*    TBD    */
-        /*************/
-        /* Does not require any actions. */
     }
 
     if ((pExynosOutputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
