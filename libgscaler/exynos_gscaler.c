@@ -596,8 +596,7 @@ bool m_exynos_gsc_find_and_trylock_and_create(
 
 static bool m_exynos_gsc_set_format(
     int              fd,
-    struct gsc_info *info,
-    bool             force)
+    struct gsc_info *info)
 {
     Exynos_gsc_In();
 
@@ -609,75 +608,6 @@ static bool m_exynos_gsc_set_format(
         ALOGE("%s::not supported v4l2_colorformat", __func__);
         return false;
     }
-
-    if (force == false) {
-        // format
-        info->format.type = info->buf_type;
-        if (exynos_v4l2_g_fmt(fd, &info->format) < 0) {
-            ALOGE("%s::exynos_v4l2_g_fmt() fail type=%d", __func__, info->buf_type);
-            return false;
-        }
-
-        if (info->width            != info->format.fmt.pix_mp.width ||
-            info->height           != info->format.fmt.pix_mp.height ||
-            info->v4l2_colorformat != info->format.fmt.pix_mp.pixelformat) {
-            ALOGV("%s::info is different..)", __func__);
-            goto set_hw;
-        }
-
-        // crop
-        info->crop.type = info->buf_type;
-        if (exynos_v4l2_g_crop(fd, &info->crop) < 0) {
-            ALOGE("%s::exynos_v4l2_g_crop() fail", __func__);
-            return false;
-        }
-
-        if (info->crop_left   != info->crop.c.left ||
-            info->crop_top    != info->crop.c.top ||
-            info->crop_width  != info->crop.c.width ||
-            info->crop_height != info->crop.c.height) {
-            ALOGV("%s::crop is different..", __func__);
-            goto set_hw;
-        }
-
-        // rotation value;
-        int value = 0;
-
-        if (exynos_v4l2_g_ctrl(fd, V4L2_CID_ROTATE, &value) < 0) {
-            ALOGE("%s::exynos_v4l2_g_ctrl(V4L2_CID_ROTATE) fail", __func__);
-            return false;
-        }
-
-        if (info->rotation != value) {
-            ALOGV("%s::rotation is different..", __func__);
-            goto set_hw;
-        }
-
-        if (exynos_v4l2_g_ctrl(fd, V4L2_CID_VFLIP, &value) < 0) {
-            ALOGE("%s::exynos_v4l2_g_ctrl(V4L2_CID_ROTATE) fail", __func__);
-            return false;
-        }
-
-        if (info->flip_horizontal != value) {
-            ALOGV("%s::flip_horizontal is different..", __func__);
-            goto set_hw;
-        }
-
-        if (exynos_v4l2_g_ctrl(fd, V4L2_CID_HFLIP, &value) < 0) {
-            ALOGE("%s::exynos_v4l2_g_ctrl(V4L2_CID_ROTATE) fail", __func__);
-            return false;
-        }
-
-        if (info->flip_vertical != value) {
-            ALOGV("%s::flip_vertical is different..", __func__);
-            goto set_hw;
-        }
-
-        // skip s_fmt
-        ALOGV("%s::fmt, crop is same with old-one, so skip s_fmt crop..", __func__);
-    }
-
-set_hw:
 
     if (info->stream_on == true) {
         if (exynos_v4l2_streamoff(fd, info->buf_type) < 0) {
@@ -1131,11 +1061,6 @@ int exynos_gsc_set_src_format(
     gsc_handle->src.cacheable        = cacheable;
     gsc_handle->src.mode_drm         = mode_drm;
 
-    if (gsc_handle->flag_exclusive_open == true) {
-        if (m_exynos_gsc_set_format(gsc_handle->gsc_fd, &gsc_handle->src, false) == false) {
-            ALOGE("%s::m_exynos_gsc_set_format(src) fail", __func__);
-        }
-    }
 
     exynos_mutex_unlock(gsc_handle->op_mutex);
 
@@ -1177,12 +1102,6 @@ int exynos_gsc_set_dst_format(
     gsc_handle->dst.v4l2_colorformat = v4l2_colorformat;
     gsc_handle->dst.cacheable        = cacheable;
     gsc_handle->dst.mode_drm         = mode_drm;
-
-    if (gsc_handle->flag_exclusive_open == true) {
-        if (m_exynos_gsc_set_format(gsc_handle->gsc_fd, &gsc_handle->dst, false) == false) {
-            ALOGE("%s::m_exynos_gsc_set_format(dst) fail", __func__);
-        }
-    }
 
     exynos_mutex_unlock(gsc_handle->op_mutex);
 
@@ -1263,11 +1182,6 @@ int exynos_gsc_set_src_addr(
     gsc_handle->src.addr[1] = addr[1];
     gsc_handle->src.addr[2] = addr[2];
 
-    if (gsc_handle->flag_exclusive_open == true) {
-        if (m_exynos_gsc_set_addr(gsc_handle->gsc_fd, &gsc_handle->src) == false) {
-            ALOGE("%s::m_exynos_gsc_set_addr(src) fail", __func__);
-        }
-    }
 
     exynos_mutex_unlock(gsc_handle->op_mutex);
 
@@ -1297,12 +1211,6 @@ int exynos_gsc_set_dst_addr(
     gsc_handle->dst.addr[1] = addr[1];
     gsc_handle->dst.addr[2] = addr[2];
 
-    if (gsc_handle->flag_exclusive_open == true) {
-        if (m_exynos_gsc_set_addr(gsc_handle->gsc_fd, &gsc_handle->dst) == false) {
-            ALOGE("%s::m_exynos_gsc_set_addr(dst) fail", __func__);
-            ret = -1;
-        }
-    }
 
     exynos_mutex_unlock(gsc_handle->op_mutex);
 
@@ -1802,53 +1710,42 @@ static int exynos_gsc_m2m_run_core(void *handle)
         return -1;
     }
 
-    bool flag_new_gsc = false;
 
-    if (gsc_handle->flag_exclusive_open == false) {
-        if (exynos_mutex_trylock(gsc_handle->cur_obj_mutex) == false) {
-            if (m_exynos_gsc_find_and_trylock_and_create(gsc_handle) == false) {
-                ALOGE("%s::m_exynos_gsc_find_and_trylock_and_create() fail", __func__);
-                goto done;
-            }
-            flag_new_gsc = true;
-        }
+    if (m_exynos_gsc_check_src_size(&gsc_handle->src.width, &gsc_handle->src.height,
+                                    &gsc_handle->src.crop_left, &gsc_handle->src.crop_top,
+                                    &gsc_handle->src.crop_width, &gsc_handle->src.crop_height,
+                                    gsc_handle->src.v4l2_colorformat) == false) {
+        ALOGE("%s::m_exynos_gsc_check_src_size() fail", __func__);
+        goto done;
+    }
 
-        if (m_exynos_gsc_check_src_size(&gsc_handle->src.width, &gsc_handle->src.height,
-                                        &gsc_handle->src.crop_left, &gsc_handle->src.crop_top,
-                                        &gsc_handle->src.crop_width, &gsc_handle->src.crop_height,
-                                        gsc_handle->src.v4l2_colorformat) == false) {
-            ALOGE("%s::m_exynos_gsc_check_src_size() fail", __func__);
-            goto done;
-        }
+    if (m_exynos_gsc_check_dst_size(&gsc_handle->dst.width, &gsc_handle->dst.height,
+                                    &gsc_handle->dst.crop_left, &gsc_handle->dst.crop_top,
+                                    &gsc_handle->dst.crop_width, &gsc_handle->dst.crop_height,
+                                    gsc_handle->dst.v4l2_colorformat,
+                                    gsc_handle->dst.rotation) == false) {
+        ALOGE("%s::m_exynos_gsc_check_dst_size() fail", __func__);
+        goto done;
+    }
 
-        if (m_exynos_gsc_check_dst_size(&gsc_handle->dst.width, &gsc_handle->dst.height,
-                                        &gsc_handle->dst.crop_left, &gsc_handle->dst.crop_top,
-                                        &gsc_handle->dst.crop_width, &gsc_handle->dst.crop_height,
-                                        gsc_handle->dst.v4l2_colorformat,
-                                        gsc_handle->dst.rotation) == false) {
-            ALOGE("%s::m_exynos_gsc_check_dst_size() fail", __func__);
-            goto done;
-        }
+    if (m_exynos_gsc_set_format(gsc_handle->gsc_fd, &gsc_handle->src) == false) {
+        ALOGE("%s::m_exynos_gsc_set_format(src) fail", __func__);
+        goto done;
+    }
 
-        if (m_exynos_gsc_set_format(gsc_handle->gsc_fd, &gsc_handle->src, flag_new_gsc) == false) {
-            ALOGE("%s::m_exynos_gsc_set_format(src) fail", __func__);
-            goto done;
-        }
+    if (m_exynos_gsc_set_format(gsc_handle->gsc_fd, &gsc_handle->dst) == false) {
+        ALOGE("%s::m_exynos_gsc_set_format(dst) fail", __func__);
+        goto done;
+    }
 
-        if (m_exynos_gsc_set_format(gsc_handle->gsc_fd, &gsc_handle->dst, flag_new_gsc) == false) {
-            ALOGE("%s::m_exynos_gsc_set_format(dst) fail", __func__);
-            goto done;
-        }
+    if (m_exynos_gsc_set_addr(gsc_handle->gsc_fd, &gsc_handle->src) == false) {
+        ALOGE("%s::m_exynos_gsc_set_addr(src) fail", __func__);
+        goto done;
+    }
 
-        if (m_exynos_gsc_set_addr(gsc_handle->gsc_fd, &gsc_handle->src) == false) {
-            ALOGE("%s::m_exynos_gsc_set_addr(src) fail", __func__);
-            goto done;
-        }
-
-        if (m_exynos_gsc_set_addr(gsc_handle->gsc_fd, &gsc_handle->dst) == false) {
-            ALOGE("%s::m_exynos_gsc_set_addr(dst) fail", __func__);
-            goto done;
-        }
+    if (m_exynos_gsc_set_addr(gsc_handle->gsc_fd, &gsc_handle->dst) == false) {
+        ALOGE("%s::m_exynos_gsc_set_addr(dst) fail", __func__);
+        goto done;
     }
 
     if (gsc_handle->src.stream_on == false) {
