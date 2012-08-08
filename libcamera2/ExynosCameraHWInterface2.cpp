@@ -1036,7 +1036,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
             *max_buffers = 8;
 
-            newParameters.streamType    = 0;
+            newParameters.streamType    = STREAM_TYPE_DIRECT;
             newParameters.outputWidth   = width;
             newParameters.outputHeight  = height;
             newParameters.nodeWidth     = width;
@@ -1111,9 +1111,9 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
         *format_actual = HAL_PIXEL_FORMAT_BLOB;
 
         *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
-        *max_buffers = 8;
+        *max_buffers = 4;
 
-        newParameters.streamType    = 1;
+        newParameters.streamType    = STREAM_TYPE_INDIRECT;
         newParameters.outputWidth   = width;
         newParameters.outputHeight  = height;
 
@@ -1203,7 +1203,7 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
         return 1;
     }
 
-    if (targetStreamParms->streamType == 0) {
+    if (targetStreamParms->streamType == STREAM_TYPE_DIRECT) {
         if (num_buffers < targetStreamParms->numHwBuffers) {
             ALOGE("ERR(%s) registering insufficient num of buffers (%d) < (%d)",
                 __FUNCTION__, num_buffers, targetStreamParms->numHwBuffers);
@@ -1227,12 +1227,12 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
     currentNode->memory     = targetStreamParms->memory;
     currentNode->ionClient  = targetStreamParms->ionClient;
 
-    if (targetStreamParms->streamType == 0) {
+    if (targetStreamParms->streamType == STREAM_TYPE_DIRECT) {
         cam_int_s_input(currentNode, m_camera_info.sensor_id);
         cam_int_s_fmt(currentNode);
         cam_int_reqbufs(currentNode);
     }
-    else if (targetStreamParms->streamType == 1) {
+    else if (targetStreamParms->streamType == STREAM_TYPE_INDIRECT) {
         for(i = 0; i < currentNode->buffers; i++){
             memcpy(&(currentNode->buffer[i]), &(m_camera_info.capture.buffer[i]), sizeof(ExynosBuffer));
         }
@@ -1266,9 +1266,12 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
                 currentBuf.fd.extFd[0] = priv_handle->fd;
                 currentBuf.fd.extFd[2] = priv_handle->fd1;
                 currentBuf.fd.extFd[1] = priv_handle->fd2;
-                ALOGV("DEBUG(%s):  ion_size(%d), stride(%d), ", __FUNCTION__,priv_handle->size, priv_handle->stride);
-
-
+                ALOGV("DEBUG(%s):  ion_size(%d), stride(%d), ", __FUNCTION__, priv_handle->size, priv_handle->stride);
+                if (currentNode->planes == 1) {
+                    currentBuf.size.extS[0] = priv_handle->size;
+                    currentBuf.size.extS[1] = 0;
+                    currentBuf.size.extS[2] = 0;
+                }
                 for (plane_index = 0 ; plane_index < v4l2_buf.length ; plane_index++) {
                     currentBuf.virt.extP[plane_index] = (char *)virtAddr[plane_index];
                     v4l2_buf.m.planes[plane_index].length  = currentBuf.size.extS[plane_index];
@@ -1278,7 +1281,7 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
                          v4l2_buf.m.planes[plane_index].length);
                 }
 
-                if (targetStreamParms->streamType == 0) {
+                if (targetStreamParms->streamType == STREAM_TYPE_DIRECT) {
                     if (i < currentNode->buffers) {
                         if (exynos_v4l2_qbuf(currentNode->fd, &v4l2_buf) < 0) {
                             ALOGE("ERR(%s): stream id(%d) exynos_v4l2_qbuf() fail fd(%d)",
@@ -1293,7 +1296,7 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
                         targetStreamParms->svcBufStatus[i]  = ON_SERVICE;
                     }
                 }
-                else if (targetStreamParms->streamType == 1) {
+                else if (targetStreamParms->streamType == STREAM_TYPE_INDIRECT) {
                     targetStreamParms->svcBufStatus[i]  = ON_SERVICE;
                 }
                 targetStreamParms->svcBuffers[i]       = currentBuf;
@@ -2279,7 +2282,7 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
     if (currentSignal & SIGNAL_STREAM_CHANGE_PARAMETER) {
         ALOGV("DEBUG(%s): processing SIGNAL_STREAM_CHANGE_PARAMETER", __FUNCTION__);
         selfThread->applyChange();
-        if (selfStreamParms->streamType==1) {
+        if (selfStreamParms->streamType == STREAM_TYPE_INDIRECT) {
             m_resizeBuf.size.extS[0] = ALIGN(selfStreamParms->outputWidth, 16) * ALIGN(selfStreamParms->outputHeight, 16) * 2;
             m_resizeBuf.size.extS[1] = 0;
             m_resizeBuf.size.extS[2] = 0;
@@ -2310,7 +2313,7 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
             selfThread->m_index, selfStreamParms->fd);
             cam_int_streamoff(&(selfStreamParms->node));
             ALOGV("DEBUG(%s): calling stream(%d) streamoff done", __FUNCTION__, selfThread->m_index);
-            if (selfStreamParms->streamType == 0) {
+            if (selfStreamParms->streamType == STREAM_TYPE_DIRECT) {
                 ALOGV("DEBUG(%s): calling stream(%d) reqbuf 0 (fd:%d)", __FUNCTION__,
                 selfThread->m_index, selfStreamParms->fd);
                 currentNode->buffers = 0;
@@ -2444,7 +2447,7 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
         }
 
         do {
-            if (selfStreamParms->streamType == 0) {
+            if (selfStreamParms->streamType == STREAM_TYPE_DIRECT) {
                 ALOGV("DEBUG(%s): stream(%d) type(%d) DQBUF START ",__FUNCTION__,
                     selfThread->m_index, selfStreamParms->streamType);
 
@@ -2550,7 +2553,16 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
                 }
                 m_requestManager->NotifyStreamOutput(m_ispProcessingFrameCnt, selfThread->m_index);
             }
-            else if (selfStreamParms->streamType == 1) {
+            else if (selfStreamParms->streamType == STREAM_TYPE_INDIRECT) {
+                ExynosRect jpegRect;
+                bool found = false;
+                bool ret = false;
+                int pictureW, pictureH, pictureFramesize = 0;
+                int pictureFormat;
+                int cropX, cropY, cropW, cropH = 0;
+                ExynosBuffer resizeBufInfo;
+                ExynosRect   m_orgPictureRect;
+
                 ALOGV("DEBUG(%s): stream(%d) type(%d) DQBUF START ",__FUNCTION__,
                     selfThread->m_index, selfStreamParms->streamType);
                 index = cam_int_dqbuf(&(selfStreamParms->node));
@@ -2559,15 +2571,19 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
 
                 m_jpegEncodingFrameCnt = m_ispProcessingFrameCnt;
 
-                bool ret = false;
-                int pictureW, pictureH, pictureFramesize = 0;
-                int pictureFormat;
-                int cropX, cropY, cropW, cropH = 0;
-
-
-                ExynosBuffer jpegBuf, resizeBufInfo;
-
-                ExynosRect   m_orgPictureRect;
+                for (int i = 0; i < selfStreamParms->numSvcBuffers ; i++) {
+                    if (selfStreamParms->svcBufStatus[selfStreamParms->svcBufIndex] == ON_HAL) {
+                        found = true;
+                        break;
+                    }
+                    selfStreamParms->svcBufIndex++;
+                    if (selfStreamParms->svcBufIndex >= selfStreamParms->numSvcBuffers)
+                        selfStreamParms->svcBufIndex = 0;
+                }
+                if (!found) {
+                    ALOGE("ERR(%s): NO free SVC buffer for JPEG", __FUNCTION__);
+                    break;
+                }
 
                 m_orgPictureRect.w = selfStreamParms->outputWidth;
                 m_orgPictureRect.h = selfStreamParms->outputHeight;
@@ -2605,7 +2621,7 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
 
                     csc_set_dst_buffer(m_exynosPictureCSC,
                                        (void **)&m_resizeBuf.fd.fd);
-                    for (int i=0 ; i < 3 ; i++)
+                    for (int i = 0 ; i < 3 ; i++)
                         ALOGV("DEBUG(%s): m_resizeBuf.virt.extP[%d]=%d m_resizeBuf.size.extS[%d]=%d",
                             __FUNCTION__, i, m_resizeBuf.fd.extFd[i], i, m_resizeBuf.size.extS[i]);
 
@@ -2629,24 +2645,12 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
                     ALOGV("(%s): m_resizeBuf.size.extS[%d] = %d", __FUNCTION__, i, m_resizeBuf.size.extS[i]);
                 }
 
-
-                ExynosRect jpegRect;
-                bool found = false;
                 jpegRect.w = m_orgPictureRect.w;
                 jpegRect.h = m_orgPictureRect.h;
                 jpegRect.colorFormat = V4L2_PIX_FMT_NV16;
 
-                jpegBuf.size.extS[0] = 5*1024*1024;
-                jpegBuf.size.extS[1] = 0;
-                jpegBuf.size.extS[2] = 0;
-
-                allocCameraMemory(currentNode->ionClient, &jpegBuf, 1);
-
-                ALOGV("DEBUG(%s): jpegBuf.size.s = %d , jpegBuf.virt.p = %x", __FUNCTION__,
-                    jpegBuf.size.s, (unsigned int)jpegBuf.virt.p);
-
                 m_requestManager->NotifyStreamOutput(m_jpegEncodingFrameCnt, selfThread->m_index);
-                if (yuv2Jpeg(&m_resizeBuf, &jpegBuf, &jpegRect) == false)
+                if (yuv2Jpeg(&m_resizeBuf, &selfStreamParms->svcBuffers[selfStreamParms->svcBufIndex], &jpegRect) == false)
                     ALOGE("ERR(%s):yuv2Jpeg() fail", __FUNCTION__);
                 cam_int_qbuf(&(selfStreamParms->node), index);
                 ALOGV("DEBUG(%s): stream(%d) type(%d) QBUF DONE ",__FUNCTION__,
@@ -2654,42 +2658,23 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
 
                 m_resizeBuf = resizeBufInfo;
 
-                for (int i = 0; i < selfStreamParms->numSvcBuffers ; i++) {
-                    if (selfStreamParms->svcBufStatus[selfStreamParms->svcBufIndex] == ON_HAL) {
-                        found = true;
-                        break;
-                    }
-                    selfStreamParms->svcBufIndex++;
-                    if (selfStreamParms->svcBufIndex >= selfStreamParms->numSvcBuffers)
-                        selfStreamParms->svcBufIndex = 0;
-                }
-                if (!found) {
-                    ALOGE("ERR(%s): NO free SVC buffer for JPEG", __FUNCTION__);
+                res = selfStreamParms->streamOps->enqueue_buffer(selfStreamParms->streamOps,
+                        m_requestManager->GetTimestamp(m_jpegEncodingFrameCnt), &(selfStreamParms->svcBufHandle[selfStreamParms->svcBufIndex]));
+
+                ALOGV("DEBUG(%s): stream(%d) enqueue_buffer index(%d) to svc done res(%d)",
+                        __FUNCTION__, selfThread->m_index, selfStreamParms->svcBufIndex, res);
+                if (res == 0) {
+                    selfStreamParms->svcBufStatus[selfStreamParms->svcBufIndex] = ON_SERVICE;
+                    selfStreamParms->numSvcBufsInHal--;
                 }
                 else {
-                    memcpy(selfStreamParms->svcBuffers[selfStreamParms->svcBufIndex].virt.extP[0], jpegBuf.virt.extP[0], 5*1024*1024);
-
-                    res = selfStreamParms->streamOps->enqueue_buffer(selfStreamParms->streamOps,
-                            m_requestManager->GetTimestamp(m_jpegEncodingFrameCnt), &(selfStreamParms->svcBufHandle[selfStreamParms->svcBufIndex]));
-
-                    freeCameraMemory(&jpegBuf, 1);
-                    ALOGV("DEBUG(%s): stream(%d) enqueue_buffer index(%d) to svc done res(%d)",
-                            __FUNCTION__, selfThread->m_index, selfStreamParms->svcBufIndex, res);
-                    if (res == 0) {
-                        selfStreamParms->svcBufStatus[selfStreamParms->svcBufIndex] = ON_SERVICE;
-                        selfStreamParms->numSvcBufsInHal--;
-                    }
-                    else {
-                        selfStreamParms->svcBufStatus[selfStreamParms->svcBufIndex] = ON_HAL;
-                    }
-
+                    selfStreamParms->svcBufStatus[selfStreamParms->svcBufIndex] = ON_HAL;
                 }
-
             }
         }
         while (0);
 
-        if (selfStreamParms->streamType==0 && m_recordOutput && m_recordingEnabled) {
+        if (selfStreamParms->streamType == STREAM_TYPE_DIRECT  && m_recordOutput && m_recordingEnabled) {
             do {
                 ALOGV("DEBUG(%s): record currentBuf#(%d)", __FUNCTION__ , selfRecordParms->numSvcBufsInHal);
                 if (selfRecordParms->numSvcBufsInHal >= 1)
@@ -2727,7 +2712,7 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
                 }
             } while (0);
         }
-        if (selfStreamParms->streamType == 0) {
+        if (selfStreamParms->streamType == STREAM_TYPE_DIRECT) {
             while (selfStreamParms->numSvcBufsInHal < selfStreamParms->numOwnSvcBuffers) {
                 res = selfStreamParms->streamOps->dequeue_buffer(selfStreamParms->streamOps, &buf);
                 if (res != NO_ERROR || buf == NULL) {
@@ -2784,7 +2769,7 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
                 }
             }
         }
-        else if (selfStreamParms->streamType == 1) {
+        else if (selfStreamParms->streamType == STREAM_TYPE_INDIRECT) {
             while (selfStreamParms->numSvcBufsInHal < selfStreamParms->numOwnSvcBuffers) {
                 res = selfStreamParms->streamOps->dequeue_buffer(selfStreamParms->streamOps, &buf);
                 if (res != NO_ERROR || buf == NULL) {
@@ -2894,7 +2879,7 @@ bool ExynosCameraHWInterface2::yuv2Jpeg(ExynosBuffer *yuvBuf,
         ALOGE("ERR(%s):jpegEnc.setOutBuf() fail", __FUNCTION__);
         goto jpeg_encode_done;
     }
-    memset(jpegBuf->virt.p,0,jpegBuf->size.extS[0] + jpegBuf->size.extS[1] + jpegBuf->size.extS[2]);
+    memset(jpegBuf->virt.p, 0 ,jpegBuf->size.extS[0] + jpegBuf->size.extS[1] + jpegBuf->size.extS[2]);
 
     if (jpegEnc.updateConfig()) {
         ALOGE("ERR(%s):jpegEnc.updateConfig() fail", __FUNCTION__);
