@@ -84,8 +84,10 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
     if (request == NULL || dst_ext == NULL)
         return BAD_VALUE;
 
-    dst = &(dst_ext->shot);
+    memset((void*)dst_ext, 0, sizeof(struct camera2_shot_ext));
+    dst = &dst_ext->shot;
 
+    dst->magicNumber = 0x23456789;
     num_entry = (uint32_t)get_camera_metadata_data_count(request);
     for (index = 0 ; index < num_entry ; index++) {
 
@@ -299,7 +301,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 break;
 
             case ANDROID_JPEG_GPS_COORDINATES:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_DOUBLE, 2)) // needs check
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_DOUBLE, 3))
                     break;
                 for (i=0 ; i<curr_entry.count ; i++)
                     dst->ctl.jpeg.gpsCoordinates[i] = curr_entry.data.d[i];
@@ -308,7 +310,8 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
             case ANDROID_JPEG_GPS_PROCESSING_METHOD:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 32))
                     break;
-                dst->ctl.jpeg.gpsProcessingMethod = curr_entry.data.u8[0];
+                for (i=0 ; i<curr_entry.count ; i++)
+                    dst_ext->gpsProcessingMethod[i] = curr_entry.data.u8[i];
                 break;
 
             case ANDROID_JPEG_GPS_TIMESTAMP:
@@ -360,13 +363,13 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
             case ANDROID_CONTROL_EFFECT_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.effectMode = (enum aa_effect_mode)curr_entry.data.u8[0];
+                dst->ctl.aa.effectMode = (enum aa_effect_mode)(curr_entry.data.u8[0] + 1);
                 break;
 
             case ANDROID_CONTROL_SCENE_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.sceneMode = (enum aa_scene_mode)curr_entry.data.u8[0];
+                dst->ctl.aa.sceneMode = (enum aa_scene_mode)(curr_entry.data.u8[0] + 1);
                 break;
 
             case ANDROID_CONTROL_VIDEO_STABILIZATION_MODE:
@@ -378,7 +381,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
             case ANDROID_CONTROL_AE_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.aeMode= (enum aa_aemode)curr_entry.data.u8[0];
+                dst->ctl.aa.aeMode = (enum aa_aemode)(curr_entry.data.u8[0] + 1);
                 break;
 
             case ANDROID_CONTROL_AE_REGIONS:
@@ -456,7 +459,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                     dst->ctl.request.outputStreams[i] = curr_entry.data.u8[i];
                     ALOGV("DEBUG(%s): OUTPUT_STREAM[%d] = %d ",  __FUNCTION__, i, (int)(dst->ctl.request.outputStreams[i]));
                 }
-                dst->ctl.request.id = curr_entry.count; // temporary
+                dst->ctl.request.outputStreams[15] = curr_entry.count;
                 break;
 
             case ANDROID_REQUEST_FRAME_COUNT:
@@ -482,11 +485,10 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
 status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata_ext, camera_metadata_t * dst)
 {
     status_t    res;
-    struct camera2_shot * metadata = &(metadata_ext->shot);
+    struct camera2_shot * metadata = &metadata_ext->shot;
     uint8_t  byteData;
     uint32_t intData;
 
-    ALOGV("DEBUG(%s): TEMP version using original request METADATA", __FUNCTION__);
     if (0 != add_camera_metadata_entry(dst, ANDROID_REQUEST_ID,
                 &(metadata->ctl.request.id), 1))
         return NO_MEMORY;
@@ -495,23 +497,62 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
                 &(metadata->ctl.request.metadataMode), 1))
         return NO_MEMORY;
 
-    // needs check!
     if (0 != add_camera_metadata_entry(dst, ANDROID_REQUEST_FRAME_COUNT,
                 &(metadata->ctl.request.frameCount), 1))
         return NO_MEMORY;
+
+    if (0 != add_camera_metadata_entry(dst, ANDROID_SENSOR_TIMESTAMP,
+                &metadata->dm.sensor.timeStamp, 1))
+        return NO_MEMORY;
+
+    if (0 != add_camera_metadata_entry(dst, ANDROID_SENSOR_EXPOSURE_TIME,
+                &metadata->dm.sensor.exposureTime, 1))
+        return NO_MEMORY;
+
+    if (0 != add_camera_metadata_entry(dst, ANDROID_LENS_APERTURE,
+                &metadata->dm.lens.aperture, 1))
+        return NO_MEMORY;
+
+    ALOGV("(%s): ID(%d) METAMODE(%d) FrameCnt(%d) Timestamp(%lld) exposure(%lld) aper(%f)", __FUNCTION__,
+       metadata->ctl.request.id, metadata->ctl.request.metadataMode, metadata->ctl.request.frameCount,
+       metadata->dm.sensor.timeStamp, metadata->dm.sensor.exposureTime, metadata->dm.lens.aperture);
+
+
+    byteData = metadata->dm.aa.awbMode - 1;
+    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AWB_MODE,
+                &byteData, 1))
+        return NO_MEMORY;
+
+    byteData = metadata->dm.aa.aeMode - 1;
+    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_MODE,
+                &byteData, 1))
+        return NO_MEMORY;
+
+    byteData = metadata->ctl.aa.sceneMode - 1;
+    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_SCENE_MODE,
+                &byteData, 1))
+        return NO_MEMORY;
+
+    byteData = metadata->ctl.aa.effectMode - 1;
+    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_EFFECT_MODE,
+                &byteData, 1))
+        return NO_MEMORY;
+
+    intData = metadata->ctl.aa.aeExpCompensation;
+    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_EXP_COMPENSATION,
+                &intData, 1))
+        return NO_MEMORY;
+
+
+    ALOGV("(%s): AWB(%d) AE(%d) SCENE(%d) EFFECT(%d) AEComp(%d)", __FUNCTION__,
+      metadata->dm.aa.awbMode - 1, metadata->dm.aa.aeMode - 1, metadata->ctl.aa.sceneMode - 1,
+      metadata->ctl.aa.effectMode - 1, metadata->ctl.aa.aeExpCompensation );
 
 
     if (metadata->ctl.request.metadataMode == METADATA_MODE_NONE) {
         ALOGV("DEBUG(%s): METADATA_MODE_NONE", __FUNCTION__);
         return NO_ERROR;
     }
-
-    ALOGV("DEBUG(%s): METADATA_MODE_FULL", __FUNCTION__);
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_SENSOR_TIMESTAMP,
-                &(metadata->dm.sensor.timeStamp), 1))
-        return NO_MEMORY;
-    ALOGV("DEBUG(%s): Timestamp: %lld", __FUNCTION__, metadata->dm.sensor.timeStamp);
     return NO_ERROR;
 
 
@@ -574,9 +615,7 @@ status_t MetadataConverter::ToDynamicMetadata(camera2_ctl_metadata_t * metadata,
 
 
 
-    if (0 != add_camera_metadata_entry(dst, ANDROID_SENSOR_EXPOSURE_TIME,
-                &(metadata->dm.sensor.exposureTime), 1))
-        return NO_MEMORY;
+
 
     if (0 != add_camera_metadata_entry(dst, ANDROID_SENSOR_FRAME_DURATION,
                 &(metadata->dm.sensor.frameDuration), 1))
@@ -733,25 +772,18 @@ status_t MetadataConverter::ToDynamicMetadata(camera2_ctl_metadata_t * metadata,
                 &(metadata->dm.aa.effect_mode), 1))
         return NO_MEMORY;
 
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_MODE,
-                &(metadata->dm.aa.aeMode), 1))
-        return NO_MEMORY;
+
 
     if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_REGIONS,
                 &(metadata->dm.aa.aeRegions), 5))
         return NO_MEMORY;
 
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_EXP_COMPENSATION,
-                &(metadata->dm.aa.aeExpCompensation), 1))
-        return NO_MEMORY;
+
 
     if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_STATE,
                 &(metadata->dm.aa.aeState), 1))
         return NO_MEMORY;
 
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AWB_MODE,
-                &(metadata->dm.aa.awbMode), 1))
-        return NO_MEMORY;
 
     if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AWB_REGIONS,
                 &(metadata->dm.aa.awbRegions), 5))

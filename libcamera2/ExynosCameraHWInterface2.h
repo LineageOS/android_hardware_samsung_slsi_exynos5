@@ -58,13 +58,13 @@ namespace android {
 #define NODE_PREFIX     "/dev/video"
 
 #define NUM_MAX_STREAM_THREAD       (5)
-#define NUM_MAX_DEQUEUED_REQUEST    (8)
+#define NUM_MAX_DEQUEUED_REQUEST    (6)
 /* #define NUM_MAX_REQUEST_MGR_ENTRY   NUM_MAX_DEQUEUED_REQUEST */
 #define NUM_MAX_REQUEST_MGR_ENTRY   (10)
 #define MAX_CAMERA_MEMORY_PLANE_NUM	(4)
 #define NUM_MAX_CAMERA_BUFFERS      (16)
 #define NUM_BAYER_BUFFERS           (8)
-#define NUM_SENSOR_QBUF             (4)
+#define NUM_SENSOR_QBUF             (3)
 
 #define PREVIEW_GSC_NODE_NUM (1)
 #define PICTURE_GSC_NODE_NUM (2)
@@ -152,7 +152,7 @@ public:
     void    DumpInfoWithIndex(int index);
     void    ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext, int frameCnt);
     void    CheckCompleted(int index);
-    void    UpdateOutputStreamInfo(struct camera2_shot_ext *shot_ext, int frameCnt);
+    void    UpdateIspParameters(struct camera2_shot_ext *shot_ext, int frameCnt);
     void    RegisterTimestamp(int frameCnt, nsecs_t *frameTime);
     uint64_t  GetTimestamp(int frameCnt);
     int     FindFrameCnt(struct camera2_shot_ext * shot_ext);

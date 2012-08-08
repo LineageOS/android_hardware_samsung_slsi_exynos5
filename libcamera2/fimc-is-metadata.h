@@ -798,6 +798,7 @@ struct camera2_shot_ext {
 	*/
 	uint32_t		dnr_bypass;
 	struct camera2_shot	shot;
+    uint8_t		gpsProcessingMethod[32]; // HACK
 };
 
 #define CAM_LENS_CMD		(0x1 << 0x0)

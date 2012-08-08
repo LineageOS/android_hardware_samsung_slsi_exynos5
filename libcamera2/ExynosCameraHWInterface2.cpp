@@ -333,7 +333,7 @@ void RequestManager::RegisterRequest(camera_metadata_t * new_request)
     newEntry->original_request = new_request;
     // TODO : allocate internal_request dynamically
     m_metadataConverter->ToInternalShot(new_request, &(newEntry->internal_shot));
-    newEntry->output_stream_count = newEntry->internal_shot.shot.ctl.request.id; // temp
+    newEntry->output_stream_count = newEntry->internal_shot.shot.ctl.request.outputStreams[15];
 
     m_numOfEntries++;
     m_entryInsertionIndex = newInsertionIndex;
@@ -409,7 +409,7 @@ bool RequestManager::PrepareFrame(size_t* num_entries, size_t* frame_size,
         return false;
     }
     m_entryFrameOutputIndex = tempFrameOutputIndex;
-    m_tempFrameMetadata = place_camera_metadata(m_tempFrameMetadataBuf, 2000, 10, 500); //estimated
+    m_tempFrameMetadata = place_camera_metadata(m_tempFrameMetadataBuf, 2000, 15, 500); //estimated
     res = m_metadataConverter->ToDynamicMetadata(&(currentEntry->internal_shot),
                 m_tempFrameMetadata);
     if (res!=NO_ERROR) {
@@ -430,6 +430,7 @@ int RequestManager::MarkProcessingRequest(ExynosBuffer* buf)
     ALOGV("DEBUG(%s):", __FUNCTION__);
     Mutex::Autolock lock(m_requestMutex);
     struct camera2_shot_ext * shot_ext;
+    struct camera2_shot_ext * request_shot;
     int targetStreamIndex = 0;
 
     if (m_numOfEntries == 0)  {
@@ -448,22 +449,21 @@ int RequestManager::MarkProcessingRequest(ExynosBuffer* buf)
     int newProcessingIndex = GetNextIndex(m_entryProcessingIndex);
 
     newEntry = &(entries[newProcessingIndex]);
-
+    request_shot = &newEntry->internal_shot;
     if (newEntry->status != REGISTERED) {
         ALOGV("DEBUG(%s): Circular buffer abnormal ", __FUNCTION__);
         return -1;
     }
     newEntry->status = REQUESTED;
-    // TODO : replace the codes below with a single memcpy of pre-converted 'shot'
 
     shot_ext = (struct camera2_shot_ext *)(buf->virt.extP[1]);
-    memset(shot_ext, 0x00, sizeof(struct camera2_shot_ext));
+    ALOGV("DEBUG(%s):Writing the info of Framecnt(%d)", __FUNCTION__, request_shot->shot.ctl.request.frameCount);
+    memcpy(shot_ext, &newEntry->internal_shot, sizeof(struct camera2_shot_ext));
 
     shot_ext->request_sensor = 1;
     shot_ext->dis_bypass = 1;
     shot_ext->dnr_bypass = 1;
     for (int i = 0; i < newEntry->output_stream_count; i++) {
-        // TODO : match with actual stream index;
         targetStreamIndex = newEntry->internal_shot.shot.ctl.request.outputStreams[i];
 
         if (targetStreamIndex==0) {
@@ -485,16 +485,13 @@ int RequestManager::MarkProcessingRequest(ExynosBuffer* buf)
             ALOGV("DEBUG(%s): outputstreams(%d) has abnormal value(%d)", __FUNCTION__, i, targetStreamIndex);
         }
     }
-    shot_ext->shot.ctl.request.metadataMode = METADATA_MODE_FULL;
-    shot_ext->shot.magicNumber = 0x23456789;
-    shot_ext->shot.ctl.sensor.exposureTime = 0;
-    shot_ext->shot.ctl.sensor.frameDuration = 33*1000*1000;
-    shot_ext->shot.ctl.sensor.sensitivity = 0;
-
-    shot_ext->shot.ctl.scaler.cropRegion[0] = 0;
-    shot_ext->shot.ctl.scaler.cropRegion[1] = 0;
-    shot_ext->shot.ctl.scaler.cropRegion[2] = m_cropX; 
-
+    if (shot_ext->shot.ctl.aa.aeMode == AA_AEMODE_ON) {
+        ALOGV("(%s): AE_ON => ignoring some params", __FUNCTION__);
+        shot_ext->shot.ctl.sensor.exposureTime = 0;
+        shot_ext->shot.ctl.sensor.sensitivity = 0;
+        shot_ext->shot.ctl.sensor.frameDuration = 33*1000*1000;
+        // TODO : check frameDuration
+    }
     m_entryProcessingIndex = newProcessingIndex;
 
     //    Dump();
@@ -537,6 +534,8 @@ void RequestManager::CheckCompleted(int index)
 void RequestManager::ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext, int frameCnt)
 {
     int index;
+    struct camera2_shot_ext * request_shot;
+    nsecs_t timeStamp;
 
     ALOGV("DEBUG(%s): frameCnt(%d)", __FUNCTION__, frameCnt);
 
@@ -547,9 +546,12 @@ void RequestManager::ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext, int
     }
 
     request_manager_entry * newEntry = &(entries[index]);
+    request_shot = &(newEntry->internal_shot);
 
     newEntry->dynamic_meta_vaild = true;
-    // TODO : move some code of PrepareFrame here
+    timeStamp = request_shot->shot.dm.sensor.timeStamp;
+    memcpy(&request_shot->shot.dm, &shot_ext->shot.dm, sizeof(struct camera2_dm));
+    request_shot->shot.dm.sensor.timeStamp = timeStamp;
     CheckCompleted(index);
 }
 
@@ -561,20 +563,21 @@ void RequestManager::DumpInfoWithIndex(int index)
         currMetadata->shot.ctl.request.frameCount,
         currMetadata->shot.ctl.sensor.exposureTime,
         currMetadata->shot.ctl.sensor.sensitivity);
-    if (currMetadata->shot.ctl.request.id==0)
+    if (currMetadata->shot.ctl.request.outputStreams[15] == 0)
         ALOGV("####   No output stream selected");
-    else if (currMetadata->shot.ctl.request.id==1)
+    else if (currMetadata->shot.ctl.request.outputStreams[15] == 1)
         ALOGV("####   OutputStreamId : %d", currMetadata->shot.ctl.request.outputStreams[0]);
-    else if (currMetadata->shot.ctl.request.id==2)
+    else if (currMetadata->shot.ctl.request.outputStreams[15] == 2)
         ALOGV("####   OutputStreamId : %d, %d", currMetadata->shot.ctl.request.outputStreams[0],
             currMetadata->shot.ctl.request.outputStreams[1]);
     else
-        ALOGV("####   OutputStream num (%d) abnormal ", currMetadata->shot.ctl.request.id);
+        ALOGV("####   OutputStream num (%d) abnormal ", currMetadata->shot.ctl.request.outputStreams[15]);
 }
 
-void    RequestManager::UpdateOutputStreamInfo(struct camera2_shot_ext *shot_ext, int frameCnt)
+void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, int frameCnt)
 {
     int index, targetStreamIndex;
+    struct camera2_shot_ext * request_shot;
 
     ALOGV("DEBUG(%s): updating info with frameCnt(%d)", __FUNCTION__, frameCnt);
     if (frameCnt < 0)
@@ -587,6 +590,7 @@ void    RequestManager::UpdateOutputStreamInfo(struct camera2_shot_ext *shot_ext
     }
 
     request_manager_entry * newEntry = &(entries[index]);
+    request_shot = &newEntry->internal_shot;
     shot_ext->request_sensor = 1;
     shot_ext->request_scc = 0;
     shot_ext->request_scp = 0;
@@ -594,9 +598,10 @@ void    RequestManager::UpdateOutputStreamInfo(struct camera2_shot_ext *shot_ext
     shot_ext->shot.ctl.request.outputStreams[1] = 0;
     shot_ext->shot.ctl.request.outputStreams[2] = 0;
 
+    memcpy(&shot_ext->shot.ctl, &request_shot->shot.ctl, sizeof(struct camera2_ctl));
     for (int i = 0; i < newEntry->output_stream_count; i++) {
         // TODO : match with actual stream index;
-        targetStreamIndex = newEntry->internal_shot.shot.ctl.request.outputStreams[i];
+        targetStreamIndex = request_shot->shot.ctl.request.outputStreams[i];
 
         if (targetStreamIndex==0) {
             ALOGV("DEBUG(%s): outputstreams item[%d] is for scalerP", __FUNCTION__, i);
@@ -1856,11 +1861,13 @@ void ExynosCameraHWInterface2::DumpInfoWithShot(struct camera2_shot_ext * shot_e
     ALOGV("####                 magic(%x) ",
         shot_ext->shot.magicNumber);
     ALOGV("####  ctl Section");
-    ALOGV("####     metamode(%d) exposureTime(%lld) duration(%lld) ISO(%d) ",
+    ALOGV("####     meta(%d) aper(%f) exp(%lld) duration(%lld) ISO(%d) AWB(%d)",
         shot_ext->shot.ctl.request.metadataMode,
+        shot_ext->shot.ctl.lens.aperture,
         shot_ext->shot.ctl.sensor.exposureTime,
         shot_ext->shot.ctl.sensor.frameDuration,
-        shot_ext->shot.ctl.sensor.sensitivity);
+        shot_ext->shot.ctl.sensor.sensitivity,
+        shot_ext->shot.ctl.aa.awbMode);
 
     ALOGV("####                 OutputStream Sensor(%d) SCP(%d) SCC(%d) pv(%d) rec(%d)",
         shot_ext->request_sensor, shot_ext->request_scp, shot_ext->request_scc,
@@ -1868,12 +1875,15 @@ void ExynosCameraHWInterface2::DumpInfoWithShot(struct camera2_shot_ext * shot_e
         shot_ext->shot.ctl.request.outputStreams[2]);
 
     ALOGV("####  DM Section");
-    ALOGV("####     metamode(%d) exposureTime(%lld) duration(%lld) ISO(%d)  timestamp(%lld)",
+    ALOGV("####     meta(%d) aper(%f) exp(%lld) duration(%lld) ISO(%d) timestamp(%lld) AWB(%d) cnt(%d)",
         shot_ext->shot.dm.request.metadataMode,
+        shot_ext->shot.dm.lens.aperture,
         shot_ext->shot.dm.sensor.exposureTime,
         shot_ext->shot.dm.sensor.frameDuration,
         shot_ext->shot.dm.sensor.sensitivity,
-        shot_ext->shot.dm.sensor.timeStamp);
+        shot_ext->shot.dm.sensor.timeStamp,
+        shot_ext->shot.dm.aa.awbMode,
+        shot_ext->shot.dm.request.frameCount );
 }
 
 void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
@@ -2172,7 +2182,7 @@ void ExynosCameraHWInterface2::m_ispThreadFunc(SignalDrivenThread * self)
 
         if (processingFrameCnt != -1) {
             ALOGV("### writing output stream info");
-            m_requestManager->UpdateOutputStreamInfo(shot_ext, processingFrameCnt);
+            m_requestManager->UpdateIspParameters(shot_ext, processingFrameCnt);
         }
         else {
             memcpy(shot_ext, &(m_camera_info.dummy_shot), sizeof(struct camera2_shot_ext));
