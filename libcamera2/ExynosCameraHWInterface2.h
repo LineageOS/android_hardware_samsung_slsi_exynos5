@@ -102,8 +102,9 @@ typedef struct node_info {
     int buffers;
     enum v4l2_memory memory;
     enum v4l2_buf_type type;
-	ion_client ionClient;
-	ExynosBuffer	buffer[NUM_MAX_CAMERA_BUFFERS];
+    ion_client ionClient;
+    ExynosBuffer buffer[NUM_MAX_CAMERA_BUFFERS];
+    bool streamOn;
 } node_info_t;
 
 
@@ -122,14 +123,14 @@ typedef struct camera_hw_info {
 typedef enum request_entry_status {
     EMPTY,
     REGISTERED,
-    PROCESSING
+    REQUESTED,
+    CAPTURED
 } request_entry_status_t;
 
 typedef struct request_manager_entry {
     request_entry_status_t      status;
     camera_metadata_t           *original_request;
-    // TODO : allocate memory dynamically
-    camera2_ctl_metadata_NEW_t  internal_shot;
+    struct camera2_shot_ext     internal_shot;
     int                         output_stream_count;
     bool                         dynamic_meta_vaild;
 } request_manager_entry_t;
@@ -245,17 +246,18 @@ typedef struct stream_parameters {
             uint32_t                usage;
             int                     numHwBuffers;
             int                     numSvcBuffers;
+            int                     numOwnSvcBuffers;
             int                     fd;
             int                     svcPlanes;
             int                     nodePlanes;
     enum v4l2_memory                memory;
     enum v4l2_buf_type              halBuftype;
-
+            int                     numSvcBufsInHal;
             buffer_handle_t         svcBufHandle[NUM_MAX_CAMERA_BUFFERS];
             ExynosBuffer            svcBuffers[NUM_MAX_CAMERA_BUFFERS];
             int                     svcBufStatus[NUM_MAX_CAMERA_BUFFERS];
-
-	        ion_client              ionClient;
+            int                     svcBufIndex;
+            ion_client              ionClient;
             node_info_t             node;
 } stream_parameters_t;
 
@@ -266,12 +268,13 @@ typedef struct record_parameters {
     const   camera2_stream_ops_t*   streamOps;
             uint32_t                usage;
             int                     numSvcBuffers;
+            int                     numOwnSvcBuffers;
             int                     svcPlanes;
             buffer_handle_t         svcBufHandle[NUM_MAX_CAMERA_BUFFERS];
             ExynosBuffer            svcBuffers[NUM_MAX_CAMERA_BUFFERS];
             int                     svcBufStatus[NUM_MAX_CAMERA_BUFFERS];
-            int                     m_svcBufIndex;
-            int                     numBufsInHal;
+            int                     svcBufIndex;
+            int                     numSvcBufsInHal;
 } record_parameters_t;
 
 class ExynosCameraHWInterface2 : public virtual RefBase {
@@ -473,7 +476,6 @@ class MainThread : public SignalDrivenThread {
     bool                                m_closing;
     ExynosBuffer                        m_resizeBuf;
     ExynosBuffer                        m_resizeBuf2;    
-    int                                 m_svcBufIndex;
     bool                                m_recordingEnabled;
     int                                 m_previewOutput;
     int                                 m_recordOutput;
@@ -482,7 +484,6 @@ class MainThread : public SignalDrivenThread {
     int             				    m_cameraId;
     bool                                m_scp_closing;
     bool                                m_scp_closed;
-    bool                                m_sensor_drop;
     
 };
 

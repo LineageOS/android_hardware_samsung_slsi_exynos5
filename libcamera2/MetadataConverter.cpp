@@ -72,16 +72,19 @@ status_t MetadataConverter::CheckEntryTypeMismatch(camera_metadata_entry_t * ent
     return NO_ERROR;
 }
 
-status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_ctl_metadata_NEW_t * dst)
+status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct camera2_shot_ext * dst_ext)
 {
     uint32_t    num_entry = 0;
     uint32_t    index = 0;
     uint32_t    i = 0;
     camera_metadata_entry_t curr_entry;
+    struct camera2_shot * dst = NULL;
 
     ALOGV("DEBUG(%s):", __FUNCTION__);
-    if (request == NULL || dst == NULL)
+    if (request == NULL || dst_ext == NULL)
         return BAD_VALUE;
+
+    dst = &(dst_ext->shot);
 
     num_entry = (uint32_t)get_camera_metadata_data_count(request);
     for (index = 0 ; index < num_entry ; index++) {
@@ -118,7 +121,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
                 dst->ctl.lens.opticalStabilizationMode =
-                    (optical_stabilization_mode_NEW_t)curr_entry.data.u8[0];
+                    (enum optical_stabilization_mode)curr_entry.data.u8[0];
                 break;
 
 
@@ -146,7 +149,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
             case ANDROID_FLASH_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.flash.flashMode = (flash_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.flash.flashMode = (enum flash_mode)curr_entry.data.u8[0];
                 break;
 
             case ANDROID_FLASH_FIRING_POWER:
@@ -166,7 +169,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
             case ANDROID_HOT_PIXEL_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.hotpixel.mode = (hotpixel_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.hotpixel.mode = (enum processing_mode)curr_entry.data.u8[0];
                 break;
 
 
@@ -174,7 +177,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
             case ANDROID_DEMOSAIC_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.demosaic.mode = (demosaic_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.demosaic.mode = (enum processing_mode)curr_entry.data.u8[0];
                 break;
 
 
@@ -182,7 +185,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
             case ANDROID_NOISE_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.noise.mode = (noise_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.noise.mode = (enum processing_mode)curr_entry.data.u8[0];
                 break;
 
             case ANDROID_NOISE_STRENGTH:
@@ -196,7 +199,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
             case ANDROID_SHADING_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.shading.mode = (shading_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.shading.mode = (enum processing_mode)curr_entry.data.u8[0];
                 break;
 
 
@@ -204,7 +207,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
             case ANDROID_GEOMETRIC_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.geometric.mode = (geometric_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.geometric.mode = (enum processing_mode)curr_entry.data.u8[0];
                 break;
 
 
@@ -212,7 +215,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
             case ANDROID_COLOR_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.color.mode = (colorcorrection_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.color.mode = (enum colorcorrection_mode)curr_entry.data.u8[0];
                 break;
 
             case ANDROID_COLOR_TRANSFORM:
@@ -227,7 +230,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
             case ANDROID_TONEMAP_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.tonemap.mode = (tonemap_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.tonemap.mode = (enum tonemap_mode)curr_entry.data.u8[0];
                 break;
 
             case ANDROID_TONEMAP_CURVE_RED:
@@ -256,13 +259,13 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
             case ANDROID_EDGE_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.edge.mode = (edge_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.edge.mode = (enum processing_mode)curr_entry.data.u8[0];
                 break;
 
             case ANDROID_EDGE_STRENGTH:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.edge.strength = (edge_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.edge.strength = curr_entry.data.u8[0];
                 break;
 
 
@@ -305,8 +308,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
             case ANDROID_JPEG_GPS_PROCESSING_METHOD:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 32))
                     break;
-                for (i=0 ; i<curr_entry.count ; i++)
-                    dst->ctl.jpeg.gpsProcessingMethod[i] = curr_entry.data.u8[i];
+                dst->ctl.jpeg.gpsProcessingMethod = curr_entry.data.u8[0];
                 break;
 
             case ANDROID_JPEG_GPS_TIMESTAMP:
@@ -326,19 +328,19 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
             case ANDROID_STATS_FACE_DETECT_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.stats.faceDetectMode = (facedetect_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.stats.faceDetectMode = (enum facedetect_mode)curr_entry.data.u8[0];
                 break;
 
             case ANDROID_STATS_HISTOGRAM_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.stats.histogramMode = (histogram_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.stats.histogramMode = (enum stats_mode)curr_entry.data.u8[0];
                 break;
 
             case ANDROID_STATS_SHARPNESS_MAP_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.stats.sharpnessMapMode = (sharpnessmap_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.stats.sharpnessMapMode = (enum stats_mode)curr_entry.data.u8[0];
                 break;
 
 
@@ -346,37 +348,37 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
             case ANDROID_CONTROL_CAPTURE_INTENT:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.captureIntent = (aa_captureintent_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.aa.captureIntent = (enum aa_capture_intent)curr_entry.data.u8[0];
                 break;
 
             case ANDROID_CONTROL_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.mode = (aa_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.aa.mode = (enum aa_mode)curr_entry.data.u8[0];
                 break;
 
             case ANDROID_CONTROL_EFFECT_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.effect_mode = (aa_effect_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.aa.effectMode = (enum aa_effect_mode)curr_entry.data.u8[0];
                 break;
 
             case ANDROID_CONTROL_SCENE_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.scene_mode = (aa_scene_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.aa.sceneMode = (enum aa_scene_mode)curr_entry.data.u8[0];
                 break;
 
             case ANDROID_CONTROL_VIDEO_STABILIZATION_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.videoStabilizationMode = (aa_video_stab_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.aa.videoStabilizationMode = curr_entry.data.u8[0];
                 break;
 
             case ANDROID_CONTROL_AE_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.aeMode= (aa_aemode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.aa.aeMode= (enum aa_aemode)curr_entry.data.u8[0];
                 break;
 
             case ANDROID_CONTROL_AE_REGIONS:
@@ -389,7 +391,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
             case ANDROID_CONTROL_AE_EXP_COMPENSATION:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 1))
                     break;
-                dst->ctl.aa.aeExpCompensation= (aa_aemode_NEW_t)curr_entry.data.i32[0];
+                dst->ctl.aa.aeExpCompensation = curr_entry.data.i32[0];
                 break;
 
             case ANDROID_CONTROL_AE_TARGET_FPS_RANGE:
@@ -402,13 +404,13 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
             case ANDROID_CONTROL_AE_ANTIBANDING_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.aeAntibandingMode = (aa_ae_antibanding_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.aa.aeAntibandingMode = (enum aa_ae_antibanding_mode)curr_entry.data.u8[0];
                 break;
 
             case ANDROID_CONTROL_AWB_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.awbMode = (aa_awbmode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.aa.awbMode = (enum aa_awbmode)(curr_entry.data.u8[0] + 1);
                 break;
 
             case ANDROID_CONTROL_AWB_REGIONS:
@@ -421,7 +423,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
             case ANDROID_CONTROL_AF_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.afMode = (aa_afmode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.aa.afMode = (enum aa_afmode)curr_entry.data.u8[0];
                 break;
 
             case ANDROID_CONTROL_AF_REGIONS:
@@ -443,7 +445,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
             case ANDROID_REQUEST_METADATA_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.request.metadataMode = (metadata_mode_NEW_t)curr_entry.data.u8[0];
+                dst->ctl.request.metadataMode = (enum metadata_mode)curr_entry.data.u8[0];
                 ALOGV("DEBUG(%s): ANDROID_REQUEST_METADATA_MODE (%d)",  __FUNCTION__, (int)( dst->ctl.request.metadataMode));
                 break;
 
@@ -454,7 +456,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
                     dst->ctl.request.outputStreams[i] = curr_entry.data.u8[i];
                     ALOGV("DEBUG(%s): OUTPUT_STREAM[%d] = %d ",  __FUNCTION__, i, (int)(dst->ctl.request.outputStreams[i]));
                 }
-                dst->ctl.request.numOutputStream = curr_entry.count;
+                dst->ctl.request.id = curr_entry.count; // temporary
                 break;
 
             case ANDROID_REQUEST_FRAME_COUNT:
@@ -477,9 +479,12 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, camera2_
 
 
 
-status_t MetadataConverter::ToDynamicMetadata(camera2_ctl_metadata_NEW_t * metadata, camera_metadata_t * dst)
+status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata_ext, camera_metadata_t * dst)
 {
     status_t    res;
+    struct camera2_shot * metadata = &(metadata_ext->shot);
+    uint8_t  byteData;
+    uint32_t intData;
 
     ALOGV("DEBUG(%s): TEMP version using original request METADATA", __FUNCTION__);
     if (0 != add_camera_metadata_entry(dst, ANDROID_REQUEST_ID,
@@ -496,7 +501,7 @@ status_t MetadataConverter::ToDynamicMetadata(camera2_ctl_metadata_NEW_t * metad
         return NO_MEMORY;
 
 
-    if (metadata->ctl.request.metadataMode == METADATA_MODE_NONE_NEW) {
+    if (metadata->ctl.request.metadataMode == METADATA_MODE_NONE) {
         ALOGV("DEBUG(%s): METADATA_MODE_NONE", __FUNCTION__);
         return NO_ERROR;
     }
