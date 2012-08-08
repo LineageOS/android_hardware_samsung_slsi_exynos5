@@ -50,6 +50,7 @@
 #include "ion.h"
 #include "ExynosExif.h"
 #include "csc.h"
+#include "ExynosCamera2.h"
 
 namespace android {
 
@@ -279,7 +280,7 @@ typedef struct record_parameters {
 
 class ExynosCameraHWInterface2 : public virtual RefBase {
 public:
-    ExynosCameraHWInterface2(int cameraId, camera2_device_t *dev);
+    ExynosCameraHWInterface2(int cameraId, camera2_device_t *dev, ExynosCamera2 * camera);
     virtual             ~ExynosCameraHWInterface2();
 
     virtual void        release();
@@ -411,6 +412,7 @@ class MainThread : public SignalDrivenThread {
 
     RequestManager      *m_requestManager;
     BayerBufManager     *m_BayerManager;
+    ExynosCamera2       *m_camera2;
 
     void                m_mainThreadFunc(SignalDrivenThread * self);
     void                m_sensorThreadFunc(SignalDrivenThread * self);

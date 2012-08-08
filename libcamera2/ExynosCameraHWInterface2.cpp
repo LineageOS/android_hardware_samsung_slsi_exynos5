@@ -43,27 +43,6 @@
 namespace android {
 
 
-// temporarily copied from EmulatedFakeCamera2
-// TODO : implement our own codes
-status_t constructDefaultRequestInternal(
-        int request_template,
-        camera_metadata_t **request,
-        bool sizeRequest);
-
-status_t constructStaticInfo(
-        camera_metadata_t **info,
-        int cameraId,
-        bool sizeRequest);
-
-bool isSupportedPreviewSize(int m_cameraId, int width, int height);
-bool isSupportedJpegSize(int m_cameraId, int width, int height);
-int getSccOutputSizeX(int cameraId);
-int getSccOutputSizeY(int cameraId);
-int getSensorOutputSizeX(int cameraId);
-int getSensorOutputSizeY(int cameraId);
-int getJpegOutputSizeX(int cameraId);
-int getJpegOutputSizeY(int cameraId);
-
 void m_savePostView(const char *fname, uint8_t *buf, uint32_t size)
 {
     int nw;
@@ -738,7 +717,7 @@ int     RequestManager::GetNextIndex(int index)
     return index;
 }
 
-ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_t *dev):
+ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_t *dev, ExynosCamera2 * camera):
             m_requestQueueOps(NULL),
             m_frameQueueOps(NULL),
             m_callbackCookie(NULL),
@@ -772,6 +751,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
             ALOGE("ERR(%s):Fail on loading gralloc HAL", __FUNCTION__);
     }
 
+    m_camera2 = camera;
     m_ionCameraClient = createIonClient(m_ionCameraClient);
     if(m_ionCameraClient == 0)
         ALOGE("ERR(%s):Fail on ion_client_create", __FUNCTION__);
@@ -980,14 +960,14 @@ int ExynosCameraHWInterface2::constructDefaultRequest(int request_template, came
     }
     status_t res;
     // Pass 1, calculate size and allocate
-    res = constructDefaultRequestInternal(request_template,
+    res = m_camera2->constructDefaultRequest(request_template,
             request,
             true);
     if (res != OK) {
         return res;
     }
     // Pass 2, build request
-    res = constructDefaultRequestInternal(request_template,
+    res = m_camera2->constructDefaultRequest(request_template,
             request,
             false);
     if (res != OK) {
@@ -1007,8 +987,8 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
     StreamThread *AllocatedStream;
     stream_parameters_t newParameters;
 
-    if ((format == CAMERA2_HAL_PIXEL_FORMAT_OPAQUE && 
-        isSupportedPreviewSize(m_cameraId, width, height))) { 
+    if (format == CAMERA2_HAL_PIXEL_FORMAT_OPAQUE &&
+        m_camera2->isSupportedResolution(width, height)) {
         if (!(m_streamThreads[0].get())) {
             ALOGV("DEBUG(%s): stream 0 not exist", __FUNCTION__);
             allocCase = 0;
@@ -1113,7 +1093,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
         }
     }
     else if (format == HAL_PIXEL_FORMAT_BLOB 
-            && isSupportedJpegSize(m_cameraId, width, height)) {
+            && m_camera2->isSupportedJpegResolution(width, height)) {
 
         *stream_id = 1;
 
@@ -1132,8 +1112,8 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
         newParameters.outputWidth   = width;
         newParameters.outputHeight  = height;
 
-        newParameters.nodeWidth     = getSccOutputSizeX(m_cameraId);
-        newParameters.nodeHeight    = getSccOutputSizeY(m_cameraId);
+        newParameters.nodeWidth     = m_camera2->getSensorW();
+        newParameters.nodeHeight    = m_camera2->getSensorH();
 
         newParameters.outputFormat  = *format_actual;
         newParameters.nodeFormat    = V4L2_PIX_FMT_YUYV;
@@ -1769,7 +1749,7 @@ void ExynosCameraHWInterface2::m_mainThreadFunc(SignalDrivenThread * self)
                 ALOGD("DBG(%s): frame dequeue returned NULL",__FUNCTION__ );
             }
             else {
-                ALOGV("DEBUG(%s): frame dequeue done. numEntries(%d) frameSize(%d)",__FUNCTION__ , numEntries,frameSize);
+                ALOGV("DEBUG(%s): frame dequeue done. numEntries(%d) frameSize(%d)",__FUNCTION__ , numEntries, frameSize);
             }
             res = append_camera_metadata(currentFrame, preparedFrame);
             if (res==0) {
@@ -1843,8 +1823,8 @@ void ExynosCameraHWInterface2::m_sensorThreadInitialize(SignalDrivenThread * sel
     }
     m_camera_info.sensor.fd = fd;
 
-    m_camera_info.sensor.width = getSensorOutputSizeX(m_cameraId);
-    m_camera_info.sensor.height = getSensorOutputSizeY(m_cameraId);
+    m_camera_info.sensor.width = m_camera2->getSensorRawW();
+    m_camera_info.sensor.height = m_camera2->getSensorRawH();
 
     m_camera_info.sensor.format = V4L2_PIX_FMT_SBGGR16;
     m_camera_info.sensor.planes = 2;
@@ -2117,8 +2097,8 @@ void ExynosCameraHWInterface2::m_ispThreadInitialize(SignalDrivenThread * self)
     }
     m_camera_info.capture.fd = fd;
 
-    m_camera_info.capture.width = getSccOutputSizeX(m_cameraId);
-    m_camera_info.capture.height = getSccOutputSizeY(m_cameraId);
+    m_camera_info.capture.width = m_camera2->getSensorW();
+    m_camera_info.capture.height = m_camera2->getSensorH();
     m_camera_info.capture.format = V4L2_PIX_FMT_YUYV;
     m_camera_info.capture.planes = 1;
     m_camera_info.capture.buffers = 8;
@@ -2584,8 +2564,8 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
 
                 ExynosBuffer* m_pictureBuf = &(m_camera_info.capture.buffer[index]);
 
-                pictureW = getSccOutputSizeX(m_cameraId);
-                pictureH = getSccOutputSizeY(m_cameraId);
+                pictureW = selfStreamParms->nodeWidth;
+                pictureH = selfStreamParms->nodeHeight;
                 pictureFormat = V4L2_PIX_FMT_YUYV;
                 pictureFramesize = FRAME_SIZE(V4L2_PIX_2_HAL_PIXEL_FORMAT(pictureFormat), pictureW, pictureH);
 
@@ -3102,6 +3082,7 @@ void ExynosCameraHWInterface2::initCameraMemory(ExynosBuffer *buf, int iMemoryNu
 
 static camera2_device_t *g_cam2_device = NULL;
 static bool g_camera_vaild = false;
+ExynosCamera2 * g_camera2[2] = { NULL, NULL };
 
 static int HAL2_camera_device_close(struct hw_device_t* device)
 {
@@ -3274,20 +3255,29 @@ static int HAL2_getCameraInfo(int cameraId, struct camera_info *info)
     
     status_t res;
 
-    if (cameraId == 0)
+    if (cameraId == 0) {
         info->facing = CAMERA_FACING_BACK;
-    else
+        if (!g_camera2[0])
+            g_camera2[0] = new ExynosCamera2(0);
+    }
+    else if (cameraId == 1) {
         info->facing = CAMERA_FACING_FRONT;
+        if (!g_camera2[1])
+            g_camera2[1] = new ExynosCamera2(1);
+    }
+    else
+        return BAD_VALUE;
+
     info->orientation = 0;
     info->device_version = HARDWARE_DEVICE_API_VERSION(2, 0);
     if (mCameraInfo[cameraId] == NULL) {
-        res = constructStaticInfo(&(mCameraInfo[cameraId]), cameraId, true);
+        res = g_camera2[cameraId]->constructStaticInfo(&(mCameraInfo[cameraId]), cameraId, true);
         if (res != OK) {
             ALOGE("%s: Unable to allocate static info: %s (%d)",
                     __FUNCTION__, strerror(-res), res);
             return res;
         }
-        res = constructStaticInfo(&(mCameraInfo[cameraId]), cameraId, false);
+        res = g_camera2[cameraId]->constructStaticInfo(&(mCameraInfo[cameraId]), cameraId, false);
         if (res != OK) {
             ALOGE("%s: Unable to fill in static info: %s (%d)",
                     __FUNCTION__, strerror(-res), res);
@@ -3366,7 +3356,7 @@ static int HAL2_camera_device_open(const struct hw_module_t* module,
 
     ALOGV("DEBUG(%s):open camera2 %s", __FUNCTION__, id);
 
-    g_cam2_device->priv = new ExynosCameraHWInterface2(cameraId, g_cam2_device);
+    g_cam2_device->priv = new ExynosCameraHWInterface2(cameraId, g_cam2_device, g_camera2[cameraId]);
 
 done:
     *device = (hw_device_t *)g_cam2_device;
