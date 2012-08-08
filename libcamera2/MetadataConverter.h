@@ -35,7 +35,7 @@
 #include <camera/CameraParameters.h>
 
 #include "system/camera_metadata.h"
-#include "camera2_internal_metadata.h"
+#include "fimc-is-metadata.h"
 
 
 namespace android {
@@ -46,8 +46,8 @@ public:
     MetadataConverter();
     ~MetadataConverter();
 
-    status_t ToInternalShot(camera_metadata_t * request, camera2_ctl_metadata_NEW_t * dst);
-	status_t ToDynamicMetadata(camera2_ctl_metadata_NEW_t * metadata, camera_metadata_t * dst);
+    status_t ToInternalShot(camera_metadata_t * request, struct camera2_shot_ext * dst_ext);
+    status_t ToDynamicMetadata(struct camera2_shot_ext * metadata_ext, camera_metadata_t * dst);
 
 private:
     status_t CheckEntryTypeMismatch(camera_metadata_entry_t * entry, uint8_t type);	
