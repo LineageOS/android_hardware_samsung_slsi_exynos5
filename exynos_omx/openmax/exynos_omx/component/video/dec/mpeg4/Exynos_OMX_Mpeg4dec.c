@@ -793,15 +793,7 @@ OMX_ERRORTYPE Mpeg4CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DA
 
     /* set output geometry */
     Exynos_OSAL_Memset(&bufferConf, 0, sizeof(bufferConf));
-#if 0
     pMpeg4Dec->hMFCMpeg4Handle.MFCOutputColorType = bufferConf.eColorFormat = VIDEO_COLORFORMAT_NV12_TILED;
-#else /* This is temporal code to fix broken thumbnail until 3D ddk supports tiled mode */
-    if (pExynosOutputPort->bIsANBEnabled == OMX_TRUE)
-        pMpeg4Dec->hMFCMpeg4Handle.MFCOutputColorType = bufferConf.eColorFormat = VIDEO_COLORFORMAT_NV12;
-    else
-        pMpeg4Dec->hMFCMpeg4Handle.MFCOutputColorType = bufferConf.eColorFormat = VIDEO_COLORFORMAT_NV12_TILED;
-#endif
-
     if (pOutbufOps->Set_Geometry(hMFCHandle, &bufferConf) != VIDEO_ERROR_NONE) {
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to set geometry for output buffer");
         ret = OMX_ErrorInsufficientResources;
