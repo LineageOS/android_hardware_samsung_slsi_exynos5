@@ -672,7 +672,12 @@ OMX_ERRORTYPE H264CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DAT
         /* Register input buffer */
         for (i = 0; i < pExynosInputPort->portDefinition.nBufferCountActual; i++) {
             ExynosVideoPlane plane;
-            plane.addr = pExynosInputPort->extendBufferHeader[i].OMXBufferHeader->pBuffer;
+            if (pVideoDec->bDRMPlayerMode == OMX_FALSE) {
+                plane.addr = pExynosInputPort->extendBufferHeader[i].OMXBufferHeader->pBuffer;
+            } else {
+                plane.addr = Exynos_OSAL_SharedMemory_IONToVirt(pVideoDec->hSharedMemory,
+                                               pExynosInputPort->extendBufferHeader[i].OMXBufferHeader->pBuffer);
+            }
             plane.allocSize = pExynosInputPort->extendBufferHeader[i].OMXBufferHeader->nAllocLen;
             plane.fd = pExynosInputPort->extendBufferHeader[i].buf_fd[0];
             if (pInbufOps->Register(hMFCHandle, &plane, MFC_INPUT_BUFFER_PLANE) != VIDEO_ERROR_NONE) {
