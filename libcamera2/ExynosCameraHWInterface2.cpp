@@ -1091,14 +1091,14 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             *stream_id = 2;
             usleep(100000); // TODO : guarantee the codes below will be run after readyToRunInternal()
 
-            *format_actual = HAL_PIXEL_FORMAT_RGBA_8888;
+            *format_actual = HAL_PIXEL_FORMAT_YCbCr_420_SP; // NV12M
             *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
             *max_buffers = 10;
 
             recordParameters.outputWidth   = width;
             recordParameters.outputHeight  = height;
             recordParameters.outputFormat     = *format_actual;
-            recordParameters.svcPlanes        = 1;
+            recordParameters.svcPlanes        = NUM_PLANES(*format_actual);
             recordParameters.streamOps     = stream_ops;
             recordParameters.usage         = *usage;
             recordParameters.numOwnSvcBuffers = *max_buffers;
@@ -1195,16 +1195,13 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
                 else {
                     ExynosBuffer currentBuf;
                     const private_handle_t *priv_handle = reinterpret_cast<const private_handle_t *>(registeringBuffers[i]);
-                    //m_getAlignedYUVSize(HAL_PIXEL_FORMAT_2_V4L2_PIX(targetRecordParms->outputFormat),
-                    //    targetRecordParms->outputWidth, targetRecordParms->outputHeight, &currentBuf);
                     currentBuf.fd.extFd[0] = priv_handle->fd;
                     currentBuf.fd.extFd[1] = priv_handle->fd1;
                     currentBuf.fd.extFd[2] = priv_handle->fd2;
-                    ALOGV("DEBUG(%s):  ion_size(%d), stride(%d), ", __FUNCTION__,priv_handle->size, priv_handle->stride);
                     for (plane_index=0 ; plane_index < targetRecordParms->svcPlanes ; plane_index++) {
                         currentBuf.virt.extP[plane_index] = (char *)virtAddr[plane_index];
                         ALOGV("DEBUG(%s): plane(%d): fd(%d) addr(%x)",
-                             __FUNCTION__, plane_index, currentBuf.fd.extFd[i],
+                             __FUNCTION__, plane_index, currentBuf.fd.extFd[plane_index],
                              (unsigned int)currentBuf.virt.extP[plane_index]);
                     }
                     targetRecordParms->svcBufStatus[i]  = ON_SERVICE;
@@ -2336,9 +2333,6 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
         if (selfThread->m_index == 1 && m_resizeBuf.size.s != 0) {
             freeCameraMemory(&m_resizeBuf, 1);
         }
-        if (selfThread->m_index == 2 && m_resizeBuf2.size.s != 0) {
-            freeCameraMemory(&m_resizeBuf2, 1);
-        }            
         selfThread->m_isBufferInit = false;
         selfThread->m_index = 255;
 
@@ -2403,15 +2397,6 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
         if (m_recordingEnabled && m_needsRecordBufferInit) {
             ALOGV("DEBUG(%s): Recording Buffer Initialization numsvcbuf(%d)",
                 __FUNCTION__, selfRecordParms->numSvcBuffers);
-
-            m_resizeBuf2.size.extS[0] = ALIGN(selfRecordParms->outputWidth, 32) * ALIGN(selfRecordParms->outputHeight, 32) * 4;  
-            m_resizeBuf2.size.extS[1] =  0; 
-            m_resizeBuf2.size.extS[2] =  0; 
-            ALOGV("DEBUG(%s): resizebuf2 size0(%d) size1(%d)", __FUNCTION__, m_resizeBuf2.size.extS[0], m_resizeBuf2.size.extS[1]);
-            if (allocCameraMemory(selfStreamParms->ionClient, &m_resizeBuf2, selfRecordParms->svcPlanes) == -1) {
-                ALOGE("ERR(%s): Failed to allocate resize buf2", __FUNCTION__);
-            }
-                
             int checkingIndex = 0;            
             bool found = false;            
             for ( i=0 ; i < selfRecordParms->numSvcBuffers; i++) {
@@ -2505,16 +2490,14 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
                         int videoW = selfRecordParms->outputWidth, videoH = selfRecordParms->outputHeight;
                         int cropX, cropY, cropW, cropH = 0;
                         int previewW = selfStreamParms->outputWidth, previewH = selfStreamParms->outputHeight;
-
                         m_getRatioSize(previewW, previewH,
-                                        videoW, videoH,
+                                       videoW, videoH,
                                        &cropX, &cropY,
                                        &cropW, &cropH,
                                        0);
 
                         ALOGV("DEBUG(%s):cropX = %d, cropY = %d, cropW = %d, cropH = %d",
                                  __FUNCTION__, cropX, cropY, cropW, cropH);
-
 
                         csc_set_src_format(m_exynosVideoCSC,
                                            previewW, previewH,
@@ -2523,26 +2506,16 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
                                            0);
 
                         csc_set_dst_format(m_exynosVideoCSC,
-                                           ALIGN(videoW, 32), ALIGN(videoH, 32),
+                                           videoW, videoH,
                                            0, 0, videoW, videoH,
                                            selfRecordParms->outputFormat,
                                            1);
 
-                        ALOGV("DEBUG(%s) [1]-- bufindex(%d)", __FUNCTION__, selfRecordParms->svcBufIndex);
-
                         csc_set_src_buffer(m_exynosVideoCSC,
                                        (void **)(&(selfStreamParms->svcBuffers[index].fd.fd)));
-                        for (int i=0 ; i <3 ; i++)
-                            ALOGV("DEBUG(%s): src [%d] - %d, %x size(%d)",
-                                __FUNCTION__, i, selfStreamParms->svcBuffers[index].fd.extFd[i],
-                                                 (unsigned int)selfStreamParms->svcBuffers[index].virt.extP[i],
-                                                 selfStreamParms->svcBuffers[index].size.extS[i]);
-                        for (int i=0 ; i <selfRecordParms->svcPlanes; i++)
-                            ALOGV("DEBUG(%s): m_resizeBuf2.fd.extFd[%d]=%d addr(%x) m_resizeBuf2.size.extS[%d]=%d",
-                                __FUNCTION__, i, m_resizeBuf2.fd.extFd[i],  (unsigned int)m_resizeBuf2.virt.extP[i], i, 
-                                m_resizeBuf2.size.extS[i]);
+
                         csc_set_dst_buffer(m_exynosVideoCSC,
-                                           (void **)(&(m_resizeBuf2.fd.fd)));
+                            (void **)(&(selfRecordParms->svcBuffers[selfRecordParms->svcBufIndex].fd.fd)));
 
                         if (csc_convert(m_exynosVideoCSC) != 0) {
                             ALOGE("ERR(%s):csc_convert() fail", __FUNCTION__);
@@ -2550,12 +2523,6 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
                         else {
                             ALOGV("(%s):csc_convert() SUCCESS", __FUNCTION__);
                         }
-                    
-                        ALOGV("DEBUG(%s): svc addr[0] %x addr[1] %x", __FUNCTION__,
-                            (unsigned int)selfRecordParms->svcBuffers[selfRecordParms->svcBufIndex].virt.extP[0],
-                            (unsigned int)selfRecordParms->svcBuffers[selfRecordParms->svcBufIndex].virt.extP[1]);
-                        memcpy(selfRecordParms->svcBuffers[selfRecordParms->svcBufIndex].virt.extP[0],
-                            m_resizeBuf2.virt.extP[0], videoW * videoH * 4);
                     }
                     else {
                         ALOGE("ERR(%s):m_exynosVideoCSC == NULL", __FUNCTION__);
