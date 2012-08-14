@@ -234,6 +234,11 @@ static bool exynos5_format_is_supported_by_gscaler(int format)
     }
 }
 
+static bool exynos5_format_is_ycrcb(int format)
+{
+    return format == HAL_PIXEL_FORMAT_YV12;
+}
+
 static bool exynos5_format_requires_gscaler(int format)
 {
     return exynos5_format_is_supported_by_gscaler(format) &&
@@ -678,8 +683,13 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     src_cfg.h = HEIGHT(layer.sourceCrop);
     src_cfg.fh = src_handle->height;
     src_cfg.yaddr = src_handle->fd;
-    src_cfg.uaddr = src_handle->fd1;
-    src_cfg.vaddr = src_handle->fd2;
+    if (exynos5_format_is_ycrcb(src_handle->format)) {
+        src_cfg.uaddr = src_handle->fd2;
+        src_cfg.vaddr = src_handle->fd1;
+    } else {
+        src_cfg.uaddr = src_handle->fd1;
+        src_cfg.vaddr = src_handle->fd2;
+    }
     src_cfg.format = src_handle->format;
 
     dst_cfg.x = 0;
