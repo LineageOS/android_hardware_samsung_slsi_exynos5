@@ -32,7 +32,9 @@ LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
 	$(EXYNOS_OMX_TOP)/osal \
 	$(EXYNOS_OMX_COMPONENT)/common \
 	$(EXYNOS_OMX_COMPONENT)/video/dec \
+	$(EXYNOS_OMX_COMPONENT)/video/enc \
 	$(EXYNOS_OMX_TOP)/video/dec \
+	$(EXYNOS_OMX_TOP)/video/enc \
 	hardware/samsung_slsi/exynos5/include \
 	frameworks/native/include/media/hardware \
 	frameworks/native/include/media/openmax \

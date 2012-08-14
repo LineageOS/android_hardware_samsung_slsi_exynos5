@@ -44,6 +44,7 @@
 #include "Exynos_OMX_Basecomponent.h"
 #include "Exynos_OMX_Macros.h"
 #include "Exynos_OMX_Vdec.h"
+#include "Exynos_OMX_Venc.h"
 #include "Exynos_OSAL_Android.h"
 #include "exynos_format.h"
 
@@ -132,6 +133,22 @@ OMX_ERRORTYPE Exynos_OSAL_UnlockANBHandle(OMX_IN OMX_U32 handle)
     }
 
     Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%s: buffer unlocked: 0x%x", __func__, handle);
+
+EXIT:
+    FunctionOut();
+
+    return ret;
+}
+
+OMX_COLOR_FORMATTYPE Exynos_OSAL_GetANBColorFormat(OMX_IN OMX_U32 handle)
+{
+    FunctionIn();
+
+    OMX_COLOR_FORMATTYPE ret = OMX_COLOR_FormatUnused;
+    private_handle_t *priv_hnd = (private_handle_t *) handle;
+
+    ret = Exynos_OSAL_Hal2OMXPixelFormat(priv_hnd->format);
+    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "ColorFormat: 0x%x", ret);
 
 EXIT:
     FunctionOut();
@@ -352,7 +369,6 @@ OMX_ERRORTYPE Exynos_OSAL_SetANBParameter(
     OMX_ERRORTYPE          ret = OMX_ErrorNone;
     OMX_COMPONENTTYPE     *pOMXComponent = NULL;
     EXYNOS_OMX_BASECOMPONENT *pExynosComponent = NULL;
-    EXYNOS_OMX_VIDEODEC_COMPONENT *pVideoDec = NULL;
 
     FunctionIn();
 
@@ -383,11 +399,11 @@ OMX_ERRORTYPE Exynos_OSAL_SetANBParameter(
         goto EXIT;
     }
 
-    pVideoDec = (EXYNOS_OMX_VIDEODEC_COMPONENT *)pExynosComponent->hComponentHandle;
 
     switch (nIndex) {
     case OMX_IndexParamEnableAndroidBuffers:
     {
+        EXYNOS_OMX_VIDEODEC_COMPONENT *pVideoDec = (EXYNOS_OMX_VIDEODEC_COMPONENT *)pExynosComponent->hComponentHandle;
         EnableAndroidNativeBuffersParams *pANBParams = (EnableAndroidNativeBuffersParams *) ComponentParameterStructure;
         OMX_U32 portIndex = pANBParams->nPortIndex;
         EXYNOS_OMX_BASEPORT *pExynosPort = NULL;
@@ -425,6 +441,7 @@ OMX_ERRORTYPE Exynos_OSAL_SetANBParameter(
 
     case OMX_IndexParamUseAndroidNativeBuffer:
     {
+        EXYNOS_OMX_VIDEODEC_COMPONENT *pVideoDec = (EXYNOS_OMX_VIDEODEC_COMPONENT *)pExynosComponent->hComponentHandle;
         UseAndroidNativeBufferParams *pANBParams = (UseAndroidNativeBufferParams *) ComponentParameterStructure;
         OMX_U32 portIndex = pANBParams->nPortIndex;
         EXYNOS_OMX_BASEPORT *pExynosPort = NULL;
@@ -477,6 +494,7 @@ OMX_ERRORTYPE Exynos_OSAL_SetANBParameter(
 
     case OMX_IndexParamStoreMetaDataBuffer:
     {
+        EXYNOS_OMX_VIDEOENC_COMPONENT *pVideoEnc = (EXYNOS_OMX_VIDEOENC_COMPONENT *)pExynosComponent->hComponentHandle;;
         StoreMetaDataInBuffersParams *pANBParams = (StoreMetaDataInBuffersParams *) ComponentParameterStructure;
         OMX_U32 portIndex = pANBParams->nPortIndex;
         EXYNOS_OMX_BASEPORT *pExynosPort = NULL;
@@ -501,6 +519,7 @@ OMX_ERRORTYPE Exynos_OSAL_SetANBParameter(
         }
 
         pExynosPort->bStoreMetaData = pANBParams->bStoreMetaData;
+        pVideoEnc->bFirstInput = OMX_TRUE;
     }
         break;
 
