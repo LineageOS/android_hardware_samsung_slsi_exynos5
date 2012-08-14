@@ -15,7 +15,7 @@ LOCAL_SRC_FILES:= \
 	SignalDrivenThread.cpp \
 	MetadataConverter.cpp \
 	ExynosCameraHWInterface2.cpp \
-	StaticInformation_temp.cpp \
+	ExynosCamera2.cpp \
 	ExynosJpegEncoderForCamera.cpp
 
 
