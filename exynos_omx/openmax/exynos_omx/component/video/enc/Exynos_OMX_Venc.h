@@ -100,7 +100,10 @@ typedef struct _EXYNOS_OMX_VIDEOENC_COMPONENT
     OMX_VIDEO_CONTROLRATETYPE eControlRate[ALL_PORT_NUM];
     OMX_VIDEO_PARAM_QUANTIZATIONTYPE quantization;
 
+    OMX_BOOL bFirstInput;
     OMX_BOOL bFirstOutput;
+
+    OMX_COLOR_FORMATTYPE ANBColorFormat;
 
     /* CSC handle */
     OMX_PTR csc_handle;
