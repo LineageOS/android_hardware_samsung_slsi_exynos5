@@ -1,12 +1,40 @@
-// temporarily copied from EmulatedFakeCamera2
-// TODO : implement our own codes
+/*
+**
+** Copyright 2008, The Android Open Source Project
+** Copyright 2012, Samsung Electronics Co. LTD
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+
+/*!
+ * \file      ExynosCamera2.cpp
+ * \brief     source file for static information of camera2
+ * \author    Sungjoong Kang(sj3.kang@samsung.com)
+ * \date      2012/08/06
+ *
+ * <b>Revision History: </b>
+ * - 2012/08/06 : Sungjoong Kang(sj3.kang@samsung.com) \n
+ *   Initial Release
+ *
+ */
 
 //#define LOG_NDEBUG 0
-#define LOG_TAG "ExynosCameraHWInterface2"
+#define LOG_TAG "ExynosCamera2"
 #include <utils/Log.h>
 
-#include "ExynosCameraHWInterface2.h"
-#include "exynos_format.h"
+#include "ExynosCamera2.h"
+
+#define ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
 
 namespace android {
 
@@ -49,65 +77,18 @@ public:
     static const uint32_t kAvailableSensitivities[5];
     static const uint32_t kDefaultSensitivity;
 
-
 };
 
-const unsigned int Sensor::kResolution[2][2]  = {
-                {1920, 1080}, /* back */
-                {1280, 720}, /* front */
-};
 
-const unsigned int kResolution0[4]  = {
-                1920, 1080, 1280, 720 /* back */
-};
 
-const unsigned int kResolution1[2]  = {
-                1280, 720, /* front */
-};
+const uint32_t Sensor::kAvailableSensitivities[5] =
+    {100, 200, 400, 800, 1600};
 const nsecs_t Sensor::kExposureTimeRange[2] =
     {1000L, 30000000000L} ; // 1 us - 30 sec
 const nsecs_t Sensor::kFrameDurationRange[2] =
     {33331760L, 30000000000L}; // ~1/30 s - 30 sec
-const nsecs_t Sensor::kMinVerticalBlank = 10000L;
 
 const uint8_t Sensor::kColorFilterArrangement = ANDROID_SENSOR_RGGB;
-
-// Output image data characteristics
-const uint32_t Sensor::kMaxRawValue = 4000;
-const uint32_t Sensor::kBlackLevel  = 1000;
-
-// Sensor sensitivity
-const float Sensor::kSaturationVoltage      = 0.520f;
-const uint32_t Sensor::kSaturationElectrons = 2000;
-const float Sensor::kVoltsPerLuxSecond      = 0.100f;
-
-const float Sensor::kElectronsPerLuxSecond =
-        Sensor::kSaturationElectrons / Sensor::kSaturationVoltage
-        * Sensor::kVoltsPerLuxSecond;
-
-const float Sensor::kBaseGainFactor = (float)Sensor::kMaxRawValue /
-            Sensor::kSaturationElectrons;
-
-const float Sensor::kReadNoiseStddevBeforeGain = 1.177; // in electrons
-const float Sensor::kReadNoiseStddevAfterGain =  2.100; // in digital counts
-const float Sensor::kReadNoiseVarBeforeGain =
-            Sensor::kReadNoiseStddevBeforeGain *
-            Sensor::kReadNoiseStddevBeforeGain;
-const float Sensor::kReadNoiseVarAfterGain =
-            Sensor::kReadNoiseStddevAfterGain *
-            Sensor::kReadNoiseStddevAfterGain;
-
-// While each row has to read out, reset, and then expose, the (reset +
-// expose) sequence can be overlapped by other row readouts, so the final
-// minimum frame duration is purely a function of row readout time, at least
-// if there's a reasonable number of rows.
-const nsecs_t Sensor::kRowReadoutTime =
-            Sensor::kFrameDurationRange[0] / Sensor::kResolution[0][1];
-
-const uint32_t Sensor::kAvailableSensitivities[5] =
-    {100, 200, 400, 800, 1600};
-const uint32_t Sensor::kDefaultSensitivity = 100;
-
 
 const uint32_t kAvailableFormats[5] = {
         HAL_PIXEL_FORMAT_RAW_SENSOR,
@@ -117,167 +98,125 @@ const uint32_t kAvailableFormats[5] = {
         HAL_PIXEL_FORMAT_YCrCb_420_SP
 };
 
-
-const uint32_t kAvailableRawSizes[2][2] = {
-    //640, 480
-   {Sensor::kResolution[0][0], Sensor::kResolution[0][1]},
-   {Sensor::kResolution[1][0], Sensor::kResolution[1][1]},
-};
+// Output image data characteristics
+const uint32_t Sensor::kMaxRawValue = 4000;
+const uint32_t Sensor::kBlackLevel  = 1000;
 
 const uint64_t kAvailableRawMinDurations[1] = {
     Sensor::kFrameDurationRange[0]
 };
-#if 1
-const uint32_t kAvailableProcessedSizes[2][2] = {
-    //640, 480
-    {Sensor::kResolution[0][0], Sensor::kResolution[0][1], },
-    {Sensor::kResolution[1][0], Sensor::kResolution[1][1], },
-};
-
-#else
-const uint32_t kAvailableProcessedSizes[2][4] = {
-    //640, 480
-    {Sensor::kResolution[0][0], Sensor::kResolution[0][1], 720, 480},
-    {Sensor::kResolution[1][0], Sensor::kResolution[1][1], 720, 480},
-};
-#endif
 
 const uint64_t kAvailableProcessedMinDurations[1] = {
     Sensor::kFrameDurationRange[0]
 };
-
-const uint32_t kAvailableJpegSizes[2] = {
-    1280, 720,
-//    1280, 1080,
-//    2560, 1920,
-//    1280, 720,
-//    640, 480
-    //Sensor::kResolution[0], Sensor::kResolution[1]
-};
-
 const uint64_t kAvailableJpegMinDurations[1] = {
     Sensor::kFrameDurationRange[0]
 };
 
-
-bool isSupportedPreviewSize(int cameraId, int width, int height)
+const int32_t scalerResolutionS5K4E5[] =
 {
-    if (cameraId == 0) {
-        if ((width == 1280 && height == 720) || (width == 1920 && height == 1080))
+    1920, 1080,
+    1280,  720,
+};
+
+const int32_t jpegResolutionS5K4E5[] =
+{
+    2560, 1920,
+    1280,  720,
+};
+
+ExynosCamera2InfoS5K4E5::ExynosCamera2InfoS5K4E5()
+{
+    sensorW             = 2560;
+    sensorH             = 1920;
+    sensorRawW          = (2560 + 16);
+    sensorRawH          = (1920 + 10);
+    numScalerResolution = ARRAY_SIZE(scalerResolutionS5K4E5)/2;
+    scalerResolutions   = scalerResolutionS5K4E5;
+    numJpegResolution   = ARRAY_SIZE(jpegResolutionS5K4E5)/2;
+    jpegResolutions     = jpegResolutionS5K4E5;
+}
+
+const int32_t scalerResolutionS5K6A3[] =
+{
+    1280,  720,
+};
+
+const int32_t jpegResolutionS5K6A3[] =
+{
+    1280,  720,
+};
+
+ExynosCamera2InfoS5K6A3::ExynosCamera2InfoS5K6A3()
+{
+    sensorW     = 1392;
+    sensorH     = 1392;
+    sensorRawW  = (1392 + 16);
+    sensorRawH  = (1392 + 10);
+    numScalerResolution = ARRAY_SIZE(scalerResolutionS5K6A3)/2;
+    scalerResolutions   = scalerResolutionS5K6A3;
+    numJpegResolution   = ARRAY_SIZE(jpegResolutionS5K6A3)/2;
+    jpegResolutions     = jpegResolutionS5K6A3;
+}
+
+ExynosCamera2::ExynosCamera2(int cameraId):
+    m_cameraId(cameraId)
+{
+    if (cameraId == 0)
+        m_curCameraInfo      = new ExynosCamera2InfoS5K4E5;
+    else
+        m_curCameraInfo      = new ExynosCamera2InfoS5K6A3;
+}
+
+ExynosCamera2::~ExynosCamera2()
+{
+	delete m_curCameraInfo;
+}
+
+int32_t ExynosCamera2::getSensorW()
+{
+    return m_curCameraInfo->sensorW;
+}
+
+int32_t ExynosCamera2::getSensorH()
+{
+    return m_curCameraInfo->sensorH;
+}
+
+int32_t ExynosCamera2::getSensorRawW()
+{
+    return m_curCameraInfo->sensorRawW;
+}
+
+int32_t ExynosCamera2::getSensorRawH()
+{
+    return m_curCameraInfo->sensorRawH;
+}
+
+bool ExynosCamera2::isSupportedResolution(int width, int height)
+{
+    int i;
+    for (i = 0 ; i < m_curCameraInfo->numScalerResolution ; i++) {
+        if (m_curCameraInfo->scalerResolutions[2*i] == width
+                && m_curCameraInfo->scalerResolutions[2*i+1] == height) {
             return true;
-        else
-            return false;
+        }
     }
-    else if (cameraId == 1) {
-        if ((width == 1280 && height == 720) )
+    return false;
+}
+
+bool ExynosCamera2::isSupportedJpegResolution(int width, int height)
+{
+    int i;
+    for (i = 0 ; i < m_curCameraInfo->numJpegResolution ; i++) {
+        if (m_curCameraInfo->jpegResolutions[2*i] == width
+                && m_curCameraInfo->jpegResolutions[2*i+1] == height) {
             return true;
-        else
-            return false;
+        }
     }
-    else
-        return false;
+    return false;
 }
 
-bool isSupportedJpegSize(int cameraId, int width, int height)
-{
-    if (cameraId == 0) {
-        if ((width == 1920 && height == 1080) || (width == 1280 && height == 720))
-            return true;
-        else
-            return false;
-    }
-    else if (cameraId == 1) {
-        if (width == 1280 && height == 720)
-            return true;
-        else
-            return false;
-    }
-    else
-        return false;
-}
-
-int getSccOutputSizeX(int cameraId)
-{
-    if (cameraId == 0) {
-        //return 1280;
-        return 2560;
-    }
-    else if (cameraId == 1) {
-        //return 1280;
-        return 1392;
-    }
-    else
-        return 0;
-}    
-
-int getSccOutputSizeY(int cameraId)
-{
-    if (cameraId == 0) {
-        return 1920;
-        //return 720;
-    }
-    else if (cameraId == 1) {
-        //return 720;
-        return 1392;
-    }
-    else
-        return 0;
-}
-
-
-int getSensorOutputSizeX(int cameraId)
-{
-    if (cameraId == 0) {
-        return 2560 + 16;
-        //return 1280+16;
-    }
-    else if (cameraId == 1) {
-        return 1392+16;
-    }
-    else
-        return 0;
-}    
-
-int getSensorOutputSizeY(int cameraId)
-{
-    if (cameraId == 0) {
-        return 1920 + 10;
-        //return 720+10;
-    }
-    else if (cameraId == 1) {
-        return 1392+10;
-    }
-    else
-        return 0;
-}
-
-int getJpegOutputSizeX(int cameraId)
-{
-    if (cameraId == 0) {
-        // return 2560;
-        return 1280;
-    }
-    else if (cameraId == 1) {
-        return 1280;
-    }
-    else
-        return 0;
-}    
-
-int getJpegOutputSizeY(int cameraId)
-{
-    if (cameraId == 0) {
-        // return 1920; 
-        return 720;
-    }
-    else if (cameraId == 1) {
-        return 720;
-    }
-    else
-        return 0;
-}
-
-    
 status_t addOrSize(camera_metadata_t *request,
         bool sizeRequest,
         size_t *entryCount,
@@ -298,10 +237,9 @@ status_t addOrSize(camera_metadata_t *request,
         return OK;
     }
 }
-status_t constructStaticInfo(
-        camera_metadata_t **info,
-        int cameraId,
-        bool sizeRequest) {
+
+status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
+        int cameraId, bool sizeRequest) {
 
     size_t entryCount = 0;
     size_t dataCount = 0;
@@ -361,21 +299,6 @@ status_t constructStaticInfo(
             ANDROID_LENS_FACING_FRONT : ANDROID_LENS_FACING_BACK;
     ADD_OR_SIZE(ANDROID_LENS_FACING, &lensFacing, 1);
 
-    float lensPosition[3];
-    if (cameraId == 0) {
-        // Back-facing camera is center-top on device
-        lensPosition[0] = 0;
-        lensPosition[1] = 20;
-        lensPosition[2] = -5;
-    } else {
-        // Front-facing camera is center-right on device
-        lensPosition[0] = 20;
-        lensPosition[1] = 20;
-        lensPosition[2] = 0;
-    }
-    ADD_OR_SIZE(ANDROID_LENS_POSITION, lensPosition, sizeof(lensPosition)/
-            sizeof(float));
-
     // android.sensor
     ADD_OR_SIZE(ANDROID_SENSOR_EXPOSURE_TIME_RANGE,
             Sensor::kExposureTimeRange, 2);
@@ -394,25 +317,12 @@ status_t constructStaticInfo(
     static const float sensorPhysicalSize[2] = {3.20f, 2.40f}; // mm
     ADD_OR_SIZE(ANDROID_SENSOR_PHYSICAL_SIZE,
             sensorPhysicalSize, 2);
-    if (cameraId==0) {
-        ADD_OR_SIZE(ANDROID_SENSOR_PIXEL_ARRAY_SIZE, kResolution0,2);
-    }
-    else {
-        ADD_OR_SIZE(ANDROID_SENSOR_PIXEL_ARRAY_SIZE, kResolution1,2);
-    }
-    //ADD_OR_SIZE(ANDROID_SENSOR_PIXEL_ARRAY_SIZE,
-    //        Sensor::kResolution[cameraId], 2);
 
-
-    if (cameraId==0) {
-        ADD_OR_SIZE(ANDROID_SENSOR_ACTIVE_ARRAY_SIZE, kResolution0,2);
-    }
-    else {
-        ADD_OR_SIZE(ANDROID_SENSOR_ACTIVE_ARRAY_SIZE, kResolution1,2);
-    }
-    
-    //ADD_OR_SIZE(ANDROID_SENSOR_ACTIVE_ARRAY_SIZE,
-    //        Sensor::kResolution[cameraId], 2);
+    int32_t pixelArraySize[2] = {
+        m_curCameraInfo->sensorW, m_curCameraInfo->sensorH
+    };
+    ADD_OR_SIZE(ANDROID_SENSOR_PIXEL_ARRAY_SIZE, pixelArraySize, 2);
+    ADD_OR_SIZE(ANDROID_SENSOR_ACTIVE_ARRAY_SIZE, pixelArraySize,2);
 
     ADD_OR_SIZE(ANDROID_SENSOR_WHITE_LEVEL,
             &Sensor::kMaxRawValue, 1);
@@ -444,36 +354,34 @@ status_t constructStaticInfo(
             kAvailableFormats,
             sizeof(kAvailableFormats)/sizeof(uint32_t));
 
+    int32_t availableRawSizes[2] = {
+        m_curCameraInfo->sensorRawW, m_curCameraInfo->sensorRawH
+    };
     ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_RAW_SIZES,
-            kAvailableRawSizes[cameraId],
-            sizeof(kAvailableRawSizes)/sizeof(uint32_t));
+            availableRawSizes, 2);
 
     ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_RAW_MIN_DURATIONS,
             kAvailableRawMinDurations,
             sizeof(kAvailableRawMinDurations)/sizeof(uint64_t));
 
 
-    if (cameraId==0) {
-        ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES, kResolution0,4);
-    }
-    else {
-        ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES, kResolution1,2);
-    }
+    ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES,
+        m_curCameraInfo->scalerResolutions,
+        (m_curCameraInfo->numScalerResolution)*2);
+    ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_JPEG_SIZES,
+        m_curCameraInfo->jpegResolutions,
+        (m_curCameraInfo->numJpegResolution)*2);
+
     ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_PROCESSED_MIN_DURATIONS,
             kAvailableProcessedMinDurations,
             sizeof(kAvailableProcessedMinDurations)/sizeof(uint64_t));
-
-    ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_JPEG_SIZES,
-            kAvailableJpegSizes,
-            sizeof(kAvailableJpegSizes)/sizeof(uint32_t));
 
     ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_JPEG_MIN_DURATIONS,
             kAvailableJpegMinDurations,
             sizeof(kAvailableJpegMinDurations)/sizeof(uint64_t));
 
-    static const float maxZoom = 10;
-    ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_MAX_ZOOM,
-            &maxZoom, 1);
+    static const float maxZoom = 3.5;
+    ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_MAX_ZOOM, &maxZoom, 1);
 
     // android.jpeg
 
@@ -482,6 +390,7 @@ status_t constructStaticInfo(
             320, 240,
             640, 480
     };
+
     ADD_OR_SIZE(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES,
             jpegThumbnailSizes, sizeof(jpegThumbnailSizes)/sizeof(int32_t));
 
@@ -520,7 +429,10 @@ status_t constructStaticInfo(
     // android.control
 
     static const uint8_t availableSceneModes[] = {
-            ANDROID_CONTROL_SCENE_MODE_UNSUPPORTED
+            ANDROID_CONTROL_SCENE_MODE_PARTY,
+            ANDROID_CONTROL_SCENE_MODE_SPORTS,
+            ANDROID_CONTROL_SCENE_MODE_NIGHT,
+            ANDROID_CONTROL_SCENE_MODE_BEACH
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AVAILABLE_SCENE_MODES,
             availableSceneModes, sizeof(availableSceneModes));
@@ -607,8 +519,7 @@ status_t constructStaticInfo(
     return OK;
 }
 
-
-status_t constructDefaultRequestInternal(
+status_t ExynosCamera2::constructDefaultRequest(
         int request_template,
         camera_metadata_t **request,
         bool sizeRequest) {
@@ -659,20 +570,12 @@ status_t constructDefaultRequestInternal(
     ADD_OR_SIZE(ANDROID_LENS_OPTICAL_STABILIZATION_MODE,
             &opticalStabilizationMode, 1);
 
-    // FOCUS_RANGE set only in frame
 
     /** android.sensor */
 
-    static const int64_t exposureTime = 10 * MSEC;
-    ADD_OR_SIZE(ANDROID_SENSOR_EXPOSURE_TIME, &exposureTime, 1);
 
     static const int64_t frameDuration = 33333333L; // 1/30 s
     ADD_OR_SIZE(ANDROID_SENSOR_FRAME_DURATION, &frameDuration, 1);
-
-    static const int32_t sensitivity = 100;
-    ADD_OR_SIZE(ANDROID_SENSOR_SENSITIVITY, &sensitivity, 1);
-
-    // TIMESTAMP set only in frame
 
 
     /** android.flash */
@@ -792,8 +695,8 @@ status_t constructDefaultRequestInternal(
     ADD_OR_SIZE(ANDROID_EDGE_STRENGTH, &edgeStrength, 1);
 
     /** android.scaler */
-    static const int32_t cropRegion[3] = {
-        0, 0, Sensor::kResolution[0][0]
+    int32_t cropRegion[3] = {
+        0, 0, m_curCameraInfo->sensorW
     };
     ADD_OR_SIZE(ANDROID_SCALER_CROP_REGION, cropRegion, 3);
 
@@ -809,10 +712,10 @@ status_t constructDefaultRequestInternal(
     static const int32_t thumbnailQuality = 80;
     ADD_OR_SIZE(ANDROID_JPEG_THUMBNAIL_QUALITY, &thumbnailQuality, 1);
 
-    static const double gpsCoordinates[2] = {
-        0, 0
+    static const double gpsCoordinates[3] = {
+        0, 0, 0
     };
-    ADD_OR_SIZE(ANDROID_JPEG_GPS_COORDINATES, gpsCoordinates, 2);
+    ADD_OR_SIZE(ANDROID_JPEG_GPS_COORDINATES, gpsCoordinates, 3);
 
     static const uint8_t gpsProcessingMethod[32] = "None";
     ADD_OR_SIZE(ANDROID_JPEG_GPS_PROCESSING_METHOD, gpsProcessingMethod, 32);
@@ -834,8 +737,6 @@ status_t constructDefaultRequestInternal(
     static const uint8_t sharpnessMapMode = ANDROID_STATS_OFF;
     ADD_OR_SIZE(ANDROID_STATS_SHARPNESS_MAP_MODE, &sharpnessMapMode, 1);
 
-    // faceRectangles, faceScores, faceLandmarks, faceIds, histogram,
-    // sharpnessMap only in frames
 
     /** android.control */
 
@@ -868,14 +769,14 @@ status_t constructDefaultRequestInternal(
     static const uint8_t effectMode = ANDROID_CONTROL_EFFECT_OFF;
     ADD_OR_SIZE(ANDROID_CONTROL_EFFECT_MODE, &effectMode, 1);
 
-    static const uint8_t sceneMode = ANDROID_CONTROL_SCENE_MODE_FACE_PRIORITY;
+    static const uint8_t sceneMode = ANDROID_CONTROL_SCENE_MODE_UNSUPPORTED;
     ADD_OR_SIZE(ANDROID_CONTROL_SCENE_MODE, &sceneMode, 1);
 
-    static const uint8_t aeMode = ANDROID_CONTROL_AE_ON_AUTO_FLASH;
+    static const uint8_t aeMode = ANDROID_CONTROL_AE_ON;
     ADD_OR_SIZE(ANDROID_CONTROL_AE_MODE, &aeMode, 1);
 
-    static const int32_t controlRegions[5] = {
-        0, 0, Sensor::kResolution[0][0], Sensor::kResolution[0][1], 1000
+    int32_t controlRegions[5] = {
+        0, 0, m_curCameraInfo->sensorW, m_curCameraInfo->sensorH, 1000
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AE_REGIONS, controlRegions, 5);
 
@@ -925,9 +826,6 @@ status_t constructDefaultRequestInternal(
     static const uint8_t vstabMode = ANDROID_CONTROL_VIDEO_STABILIZATION_OFF;
     ADD_OR_SIZE(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstabMode, 1);
 
-    // aeState, awbState, afState only in frame
-
-    /** Allocate metadata if sizing */
     if (sizeRequest) {
         ALOGV("Allocating %d entries, %d extra bytes for "
                 "request template type %d",
