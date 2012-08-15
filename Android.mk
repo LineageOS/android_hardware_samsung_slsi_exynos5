@@ -30,7 +30,8 @@ exynos5_dirs := \
 	libhwjpeg \
 	libhwc \
 	libcamera2 \
-	mobicore
+	mobicore \
+	gralloc
 
 BOARD_USE_V4L2 := true
 BOARD_USE_V4L2_ION := true
