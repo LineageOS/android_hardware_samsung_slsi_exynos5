@@ -115,7 +115,7 @@ static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int flags,
                              private_handle_t **hnd, int *stride)
 {
     size_t size, bpr;
-    int bpp = 0, fd, err;
+    int bpp = 0, vstride, fd, err;
     switch (format) {
         case HAL_PIXEL_FORMAT_RGBA_8888:
         case HAL_PIXEL_FORMAT_RGBX_8888:
@@ -138,12 +138,13 @@ static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int flags,
             return -EINVAL;
     }
     bpr = ALIGN(w*bpp, 16);
-    size = bpr * h;
+    vstride = ALIGN(h, 16);
+    size = bpr * vstride;
     *stride = bpr / bpp;
     size = ALIGN(size, PAGE_SIZE);
 
     err = ion_alloc_fd(ionfd, size, 0, 1 << ION_HEAP_TYPE_SYSTEM, flags, &fd);
-    *hnd = new private_handle_t(fd, size, 0, w, h, format, *stride);
+    *hnd = new private_handle_t(fd, size, 0, w, h, format, *stride, vstride);
 
     return err;
 }
@@ -153,15 +154,16 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format, int flags,
 {
     size_t luma_size, chroma_size;
     int err, planes, fd, fd1, fd2 = 0;
+    size_t luma_vstride;
     *stride = ALIGN(w, 16);
 
     switch (format) {
         ALOGE("invalid yuv format %d\n", format);
         case HAL_PIXEL_FORMAT_YV12:
         {
-            size_t vstride = ALIGN(h, 16);
-            luma_size = vstride * *stride;
-            chroma_size = (vstride / 2) * ALIGN(*stride / 2, 16);
+            luma_vstride = ALIGN(h, 16);
+            luma_size = luma_vstride * *stride;
+            chroma_size = (luma_vstride / 2) * ALIGN(*stride / 2, 16);
             planes = 3;
             break;
         }
@@ -169,8 +171,8 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format, int flags,
         case HAL_PIXEL_FORMAT_YCbCr_420_SP:
         case HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
         {
-            size_t luma_vstride = ALIGN(h, 32);
             size_t chroma_vstride = ALIGN(h / 2, 32);
+            luma_vstride = ALIGN(h, 32);
             luma_size = luma_vstride * *stride;
             chroma_size = chroma_vstride * *stride;
             planes = 2;
@@ -197,7 +199,7 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format, int flags,
     }
 
     *hnd = new private_handle_t(fd, fd1, fd2, luma_size, 0, w, h, format,
-                                *stride);
+                                *stride, luma_vstride);
     return err;
 
 err2:
