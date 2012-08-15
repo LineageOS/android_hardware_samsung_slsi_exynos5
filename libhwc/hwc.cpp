@@ -44,6 +44,7 @@
 #include "gralloc_priv.h"
 #include "exynos_gscaler.h"
 #include "exynos_format.h"
+#include "videodev2.h"
 
 struct hwc_callback_entry {
     void (*callback)(void *, private_handle_t *);
@@ -103,9 +104,11 @@ struct exynos5_hwc_composer_device_1_t {
     hwc_procs_t             *procs;
     pthread_t               vsync_thread;
 
+    int  hdmi_fd;
     bool hdmi_hpd;
     bool hdmi_mirroring;
     void *hdmi_gsc;
+    exynos_gsc_img hdmi_cfg;
 
     exynos5_gsc_data_t      gsc[NUM_GSC_UNITS];
 };
@@ -301,19 +304,56 @@ static bool exynos5_supports_gscaler(hwc_layer_1_t &layer, int format,
             // per 46.3.1.6
 }
 
+int hdmi_get_config(struct exynos5_hwc_composer_device_1_t *dev)
+{
+    struct v4l2_dv_preset preset;
+    struct v4l2_dv_enum_preset enum_preset;
+    exynos_gsc_img *info = &dev->hdmi_cfg;
+    int index = 0;
+    bool found = false;
+    int ret;
+
+    if (ioctl(dev->hdmi_fd, VIDIOC_G_DV_PRESET, &preset) < 0) {
+        ALOGE("%s: g_dv_preset error, %d", __func__, errno);
+        return -1;
+    }
+
+    while (true) {
+        enum_preset.index = index++;
+        ret = ioctl(dev->hdmi_fd, VIDIOC_ENUM_DV_PRESETS, &enum_preset);
+
+        if (ret < 0) {
+            if (errno == EINVAL)
+                break;
+            ALOGE("%s: enum_dv_presets error, %d", __func__, errno);
+            return -1;
+        }
+
+        ALOGV("%s: %d preset=%02d width=%d height=%d name=%s",
+                __func__, enum_preset.index, enum_preset.preset,
+                enum_preset.width, enum_preset.height, enum_preset.name);
+
+        if (preset.preset == enum_preset.preset) {
+            info->w  = enum_preset.width;
+            info->h  = enum_preset.height;
+            info->fw = enum_preset.width;
+            info->fh = enum_preset.height;
+            info->format = HAL_PIXEL_FORMAT_YV12;
+            found = true;
+        }
+    }
+
+    return found ? 0 : -1;
+}
+
 static int hdmi_enable(struct exynos5_hwc_composer_device_1_t *dev)
 {
     if (dev->hdmi_mirroring)
         return 0;
 
     exynos_gsc_img src_info;
-    exynos_gsc_img dst_info;
-
-    // TODO: Don't hardcode
     int src_w = 2560;
     int src_h = 1600;
-    int dst_w = 1920;
-    int dst_h = 1080;
 
     dev->hdmi_gsc = exynos_gsc_create_exclusive(3, GSC_OUTPUT_MODE, GSC_OUT_TV);
     if (!dev->hdmi_gsc) {
@@ -322,7 +362,6 @@ static int hdmi_enable(struct exynos5_hwc_composer_device_1_t *dev)
     }
 
     memset(&src_info, 0, sizeof(src_info));
-    memset(&dst_info, 0, sizeof(dst_info));
 
     src_info.w = src_w;
     src_info.h = src_h;
@@ -330,13 +369,7 @@ static int hdmi_enable(struct exynos5_hwc_composer_device_1_t *dev)
     src_info.fh = src_h;
     src_info.format = HAL_PIXEL_FORMAT_BGRA_8888;
 
-    dst_info.w = dst_w;
-    dst_info.h = dst_h;
-    dst_info.fw = dst_w;
-    dst_info.fh = dst_h;
-    dst_info.format = HAL_PIXEL_FORMAT_YV12;
-
-    int ret = exynos_gsc_config_exclusive(dev->hdmi_gsc, &src_info, &dst_info);
+    int ret = exynos_gsc_config_exclusive(dev->hdmi_gsc, &src_info, &dev->hdmi_cfg);
     if (ret < 0) {
         ALOGE("%s: exynos_gsc_config_exclusive failed %d", __func__, ret);
         exynos_gsc_destroy(dev->hdmi_gsc);
@@ -1045,7 +1078,17 @@ static void handle_hdmi_uevent(struct exynos5_hwc_composer_device_1_t *pdev,
             break;
     }
 
+    if (pdev->hdmi_hpd) {
+        if (hdmi_get_config(pdev)) {
+            ALOGE("Error reading HDMI configuration");
+            pdev->hdmi_hpd = false;
+            return;
+        }
+    }
+
     ALOGV("HDMI HPD changed to %s", pdev->hdmi_hpd ? "enabled" : "disabled");
+    if (pdev->hdmi_hpd)
+        ALOGI("HDMI Resolution changed to %dx%d", pdev->hdmi_cfg.h, pdev->hdmi_cfg.w);
 
     if (pdev->procs && pdev->procs->invalidate)
         pdev->procs->invalidate(pdev->procs);
@@ -1184,11 +1227,18 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
         goto err_open_fb;
     }
 
+    dev->hdmi_fd = open("/dev/video16", O_RDWR);
+    if (dev->hdmi_fd < 0) {
+        ALOGE("failed to open hdmi device");
+        ret = dev->hdmi_fd;
+        goto err_ioctl;
+    }
+
     dev->vsync_fd = open("/sys/devices/platform/exynos5-fb.1/vsync", O_RDONLY);
     if (dev->vsync_fd < 0) {
         ALOGE("failed to open vsync attribute");
         ret = dev->vsync_fd;
-        goto err_ioctl;
+        goto err_hdmi;
     }
 
     sw_fd = open("/sys/class/switch/hdmi/state", O_RDONLY);
@@ -1224,6 +1274,8 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
 
 err_vsync:
     close(dev->vsync_fd);
+err_hdmi:
+    close(dev->hdmi_fd);
 err_ioctl:
     close(dev->fd);
 err_open_fb:
@@ -1248,6 +1300,7 @@ static int exynos5_close(hw_device_t *device)
     }
     gralloc_close(dev->alloc_device);
     close(dev->vsync_fd);
+    close(dev->hdmi_fd);
     close(dev->fd);
     return 0;
 }
