@@ -85,20 +85,22 @@ struct private_handle_t {
     int     width;
     int     height;
     int     stride;
+    int     vstride;
 
     // FIXME: the attributes below should be out-of-line
     void    *base;
 
 #ifdef __cplusplus
     static const int sNumFds = 3;
-    static const int sNumInts = 9;
+    static const int sNumInts = 10;
     static const int sMagic = 0x3141592;
 
 
     private_handle_t(int fd, int size, int flags, int w,
-		     int h, int format, int stride) :
+		     int h, int format, int stride, int vstride) :
         fd(fd), magic(sMagic), flags(flags), size(size),
-	offset(0), format(format), width(w), height(h), stride(stride), base(0)
+        offset(0), format(format), width(w), height(h), stride(stride),
+        vstride(vstride), base(0)
     {
         version = sizeof(native_handle);
         numInts = sNumInts;
@@ -108,9 +110,10 @@ struct private_handle_t {
     }
 
     private_handle_t(int fd, int fd1, int fd2, int size, int flags, int w,
-		     int h, int format, int stride) :
+		     int h, int format, int stride, int vstride) :
         fd(fd), fd1(fd1), fd2(fd2), magic(sMagic), flags(flags), size(size),
-	offset(0), format(format), width(w), height(h), stride(stride), base(0)
+        offset(0), format(format), width(w), height(h), stride(stride),
+        vstride(vstride), base(0)
     {
         version = sizeof(native_handle);
         numInts = sNumInts;
