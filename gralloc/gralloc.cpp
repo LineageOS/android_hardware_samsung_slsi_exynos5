@@ -111,8 +111,8 @@ framebuffer: 0,
 
 #define ALIGN(x, a) (((x) + (a - 1)) & ~(a - 1))
 
-static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int flags,
-                             private_handle_t **hnd, int *stride)
+static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int usage,
+                             unsigned int ion_flags, private_handle_t **hnd, int *stride)
 {
     size_t size, bpr;
     int bpp = 0, vstride, fd, err;
@@ -143,14 +143,16 @@ static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int flags,
     *stride = bpr / bpp;
     size = ALIGN(size, PAGE_SIZE);
 
-    err = ion_alloc_fd(ionfd, size, 0, 1 << ION_HEAP_TYPE_SYSTEM, flags, &fd);
-    *hnd = new private_handle_t(fd, size, 0, w, h, format, *stride, vstride);
+    err = ion_alloc_fd(ionfd, size, 0, 1 << ION_HEAP_TYPE_SYSTEM, ion_flags,
+                       &fd);
+    *hnd = new private_handle_t(fd, size, usage, w, h, format, *stride,
+                                vstride);
 
     return err;
 }
 
-static int gralloc_alloc_yuv(int ionfd, int w, int h, int format, int flags,
-                             private_handle_t **hnd, int *stride)
+static int gralloc_alloc_yuv(int ionfd, int w, int h, int format, int usage,
+                             unsigned int ion_flags, private_handle_t **hnd, int *stride)
 {
     size_t luma_size, chroma_size;
     int err, planes, fd, fd1, fd2 = 0;
@@ -183,22 +185,23 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format, int flags,
         return -EINVAL;
     }
 
-    err = ion_alloc_fd(ionfd, luma_size, 0, 1 << ION_HEAP_TYPE_SYSTEM, flags,
-                       &fd);
+    err = ion_alloc_fd(ionfd, luma_size, 0, 1 << ION_HEAP_TYPE_SYSTEM,
+                       ion_flags, &fd);
     if (err)
         return err;
-    err = ion_alloc_fd(ionfd, chroma_size, 0, 1 << ION_HEAP_TYPE_SYSTEM, flags,
+    err = ion_alloc_fd(ionfd, chroma_size, 0, 1 << ION_HEAP_TYPE_SYSTEM,
+                       ion_flags,
                        &fd1);
     if (err)
         goto err1;
     if (planes == 3) {
         err = ion_alloc_fd(ionfd, chroma_size, 0, 1 << ION_HEAP_TYPE_SYSTEM,
-                           flags, &fd2);
+                           ion_flags, &fd2);
         if (err)
             goto err2;
     }
 
-    *hnd = new private_handle_t(fd, fd1, fd2, luma_size, 0, w, h, format,
+    *hnd = new private_handle_t(fd, fd1, fd2, luma_size, usage, w, h, format,
                                 *stride, luma_vstride);
     return err;
 
@@ -215,23 +218,25 @@ static int gralloc_alloc(alloc_device_t* dev,
 {
     int stride;
     int err;
-    int flags = 0;
+    unsigned int ion_flags = 0;
     private_handle_t *hnd;
 
     if (!pHandle || !pStride)
         return -EINVAL;
 
     if( (usage & GRALLOC_USAGE_SW_READ_MASK) == GRALLOC_USAGE_SW_READ_OFTEN )
-        flags = ION_FLAG_CACHED;
+        ion_flags = ION_FLAG_CACHED;
 
     private_module_t* m = reinterpret_cast<private_module_t*>
         (dev->common.module);
     gralloc_module_t* module = reinterpret_cast<gralloc_module_t*>
         (dev->common.module);
 
-    err = gralloc_alloc_rgb(m->ionfd, w, h, format, flags, &hnd, &stride);
+    err = gralloc_alloc_rgb(m->ionfd, w, h, format, usage, ion_flags, &hnd,
+                            &stride);
     if (err)
-        err = gralloc_alloc_yuv(m->ionfd, w, h, format, flags, &hnd, &stride);
+        err = gralloc_alloc_yuv(m->ionfd, w, h, format, usage, ion_flags,
+                                &hnd, &stride);
     if (err)
         return err;
 
