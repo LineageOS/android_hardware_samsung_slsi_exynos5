@@ -647,8 +647,6 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
 
     for (size_t i = 0; i < displays[0]->numHwLayers; i++) {
         hwc_layer_1_t &layer = displays[0]->hwLayers[i];
-        if (layer.flags & HWC_SKIP_LAYER)
-            continue;
 
         if (fb_needed && i == first_fb) {
             ALOGV("assigning framebuffer to window %u\n",
