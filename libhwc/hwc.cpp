@@ -144,10 +144,10 @@ static void dump_config(s3c_fb_win_config &c)
     if (c.state == c.S3C_FB_WIN_STATE_BUFFER) {
         ALOGV("\t\tfd = %d, offset = %u, stride = %u, "
                 "x = %d, y = %d, w = %u, h = %u, "
-                "format = %u",
+                "format = %u, blending = %u",
                 c.fd, c.offset, c.stride,
                 c.x, c.y, c.w, c.h,
-                c.format);
+                c.format, c.blending);
     }
     else if (c.state == c.S3C_FB_WIN_STATE_COLOR) {
         ALOGV("\t\tcolor = %u", c.color);
@@ -193,8 +193,6 @@ static enum s3c_fb_pixel_format exynos5_format_to_s3c_format(int format)
         return S3C_FB_PIXEL_FORMAT_RGBX_8888;
     case HAL_PIXEL_FORMAT_RGBA_5551:
         return S3C_FB_PIXEL_FORMAT_RGBA_5551;
-    case HAL_PIXEL_FORMAT_RGBA_4444:
-        return S3C_FB_PIXEL_FORMAT_RGBA_4444;
 
     default:
         return S3C_FB_PIXEL_FORMAT_MAX;
@@ -346,6 +344,26 @@ int hdmi_get_config(struct exynos5_hwc_composer_device_1_t *dev)
     return found ? 0 : -1;
 }
 
+static enum s3c_fb_blending exynos5_blending_to_s3c_blending(int32_t blending)
+{
+    switch (blending) {
+    case HWC_BLENDING_NONE:
+        return S3C_FB_BLENDING_NONE;
+    case HWC_BLENDING_PREMULT:
+        return S3C_FB_BLENDING_PREMULT;
+    case HWC_BLENDING_COVERAGE:
+        return S3C_FB_BLENDING_COVERAGE;
+
+    default:
+        return S3C_FB_BLENDING_MAX;
+    }
+}
+
+static bool exynos5_blending_is_supported(int32_t blending)
+{
+    return exynos5_blending_to_s3c_blending(blending) < S3C_FB_BLENDING_MAX;
+}
+
 static int hdmi_enable(struct exynos5_hwc_composer_device_1_t *dev)
 {
     if (dev->hdmi_mirroring)
@@ -441,9 +459,8 @@ bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i)
             return false;
         }
     }
-    if (layer.blending != HWC_BLENDING_NONE) {
-        // TODO: support this
-        ALOGV("\tlayer %u: blending not supported", i);
+    if (!exynos5_blending_is_supported(layer.blending)) {
+        ALOGV("\tlayer %u: blending %d not supported", i, layer.blending);
         return false;
     }
 
@@ -815,7 +832,7 @@ err_alloc:
 
 static void exynos5_config_handle(private_handle_t *handle,
         hwc_rect_t &sourceCrop, hwc_rect_t &displayFrame,
-        s3c_fb_win_config &cfg)
+        int32_t blending, s3c_fb_win_config &cfg)
 {
     cfg.state = cfg.S3C_FB_WIN_STATE_BUFFER;
     cfg.fd = handle->fd;
@@ -827,6 +844,7 @@ static void exynos5_config_handle(private_handle_t *handle,
     uint8_t bpp = exynos5_format_to_bpp(handle->format);
     cfg.offset = (sourceCrop.top * handle->stride + sourceCrop.left) * bpp / 8;
     cfg.stride = handle->stride * bpp / 8;
+    cfg.blending = exynos5_blending_to_s3c_blending(blending);
 }
 
 static void exynos5_config_overlay(hwc_layer_1_t *layer, s3c_fb_win_config &cfg,
@@ -844,7 +862,8 @@ static void exynos5_config_overlay(hwc_layer_1_t *layer, s3c_fb_win_config &cfg,
     }
 
     private_handle_t *handle = private_handle_t::dynamicCast(layer->handle);
-    exynos5_config_handle(handle, layer->sourceCrop, layer->displayFrame, cfg);
+    exynos5_config_handle(handle, layer->sourceCrop, layer->displayFrame,
+            layer->blending, cfg);
 }
 
 static void exynos5_post_callback(void *data, private_handle_t *fb)
@@ -880,7 +899,9 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
     for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
         if (i == pdata->fb_window) {
             hwc_rect_t rect = { 0, 0, fb->width, fb->height };
-            exynos5_config_handle(fb, rect, rect, config[i]);
+            int32_t blending = (i == 0) ? HWC_BLENDING_NONE :
+                    HWC_BLENDING_PREMULT;
+            exynos5_config_handle(fb, rect, rect, blending, config[i]);
         } else if ( pdata->overlay_map[i] != -1) {
             hwc_layer_1_t &layer = pdata->overlays[i];
             private_handle_t *handle =
@@ -909,13 +930,18 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
                 private_handle_t *dst_handle =
                         private_handle_t::dynamicCast(dst_buf);
                 exynos5_config_handle(dst_handle, layer.sourceCrop,
-                        layer.displayFrame, config[i]);
+                        layer.displayFrame, layer.blending, config[i]);
             }
             else {
                 exynos5_config_overlay(&layer, config[i],
                         pdata->pdev->gralloc_module);
             }
         }
+        if (i == 0 && config[i].blending != S3C_FB_BLENDING_NONE) {
+            ALOGV("blending not supported on window 0; forcing BLENDING_NONE");
+            config[i].blending = S3C_FB_BLENDING_NONE;
+        }
+
         ALOGV("window %u configuration:", i);
         dump_config(config[i]);
     }
