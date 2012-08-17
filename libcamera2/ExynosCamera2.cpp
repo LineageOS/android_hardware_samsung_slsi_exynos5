@@ -137,6 +137,9 @@ ExynosCamera2InfoS5K4E5::ExynosCamera2InfoS5K4E5()
     scalerResolutions   = scalerResolutionS5K4E5;
     numJpegResolution   = ARRAY_SIZE(jpegResolutionS5K4E5)/2;
     jpegResolutions     = jpegResolutionS5K4E5;
+    minFocusDistance    = 0.1f;
+    focalLength         = 3.43f;
+    aperture            = 2.7f;
 }
 
 const int32_t scalerResolutionS5K6A3[] =
@@ -161,6 +164,9 @@ ExynosCamera2InfoS5K6A3::ExynosCamera2InfoS5K6A3()
     scalerResolutions   = scalerResolutionS5K6A3;
     numJpegResolution   = ARRAY_SIZE(jpegResolutionS5K6A3)/2;
     jpegResolutions     = jpegResolutionS5K6A3;
+    minFocusDistance    = 0.0f;
+    focalLength         = 2.73f;
+    aperture            = 2.8f;
 }
 
 ExynosCamera2::ExynosCamera2(int cameraId):
@@ -255,18 +261,16 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
 
     // android.lens
 
-    static const float minFocusDistance = 0;
     ADD_OR_SIZE(ANDROID_LENS_MINIMUM_FOCUS_DISTANCE,
-            &minFocusDistance, 1);
+            &(m_curCameraInfo->minFocusDistance), 1);
     ADD_OR_SIZE(ANDROID_LENS_HYPERFOCAL_DISTANCE,
-            &minFocusDistance, 1);
+            &(m_curCameraInfo->minFocusDistance), 1);
 
-    static const float focalLength = 3.30f; // mm
     ADD_OR_SIZE(ANDROID_LENS_AVAILABLE_FOCAL_LENGTHS,
-            &focalLength, 1);
-    static const float aperture = 2.8f;
+            &m_curCameraInfo->focalLength, 1);
     ADD_OR_SIZE(ANDROID_LENS_AVAILABLE_APERTURES,
-            &aperture, 1);
+            &m_curCameraInfo->aperture, 1);
+
     static const float filterDensity = 0;
     ADD_OR_SIZE(ANDROID_LENS_AVAILABLE_FILTER_DENSITY,
             &filterDensity, 1);
@@ -495,7 +499,11 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
             availableAwbModes, sizeof(availableAwbModes));
 
     static const uint8_t availableAfModes[] = {
-            ANDROID_CONTROL_AF_OFF
+            ANDROID_CONTROL_AF_OFF,
+            ANDROID_CONTROL_AF_AUTO,
+            ANDROID_CONTROL_AF_MACRO,
+            ANDROID_CONTROL_AF_CONTINUOUS_PICTURE,
+            ANDROID_CONTROL_AF_CONTINUOUS_VIDEO
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AF_AVAILABLE_MODES,
             availableAfModes, sizeof(availableAfModes));
@@ -560,11 +568,9 @@ status_t ExynosCamera2::constructDefaultRequest(
     static const float focusDistance = 0;
     ADD_OR_SIZE(ANDROID_LENS_FOCUS_DISTANCE, &focusDistance, 1);
 
-    static const float aperture = 2.8f;
-    ADD_OR_SIZE(ANDROID_LENS_APERTURE, &aperture, 1);
+    ADD_OR_SIZE(ANDROID_LENS_APERTURE, &m_curCameraInfo->aperture, 1);
 
-    static const float focalLength = 5.0f;
-    ADD_OR_SIZE(ANDROID_LENS_FOCAL_LENGTH, &focalLength, 1);
+    ADD_OR_SIZE(ANDROID_LENS_FOCAL_LENGTH, &m_curCameraInfo->focalLength, 1);
 
     static const float filterDensity = 0;
     ADD_OR_SIZE(ANDROID_LENS_FILTER_DENSITY, &filterDensity, 1);
@@ -805,10 +811,10 @@ status_t ExynosCamera2::constructDefaultRequest(
     uint8_t afMode = 0;
     switch (request_template) {
       case CAMERA2_TEMPLATE_PREVIEW:
-        afMode = ANDROID_CONTROL_AF_AUTO;
+        afMode = ANDROID_CONTROL_AF_CONTINUOUS_PICTURE;
         break;
       case CAMERA2_TEMPLATE_STILL_CAPTURE:
-        afMode = ANDROID_CONTROL_AF_AUTO;
+        afMode = ANDROID_CONTROL_AF_CONTINUOUS_PICTURE;
         break;
       case CAMERA2_TEMPLATE_VIDEO_RECORD:
         afMode = ANDROID_CONTROL_AF_CONTINUOUS_VIDEO;

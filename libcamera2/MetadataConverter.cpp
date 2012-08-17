@@ -80,7 +80,6 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
     camera_metadata_entry_t curr_entry;
     struct camera2_shot * dst = NULL;
 
-    ALOGV("DEBUG(%s):", __FUNCTION__);
     if (request == NULL || dst_ext == NULL)
         return BAD_VALUE;
 
@@ -92,7 +91,6 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
     for (index = 0 ; index < num_entry ; index++) {
 
         if (get_camera_metadata_entry(request, index, &curr_entry)==0) {
-            //ALOGV("### MetadataConverter.ToInternalCtl. tag(%x)", curr_entry.tag);
             switch (curr_entry.tag) {
 
             case ANDROID_LENS_FOCUS_DISTANCE:
@@ -415,7 +413,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
             case ANDROID_CONTROL_AF_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.afMode = (enum aa_afmode)curr_entry.data.u8[0];
+                dst->ctl.aa.afMode = (enum aa_afmode)(curr_entry.data.u8[0] + 1);
                 break;
 
             case ANDROID_CONTROL_AF_REGIONS:
