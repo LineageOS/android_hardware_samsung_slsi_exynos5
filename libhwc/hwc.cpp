@@ -927,7 +927,9 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
                 gsc.current_buf = (gsc.current_buf + 1) % NUM_GSC_DST_BUFS;
                 private_handle_t *dst_handle =
                         private_handle_t::dynamicCast(dst_buf);
-                exynos5_config_handle(dst_handle, layer.sourceCrop,
+                hwc_rect_t sourceCrop = { 0, 0,
+                        WIDTH(layer.displayFrame), HEIGHT(layer.displayFrame) };
+                exynos5_config_handle(dst_handle, sourceCrop,
                         layer.displayFrame, layer.blending, config[i]);
             }
             else {
