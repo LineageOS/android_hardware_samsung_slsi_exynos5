@@ -288,21 +288,6 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
     ADD_OR_SIZE(ANDROID_LENS_SHADING_MAP, lensShadingMap,
             sizeof(lensShadingMap)/sizeof(float));
 
-    // Identity transform
-    static const int32_t geometricCorrectionMapSize[] = {2, 2};
-    ADD_OR_SIZE(ANDROID_LENS_GEOMETRIC_CORRECTION_MAP_SIZE,
-            geometricCorrectionMapSize,
-            sizeof(geometricCorrectionMapSize)/sizeof(int32_t));
-
-    static const float geometricCorrectionMap[2 * 3 * 2 * 2] = {
-            0.f, 0.f,  0.f, 0.f,  0.f, 0.f,
-            1.f, 0.f,  1.f, 0.f,  1.f, 0.f,
-            0.f, 1.f,  0.f, 1.f,  0.f, 1.f,
-            1.f, 1.f,  1.f, 1.f,  1.f, 1.f};
-    ADD_OR_SIZE(ANDROID_LENS_GEOMETRIC_CORRECTION_MAP,
-            geometricCorrectionMap,
-            sizeof(geometricCorrectionMap)/sizeof(float));
-
     int32_t lensFacing = cameraId ?
             ANDROID_LENS_FACING_FRONT : ANDROID_LENS_FACING_BACK;
     ADD_OR_SIZE(ANDROID_LENS_FACING, &lensFacing, 1);
@@ -388,7 +373,7 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
             kAvailableJpegMinDurations,
             sizeof(kAvailableJpegMinDurations)/sizeof(uint64_t));
 
-    static const float maxZoom = 3.5;
+    static const float maxZoom = 1;
     ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_MAX_ZOOM, &maxZoom, 1);
 
     // android.jpeg
@@ -437,10 +422,10 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
     // android.control
 
     static const uint8_t availableSceneModes[] = {
-            ANDROID_CONTROL_SCENE_MODE_PARTY,
-            ANDROID_CONTROL_SCENE_MODE_SPORTS,
+            ANDROID_CONTROL_SCENE_MODE_ACTION,
             ANDROID_CONTROL_SCENE_MODE_NIGHT,
-            ANDROID_CONTROL_SCENE_MODE_BEACH
+            ANDROID_CONTROL_SCENE_MODE_SUNSET,
+            ANDROID_CONTROL_SCENE_MODE_PARTY
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AVAILABLE_SCENE_MODES,
             availableSceneModes, sizeof(availableSceneModes));
@@ -463,12 +448,12 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
             availableAeModes, sizeof(availableAeModes));
 
     static const camera_metadata_rational exposureCompensationStep = {
-            1, 3
+            1, 1
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AE_EXP_COMPENSATION_STEP,
             &exposureCompensationStep, 1);
 
-    int32_t exposureCompensationRange[] = {-9, 9};
+    int32_t exposureCompensationRange[] = {-3, 3};
     ADD_OR_SIZE(ANDROID_CONTROL_AE_EXP_COMPENSATION_RANGE,
             exposureCompensationRange,
             sizeof(exposureCompensationRange)/sizeof(int32_t));
@@ -493,7 +478,7 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
             ANDROID_CONTROL_AWB_INCANDESCENT,
             ANDROID_CONTROL_AWB_FLUORESCENT,
             ANDROID_CONTROL_AWB_DAYLIGHT,
-            ANDROID_CONTROL_AWB_SHADE
+            ANDROID_CONTROL_AWB_CLOUDY_DAYLIGHT
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AWB_AVAILABLE_MODES,
             availableAwbModes, sizeof(availableAwbModes));

@@ -193,6 +193,10 @@ private:
     int                             m_sensorPipelineSkipCnt;
     int                             m_cropX;
     int		         m_frameIndex;
+    int                             m_lastAeMode;
+    int                             m_lastAaMode;
+    int                             m_lastAwbMode;
+    int                             m_lastAeComp;
 };
 
 

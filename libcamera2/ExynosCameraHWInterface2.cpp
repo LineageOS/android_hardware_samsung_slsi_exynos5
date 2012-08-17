@@ -268,6 +268,10 @@ RequestManager::RequestManager(SignalDrivenThread* main_thread):
     m_entryInsertionIndex(-1),
     m_entryProcessingIndex(-1),
     m_entryFrameOutputIndex(-1),
+    m_lastAeMode(0),
+    m_lastAaMode(0),
+    m_lastAwbMode(0),
+    m_lastAeComp(0),
     m_frameIndex(-1)
 {
     m_metadataConverter = new MetadataConverter;
@@ -589,6 +593,7 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
 
     request_manager_entry * newEntry = &(entries[index]);
     request_shot = &(newEntry->internal_shot);
+    memcpy(&(shot_ext->shot.ctl), &(request_shot->shot.ctl), sizeof(struct camera2_ctl));
     shot_ext->request_sensor = 1;
     shot_ext->dis_bypass = 1;
     shot_ext->dnr_bypass = 1;
@@ -602,7 +607,34 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
     shot_ext->shot.ctl.request.outputStreams[1] = 0;
     shot_ext->shot.ctl.request.outputStreams[2] = 0;
 
-
+    if (m_lastAaMode == request_shot->shot.ctl.aa.mode) {
+        shot_ext->shot.ctl.aa.mode = (enum aa_mode)(0);
+    }
+    else {
+        shot_ext->shot.ctl.aa.mode = request_shot->shot.ctl.aa.mode;
+        m_lastAaMode = (int)(shot_ext->shot.ctl.aa.mode);
+    }
+    if (m_lastAeMode == request_shot->shot.ctl.aa.aeMode) {
+        shot_ext->shot.ctl.aa.aeMode = (enum aa_aemode)(0);
+    }
+    else {
+        shot_ext->shot.ctl.aa.aeMode = request_shot->shot.ctl.aa.aeMode;
+        m_lastAeMode = (int)(shot_ext->shot.ctl.aa.aeMode);
+    }
+    if (m_lastAwbMode == request_shot->shot.ctl.aa.awbMode) {
+        shot_ext->shot.ctl.aa.awbMode = (enum aa_awbmode)(0);
+    }
+    else {
+        shot_ext->shot.ctl.aa.awbMode = request_shot->shot.ctl.aa.awbMode;
+        m_lastAwbMode = (int)(shot_ext->shot.ctl.aa.awbMode);
+    }
+    if (m_lastAeComp == request_shot->shot.ctl.aa.aeExpCompensation) {
+        shot_ext->shot.ctl.aa.aeExpCompensation = 0;
+    }
+    else {
+        shot_ext->shot.ctl.aa.aeExpCompensation = request_shot->shot.ctl.aa.aeExpCompensation;
+        m_lastAeComp = (int)(shot_ext->shot.ctl.aa.aeExpCompensation);
+    }
     if (afTrigger) {
         ALOGE("### AF Trigger ");
         shot_ext->shot.ctl.aa.afTrigger = 1;
@@ -629,12 +661,17 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
             ALOGV("DEBUG(%s): outputstreams(%d) is for scalerP (record)", __FUNCTION__, i);
             shot_ext->request_scp = 1;
             shot_ext->shot.ctl.request.outputStreams[2] = 1;
+            shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 30;
+            shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
         }
         else {
             ALOGV("DEBUG(%s): outputstreams(%d) has abnormal value(%d)", __FUNCTION__, i, targetStreamIndex);
         }
     }
-
+        ALOGV("(%s): applied aa(%d) aemode(%d) expComp(%d), awb(%d) afmode(%d), ", __FUNCTION__,
+        (int)(shot_ext->shot.ctl.aa.mode), (int)(shot_ext->shot.ctl.aa.aeMode),
+        (int)(shot_ext->shot.ctl.aa.aeExpCompensation), (int)(shot_ext->shot.ctl.aa.awbMode),
+        (int)(shot_ext->shot.ctl.aa.afMode));
 }
 
 int     RequestManager::FindEntryIndexByFrameCnt(int frameCnt)
