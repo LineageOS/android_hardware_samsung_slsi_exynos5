@@ -116,12 +116,14 @@ const uint64_t kAvailableJpegMinDurations[1] = {
 const int32_t scalerResolutionS5K4E5[] =
 {
     1920, 1080,
+    1440, 1080,
     1280,  720,
 };
 
 const int32_t jpegResolutionS5K4E5[] =
 {
     2560, 1920,
+    2560, 1440,
     1280,  720,
 };
 
@@ -139,11 +141,13 @@ ExynosCamera2InfoS5K4E5::ExynosCamera2InfoS5K4E5()
 
 const int32_t scalerResolutionS5K6A3[] =
 {
+    1280,  960,
     1280,  720,
 };
 
 const int32_t jpegResolutionS5K6A3[] =
 {
+    1280,  960,
     1280,  720,
 };
 

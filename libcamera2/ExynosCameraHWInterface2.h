@@ -58,9 +58,8 @@ namespace android {
 #define NODE_PREFIX     "/dev/video"
 
 #define NUM_MAX_STREAM_THREAD       (5)
-#define NUM_MAX_DEQUEUED_REQUEST    (6)
-/* #define NUM_MAX_REQUEST_MGR_ENTRY   NUM_MAX_DEQUEUED_REQUEST */
 #define NUM_MAX_REQUEST_MGR_ENTRY   (10)
+#define NUM_MAX_DEQUEUED_REQUEST NUM_MAX_REQUEST_MGR_ENTRY
 #define MAX_CAMERA_MEMORY_PLANE_NUM	(4)
 #define NUM_MAX_CAMERA_BUFFERS      (16)
 #define NUM_BAYER_BUFFERS           (8)
@@ -108,7 +107,6 @@ typedef struct node_info {
     enum v4l2_buf_type type;
     ion_client ionClient;
     ExynosBuffer buffer[NUM_MAX_CAMERA_BUFFERS];
-    bool streamOn;
 } node_info_t;
 
 
@@ -153,7 +151,7 @@ public:
     int   MarkProcessingRequest(ExynosBuffer *buf);
     void      NotifyStreamOutput(int frameCnt, int stream_id);
     void    DumpInfoWithIndex(int index);
-    void    ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext, int frameCnt);
+    void    ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext);
     void    CheckCompleted(int index);
     void    UpdateIspParameters(struct camera2_shot_ext *shot_ext, int frameCnt);
     void    RegisterTimestamp(int frameCnt, nsecs_t *frameTime);
@@ -164,6 +162,9 @@ public:
     int     GetNextIndex(int index);
     void    SetDefaultParameters(int cropX);
     void    SetInitialSkip(int count);
+    int     GetSkipCnt();
+    void    SetFrameIndex(int index);
+    int    GetFrameIndex();
 private:
 
     MetadataConverter               *m_metadataConverter;
@@ -183,7 +184,7 @@ private:
 
     int                             m_sensorPipelineSkipCnt;
     int                             m_cropX;
-
+    int		         m_frameIndex;
 };
 
 
@@ -443,6 +444,8 @@ class MainThread : public SignalDrivenThread {
     bool            yuv2Jpeg(ExynosBuffer *yuvBuf,
                             ExynosBuffer *jpegBuf,
                             ExynosRect *rect);
+    void            InitializeISPChain();
+    void            StartISP();
     exif_attribute_t    mExifInfo;
     void               *m_exynosPictureCSC;
     void               *m_exynosVideoCSC;
@@ -467,8 +470,9 @@ class MainThread : public SignalDrivenThread {
 
     bool                                m_isSensorThreadOn;
     bool                                m_isSensorStarted;
+    bool                                m_isIspStarted;
 
-
+    int                                 m_need_streamoff;
 
     bool                                m_initFlag1;
     bool                                m_initFlag2;
@@ -488,7 +492,9 @@ class MainThread : public SignalDrivenThread {
     int             				    m_cameraId;
     bool                                m_scp_closing;
     bool                                m_scp_closed;
-    
+
+    mutable Mutex    m_qbufLock;
+
 };
 
 }; // namespace android

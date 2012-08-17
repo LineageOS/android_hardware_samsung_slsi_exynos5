@@ -27,7 +27,7 @@
  *   Initial Release
  */
 
-//#define LOG_NDEBUG 1
+//#define LOG_NDEBUG 0
 #define LOG_TAG "MetadataConverter"
 #include <utils/Log.h>
 
@@ -360,17 +360,6 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 dst->ctl.aa.mode = (enum aa_mode)curr_entry.data.u8[0];
                 break;
 
-            case ANDROID_CONTROL_EFFECT_MODE:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
-                    break;
-                dst->ctl.aa.effectMode = (enum aa_effect_mode)(curr_entry.data.u8[0] + 1);
-                break;
-
-            case ANDROID_CONTROL_SCENE_MODE:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
-                    break;
-                dst->ctl.aa.sceneMode = (enum aa_scene_mode)(curr_entry.data.u8[0] + 1);
-                break;
 
             case ANDROID_CONTROL_VIDEO_STABILIZATION_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
@@ -455,10 +444,12 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
             case ANDROID_REQUEST_OUTPUT_STREAMS:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE))
                     break;
+
                 for (i=0 ; i<curr_entry.count ; i++) {
                     dst->ctl.request.outputStreams[i] = curr_entry.data.u8[i];
                     ALOGV("DEBUG(%s): OUTPUT_STREAM[%d] = %d ",  __FUNCTION__, i, (int)(dst->ctl.request.outputStreams[i]));
                 }
+
                 dst->ctl.request.outputStreams[15] = curr_entry.count;
                 break;
 
@@ -470,7 +461,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 break;
 
             default:
-                ALOGD("DEBUG(%s):Bad Metadata tag (%d)",  __FUNCTION__, curr_entry.tag);
+                ALOGV("DEBUG(%s):Bad Metadata tag (%d)",  __FUNCTION__, curr_entry.tag);
                 break;
             }
         }
@@ -533,20 +524,15 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
                 &byteData, 1))
         return NO_MEMORY;
 
-    byteData = metadata->ctl.aa.effectMode - 1;
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_EFFECT_MODE,
-                &byteData, 1))
-        return NO_MEMORY;
-
     intData = metadata->ctl.aa.aeExpCompensation;
     if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_EXP_COMPENSATION,
                 &intData, 1))
         return NO_MEMORY;
 
 
-    ALOGV("(%s): AWB(%d) AE(%d) SCENE(%d) EFFECT(%d) AEComp(%d)", __FUNCTION__,
-      metadata->dm.aa.awbMode - 1, metadata->dm.aa.aeMode - 1, metadata->ctl.aa.sceneMode - 1,
-      metadata->ctl.aa.effectMode - 1, metadata->ctl.aa.aeExpCompensation );
+    ALOGV("(%s): AWB(%d) AE(%d) SCENE(%d)  AEComp(%d)", __FUNCTION__,
+       metadata->dm.aa.awbMode - 1, metadata->dm.aa.aeMode - 1, metadata->ctl.aa.sceneMode - 1,
+       metadata->ctl.aa.aeExpCompensation );
 
 
     if (metadata->ctl.request.metadataMode == METADATA_MODE_NONE) {
