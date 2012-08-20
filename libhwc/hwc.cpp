@@ -116,8 +116,8 @@ struct exynos5_hwc_composer_device_1_t {
 
 static void dump_handle(private_handle_t *h)
 {
-    ALOGV("\t\tformat = %d, width = %u, height = %u, stride = %u",
-            h->format, h->width, h->height, h->stride);
+    ALOGV("\t\tformat = %d, width = %u, height = %u, stride = %u, vstride = %u",
+            h->format, h->width, h->height, h->stride, h->vstride);
 }
 
 static void dump_layer(hwc_layer_1_t const *l)
@@ -293,8 +293,8 @@ static bool exynos5_supports_gscaler(hwc_layer_1_t &layer, int format,
             handle->stride % GSC_W_ALIGNMENT == 0 &&
             src_w <= dest_w * max_downscale &&
             dest_w <= src_w * max_upscale &&
-            handle->height <= max_h &&
-            handle->height % GSC_H_ALIGNMENT == 0 &&
+            handle->vstride <= max_h &&
+            handle->vstride % GSC_H_ALIGNMENT == 0 &&
             src_h <= dest_h * max_downscale &&
             dest_h <= src_h * max_upscale &&
             // per 46.2
@@ -728,7 +728,7 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     src_cfg.w = WIDTH(layer.sourceCrop);
     src_cfg.fw = src_handle->stride;
     src_cfg.h = HEIGHT(layer.sourceCrop);
-    src_cfg.fh = src_handle->height;
+    src_cfg.fh = src_handle->vstride;
     src_cfg.yaddr = src_handle->fd;
     if (exynos5_format_is_ycrcb(src_handle->format)) {
         src_cfg.uaddr = src_handle->fd2;
@@ -783,7 +783,7 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     dst_handle = private_handle_t::dynamicCast(dst_buf);
 
     dst_cfg.fw = dst_handle->stride;
-    dst_cfg.fh = dst_handle->height;
+    dst_cfg.fh = dst_handle->vstride;
     dst_cfg.yaddr = dst_handle->fd;
 
     ALOGV("destination configuration:");
