@@ -55,9 +55,11 @@ typedef android::Vector<struct hwc_callback_entry> hwc_callback_queue_t;
 const size_t NUM_HW_WINDOWS = 5;
 const size_t NO_FB_NEEDED = NUM_HW_WINDOWS + 1;
 const size_t MAX_PIXELS = 2560 * 1600 * 2;
-const size_t NUM_GSC_UNITS = 4;
 const size_t GSC_W_ALIGNMENT = 16;
 const size_t GSC_H_ALIGNMENT = 16;
+const int AVAILABLE_GSC_UNITS[] = { 0, 3 };
+const size_t NUM_GSC_UNITS = sizeof(AVAILABLE_GSC_UNITS) /
+        sizeof(AVAILABLE_GSC_UNITS[0]);
 
 struct exynos5_hwc_composer_device_1_t;
 
@@ -661,7 +663,7 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
                 private_handle_t *handle =
                         private_handle_t::dynamicCast(layer.handle);
                 if (exynos5_format_requires_gscaler(handle->format)) {
-                    ALOGV("\tusing gscaler %u", nextGsc);
+                    ALOGV("\tusing gscaler %u", AVAILABLE_GSC_UNITS[nextGsc]);
                     pdev->bufs.gsc_map[i].mode =
                             exynos5_gsc_map_t::GSC_M2M;
                     pdev->bufs.gsc_map[i].idx = nextGsc++;
@@ -787,8 +789,8 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     ALOGV("destination configuration:");
     dump_gsc_img(dst_cfg);
 
-    gsc_data->gsc = exynos_gsc_create_exclusive(gsc_idx, GSC_M2M_MODE,
-            GSC_DUMMY);
+    gsc_data->gsc = exynos_gsc_create_exclusive(AVAILABLE_GSC_UNITS[gsc_idx],
+            GSC_M2M_MODE, GSC_DUMMY);
     if (!gsc_data->gsc) {
         ALOGE("failed to create gscaler handle");
         ret = -1;
