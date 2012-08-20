@@ -55,10 +55,9 @@ typedef android::Vector<struct hwc_callback_entry> hwc_callback_queue_t;
 const size_t NUM_HW_WINDOWS = 5;
 const size_t NO_FB_NEEDED = NUM_HW_WINDOWS + 1;
 const size_t MAX_PIXELS = 2560 * 1600 * 2;
-const size_t NUM_GSC_UNITS = 3;
+const size_t NUM_GSC_UNITS = 4;
 const size_t GSC_W_ALIGNMENT = 16;
 const size_t GSC_H_ALIGNMENT = 16;
-const int CAMERA_GSC_IDX = 2;
 
 struct exynos5_hwc_composer_device_1_t;
 
@@ -666,8 +665,6 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
                     pdev->bufs.gsc_map[i].mode =
                             exynos5_gsc_map_t::GSC_M2M;
                     pdev->bufs.gsc_map[i].idx = nextGsc++;
-                    if (nextGsc == CAMERA_GSC_IDX)
-                        nextGsc++;
                 }
             }
             nextWindow++;
