@@ -116,12 +116,14 @@ const uint64_t kAvailableJpegMinDurations[1] = {
 const int32_t scalerResolutionS5K4E5[] =
 {
     1920, 1080,
+    1440, 1080,
     1280,  720,
 };
 
 const int32_t jpegResolutionS5K4E5[] =
 {
     2560, 1920,
+    2560, 1440,
     1280,  720,
 };
 
@@ -135,15 +137,20 @@ ExynosCamera2InfoS5K4E5::ExynosCamera2InfoS5K4E5()
     scalerResolutions   = scalerResolutionS5K4E5;
     numJpegResolution   = ARRAY_SIZE(jpegResolutionS5K4E5)/2;
     jpegResolutions     = jpegResolutionS5K4E5;
+    minFocusDistance    = 0.1f;
+    focalLength         = 3.43f;
+    aperture            = 2.7f;
 }
 
 const int32_t scalerResolutionS5K6A3[] =
 {
+    1280,  960,
     1280,  720,
 };
 
 const int32_t jpegResolutionS5K6A3[] =
 {
+    1280,  960,
     1280,  720,
 };
 
@@ -157,6 +164,9 @@ ExynosCamera2InfoS5K6A3::ExynosCamera2InfoS5K6A3()
     scalerResolutions   = scalerResolutionS5K6A3;
     numJpegResolution   = ARRAY_SIZE(jpegResolutionS5K6A3)/2;
     jpegResolutions     = jpegResolutionS5K6A3;
+    minFocusDistance    = 0.0f;
+    focalLength         = 2.73f;
+    aperture            = 2.8f;
 }
 
 ExynosCamera2::ExynosCamera2(int cameraId):
@@ -251,18 +261,16 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
 
     // android.lens
 
-    static const float minFocusDistance = 0;
     ADD_OR_SIZE(ANDROID_LENS_MINIMUM_FOCUS_DISTANCE,
-            &minFocusDistance, 1);
+            &(m_curCameraInfo->minFocusDistance), 1);
     ADD_OR_SIZE(ANDROID_LENS_HYPERFOCAL_DISTANCE,
-            &minFocusDistance, 1);
+            &(m_curCameraInfo->minFocusDistance), 1);
 
-    static const float focalLength = 3.30f; // mm
     ADD_OR_SIZE(ANDROID_LENS_AVAILABLE_FOCAL_LENGTHS,
-            &focalLength, 1);
-    static const float aperture = 2.8f;
+            &m_curCameraInfo->focalLength, 1);
     ADD_OR_SIZE(ANDROID_LENS_AVAILABLE_APERTURES,
-            &aperture, 1);
+            &m_curCameraInfo->aperture, 1);
+
     static const float filterDensity = 0;
     ADD_OR_SIZE(ANDROID_LENS_AVAILABLE_FILTER_DENSITY,
             &filterDensity, 1);
@@ -279,21 +287,6 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
             { 1.f, 1.f, 1.f };
     ADD_OR_SIZE(ANDROID_LENS_SHADING_MAP, lensShadingMap,
             sizeof(lensShadingMap)/sizeof(float));
-
-    // Identity transform
-    static const int32_t geometricCorrectionMapSize[] = {2, 2};
-    ADD_OR_SIZE(ANDROID_LENS_GEOMETRIC_CORRECTION_MAP_SIZE,
-            geometricCorrectionMapSize,
-            sizeof(geometricCorrectionMapSize)/sizeof(int32_t));
-
-    static const float geometricCorrectionMap[2 * 3 * 2 * 2] = {
-            0.f, 0.f,  0.f, 0.f,  0.f, 0.f,
-            1.f, 0.f,  1.f, 0.f,  1.f, 0.f,
-            0.f, 1.f,  0.f, 1.f,  0.f, 1.f,
-            1.f, 1.f,  1.f, 1.f,  1.f, 1.f};
-    ADD_OR_SIZE(ANDROID_LENS_GEOMETRIC_CORRECTION_MAP,
-            geometricCorrectionMap,
-            sizeof(geometricCorrectionMap)/sizeof(float));
 
     int32_t lensFacing = cameraId ?
             ANDROID_LENS_FACING_FRONT : ANDROID_LENS_FACING_BACK;
@@ -380,7 +373,7 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
             kAvailableJpegMinDurations,
             sizeof(kAvailableJpegMinDurations)/sizeof(uint64_t));
 
-    static const float maxZoom = 3.5;
+    static const float maxZoom = 1;
     ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_MAX_ZOOM, &maxZoom, 1);
 
     // android.jpeg
@@ -429,10 +422,10 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
     // android.control
 
     static const uint8_t availableSceneModes[] = {
-            ANDROID_CONTROL_SCENE_MODE_PARTY,
-            ANDROID_CONTROL_SCENE_MODE_SPORTS,
+            ANDROID_CONTROL_SCENE_MODE_ACTION,
             ANDROID_CONTROL_SCENE_MODE_NIGHT,
-            ANDROID_CONTROL_SCENE_MODE_BEACH
+            ANDROID_CONTROL_SCENE_MODE_SUNSET,
+            ANDROID_CONTROL_SCENE_MODE_PARTY
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AVAILABLE_SCENE_MODES,
             availableSceneModes, sizeof(availableSceneModes));
@@ -455,12 +448,12 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
             availableAeModes, sizeof(availableAeModes));
 
     static const camera_metadata_rational exposureCompensationStep = {
-            1, 3
+            1, 1
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AE_EXP_COMPENSATION_STEP,
             &exposureCompensationStep, 1);
 
-    int32_t exposureCompensationRange[] = {-9, 9};
+    int32_t exposureCompensationRange[] = {-3, 3};
     ADD_OR_SIZE(ANDROID_CONTROL_AE_EXP_COMPENSATION_RANGE,
             exposureCompensationRange,
             sizeof(exposureCompensationRange)/sizeof(int32_t));
@@ -485,13 +478,17 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
             ANDROID_CONTROL_AWB_INCANDESCENT,
             ANDROID_CONTROL_AWB_FLUORESCENT,
             ANDROID_CONTROL_AWB_DAYLIGHT,
-            ANDROID_CONTROL_AWB_SHADE
+            ANDROID_CONTROL_AWB_CLOUDY_DAYLIGHT
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AWB_AVAILABLE_MODES,
             availableAwbModes, sizeof(availableAwbModes));
 
     static const uint8_t availableAfModes[] = {
-            ANDROID_CONTROL_AF_OFF
+            ANDROID_CONTROL_AF_OFF,
+            ANDROID_CONTROL_AF_AUTO,
+            ANDROID_CONTROL_AF_MACRO,
+            ANDROID_CONTROL_AF_CONTINUOUS_PICTURE,
+            ANDROID_CONTROL_AF_CONTINUOUS_VIDEO
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AF_AVAILABLE_MODES,
             availableAfModes, sizeof(availableAfModes));
@@ -556,11 +553,9 @@ status_t ExynosCamera2::constructDefaultRequest(
     static const float focusDistance = 0;
     ADD_OR_SIZE(ANDROID_LENS_FOCUS_DISTANCE, &focusDistance, 1);
 
-    static const float aperture = 2.8f;
-    ADD_OR_SIZE(ANDROID_LENS_APERTURE, &aperture, 1);
+    ADD_OR_SIZE(ANDROID_LENS_APERTURE, &m_curCameraInfo->aperture, 1);
 
-    static const float focalLength = 5.0f;
-    ADD_OR_SIZE(ANDROID_LENS_FOCAL_LENGTH, &focalLength, 1);
+    ADD_OR_SIZE(ANDROID_LENS_FOCAL_LENGTH, &m_curCameraInfo->focalLength, 1);
 
     static const float filterDensity = 0;
     ADD_OR_SIZE(ANDROID_LENS_FILTER_DENSITY, &filterDensity, 1);
@@ -801,10 +796,10 @@ status_t ExynosCamera2::constructDefaultRequest(
     uint8_t afMode = 0;
     switch (request_template) {
       case CAMERA2_TEMPLATE_PREVIEW:
-        afMode = ANDROID_CONTROL_AF_AUTO;
+        afMode = ANDROID_CONTROL_AF_CONTINUOUS_PICTURE;
         break;
       case CAMERA2_TEMPLATE_STILL_CAPTURE:
-        afMode = ANDROID_CONTROL_AF_AUTO;
+        afMode = ANDROID_CONTROL_AF_CONTINUOUS_PICTURE;
         break;
       case CAMERA2_TEMPLATE_VIDEO_RECORD:
         afMode = ANDROID_CONTROL_AF_CONTINUOUS_VIDEO;

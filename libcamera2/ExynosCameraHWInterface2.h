@@ -58,16 +58,18 @@ namespace android {
 #define NODE_PREFIX     "/dev/video"
 
 #define NUM_MAX_STREAM_THREAD       (5)
-#define NUM_MAX_DEQUEUED_REQUEST    (8)
-/* #define NUM_MAX_REQUEST_MGR_ENTRY   NUM_MAX_DEQUEUED_REQUEST */
 #define NUM_MAX_REQUEST_MGR_ENTRY   (10)
+#define NUM_MAX_DEQUEUED_REQUEST NUM_MAX_REQUEST_MGR_ENTRY
 #define MAX_CAMERA_MEMORY_PLANE_NUM	(4)
 #define NUM_MAX_CAMERA_BUFFERS      (16)
 #define NUM_BAYER_BUFFERS           (8)
-#define NUM_SENSOR_QBUF             (4)
+#define NUM_SENSOR_QBUF             (3)
 
 #define PREVIEW_GSC_NODE_NUM (1)
 #define PICTURE_GSC_NODE_NUM (2)
+
+#define STREAM_TYPE_DIRECT   (0)
+#define STREAM_TYPE_INDIRECT (1)
 
 #define SIGNAL_MAIN_REQ_Q_NOT_EMPTY             (SIGNAL_THREAD_COMMON_LAST<<1)
 #define SIGNAL_MAIN_REPROCESS_Q_NOT_EMPTY       (SIGNAL_THREAD_COMMON_LAST<<2)
@@ -82,7 +84,15 @@ namespace android {
 
 #define SIGNAL_STREAM_DATA_COMING               (SIGNAL_THREAD_COMMON_LAST<<15)
 
-
+#define NO_TRANSITION                   (0)
+#define HAL_AFSTATE_INACTIVE            (1)
+#define HAL_AFSTATE_NEEDS_COMMAND       (2)
+#define HAL_AFSTATE_STARTED             (3)
+#define HAL_AFSTATE_SCANNING            (4)
+#define HAL_AFSTATE_LOCKED              (5)
+#define HAL_AFSTATE_FAILED              (6)
+#define HAL_AFSTATE_NEEDS_DETERMINATION (7)
+#define HAL_AFSTATE_PASSIVE_FOCUSED     (8)
 
 enum sensor_name {
     SENSOR_NAME_S5K3H2  = 1,
@@ -105,7 +115,6 @@ typedef struct node_info {
     enum v4l2_buf_type type;
     ion_client ionClient;
     ExynosBuffer buffer[NUM_MAX_CAMERA_BUFFERS];
-    bool streamOn;
 } node_info_t;
 
 
@@ -146,13 +155,13 @@ public:
     void    RegisterRequest(camera_metadata_t *new_request);
     void    DeregisterRequest(camera_metadata_t **deregistered_request);
     bool    PrepareFrame(size_t *num_entries, size_t *frame_size,
-                camera_metadata_t **prepared_frame);
-    int   MarkProcessingRequest(ExynosBuffer *buf);
+                camera_metadata_t **prepared_frame, int afState);
+    int     MarkProcessingRequest(ExynosBuffer * buf, int *afMode);
     void      NotifyStreamOutput(int frameCnt, int stream_id);
     void    DumpInfoWithIndex(int index);
-    void    ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext, int frameCnt);
+    void    ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext);
     void    CheckCompleted(int index);
-    void    UpdateOutputStreamInfo(struct camera2_shot_ext *shot_ext, int frameCnt);
+    void    UpdateIspParameters(struct camera2_shot_ext *shot_ext, int frameCnt, bool afTrigger);
     void    RegisterTimestamp(int frameCnt, nsecs_t *frameTime);
     uint64_t  GetTimestamp(int frameCnt);
     int     FindFrameCnt(struct camera2_shot_ext * shot_ext);
@@ -161,6 +170,9 @@ public:
     int     GetNextIndex(int index);
     void    SetDefaultParameters(int cropX);
     void    SetInitialSkip(int count);
+    int     GetSkipCnt();
+    void    SetFrameIndex(int index);
+    int    GetFrameIndex();
 private:
 
     MetadataConverter               *m_metadataConverter;
@@ -180,7 +192,11 @@ private:
 
     int                             m_sensorPipelineSkipCnt;
     int                             m_cropX;
-
+    int		         m_frameIndex;
+    int                             m_lastAeMode;
+    int                             m_lastAaMode;
+    int                             m_lastAwbMode;
+    int                             m_lastAeComp;
 };
 
 
@@ -440,6 +456,24 @@ class MainThread : public SignalDrivenThread {
     bool            yuv2Jpeg(ExynosBuffer *yuvBuf,
                             ExynosBuffer *jpegBuf,
                             ExynosRect *rect);
+    void            InitializeISPChain();
+    void            StartISP();
+    int             GetAfState();
+    void            SetAfMode(enum aa_afmode afMode);
+    void            OnAfTrigger(int id);
+    void            OnAfTriggerAutoMacro(int id);
+    void            OnAfTriggerCAFPicture(int id);
+    void            OnAfTriggerCAFVideo(int id);
+    void            OnAfCancel(int id);
+    void            OnAfCancelAutoMacro(int id);
+    void            OnAfCancelCAFPicture(int id);
+    void            OnAfCancelCAFVideo(int id);
+    void            OnAfNotification(enum aa_afstate noti);
+    void            OnAfNotificationAutoMacro(enum aa_afstate noti);
+    void            OnAfNotificationCAFPicture(enum aa_afstate noti);
+    void            OnAfNotificationCAFVideo(enum aa_afstate noti);
+    void            SetAfStateForService(int newState);
+    int             GetAfStateForService();
     exif_attribute_t    mExifInfo;
     void               *m_exynosPictureCSC;
     void               *m_exynosVideoCSC;
@@ -464,8 +498,9 @@ class MainThread : public SignalDrivenThread {
 
     bool                                m_isSensorThreadOn;
     bool                                m_isSensorStarted;
+    bool                                m_isIspStarted;
 
-
+    int                                 m_need_streamoff;
 
     bool                                m_initFlag1;
     bool                                m_initFlag2;
@@ -485,7 +520,17 @@ class MainThread : public SignalDrivenThread {
     int             				    m_cameraId;
     bool                                m_scp_closing;
     bool                                m_scp_closed;
-    
+
+    mutable Mutex    m_qbufLock;
+
+    int                                 m_afState;
+    int                                 m_afTriggerId;
+    enum aa_afmode                      m_afMode;
+    enum aa_afmode                      m_afMode2;
+    bool                                m_IsAfModeUpdateRequired;
+    bool                                m_IsAfTriggerRequired;
+    bool                                m_IsAfLockRequired;
+    int                                 m_serviceAfState;
 };
 
 }; // namespace android

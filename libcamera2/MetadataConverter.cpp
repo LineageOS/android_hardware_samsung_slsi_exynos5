@@ -27,7 +27,7 @@
  *   Initial Release
  */
 
-//#define LOG_NDEBUG 1
+//#define LOG_NDEBUG 0
 #define LOG_TAG "MetadataConverter"
 #include <utils/Log.h>
 
@@ -80,17 +80,21 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
     camera_metadata_entry_t curr_entry;
     struct camera2_shot * dst = NULL;
 
-    ALOGV("DEBUG(%s):", __FUNCTION__);
     if (request == NULL || dst_ext == NULL)
         return BAD_VALUE;
 
-    dst = &(dst_ext->shot);
+    memset((void*)dst_ext, 0, sizeof(struct camera2_shot_ext));
+    dst = &dst_ext->shot;
+
+    dst->magicNumber = 0x23456789;
+    dst->ctl.aa.aeTargetFpsRange[0] = 15;
+    dst->ctl.aa.aeTargetFpsRange[1] = 30;
+    dst->ctl.aa.aeExpCompensation = 5;
 
     num_entry = (uint32_t)get_camera_metadata_data_count(request);
     for (index = 0 ; index < num_entry ; index++) {
 
         if (get_camera_metadata_entry(request, index, &curr_entry)==0) {
-            //ALOGV("### MetadataConverter.ToInternalCtl. tag(%x)", curr_entry.tag);
             switch (curr_entry.tag) {
 
             case ANDROID_LENS_FOCUS_DISTANCE:
@@ -126,25 +130,6 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
 
 
 
-            case ANDROID_SENSOR_EXPOSURE_TIME:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT64, 1))
-                    break;
-                dst->ctl.sensor.exposureTime =  curr_entry.data.i64[0];
-                break;
-
-            case ANDROID_SENSOR_FRAME_DURATION:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT64, 1))
-                    break;
-                dst->ctl.sensor.frameDuration = curr_entry.data.i64[0];
-                break;
-
-            case ANDROID_SENSOR_SENSITIVITY:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 1))
-                    break;
-                dst->ctl.sensor.sensitivity = curr_entry.data.i32[0];
-                break;
-
-
 
             case ANDROID_FLASH_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
@@ -178,20 +163,6 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
                 dst->ctl.demosaic.mode = (enum processing_mode)curr_entry.data.u8[0];
-                break;
-
-
-
-            case ANDROID_NOISE_MODE:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
-                    break;
-                dst->ctl.noise.mode = (enum processing_mode)curr_entry.data.u8[0];
-                break;
-
-            case ANDROID_NOISE_STRENGTH:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
-                    break;
-                dst->ctl.noise.strength= curr_entry.data.u8[0];
                 break;
 
 
@@ -256,19 +227,6 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
 
 
 
-            case ANDROID_EDGE_MODE:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
-                    break;
-                dst->ctl.edge.mode = (enum processing_mode)curr_entry.data.u8[0];
-                break;
-
-            case ANDROID_EDGE_STRENGTH:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
-                    break;
-                dst->ctl.edge.strength = curr_entry.data.u8[0];
-                break;
-
-
 
             case ANDROID_SCALER_CROP_REGION:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 3))
@@ -299,7 +257,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 break;
 
             case ANDROID_JPEG_GPS_COORDINATES:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_DOUBLE, 2)) // needs check
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_DOUBLE, 3))
                     break;
                 for (i=0 ; i<curr_entry.count ; i++)
                     dst->ctl.jpeg.gpsCoordinates[i] = curr_entry.data.d[i];
@@ -308,7 +266,8 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
             case ANDROID_JPEG_GPS_PROCESSING_METHOD:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 32))
                     break;
-                dst->ctl.jpeg.gpsProcessingMethod = curr_entry.data.u8[0];
+                for (i=0 ; i<curr_entry.count ; i++)
+                    dst_ext->gpsProcessingMethod[i] = curr_entry.data.u8[i];
                 break;
 
             case ANDROID_JPEG_GPS_TIMESTAMP:
@@ -357,17 +316,6 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 dst->ctl.aa.mode = (enum aa_mode)curr_entry.data.u8[0];
                 break;
 
-            case ANDROID_CONTROL_EFFECT_MODE:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
-                    break;
-                dst->ctl.aa.effectMode = (enum aa_effect_mode)curr_entry.data.u8[0];
-                break;
-
-            case ANDROID_CONTROL_SCENE_MODE:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
-                    break;
-                dst->ctl.aa.sceneMode = (enum aa_scene_mode)curr_entry.data.u8[0];
-                break;
 
             case ANDROID_CONTROL_VIDEO_STABILIZATION_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
@@ -378,28 +326,17 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
             case ANDROID_CONTROL_AE_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.aeMode= (enum aa_aemode)curr_entry.data.u8[0];
+                dst->ctl.aa.aeMode = (enum aa_aemode)(curr_entry.data.u8[0] + 1);
+                ALOGV("DEBUG(%s): ANDROID_CONTROL_AE_MODE (%d)",  __FUNCTION__, dst->ctl.aa.aeMode);
                 break;
 
-            case ANDROID_CONTROL_AE_REGIONS:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 5))
-                    break;
-                for (i=0 ; i<curr_entry.count ; i++)
-                    dst->ctl.aa.aeRegions[i] = curr_entry.data.i32[i];
-                break;
 
             case ANDROID_CONTROL_AE_EXP_COMPENSATION:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 1))
                     break;
-                dst->ctl.aa.aeExpCompensation = curr_entry.data.i32[0];
+                dst->ctl.aa.aeExpCompensation = curr_entry.data.i32[0] + 5;
                 break;
 
-            case ANDROID_CONTROL_AE_TARGET_FPS_RANGE:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 2))
-                    break;
-                for (i=0 ; i<curr_entry.count ; i++)
-                    dst->ctl.aa.aeTargetFpsRange[i] = curr_entry.data.i32[i];
-                break;
 
             case ANDROID_CONTROL_AE_ANTIBANDING_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
@@ -423,7 +360,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
             case ANDROID_CONTROL_AF_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.afMode = (enum aa_afmode)curr_entry.data.u8[0];
+                dst->ctl.aa.afMode = (enum aa_afmode)(curr_entry.data.u8[0] + 1);
                 break;
 
             case ANDROID_CONTROL_AF_REGIONS:
@@ -452,11 +389,13 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
             case ANDROID_REQUEST_OUTPUT_STREAMS:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE))
                     break;
+
                 for (i=0 ; i<curr_entry.count ; i++) {
                     dst->ctl.request.outputStreams[i] = curr_entry.data.u8[i];
                     ALOGV("DEBUG(%s): OUTPUT_STREAM[%d] = %d ",  __FUNCTION__, i, (int)(dst->ctl.request.outputStreams[i]));
                 }
-                dst->ctl.request.id = curr_entry.count; // temporary
+
+                dst->ctl.request.outputStreams[15] = curr_entry.count;
                 break;
 
             case ANDROID_REQUEST_FRAME_COUNT:
@@ -466,27 +405,142 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 ALOGV("DEBUG(%s): ANDROID_REQUEST_FRAME_COUNT (%d)",  __FUNCTION__, dst->ctl.request.frameCount);
                 break;
 
+            case ANDROID_CONTROL_SCENE_MODE:
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
+                    break;
+                dst->ctl.aa.sceneMode = (enum aa_scene_mode)(curr_entry.data.u8[0] + 1);
+                ALOGV("DEBUG(%s): converted ANDROID_CONTROL_SCENE_MODE (%d)",  __FUNCTION__, dst->ctl.aa.sceneMode);
+                break;
+
             default:
-                ALOGD("DEBUG(%s):Bad Metadata tag (%d)",  __FUNCTION__, curr_entry.tag);
+                ALOGV("DEBUG(%s):Bad Metadata tag (%d)",  __FUNCTION__, curr_entry.tag);
                 break;
             }
         }
+    }
+    if (dst->ctl.aa.mode != ANDROID_CONTROL_USE_SCENE_MODE)
+        dst->ctl.aa.sceneMode = AA_SCENE_MODE_UNSUPPORTED;
+    ApplySceneModeParameters(request, dst_ext);
+    return NO_ERROR;
+}
+
+status_t MetadataConverter::ApplySceneModeParameters(camera_metadata_t * request, struct camera2_shot_ext * dst_ext)
+{
+    camera_metadata_entry_t curr_entry;
+    struct camera2_shot * dst = NULL;
+
+    ALOGV("DEBUG(%s):", __FUNCTION__);
+
+    dst = &(dst_ext->shot);
+
+    switch (dst->ctl.aa.sceneMode) {
+
+    case AA_SCENE_MODE_ACTION:
+        dst->ctl.aa.mode = AA_CONTROL_USE_SCENE_MODE;
+        if (dst->ctl.aa.aeMode != AA_AEMODE_LOCKED)
+            dst->ctl.aa.aeMode = AA_AEMODE_ON;
+        dst->ctl.aa.awbMode = AA_AWBMODE_WB_AUTO;
+        dst->ctl.aa.isoMode = AA_ISOMODE_AUTO;
+        dst->ctl.aa.isoValue = 0;
+        dst->ctl.aa.aeTargetFpsRange[0] = 30;
+        dst->ctl.aa.aeTargetFpsRange[1] = 30;
+
+        dst->ctl.noise.mode = PROCESSING_MODE_FAST;
+        dst->ctl.noise.strength = 0;
+        dst->ctl.edge.mode = PROCESSING_MODE_FAST;
+        dst->ctl.edge.strength = 0;
+
+        dst->ctl.color.saturation = 3; // means '0'
+        // FLASH
+        // METERING
+        break;
+
+    case AA_SCENE_MODE_PARTY:
+        dst->ctl.aa.mode = AA_CONTROL_USE_SCENE_MODE;
+        if (dst->ctl.aa.aeMode != AA_AEMODE_LOCKED)
+            dst->ctl.aa.aeMode = AA_AEMODE_ON;
+        dst->ctl.aa.awbMode = AA_AWBMODE_WB_AUTO;
+        dst->ctl.aa.isoMode = AA_ISOMODE_MANUAL;
+        dst->ctl.aa.isoValue = 200;
+        dst->ctl.aa.aeTargetFpsRange[0] = 15;
+        dst->ctl.aa.aeTargetFpsRange[1] = 30;
+
+        dst->ctl.noise.mode = PROCESSING_MODE_FAST;
+        dst->ctl.noise.strength = 0;
+        dst->ctl.edge.mode = PROCESSING_MODE_FAST;
+        dst->ctl.edge.strength = 0;
+
+        dst->ctl.color.saturation = 4; // means '+1'
+        // FLASH
+        // METERING
+        break;
+
+    case AA_SCENE_MODE_SUNSET:
+        dst->ctl.aa.mode = AA_CONTROL_USE_SCENE_MODE;
+        if (dst->ctl.aa.aeMode != AA_AEMODE_LOCKED)
+            dst->ctl.aa.aeMode = AA_AEMODE_ON;
+        dst->ctl.aa.awbMode = AA_AWBMODE_WB_DAYLIGHT;
+        dst->ctl.aa.isoMode = AA_ISOMODE_AUTO;
+        dst->ctl.aa.isoValue = 0;
+        dst->ctl.aa.aeTargetFpsRange[0] = 15;
+        dst->ctl.aa.aeTargetFpsRange[1] = 30;
+
+        dst->ctl.noise.mode = PROCESSING_MODE_FAST;
+        dst->ctl.noise.strength = 0;
+        dst->ctl.edge.mode = PROCESSING_MODE_FAST;
+        dst->ctl.edge.strength = 0;
+
+        dst->ctl.color.saturation = 3; // means '0'
+        // FLASH
+        // METERING
+        break;
+
+    case AA_SCENE_MODE_NIGHT:
+        dst->ctl.aa.mode = AA_CONTROL_USE_SCENE_MODE;
+        if (dst->ctl.aa.aeMode != AA_AEMODE_LOCKED)
+            dst->ctl.aa.aeMode = AA_AEMODE_ON;
+        dst->ctl.aa.awbMode = AA_AWBMODE_WB_AUTO;
+        dst->ctl.aa.isoMode = AA_ISOMODE_AUTO;
+        dst->ctl.aa.isoValue = 0;
+        dst->ctl.aa.aeTargetFpsRange[0] = 2;
+        dst->ctl.aa.aeTargetFpsRange[1] = 30;
+
+        dst->ctl.noise.mode = PROCESSING_MODE_FAST;
+        dst->ctl.noise.strength = 0;
+        dst->ctl.edge.mode = PROCESSING_MODE_FAST;
+        dst->ctl.edge.strength = 0;
+
+        dst->ctl.color.saturation = 3; // means '0'
+        // FLASH
+        // METERING
+        break;
+
+    default:
+        dst->ctl.aa.mode = AA_CONTROL_AUTO;
+        if (dst->ctl.aa.aeMode != AA_AEMODE_LOCKED)
+            dst->ctl.aa.aeMode = AA_AEMODE_ON;
+        dst->ctl.aa.sceneMode = AA_SCENE_MODE_UNSUPPORTED;
+        dst->ctl.aa.isoMode = AA_ISOMODE_AUTO;
+        dst->ctl.aa.isoValue = 0;
+        dst->ctl.noise.mode = PROCESSING_MODE_OFF;
+        dst->ctl.noise.strength = 0;
+        dst->ctl.edge.mode = PROCESSING_MODE_OFF;
+        dst->ctl.edge.strength = 0;
+        dst->ctl.color.saturation = 3; // means '0'
+        break;
     }
 
     return NO_ERROR;
 }
 
 
-
-
 status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata_ext, camera_metadata_t * dst)
 {
     status_t    res;
-    struct camera2_shot * metadata = &(metadata_ext->shot);
+    struct camera2_shot * metadata = &metadata_ext->shot;
     uint8_t  byteData;
     uint32_t intData;
 
-    ALOGV("DEBUG(%s): TEMP version using original request METADATA", __FUNCTION__);
     if (0 != add_camera_metadata_entry(dst, ANDROID_REQUEST_ID,
                 &(metadata->ctl.request.id), 1))
         return NO_MEMORY;
@@ -495,23 +549,57 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
                 &(metadata->ctl.request.metadataMode), 1))
         return NO_MEMORY;
 
-    // needs check!
     if (0 != add_camera_metadata_entry(dst, ANDROID_REQUEST_FRAME_COUNT,
                 &(metadata->ctl.request.frameCount), 1))
         return NO_MEMORY;
+
+    if (0 != add_camera_metadata_entry(dst, ANDROID_SENSOR_TIMESTAMP,
+                &metadata->dm.sensor.timeStamp, 1))
+        return NO_MEMORY;
+
+    if (0 != add_camera_metadata_entry(dst, ANDROID_SENSOR_EXPOSURE_TIME,
+                &metadata->dm.sensor.exposureTime, 1))
+        return NO_MEMORY;
+
+    if (0 != add_camera_metadata_entry(dst, ANDROID_LENS_APERTURE,
+                &metadata->dm.lens.aperture, 1))
+        return NO_MEMORY;
+
+    ALOGV("(%s): ID(%d) METAMODE(%d) FrameCnt(%d) Timestamp(%lld) exposure(%lld) aper(%f)", __FUNCTION__,
+       metadata->ctl.request.id, metadata->ctl.request.metadataMode, metadata->ctl.request.frameCount,
+       metadata->dm.sensor.timeStamp, metadata->dm.sensor.exposureTime, metadata->dm.lens.aperture);
+
+
+    byteData = metadata->dm.aa.awbMode - 1;
+    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AWB_MODE,
+                &byteData, 1))
+        return NO_MEMORY;
+
+    byteData = metadata->dm.aa.aeMode - 1;
+    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_MODE,
+                &byteData, 1))
+        return NO_MEMORY;
+
+    byteData = metadata->ctl.aa.sceneMode - 1;
+    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_SCENE_MODE,
+                &byteData, 1))
+        return NO_MEMORY;
+
+    intData = metadata->ctl.aa.aeExpCompensation;
+    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_EXP_COMPENSATION,
+                &intData, 1))
+        return NO_MEMORY;
+
+
+    ALOGV("(%s): AWB(%d) AE(%d) SCENE(%d)  AEComp(%d)", __FUNCTION__,
+       metadata->dm.aa.awbMode - 1, metadata->dm.aa.aeMode - 1, metadata->ctl.aa.sceneMode - 1,
+       metadata->ctl.aa.aeExpCompensation );
 
 
     if (metadata->ctl.request.metadataMode == METADATA_MODE_NONE) {
         ALOGV("DEBUG(%s): METADATA_MODE_NONE", __FUNCTION__);
         return NO_ERROR;
     }
-
-    ALOGV("DEBUG(%s): METADATA_MODE_FULL", __FUNCTION__);
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_SENSOR_TIMESTAMP,
-                &(metadata->dm.sensor.timeStamp), 1))
-        return NO_MEMORY;
-    ALOGV("DEBUG(%s): Timestamp: %lld", __FUNCTION__, metadata->dm.sensor.timeStamp);
     return NO_ERROR;
 
 
@@ -574,16 +662,14 @@ status_t MetadataConverter::ToDynamicMetadata(camera2_ctl_metadata_t * metadata,
 
 
 
-    if (0 != add_camera_metadata_entry(dst, ANDROID_SENSOR_EXPOSURE_TIME,
-                &(metadata->dm.sensor.exposureTime), 1))
-        return NO_MEMORY;
+
 
     if (0 != add_camera_metadata_entry(dst, ANDROID_SENSOR_FRAME_DURATION,
                 &(metadata->dm.sensor.frameDuration), 1))
         return NO_MEMORY;
 
     if (0 != add_camera_metadata_entry(dst, ANDROID_SENSOR_SENSITIVITY,
-                &(metadata->dm.sensor.sensitivity), 1))
+                &(metadata->dm.aa.isoValue), 1))
         return NO_MEMORY;
 
     if (0 != add_camera_metadata_entry(dst, ANDROID_SENSOR_TIMESTAMP,
@@ -733,25 +819,18 @@ status_t MetadataConverter::ToDynamicMetadata(camera2_ctl_metadata_t * metadata,
                 &(metadata->dm.aa.effect_mode), 1))
         return NO_MEMORY;
 
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_MODE,
-                &(metadata->dm.aa.aeMode), 1))
-        return NO_MEMORY;
+
 
     if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_REGIONS,
                 &(metadata->dm.aa.aeRegions), 5))
         return NO_MEMORY;
 
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_EXP_COMPENSATION,
-                &(metadata->dm.aa.aeExpCompensation), 1))
-        return NO_MEMORY;
+
 
     if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_STATE,
                 &(metadata->dm.aa.aeState), 1))
         return NO_MEMORY;
 
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AWB_MODE,
-                &(metadata->dm.aa.awbMode), 1))
-        return NO_MEMORY;
 
     if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AWB_REGIONS,
                 &(metadata->dm.aa.awbRegions), 5))
