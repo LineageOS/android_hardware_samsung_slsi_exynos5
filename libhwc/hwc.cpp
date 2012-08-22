@@ -971,51 +971,49 @@ static int exynos5_set(struct hwc_composer_device_1 *dev,
     pthread_mutex_t *lock = NULL;
     exynos5_hwc_post_data_t *data = NULL;
 
-    if (displays[0]->numHwLayers) {
-        for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
-            if (pdev->bufs.overlay_map[i] != -1) {
-                pdev->bufs.overlays[i] =
-                    displays[0]->hwLayers[pdev->bufs.overlay_map[i]];
-            }
+    for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
+        if (pdev->bufs.overlay_map[i] != -1) {
+            pdev->bufs.overlays[i] =
+                displays[0]->hwLayers[pdev->bufs.overlay_map[i]];
         }
+    }
 
-        data = (exynos5_hwc_post_data_t *)
-                malloc(sizeof(exynos5_hwc_post_data_t));
-        memcpy(data, &pdev->bufs, sizeof(pdev->bufs));
+    data = (exynos5_hwc_post_data_t *)
+            malloc(sizeof(exynos5_hwc_post_data_t));
+    memcpy(data, &pdev->bufs, sizeof(pdev->bufs));
 
-        data->fence = -1;
-        pthread_mutex_init(&data->completion_lock, NULL);
-        pthread_cond_init(&data->completion, NULL);
+    data->fence = -1;
+    pthread_mutex_init(&data->completion_lock, NULL);
+    pthread_cond_init(&data->completion, NULL);
 
-        if (pdev->bufs.fb_window == NO_FB_NEEDED) {
-            exynos5_post_callback(data, NULL);
-        } else {
+    if (displays[0]->numHwLayers && pdev->bufs.fb_window == NO_FB_NEEDED) {
+        exynos5_post_callback(data, NULL);
+    } else {
 
-            struct hwc_callback_entry entry;
-            entry.callback = exynos5_post_callback;
-            entry.data = data;
+        struct hwc_callback_entry entry;
+        entry.callback = exynos5_post_callback;
+        entry.data = data;
 
-            queue = reinterpret_cast<hwc_callback_queue_t *>(
-                pdev->gralloc_module->queue);
-            lock = const_cast<pthread_mutex_t *>(
-                &pdev->gralloc_module->queue_lock);
+        queue = reinterpret_cast<hwc_callback_queue_t *>(
+            pdev->gralloc_module->queue);
+        lock = const_cast<pthread_mutex_t *>(
+            &pdev->gralloc_module->queue_lock);
 
-            pthread_mutex_lock(lock);
-            queue->push_front(entry);
-            pthread_mutex_unlock(lock);
+        pthread_mutex_lock(lock);
+        queue->push_front(entry);
+        pthread_mutex_unlock(lock);
 
-            EGLBoolean success = eglSwapBuffers((EGLDisplay)displays[0]->dpy,
-                    (EGLSurface)displays[0]->sur);
-            if (!success) {
-                ALOGE("HWC_EGL_ERROR");
-                if (displays[0]) {
-                    pthread_mutex_lock(lock);
-                    queue->removeAt(0);
-                    pthread_mutex_unlock(lock);
-                    free(data);
-                }
-                return HWC_EGL_ERROR;
+        EGLBoolean success = eglSwapBuffers((EGLDisplay)displays[0]->dpy,
+                (EGLSurface)displays[0]->sur);
+        if (!success) {
+            ALOGE("HWC_EGL_ERROR");
+            if (displays[0]) {
+                pthread_mutex_lock(lock);
+                queue->removeAt(0);
+                pthread_mutex_unlock(lock);
+                free(data);
             }
+            return HWC_EGL_ERROR;
         }
     }
 
