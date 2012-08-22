@@ -52,6 +52,7 @@ public:
 private:
     status_t CheckEntryTypeMismatch(camera_metadata_entry_t * entry, uint8_t type);	
     status_t CheckEntryTypeMismatch(camera_metadata_entry_t * entry, uint8_t type, size_t count);
+    status_t ApplySceneModeParameters(camera_metadata_t * request, struct camera2_shot_ext * dst_ext);
   
 };
 

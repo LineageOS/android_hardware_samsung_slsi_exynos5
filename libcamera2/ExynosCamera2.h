@@ -46,6 +46,9 @@ public:
     const int32_t     *scalerResolutions;
     int         numJpegResolution;
     const int32_t     *jpegResolutions;
+    float       minFocusDistance;
+    float       focalLength;
+    float       aperture;
 };
 
 struct ExynosCamera2InfoS5K4E5 : public ExynosCamera2Info
