@@ -2263,7 +2263,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 shot_ext->shot.ctl.aa.afMode = AA_AFMODE_OFF;
                 m_IsAfLockRequired = false;
             }
-            ALOGD("### Isp Qbuf start(%d) count (%d), SCP(%d) SCC(%d) DIS(%d) shot_size(%d)",
+            ALOGV("### Isp Qbuf start(%d) count (%d), SCP(%d) SCC(%d) DIS(%d) shot_size(%d)",
                 index,
                 shot_ext->shot.ctl.request.frameCount,
                 shot_ext->request_scp,
@@ -2369,7 +2369,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             shot_ext->request_sensor = 0;
         }
 
-        ALOGD("### Sensor Qbuf start(%d) SCP(%d) SCC(%d) DIS(%d)", index, shot_ext->request_scp, shot_ext->request_scc, shot_ext->dis_bypass);
+        ALOGV("### Sensor Qbuf start(%d) SCP(%d) SCC(%d) DIS(%d)", index, shot_ext->request_scp, shot_ext->request_scc, shot_ext->dis_bypass);
 
         cam_int_qbuf(&(m_camera_info.sensor), index);
         ALOGV("### Sensor QBUF done");
