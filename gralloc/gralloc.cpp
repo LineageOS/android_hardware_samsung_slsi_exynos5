@@ -161,7 +161,7 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format, int usage,
 
     switch (format) {
         ALOGE("invalid yuv format %d\n", format);
-        case HAL_PIXEL_FORMAT_YV12:
+        case HAL_PIXEL_FORMAT_EXYNOS_YV12:
         {
             luma_vstride = ALIGN(h, 16);
             luma_size = luma_vstride * *stride;
@@ -169,7 +169,7 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format, int usage,
             planes = 3;
             break;
         }
-        case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+        case HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP:
         case HAL_PIXEL_FORMAT_YCbCr_420_SP:
         case HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
         {
