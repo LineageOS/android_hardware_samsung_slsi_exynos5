@@ -102,7 +102,7 @@ struct exynos5_hwc_composer_device_1_t {
 
     const private_module_t  *gralloc_module;
     alloc_device_t          *alloc_device;
-    hwc_procs_t             *procs;
+    const hwc_procs_t       *procs;
     pthread_t               vsync_thread;
 
     int  hdmi_fd;
@@ -1041,7 +1041,7 @@ static void exynos5_registerProcs(struct hwc_composer_device_1* dev,
 {
     struct exynos5_hwc_composer_device_1_t* pdev =
             (struct exynos5_hwc_composer_device_1_t*)dev;
-    pdev->procs = const_cast<hwc_procs_t *>(procs);
+    pdev->procs = procs;
 }
 
 static int exynos5_query(struct hwc_composer_device_1* dev, int what, int *value)
@@ -1113,13 +1113,16 @@ static void handle_hdmi_uevent(struct exynos5_hwc_composer_device_1_t *pdev,
     if (pdev->hdmi_hpd)
         ALOGI("HDMI Resolution changed to %dx%d", pdev->hdmi_cfg.h, pdev->hdmi_cfg.w);
 
-    if (pdev->procs && pdev->procs->invalidate)
+    /* hwc_dev->procs is set right after the device is opened, but there is
+     * still a race condition where a hotplug event might occur after the open
+     * but before the procs are registered. */
+    if (pdev->procs)
         pdev->procs->invalidate(pdev->procs);
 }
 
 static void handle_vsync_event(struct exynos5_hwc_composer_device_1_t *pdev)
 {
-    if (!pdev->procs || !pdev->procs->vsync)
+    if (!pdev->procs)
         return;
 
     int err = lseek(pdev->vsync_fd, 0, SEEK_SET);
@@ -1208,11 +1211,6 @@ static int exynos5_blank(struct hwc_composer_device_1 *dev, int dpy, int blank)
     return 0;
 }
 
-struct hwc_methods_1 exynos5_methods = {
-    eventControl: exynos5_eventControl,
-    blank: exynos5_blank,
-};
-
 static int exynos5_close(hw_device_t* device);
 
 static int exynos5_open(const struct hw_module_t *module, const char *name,
@@ -1278,9 +1276,10 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
 
     dev->base.prepare = exynos5_prepare;
     dev->base.set = exynos5_set;
-    dev->base.registerProcs = exynos5_registerProcs;
+    dev->base.eventControl = exynos5_eventControl;
+    dev->base.blank = exynos5_blank;
     dev->base.query = exynos5_query;
-    dev->base.methods = &exynos5_methods;
+    dev->base.registerProcs = exynos5_registerProcs;
 
     dev->bufs.pdev = dev;
 
