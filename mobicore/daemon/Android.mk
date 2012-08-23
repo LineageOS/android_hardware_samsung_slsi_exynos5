@@ -26,6 +26,10 @@ LOCAL_SRC_FILES += \
 	Common/CMutex.cpp \
 	Common/Connection.cpp
 
+LOCAL_EXPORT_C_INCLUDE_DIRS +=\
+	$(COMP_PATH_MobiCore)/inc \
+	$(LOCAL_PATH)/ClientLib/public
+
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/Common
 
 include $(LOCAL_PATH)/Kernel/Android.mk
