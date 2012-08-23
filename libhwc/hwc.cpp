@@ -210,7 +210,7 @@ static bool exynos5_format_is_supported_by_gscaler(int format)
     switch (format) {
     case HAL_PIXEL_FORMAT_RGBX_8888:
     case HAL_PIXEL_FORMAT_RGB_565:
-    case HAL_PIXEL_FORMAT_YV12:
+    case HAL_PIXEL_FORMAT_EXYNOS_YV12:
     case HAL_PIXEL_FORMAT_YCbCr_420_P:
     case HAL_PIXEL_FORMAT_YCbCr_422_SP:
     case HAL_PIXEL_FORMAT_CUSTOM_YCbCr_422_SP:
@@ -223,7 +223,7 @@ static bool exynos5_format_is_supported_by_gscaler(int format)
     case HAL_PIXEL_FORMAT_CUSTOM_CbYCrY_422_I:
     case HAL_PIXEL_FORMAT_YCrCb_422_SP:
     case HAL_PIXEL_FORMAT_CUSTOM_YCrCb_422_SP:
-    case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+    case HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP:
     case HAL_PIXEL_FORMAT_CUSTOM_YCrCb_420_SP:
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
     case HAL_PIXEL_FORMAT_CUSTOM_YCbCr_420_SP_TILED:
@@ -238,7 +238,7 @@ static bool exynos5_format_is_supported_by_gscaler(int format)
 
 static bool exynos5_format_is_ycrcb(int format)
 {
-    return format == HAL_PIXEL_FORMAT_YV12;
+    return format == HAL_PIXEL_FORMAT_EXYNOS_YV12;
 }
 
 static bool exynos5_format_requires_gscaler(int format)
@@ -337,7 +337,7 @@ int hdmi_get_config(struct exynos5_hwc_composer_device_1_t *dev)
             info->h  = enum_preset.height;
             info->fw = enum_preset.width;
             info->fh = enum_preset.height;
-            info->format = HAL_PIXEL_FORMAT_YV12;
+            info->format = HAL_PIXEL_FORMAT_EXYNOS_YV12;
             found = true;
         }
     }

@@ -1296,7 +1296,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             m_scp_closed = false;
             usleep(100000); // TODO : guarantee the codes below will be run after readyToRunInternal()
 
-            *format_actual = HAL_PIXEL_FORMAT_YV12;
+            *format_actual = HAL_PIXEL_FORMAT_EXYNOS_YV12;
             *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
             *max_buffers = 8;
 
@@ -2641,7 +2641,7 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
                         csc_set_src_format(m_exynosVideoCSC,
                                            previewW, previewH,
                                            cropX, cropY, cropW, cropH,
-                                           HAL_PIXEL_FORMAT_YV12,
+                                           HAL_PIXEL_FORMAT_EXYNOS_YV12,
                                            0);
 
                         csc_set_dst_format(m_exynosVideoCSC,
