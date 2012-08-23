@@ -44,7 +44,7 @@ MetadataConverter::MetadataConverter()
 
 MetadataConverter::~MetadataConverter()
 {
-    ALOGV("DEBUG(%s):", __FUNCTION__);
+    ALOGE("DEBUG(%s)destroy!!:", __FUNCTION__);
     return;
 }
 
@@ -151,90 +151,6 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
 
 
 
-            case ANDROID_HOT_PIXEL_MODE:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
-                    break;
-                dst->ctl.hotpixel.mode = (enum processing_mode)curr_entry.data.u8[0];
-                break;
-
-
-
-            case ANDROID_DEMOSAIC_MODE:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
-                    break;
-                dst->ctl.demosaic.mode = (enum processing_mode)curr_entry.data.u8[0];
-                break;
-
-
-
-            case ANDROID_SHADING_MODE:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
-                    break;
-                dst->ctl.shading.mode = (enum processing_mode)curr_entry.data.u8[0];
-                break;
-
-
-
-            case ANDROID_GEOMETRIC_MODE:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
-                    break;
-                dst->ctl.geometric.mode = (enum processing_mode)curr_entry.data.u8[0];
-                break;
-
-
-
-            case ANDROID_COLOR_MODE:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
-                    break;
-                dst->ctl.color.mode = (enum colorcorrection_mode)curr_entry.data.u8[0];
-                break;
-
-            case ANDROID_COLOR_TRANSFORM:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_FLOAT, 9))
-                    break;
-                for (i=0 ; i<curr_entry.count ; i++)
-                    dst->ctl.color.transform[i] = curr_entry.data.f[i];
-                break;
-
-
-
-            case ANDROID_TONEMAP_MODE:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
-                    break;
-                dst->ctl.tonemap.mode = (enum tonemap_mode)curr_entry.data.u8[0];
-                break;
-
-            case ANDROID_TONEMAP_CURVE_RED:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_FLOAT, 32))
-                    break;
-                for (i=0 ; i<curr_entry.count ; i++)
-                    dst->ctl.tonemap.curveRed[i] = curr_entry.data.f[i];
-                break;
-
-            case ANDROID_TONEMAP_CURVE_GREEN:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_FLOAT, 32))
-                    break;
-                for (i=0 ; i<curr_entry.count ; i++)
-                    dst->ctl.tonemap.curveGreen[i] = curr_entry.data.f[i];
-                break;
-
-            case ANDROID_TONEMAP_CURVE_BLUE:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_FLOAT, 32))
-                    break;
-                for (i=0 ; i<curr_entry.count ; i++)
-                    dst->ctl.tonemap.curveBlue[i] = curr_entry.data.f[i];
-                break;
-
-
-
-
-            case ANDROID_SCALER_CROP_REGION:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 3))
-                    break;
-                for (i=0 ; i<curr_entry.count ; i++)
-                    dst->ctl.scaler.cropRegion[i] = curr_entry.data.i32[i];
-                break;
-
 
 
             case ANDROID_JPEG_QUALITY:
@@ -287,22 +203,8 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
             case ANDROID_STATS_FACE_DETECT_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.stats.faceDetectMode = (enum facedetect_mode)curr_entry.data.u8[0];
+                dst->ctl.stats.faceDetectMode = (enum facedetect_mode)(curr_entry.data.u8[0] + 1);
                 break;
-
-            case ANDROID_STATS_HISTOGRAM_MODE:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
-                    break;
-                dst->ctl.stats.histogramMode = (enum stats_mode)curr_entry.data.u8[0];
-                break;
-
-            case ANDROID_STATS_SHARPNESS_MAP_MODE:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
-                    break;
-                dst->ctl.stats.sharpnessMapMode = (enum stats_mode)curr_entry.data.u8[0];
-                break;
-
-
 
             case ANDROID_CONTROL_CAPTURE_INTENT:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
@@ -335,13 +237,6 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 1))
                     break;
                 dst->ctl.aa.aeExpCompensation = curr_entry.data.i32[0] + 5;
-                break;
-
-
-            case ANDROID_CONTROL_AE_ANTIBANDING_MODE:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
-                    break;
-                dst->ctl.aa.aeAntibandingMode = (enum aa_ae_antibanding_mode)curr_entry.data.u8[0];
                 break;
 
             case ANDROID_CONTROL_AWB_MODE:
@@ -590,6 +485,10 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
                 &intData, 1))
         return NO_MEMORY;
 
+    byteData = ANDROID_STATS_FACE_DETECTION_OFF;
+    if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_DETECT_MODE,
+                &byteData, 1))
+        return NO_MEMORY;
 
     ALOGV("(%s): AWB(%d) AE(%d) SCENE(%d)  AEComp(%d)", __FUNCTION__,
        metadata->dm.aa.awbMode - 1, metadata->dm.aa.aeMode - 1, metadata->ctl.aa.sceneMode - 1,

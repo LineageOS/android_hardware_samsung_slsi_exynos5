@@ -286,6 +286,12 @@ RequestManager::RequestManager(SignalDrivenThread* main_thread):
 
 RequestManager::~RequestManager()
 {
+    ALOGV("%s", __FUNCTION__);
+    if (m_metadataConverter != NULL) {
+        delete m_metadataConverter;
+        m_metadataConverter = NULL;
+    }
+
     return;
 }
 
@@ -804,6 +810,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
             m_IsAfModeUpdateRequired(false),
             m_IsAfTriggerRequired(false),
             m_IsAfLockRequired(false),
+            m_wideAspect(false),
             m_afTriggerId(0),
             m_halDevice(dev),
             m_need_streamoff(0),
@@ -844,7 +851,8 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
     m_exynosVideoCSC = csc_init(cscMethod);
     if (m_exynosVideoCSC == NULL)
         ALOGE("ERR(%s): csc_init() fail", __FUNCTION__);
-    csc_set_hw_property(m_exynosVideoCSC, CSC_HW_PROPERTY_FIXED_NODE, PREVIEW_GSC_NODE_NUM);
+    csc_set_hw_property(m_exynosVideoCSC, CSC_HW_PROPERTY_FIXED_NODE, VIDEO_GSC_NODE_NUM);
+
 
     ALOGV("DEBUG(%s): END", __FUNCTION__);
 }
@@ -892,6 +900,7 @@ void ExynosCameraHWInterface2::release()
         csc_deinit(m_exynosVideoCSC);
     m_exynosVideoCSC = NULL;
 
+
     if (m_streamThreads[1] != NULL) {
         while (!m_streamThreads[1]->IsTerminated())
         {
@@ -937,7 +946,17 @@ void ExynosCameraHWInterface2::release()
         m_mainThread = NULL;
     }
 
-    for(i = 0; i < m_camera_info.sensor.buffers; i++)
+    if (m_requestManager != NULL) {
+        delete m_requestManager;
+        m_requestManager = NULL;
+    }
+
+    if (m_BayerManager != NULL) {
+        delete m_BayerManager;
+        m_BayerManager = NULL;
+    }
+//    for(i = 0; i < m_camera_info.sensor.buffers; i++)
+    for (i = 0; i < NUM_BAYER_BUFFERS; i++)
         freeCameraMemory(&m_camera_info.sensor.buffer[i], m_camera_info.sensor.planes);
 
     for(i = 0; i < m_camera_info.capture.buffers; i++)
@@ -1150,7 +1169,11 @@ void ExynosCameraHWInterface2::InitializeISPChain()
     }
 
     ALOGV("== stream_on :: capture");
-    cam_int_streamon(&(m_camera_info.capture));
+    if (cam_int_streamon(&(m_camera_info.capture)) < 0) {
+        ALOGE("ERR(%s): capture stream on fail", __FUNCTION__);
+    } else {
+        m_camera_info.capture.status = true;
+    }
 }
 
 void ExynosCameraHWInterface2::StartISP()
@@ -1284,6 +1307,14 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
                 allocCase = 2;
             }
         }
+        if ((width == 1920 && height == 1080) || (width == 1280 && height == 720)) {
+            m_wideAspect = true;
+        }
+        else {
+            m_wideAspect = false;
+        }
+        ALOGV("DEBUG(%s): m_wideAspect (%d)", __FUNCTION__, m_wideAspect);
+
         if (allocCase == 0 || allocCase == 2) {
             *stream_id = 0;
 
@@ -1366,8 +1397,23 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
 
         *stream_id = 1;
 
-        m_streamThreads[1]  = new StreamThread(this, *stream_id);
-        AllocatedStream = (StreamThread*)(m_streamThreads[1].get());
+        if (!(m_streamThreads[*stream_id].get())) {
+            ALOGV("DEBUG(%s): stream 0 not exist", __FUNCTION__);
+            m_streamThreads[1]  = new StreamThread(this, *stream_id);
+            allocCase = 0;
+        }
+        else {
+            if ((m_streamThreads[*stream_id].get())->m_activated == true) {
+                ALOGV("DEBUG(%s): stream 0 exists and activated.", __FUNCTION__);
+                allocCase = 1;
+            }
+            else {
+                ALOGV("DEBUG(%s): stream 0 exists and deactivated.", __FUNCTION__);
+                allocCase = 2;
+            }
+        }
+
+        AllocatedStream = (StreamThread*)(m_streamThreads[*stream_id].get());
 
         fd = m_camera_info.capture.fd;
         usleep(100000); // TODO : guarantee the codes below will be run after readyToRunInternal()
@@ -1426,8 +1472,28 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
     }
     else if (stream_id == 1) {
         targetStreamParms = &(m_streamThreads[1]->m_parameters);
+        // TODO : make clear stream off case
+        m_need_streamoff = 0;
+
+        if (m_camera_info.capture.status == false) {
+            /* capture */
+            m_camera_info.capture.buffers = 8;
+            cam_int_s_fmt(&(m_camera_info.capture));
+            cam_int_reqbufs(&(m_camera_info.capture));
+            for (i = 0; i < m_camera_info.capture.buffers; i++) {
+                ALOGV("DEBUG(%s): capture initial QBUF [%d]",  __FUNCTION__, i);
+                cam_int_qbuf(&(m_camera_info.capture), i);
+            }
+
+            if (cam_int_streamon(&(m_camera_info.capture)) < 0) {
+                ALOGE("ERR(%s): capture stream on fail", __FUNCTION__);
+            } else {
+                m_camera_info.capture.status = true;
+            }
+        }
     }
     else if (stream_id == 2) {
+        m_need_streamoff = 0;
         targetRecordParms = &(m_streamThreads[0]->m_recordParameters);
 
         targetRecordParms->numSvcBuffers = num_buffers;
@@ -1493,8 +1559,21 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
 
     if (targetStreamParms->streamType == STREAM_TYPE_DIRECT) {
         if(m_need_streamoff == 1) {
+            if (m_sensorThread != NULL) {
+                m_sensorThread->release();
+                /* TODO */
+                usleep(500000);
+            } else {
+                ALOGE("+++++++ sensor thread is NULL %d", __LINE__);
+            }
+
             ALOGV("(%s): calling capture streamoff", __FUNCTION__);
-            cam_int_streamoff(&(m_camera_info.capture));
+            if (cam_int_streamoff(&(m_camera_info.capture)) < 0) {
+                ALOGE("ERR(%s): capture stream off fail", __FUNCTION__);
+            } else {
+                m_camera_info.capture.status = false;
+            }
+
             ALOGV("(%s): calling capture streamoff done", __FUNCTION__);
 
             m_camera_info.capture.buffers = 0;
@@ -1502,24 +1581,18 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
             cam_int_reqbufs(&(m_camera_info.capture));
             ALOGV("DEBUG(%s): capture calling reqbuf 0 done", __FUNCTION__);
 
-            if (m_sensorThread != NULL) {
-                m_sensorThread->release();
-                usleep(500000);
-            } else {
-                ALOGE("+++++++ sensor thread is NULL %d", __LINE__);
-            }
             m_isIspStarted = false;
         }
-
-        cam_int_s_input(currentNode, m_camera_info.sensor_id);
-        cam_int_s_fmt(currentNode);
-        cam_int_reqbufs(currentNode);
 
         if (m_need_streamoff == 1) {
             m_camera_info.sensor.buffers = NUM_BAYER_BUFFERS;
             m_camera_info.isp.buffers = m_camera_info.sensor.buffers;
             m_camera_info.capture.buffers = 8;
+            /* isp */
+            cam_int_s_fmt(&(m_camera_info.isp));
             cam_int_reqbufs(&(m_camera_info.isp));
+            /* sensor */
+            cam_int_s_fmt(&(m_camera_info.sensor));
             cam_int_reqbufs(&(m_camera_info.sensor));
 
             for (i = 0; i < 8; i++) {
@@ -1531,15 +1604,20 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
                 cam_int_qbuf(&(m_camera_info.sensor), i);
             }
 
+            /* capture */
+            cam_int_s_fmt(&(m_camera_info.capture));
             cam_int_reqbufs(&(m_camera_info.capture));
-            cam_int_streamon(&(m_camera_info.capture));
-            cam_int_streamon(&(m_camera_info.sensor));
+            for (i = 0; i < m_camera_info.capture.buffers; i++) {
+                ALOGV("DEBUG(%s): capture initial QBUF [%d]",  __FUNCTION__, i);
+                cam_int_qbuf(&(m_camera_info.capture), i);
+            }
 
-            m_need_streamoff = 0;
-            m_requestManager->SetInitialSkip(2);
-            m_sensorThread->Start("SensorThread", PRIORITY_DEFAULT, 0);
-            m_mainThread->SetSignal(SIGNAL_MAIN_REQ_Q_NOT_EMPTY);
-        }
+       }
+
+        cam_int_s_input(currentNode, m_camera_info.sensor_id);
+        cam_int_s_fmt(currentNode);
+        cam_int_reqbufs(currentNode);
+
     }
     else if (targetStreamParms->streamType == STREAM_TYPE_INDIRECT) {
         for(i = 0; i < currentNode->buffers; i++){
@@ -1615,9 +1693,19 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
     }
 
     ALOGV("DEBUG(%s): calling  streamon", __FUNCTION__);
-    if (targetStreamParms->streamType == 0) {
+    if (targetStreamParms->streamType == STREAM_TYPE_DIRECT) {
         ALOGD("%s(%d), stream id = %d", __FUNCTION__, __LINE__, stream_id);
         cam_int_streamon(&(targetStreamParms->node));
+    }
+
+    if (m_need_streamoff == 1) {
+        if (cam_int_streamon(&(m_camera_info.capture)) < 0) {
+            ALOGE("ERR(%s): capture stream on fail", __FUNCTION__);
+        } else {
+            m_camera_info.capture.status = true;
+        }
+
+        cam_int_streamon(&(m_camera_info.sensor));
     }
 
     ALOGV("DEBUG(%s): calling  streamon END", __FUNCTION__);
@@ -1626,8 +1714,14 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
     if(!m_isIspStarted) {
         m_isIspStarted = true;
         StartISP();
-        m_need_streamoff = 1;
     }
+
+    if (m_need_streamoff == 1) {
+        m_requestManager->SetInitialSkip(8);
+        m_sensorThread->Start("SensorThread", PRIORITY_DEFAULT, 0);
+        m_mainThread->SetSignal(SIGNAL_MAIN_REQ_Q_NOT_EMPTY);
+    }
+    m_need_streamoff = 1;
 
     return 0;
 }
@@ -1655,12 +1749,11 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
     }
 
     targetStream->m_releasing = true;
-    targetStream->release();
-    while (targetStream->m_releasing)
-    {
-        ALOGD("stream thread release fail %d", __LINE__);
-        usleep(2000);
-    }
+    do {
+        ALOGD("stream thread release %d", __LINE__);
+        targetStream->release();
+        usleep(33000);
+    } while (targetStream->m_releasing);
     targetStream->m_activated = false;
     ALOGV("DEBUG(%s): DONE", __FUNCTION__);
     return 0;
@@ -1874,6 +1967,11 @@ BayerBufManager::BayerBufManager()
     numOnIsp = 0;
     numOnHalFilled = 0;
     numOnHalEmpty = NUM_BAYER_BUFFERS;
+}
+
+BayerBufManager::~BayerBufManager()
+{
+    ALOGV("%s", __FUNCTION__);
 }
 
 int     BayerBufManager::GetIndexForSensorEnqueue()
@@ -2255,6 +2353,14 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             else {
                 m_requestManager->UpdateIspParameters(shot_ext, matchedFrameCnt, false);
             }
+            if (m_wideAspect) {
+//                shot_ext->setfile = ISS_SUB_SCENARIO_VIDEO;
+                shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 30;
+                shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
+            }
+            else {
+//                shot_ext->setfile = ISS_SUB_SCENARIO_STILL;
+            }
             if (triggered)
                 shot_ext->shot.ctl.aa.afTrigger = 1;
 
@@ -2338,6 +2444,9 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 m_streamThreads[0]->SetSignal(SIGNAL_STREAM_DATA_COMING);
             }
 
+            if (shot_ext->request_scc) {
+                m_streamThreads[1]->SetSignal(SIGNAL_STREAM_DATA_COMING);
+            }
 
             ALOGV("(%s): SCP_CLOSING check sensor(%d) scc(%d) scp(%d) ", __FUNCTION__,
                shot_ext->request_sensor, shot_ext->request_scc, shot_ext->request_scp);
@@ -2369,7 +2478,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             shot_ext->request_sensor = 0;
         }
 
-        ALOGV("### Sensor Qbuf start(%d) SCP(%d) SCC(%d) DIS(%d)", index, shot_ext->request_scp, shot_ext->request_scc, shot_ext->dis_bypass);
+//        ALOGD("### Sensor Qbuf start(%d) SCP(%d) SCC(%d) DIS(%d)", index, shot_ext->request_scp, shot_ext->request_scc, shot_ext->dis_bypass);
 
         cam_int_qbuf(&(m_camera_info.sensor), index);
         ALOGV("### Sensor QBUF done");
@@ -2445,27 +2554,32 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
                 if (selfStreamParms->svcBufStatus[i] ==ON_DRIVER) cnt_to_dq++;
             }
 
-            m_scp_closing = true;
             ALOGV("DEBUG(%s): calling stream(%d) streamoff (fd:%d)", __FUNCTION__,
             selfThread->m_index, selfStreamParms->fd);
-            cam_int_streamoff(&(selfStreamParms->node));
-            ALOGV("DEBUG(%s): calling stream(%d) streamoff done", __FUNCTION__, selfThread->m_index);
-            if (selfStreamParms->streamType == STREAM_TYPE_DIRECT) {
-                ALOGV("DEBUG(%s): calling stream(%d) reqbuf 0 (fd:%d)", __FUNCTION__,
-                selfThread->m_index, selfStreamParms->fd);
-                currentNode->buffers = 0;
-                cam_int_reqbufs(currentNode);
-                ALOGV("DEBUG(%s): calling stream(%d) reqbuf 0 DONE(fd:%d)", __FUNCTION__,
-                selfThread->m_index, selfStreamParms->fd);
+            if (cam_int_streamoff(&(selfStreamParms->node)) < 0 ){
+                ALOGE("ERR(%s): stream off fail", __FUNCTION__);
+            } else {
+                if (selfStreamParms->streamType == STREAM_TYPE_DIRECT) {
+                    m_scp_closing = true;
+                } else {
+                    m_camera_info.capture.status = false;
+                }
             }
+            ALOGV("DEBUG(%s): calling stream(%d) streamoff done", __FUNCTION__, selfThread->m_index);
+            ALOGV("DEBUG(%s): calling stream(%d) reqbuf 0 (fd:%d)", __FUNCTION__,
+                    selfThread->m_index, selfStreamParms->fd);
+            currentNode->buffers = 0;
+            cam_int_reqbufs(currentNode);
+            ALOGV("DEBUG(%s): calling stream(%d) reqbuf 0 DONE(fd:%d)", __FUNCTION__,
+                    selfThread->m_index, selfStreamParms->fd);
         }
-            selfThread->m_releasing = false;
-        ALOGD("m_releasing set false");
         if (selfThread->m_index == 1 && m_resizeBuf.size.s != 0) {
             freeCameraMemory(&m_resizeBuf, 1);
         }
         selfThread->m_isBufferInit = false;
         selfThread->m_index = 255;
+
+        selfThread->m_releasing = false;
 
         ALOGV("DEBUG(%s): processing SIGNAL_THREAD_RELEASE DONE", __FUNCTION__);
 
@@ -2715,7 +2829,6 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
                 ALOGD("DEBUG(%s): stream(%d) type(%d) DQBUF done index(%d)",__FUNCTION__,
                     selfThread->m_index, selfStreamParms->streamType, index);
 
-                m_jpegEncodingFrameCnt = m_ispProcessingFrameCnt;
 
                 for (int i = 0; i < selfStreamParms->numSvcBuffers ; i++) {
                     if (selfStreamParms->svcBufStatus[selfStreamParms->svcBufIndex] == ON_HAL) {
@@ -2803,8 +2916,7 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
 
                 m_resizeBuf = resizeBufInfo;
 
-                res = selfStreamParms->streamOps->enqueue_buffer(selfStreamParms->streamOps,
-                        m_requestManager->GetTimestamp(m_jpegEncodingFrameCnt), &(selfStreamParms->svcBufHandle[selfStreamParms->svcBufIndex]));
+                res = selfStreamParms->streamOps->enqueue_buffer(selfStreamParms->streamOps, systemTime(), &(selfStreamParms->svcBufHandle[selfStreamParms->svcBufIndex]));
 
                 ALOGV("DEBUG(%s): stream(%d) enqueue_buffer index(%d) to svc done res(%d)",
                         __FUNCTION__, selfThread->m_index, selfStreamParms->svcBufIndex, res);
@@ -3841,11 +3953,14 @@ void ExynosCameraHWInterface2::freeCameraMemory(ExynosBuffer *buf, int iMemoryNu
 {
 
     int i =0 ;
+    int ret = 0;
 
     for (i=0;i<iMemoryNum;i++) {
         if (buf->fd.extFd[i] != -1) {
             if (buf->virt.extP[i] != (char *)MAP_FAILED) {
-                ion_unmap(buf->virt.extP[i], buf->size.extS[i]);
+                ret = ion_unmap(buf->virt.extP[i], buf->size.extS[i]);
+                if (ret < 0)
+                    ALOGE("ERR(%s)", __FUNCTION__);
             }
             ion_free(buf->fd.extFd[i]);
         }
@@ -3885,6 +4000,16 @@ static int HAL2_camera_device_close(struct hw_device_t* device)
         free(cam_device);
         g_camera_vaild = false;
     }
+    if (g_camera2[0] != NULL) {
+        delete static_cast<ExynosCamera2 *>(g_camera2[0]);
+        g_camera2[0] = NULL;
+    }
+
+    if (g_camera2[1] != NULL) {
+        delete static_cast<ExynosCamera2 *>(g_camera2[1]);
+        g_camera2[1] = NULL;
+    }
+
     ALOGV("%s: EXIT", __FUNCTION__);
     return 0;
 }
