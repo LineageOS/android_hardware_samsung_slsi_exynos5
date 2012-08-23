@@ -705,9 +705,8 @@ void    RequestManager::RegisterTimestamp(int frameCnt, nsecs_t * frameTime)
 
 uint64_t  RequestManager::GetTimestamp(int index)
 {
-
-    if (index == -1) {
-        ALOGE("ERR(%s): Cannot find entry ", __FUNCTION__);
+    if (index < 0 || index >= NUM_MAX_REQUEST_MGR_ENTRY) {
+        ALOGE("ERR(%s): Request entry outside of bounds (%d)", __FUNCTION__, index);
         return 0;
     }
 
@@ -855,6 +854,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
 
 
     ALOGV("DEBUG(%s): END", __FUNCTION__);
+    m_setExifFixedAttribute();
 }
 
 ExynosCameraHWInterface2::~ExynosCameraHWInterface2()
@@ -2428,6 +2428,8 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
 
             if(isCapture) {
                     ALOGD("======= request_scc is 1");
+                    memcpy(&m_jpegMetadata, &shot_ext->shot, sizeof(struct camera2_shot));
+                    ALOGV("### Saving informationfor jpeg");
                     m_streamThreads[1]->SetSignal(SIGNAL_STREAM_DATA_COMING);
 
                 for(j = 0; j < m_camera_info.isp.buffers; j++)
@@ -3070,6 +3072,9 @@ bool ExynosCameraHWInterface2::yuv2Jpeg(ExynosBuffer *yuvBuf,
 {
     unsigned char *addr;
 
+    int thumbW = 320;
+    int thumbH = 240;
+
     ExynosJpegEncoderForCamera jpegEnc;
     bool ret = false;
     int res = 0;
@@ -3102,26 +3107,36 @@ bool ExynosCameraHWInterface2::yuv2Jpeg(ExynosBuffer *yuvBuf,
         goto jpeg_encode_done;
     }
 
-    mExifInfo.enableThumb = false;
+    mExifInfo.enableThumb = true;
 
+    if (jpegEnc.setThumbnailSize(thumbW, thumbH)) {
+        ALOGE("ERR(%s):jpegEnc.setThumbnailSize(%d, %d) fail", __FUNCTION__, thumbW, thumbH);
+        goto jpeg_encode_done;
+    }
+
+    ALOGV("(%s):jpegEnc.setThumbnailSize(%d, %d) ", __FUNCTION__, thumbW, thumbH);
+    if (jpegEnc.setThumbnailQuality(50)) {
+        ALOGE("ERR(%s):jpegEnc.setThumbnailQuality fail", __FUNCTION__);
+        goto jpeg_encode_done;
+    }
+
+    m_setExifChangedAttribute(&mExifInfo, rect, &m_jpegMetadata);
     ALOGV("DEBUG(%s):calling jpegEnc.setInBuf() yuvSize(%d)", __FUNCTION__, *yuvSize);
-    if (jpegEnc.setInBuf((int *)&(yuvBuf->fd.fd), (int *)yuvSize)) {
+    if (jpegEnc.setInBuf((int *)&(yuvBuf->fd.fd), &(yuvBuf->virt.p), (int *)yuvSize)) {
         ALOGE("ERR(%s):jpegEnc.setInBuf() fail", __FUNCTION__);
         goto jpeg_encode_done;
     }
-
-    if (jpegEnc.setOutBuf(jpegBuf->fd.fd, jpegBuf->size.extS[0] + jpegBuf->size.extS[1] + jpegBuf->size.extS[2])) {
+    if (jpegEnc.setOutBuf(jpegBuf->fd.fd, jpegBuf->virt.p, jpegBuf->size.extS[0] + jpegBuf->size.extS[1] + jpegBuf->size.extS[2])) {
         ALOGE("ERR(%s):jpegEnc.setOutBuf() fail", __FUNCTION__);
         goto jpeg_encode_done;
     }
-    memset(jpegBuf->virt.p, 0 ,jpegBuf->size.extS[0] + jpegBuf->size.extS[1] + jpegBuf->size.extS[2]);
 
     if (jpegEnc.updateConfig()) {
         ALOGE("ERR(%s):jpegEnc.updateConfig() fail", __FUNCTION__);
         goto jpeg_encode_done;
     }
 
-    if (res = jpegEnc.encode((int *)&jpegBuf->size.s, NULL)) {
+    if (res = jpegEnc.encode((int *)&jpegBuf->size.s, &mExifInfo)) {
         ALOGE("ERR(%s):jpegEnc.encode() fail ret(%d)", __FUNCTION__, res);
         goto jpeg_encode_done;
     }
@@ -3805,6 +3820,257 @@ void ExynosCameraHWInterface2::SetAfMode(enum aa_afmode afMode)
             m_afMode = afMode;
         }
     }
+}
+
+void ExynosCameraHWInterface2::m_setExifFixedAttribute(void)
+{
+    char property[PROPERTY_VALUE_MAX];
+
+    //2 0th IFD TIFF Tags
+    //3 Maker
+    property_get("ro.product.brand", property, EXIF_DEF_MAKER);
+    strncpy((char *)mExifInfo.maker, property,
+                sizeof(mExifInfo.maker) - 1);
+    mExifInfo.maker[sizeof(mExifInfo.maker) - 1] = '\0';
+    //3 Model
+    property_get("ro.product.model", property, EXIF_DEF_MODEL);
+    strncpy((char *)mExifInfo.model, property,
+                sizeof(mExifInfo.model) - 1);
+    mExifInfo.model[sizeof(mExifInfo.model) - 1] = '\0';
+    //3 Software
+    property_get("ro.build.id", property, EXIF_DEF_SOFTWARE);
+    strncpy((char *)mExifInfo.software, property,
+                sizeof(mExifInfo.software) - 1);
+    mExifInfo.software[sizeof(mExifInfo.software) - 1] = '\0';
+
+    //3 YCbCr Positioning
+    mExifInfo.ycbcr_positioning = EXIF_DEF_YCBCR_POSITIONING;
+
+    //2 0th IFD Exif Private Tags
+    //3 F Number
+    mExifInfo.fnumber.num = EXIF_DEF_FNUMBER_NUM;
+    mExifInfo.fnumber.den = EXIF_DEF_FNUMBER_DEN;
+    //3 Exposure Program
+    mExifInfo.exposure_program = EXIF_DEF_EXPOSURE_PROGRAM;
+    //3 Exif Version
+    memcpy(mExifInfo.exif_version, EXIF_DEF_EXIF_VERSION, sizeof(mExifInfo.exif_version));
+    //3 Aperture
+    uint32_t av = APEX_FNUM_TO_APERTURE((double)mExifInfo.fnumber.num/mExifInfo.fnumber.den);
+    mExifInfo.aperture.num = av*EXIF_DEF_APEX_DEN;
+    mExifInfo.aperture.den = EXIF_DEF_APEX_DEN;
+    //3 Maximum lens aperture
+    mExifInfo.max_aperture.num = mExifInfo.aperture.num;
+    mExifInfo.max_aperture.den = mExifInfo.aperture.den;
+    //3 Lens Focal Length
+    mExifInfo.focal_length.num = EXIF_DEF_FOCAL_LEN_NUM;
+    mExifInfo.focal_length.den = EXIF_DEF_FOCAL_LEN_DEN;
+    //3 User Comments
+    strcpy((char *)mExifInfo.user_comment, EXIF_DEF_USERCOMMENTS);
+    //3 Color Space information
+    mExifInfo.color_space = EXIF_DEF_COLOR_SPACE;
+    //3 Exposure Mode
+    mExifInfo.exposure_mode = EXIF_DEF_EXPOSURE_MODE;
+
+    //2 0th IFD GPS Info Tags
+    unsigned char gps_version[4] = { 0x02, 0x02, 0x00, 0x00 };
+    memcpy(mExifInfo.gps_version_id, gps_version, sizeof(gps_version));
+
+    //2 1th IFD TIFF Tags
+    mExifInfo.compression_scheme = EXIF_DEF_COMPRESSION;
+    mExifInfo.x_resolution.num = EXIF_DEF_RESOLUTION_NUM;
+    mExifInfo.x_resolution.den = EXIF_DEF_RESOLUTION_DEN;
+    mExifInfo.y_resolution.num = EXIF_DEF_RESOLUTION_NUM;
+    mExifInfo.y_resolution.den = EXIF_DEF_RESOLUTION_DEN;
+    mExifInfo.resolution_unit = EXIF_DEF_RESOLUTION_UNIT;
+}
+
+void ExynosCameraHWInterface2::m_setExifChangedAttribute(exif_attribute_t *exifInfo, ExynosRect *rect,
+	camera2_shot *currentEntry)
+{
+    camera2_dm *dm = &(currentEntry->dm);
+    camera2_ctl *ctl = &(currentEntry->ctl);
+
+    ALOGV("(%s): framecnt(%d) exp(%lld) iso(%d)", __FUNCTION__, ctl->request.frameCount, dm->sensor.exposureTime,dm->aa.isoValue );
+    if (!ctl->request.frameCount)
+       return;
+    //2 0th IFD TIFF Tags
+    //3 Width
+    exifInfo->width = rect->w;
+    //3 Height
+    exifInfo->height = rect->h;
+    //3 Orientation
+    switch (ctl->jpeg.orientation) {
+    case 90:
+        exifInfo->orientation = EXIF_ORIENTATION_90;
+        break;
+    case 180:
+        exifInfo->orientation = EXIF_ORIENTATION_180;
+        break;
+    case 270:
+        exifInfo->orientation = EXIF_ORIENTATION_270;
+        break;
+    case 0:
+    default:
+        exifInfo->orientation = EXIF_ORIENTATION_UP;
+        break;
+    }
+
+    //3 Date time
+    time_t rawtime;
+    struct tm *timeinfo;
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+    strftime((char *)exifInfo->date_time, 20, "%Y:%m:%d %H:%M:%S", timeinfo);
+
+    //2 0th IFD Exif Private Tags
+    //3 Exposure Time
+    int shutterSpeed = (dm->sensor.exposureTime/1000);
+
+    if (shutterSpeed < 0) {
+        shutterSpeed = 100;
+    }
+
+    exifInfo->exposure_time.num = 1;
+    // x us -> 1/x s */
+    //exifInfo->exposure_time.den = (uint32_t)(1000000 / shutterSpeed);
+    exifInfo->exposure_time.den = (uint32_t)((double)1000000 / shutterSpeed);
+
+    //3 ISO Speed Rating
+    exifInfo->iso_speed_rating = dm->aa.isoValue;
+
+    uint32_t av, tv, bv, sv, ev;
+    av = APEX_FNUM_TO_APERTURE((double)exifInfo->fnumber.num / exifInfo->fnumber.den);
+    tv = APEX_EXPOSURE_TO_SHUTTER((double)exifInfo->exposure_time.num / exifInfo->exposure_time.den);
+    sv = APEX_ISO_TO_FILMSENSITIVITY(exifInfo->iso_speed_rating);
+    bv = av + tv - sv;
+    ev = av + tv;
+    //ALOGD("Shutter speed=%d us, iso=%d", shutterSpeed, exifInfo->iso_speed_rating);
+    ALOGD("AV=%d, TV=%d, SV=%d", av, tv, sv);
+
+    //3 Shutter Speed
+    exifInfo->shutter_speed.num = tv * EXIF_DEF_APEX_DEN;
+    exifInfo->shutter_speed.den = EXIF_DEF_APEX_DEN;
+    //3 Brightness
+    exifInfo->brightness.num = bv*EXIF_DEF_APEX_DEN;
+    exifInfo->brightness.den = EXIF_DEF_APEX_DEN;
+    //3 Exposure Bias
+    if (ctl->aa.sceneMode== AA_SCENE_MODE_BEACH||
+        ctl->aa.sceneMode== AA_SCENE_MODE_SNOW) {
+        exifInfo->exposure_bias.num = EXIF_DEF_APEX_DEN;
+        exifInfo->exposure_bias.den = EXIF_DEF_APEX_DEN;
+    } else {
+        exifInfo->exposure_bias.num = 0;
+        exifInfo->exposure_bias.den = 0;
+    }
+    //3 Metering Mode
+    /*switch (m_curCameraInfo->metering) {
+    case METERING_MODE_CENTER:
+        exifInfo->metering_mode = EXIF_METERING_CENTER;
+        break;
+    case METERING_MODE_MATRIX:
+        exifInfo->metering_mode = EXIF_METERING_MULTISPOT;
+        break;
+    case METERING_MODE_SPOT:
+        exifInfo->metering_mode = EXIF_METERING_SPOT;
+        break;
+    case METERING_MODE_AVERAGE:
+    default:
+        exifInfo->metering_mode = EXIF_METERING_AVERAGE;
+        break;
+    }*/
+    exifInfo->metering_mode = EXIF_METERING_CENTER;
+
+    //3 Flash
+    int flash = dm->flash.flashMode;
+    if (dm->flash.flashMode == FLASH_MODE_OFF || flash < 0)
+        exifInfo->flash = EXIF_DEF_FLASH;
+    else
+        exifInfo->flash = flash;
+
+    //3 White Balance
+    if (dm->aa.awbMode == AA_AWBMODE_WB_AUTO)
+        exifInfo->white_balance = EXIF_WB_AUTO;
+    else
+        exifInfo->white_balance = EXIF_WB_MANUAL;
+
+    //3 Scene Capture Type
+    switch (ctl->aa.sceneMode) {
+    case AA_SCENE_MODE_PORTRAIT:
+        exifInfo->scene_capture_type = EXIF_SCENE_PORTRAIT;
+        break;
+    case AA_SCENE_MODE_LANDSCAPE:
+        exifInfo->scene_capture_type = EXIF_SCENE_LANDSCAPE;
+        break;
+    case AA_SCENE_MODE_NIGHT_PORTRAIT:
+        exifInfo->scene_capture_type = EXIF_SCENE_NIGHT;
+        break;
+    default:
+        exifInfo->scene_capture_type = EXIF_SCENE_STANDARD;
+        break;
+    }
+
+    //2 0th IFD GPS Info Tags
+    if (ctl->jpeg.gpsCoordinates[0] != 0 && ctl->jpeg.gpsCoordinates[1] != 0) {
+
+        if (ctl->jpeg.gpsCoordinates[0] > 0)
+            strcpy((char *)exifInfo->gps_latitude_ref, "N");
+        else
+            strcpy((char *)exifInfo->gps_latitude_ref, "S");
+
+        if (ctl->jpeg.gpsCoordinates[1] > 0)
+            strcpy((char *)exifInfo->gps_longitude_ref, "E");
+        else
+            strcpy((char *)exifInfo->gps_longitude_ref, "W");
+
+        if (ctl->jpeg.gpsCoordinates[2] > 0)
+            exifInfo->gps_altitude_ref = 0;
+        else
+            exifInfo->gps_altitude_ref = 1;
+
+        double latitude = fabs(ctl->jpeg.gpsCoordinates[0] / 10000.0);
+        double longitude = fabs(ctl->jpeg.gpsCoordinates[1] / 10000.0);
+        double altitude = fabs(ctl->jpeg.gpsCoordinates[2] / 100.0);
+
+        exifInfo->gps_latitude[0].num = (uint32_t)latitude;
+        exifInfo->gps_latitude[0].den = 1;
+        exifInfo->gps_latitude[1].num = (uint32_t)((latitude - exifInfo->gps_latitude[0].num) * 60);
+        exifInfo->gps_latitude[1].den = 1;
+        exifInfo->gps_latitude[2].num = (uint32_t)((((latitude - exifInfo->gps_latitude[0].num) * 60)
+                                        - exifInfo->gps_latitude[1].num) * 60);
+        exifInfo->gps_latitude[2].den = 1;
+
+        exifInfo->gps_longitude[0].num = (uint32_t)longitude;
+        exifInfo->gps_longitude[0].den = 1;
+        exifInfo->gps_longitude[1].num = (uint32_t)((longitude - exifInfo->gps_longitude[0].num) * 60);
+        exifInfo->gps_longitude[1].den = 1;
+        exifInfo->gps_longitude[2].num = (uint32_t)((((longitude - exifInfo->gps_longitude[0].num) * 60)
+                                        - exifInfo->gps_longitude[1].num) * 60);
+        exifInfo->gps_longitude[2].den = 1;
+
+        exifInfo->gps_altitude.num = (uint32_t)altitude;
+        exifInfo->gps_altitude.den = 1;
+
+        struct tm tm_data;
+        long timestamp;
+        timestamp = (long)ctl->jpeg.gpsTimestamp;
+        gmtime_r(&timestamp, &tm_data);
+        exifInfo->gps_timestamp[0].num = tm_data.tm_hour;
+        exifInfo->gps_timestamp[0].den = 1;
+        exifInfo->gps_timestamp[1].num = tm_data.tm_min;
+        exifInfo->gps_timestamp[1].den = 1;
+        exifInfo->gps_timestamp[2].num = tm_data.tm_sec;
+        exifInfo->gps_timestamp[2].den = 1;
+        snprintf((char*)exifInfo->gps_datestamp, sizeof(exifInfo->gps_datestamp),
+                "%04d:%02d:%02d", tm_data.tm_year + 1900, tm_data.tm_mon + 1, tm_data.tm_mday);
+
+        exifInfo->enableGps = true;
+    } else {
+        exifInfo->enableGps = false;
+    }
+
+    //2 1th IFD TIFF Tags
+    exifInfo->widthThumb = ctl->jpeg.thumbnailSize[0];
+    exifInfo->heightThumb = ctl->jpeg.thumbnailSize[1];
 }
 
 ExynosCameraHWInterface2::MainThread::~MainThread()

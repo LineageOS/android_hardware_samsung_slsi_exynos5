@@ -43,6 +43,8 @@ ExynosJpegEncoderForCamera::ExynosJpegEncoderForCamera()
     m_ionJpegClient = 0;
     initJpegMemory(&m_stThumbInBuf, MAX_IMAGE_PLANE_NUM);
     initJpegMemory(&m_stThumbOutBuf, MAX_IMAGE_PLANE_NUM);
+    initJpegMemory(&m_stMainInBuf, MAX_IMAGE_PLANE_NUM);
+    initJpegMemory(&m_stMainOutBuf, MAX_IMAGE_PLANE_NUM);
 }
 
 ExynosJpegEncoderForCamera::~ExynosJpegEncoderForCamera()
@@ -89,7 +91,7 @@ int ExynosJpegEncoderForCamera::create(void)
     if(m_ionJpegClient == 0) {
         return ERROR_CANNOT_CREATE_EXYNOS_JPEG_ENC_HAL;
     }
-    m_stThumbInBuf.ionClient = m_stThumbOutBuf.ionClient = m_ionJpegClient;
+    m_stMainOutBuf.ionClient = m_stMainInBuf.ionClient = m_stThumbInBuf.ionClient = m_stThumbOutBuf.ionClient = m_ionJpegClient;
 
     m_flagCreate = true;
 
@@ -113,8 +115,10 @@ int ExynosJpegEncoderForCamera::destroy(void)
 
         freeJpegMemory(&m_stThumbInBuf, MAX_IMAGE_PLANE_NUM);
         freeJpegMemory(&m_stThumbOutBuf, MAX_IMAGE_PLANE_NUM);
+        initJpegMemory(&m_stMainInBuf, MAX_IMAGE_PLANE_NUM);
+        initJpegMemory(&m_stMainOutBuf, MAX_IMAGE_PLANE_NUM);
         m_ionJpegClient = deleteIonClient(m_ionJpegClient);
-        m_stThumbInBuf.ionClient = m_stThumbOutBuf.ionClient = m_ionJpegClient;
+        m_stMainOutBuf.ionClient = m_stMainInBuf.ionClient = m_stThumbInBuf.ionClient = m_stThumbOutBuf.ionClient = m_ionJpegClient;
         m_jpegThumb->destroy();
         delete m_jpegThumb;
         m_jpegThumb = NULL;
@@ -173,7 +177,7 @@ int ExynosJpegEncoderForCamera::updateConfig(void)
     return m_jpegMain->updateConfig();
 }
 
-int  ExynosJpegEncoderForCamera::setInBuf(int *buf, int *size)
+int  ExynosJpegEncoderForCamera::setInBuf(int *buf, char** vBuf, int *size)
 {
     if (m_flagCreate == false) {
         return ERROR_NOT_YET_CREATED;
@@ -194,11 +198,14 @@ int  ExynosJpegEncoderForCamera::setInBuf(int *buf, int *size)
         JPEG_ERROR_LOG("%s::Fail to JPEG input buffer!!\n", __func__);
         return ret;
     }
+    m_stMainInBuf.ionBuffer[0] = buf[0];
+    m_stMainInBuf.iSize[0] = size[0];
+    m_stMainInBuf.pcBuf[0] = vBuf[0];
 
     return ERROR_NONE;
 }
 
-int  ExynosJpegEncoderForCamera::setOutBuf(int buf, int size)
+int  ExynosJpegEncoderForCamera::setOutBuf(int buf, char* vBuf, int size)
 {
     if (m_flagCreate == false) {
         return ERROR_NOT_YET_CREATED;
@@ -218,6 +225,9 @@ int  ExynosJpegEncoderForCamera::setOutBuf(int buf, int size)
         JPEG_ERROR_LOG("%s::Fail to JPEG output buffer!!\n", __func__);
         return ret;
     }
+    m_stMainOutBuf.ionBuffer[0] = buf;
+    m_stMainOutBuf.iSize[0] = size;
+    m_stMainOutBuf.pcBuf[0] = vBuf;
 
     return ERROR_NONE;
 }
@@ -245,15 +255,9 @@ int ExynosJpegEncoderForCamera::encode(int *size, exif_attribute_t *exifInfo)
         return ERROR_OUT_BUFFER_SIZE_TOO_SMALL;
     }
 
-    int iOutputSize = 0;
-    int iJpegBuffer = 0;
-    char *pcJpegBuffer = NULL;
-    ret = m_jpegMain->getOutBuf((int *)&iJpegBuffer, &iOutputSize);
-    if (ret != ERROR_NONE) {
-        return ret;
-    }
-
-    mmapJpegMemory(&iJpegBuffer, &pcJpegBuffer, &iOutputSize, MAX_OUTPUT_BUFFER_PLANE_NUM);
+    int iOutputSize = m_stMainOutBuf.iSize[0];
+    int iJpegBuffer = m_stMainOutBuf.ionBuffer[0];
+    char *pcJpegBuffer = m_stMainOutBuf.pcBuf[0];
 
     if (pcJpegBuffer[0] == NULL) {
         JPEG_ERROR_LOG("%s::pcJpegBuffer[0] is null!!\n", __func__);
@@ -304,8 +308,6 @@ int ExynosJpegEncoderForCamera::encode(int *size, exif_attribute_t *exifInfo)
 
         delete[] exifOut;
     }
-
-    unmapJpegMemory(&iJpegBuffer, &pcJpegBuffer, &iOutputSize, MAX_OUTPUT_BUFFER_PLANE_NUM);
 
     *size = iJpegSize;
 
@@ -497,6 +499,7 @@ int ExynosJpegEncoderForCamera::makeExif (unsigned char *exifOut,
                 iThumbFd = -1;
             }
             thumbSize = (unsigned int)m_jpegMain->getJpegSize();
+            thumbBuf = m_stMainOutBuf.pcBuf[0];
         }
     } else {
         if (m_jpegThumb) {
@@ -505,10 +508,9 @@ int ExynosJpegEncoderForCamera::makeExif (unsigned char *exifOut,
                 iThumbFd = -1;
             }
             thumbSize = (unsigned int)m_jpegThumb->getJpegSize();
+            thumbBuf = m_stThumbOutBuf.pcBuf[0];
         }
     }
-
-    mmapJpegMemory(&iThumbFd, &thumbBuf, &thumbBufSize, MAX_OUTPUT_BUFFER_PLANE_NUM);
 
     if (exifInfo->enableThumb && (thumbBuf != NULL) && (thumbSize != 0)) {
         exifSizeExceptThumb = tmp = LongerTagOffest;
@@ -566,8 +568,6 @@ int ExynosJpegEncoderForCamera::makeExif (unsigned char *exifOut,
     tmp = *size - 2;    // APP1 Maker isn't counted
     unsigned char size_mm[2] = {(tmp >> 8) & 0xFF, tmp & 0xFF};
     memcpy(pApp1Start, size_mm, 2);
-
-    unmapJpegMemory(&iThumbFd, &thumbBuf, &thumbBufSize, MAX_OUTPUT_BUFFER_PLANE_NUM);
 
     return ERROR_NONE;
 }
@@ -855,11 +855,6 @@ int ExynosJpegEncoderForCamera::encodeThumbnail(unsigned int *size, bool useMain
     if (useMain) {
         int iTempWidth=0;
         int iTempHeight=0;
-        int iMainInputBuf[MAX_INPUT_BUFFER_PLANE_NUM];
-        char *pcMainInputBuf[2];
-        int iMainInputSize[MAX_INPUT_BUFFER_PLANE_NUM];
-        char *pcThumbInputBuf[2];
-        int iThumbInputSize[MAX_INPUT_BUFFER_PLANE_NUM];
         int iTempColorformat = 0;
 
         iTempColorformat = m_jpegMain->getColorFormat();
@@ -870,20 +865,9 @@ int ExynosJpegEncoderForCamera::encodeThumbnail(unsigned int *size, bool useMain
             return ret;
         }
 
-        ret = m_jpegMain->getInBuf(iMainInputBuf, iMainInputSize, MAX_INPUT_BUFFER_PLANE_NUM);
-        if (ret) {
-            JPEG_ERROR_LOG("ERR(%s):Fail getInBuf\n", __func__);
-            return ret;
-        }
-
-        pcThumbInputBuf[0] = m_stThumbInBuf.pcBuf[0];
-        pcThumbInputBuf[1] = (char *)(MAP_FAILED);
-
-        mmapJpegMemory(iMainInputBuf, pcMainInputBuf, iMainInputSize, MAX_INPUT_BUFFER_PLANE_NUM);
-
         switch (iTempColorformat) {
         case V4L2_PIX_FMT_YUYV:
-            ret = scaleDownYuv422(pcMainInputBuf,
+            ret = scaleDownYuv422(m_stMainInBuf.pcBuf,
                               iTempWidth,
                               iTempHeight,
                               m_stThumbInBuf.pcBuf,
@@ -891,9 +875,7 @@ int ExynosJpegEncoderForCamera::encodeThumbnail(unsigned int *size, bool useMain
                               m_thumbnailH);
             break;
         case V4L2_PIX_FMT_NV16:
-            pcMainInputBuf[1] = pcMainInputBuf[0] + (iTempWidth*iTempHeight);
-            pcThumbInputBuf[1] = pcThumbInputBuf[0] + (m_thumbnailW*m_thumbnailH);
-            ret = scaleDownYuv422_2p(pcMainInputBuf,
+            ret = scaleDownYuv422_2p(m_stMainInBuf.pcBuf,
                               iTempWidth,
                               iTempHeight,
                               m_stThumbInBuf.pcBuf,
@@ -904,9 +886,6 @@ int ExynosJpegEncoderForCamera::encodeThumbnail(unsigned int *size, bool useMain
             return ERROR_INVALID_COLOR_FORMAT;
             break;
         }
-
-        pcMainInputBuf[1] = (char *)(MAP_FAILED);
-        unmapJpegMemory(iMainInputBuf, pcMainInputBuf, iMainInputSize, MAX_INPUT_BUFFER_PLANE_NUM);
 
         if (ret) {
             JPEG_ERROR_LOG("%s::scaleDown(%d, %d, %d, %d) fail", __func__, iTempWidth, iTempHeight, m_thumbnailW, m_thumbnailH);
@@ -1031,28 +1010,3 @@ void ExynosJpegEncoderForCamera::initJpegMemory(struct stJpegMem *pstMem, int iM
     pstMem->ionClient = 0;
 }
 
-void ExynosJpegEncoderForCamera::mmapJpegMemory(int *iFd, char **ppcBuf, int *piSize, int iMemoryNum)
-{
-    for (int i=0;i<iMemoryNum;i++) {
-        if (piSize[i] != 0) {
-            ppcBuf[i] = (char *)ion_map(iFd[i], piSize[i], 0);
-            if ((ppcBuf[i] == (char *)MAP_FAILED) || (ppcBuf[i] == NULL)) {
-                JPEG_ERROR_LOG("[%s]ion map failed(0x%x)\n", __func__, ppcBuf[i]);
-                ppcBuf[i] = (char *)MAP_FAILED;
-            }
-        } else {
-            ppcBuf[i] = (char *)MAP_FAILED;
-        }
-    }
-}
-
-void ExynosJpegEncoderForCamera::unmapJpegMemory(int *iFd, char **ppcBuf, int *piSize, int iMemoryNum)
-{
-    for (int i=0;i<iMemoryNum;i++) {
-        if (ppcBuf[i] != (char *)MAP_FAILED) {
-            ion_unmap(ppcBuf[i], piSize[i]);
-        }
-        ppcBuf[i] = (char *)MAP_FAILED;
-        piSize[i] = 0;
-    }
-}
