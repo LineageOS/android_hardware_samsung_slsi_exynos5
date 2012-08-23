@@ -118,13 +118,21 @@ const int32_t scalerResolutionS5K4E5[] =
     1920, 1080,
     1440, 1080,
     1280,  720,
+     640,  480,
+     320,  240,
+     176,  144,
 };
 
 const int32_t jpegResolutionS5K4E5[] =
 {
     2560, 1920,
-    2560, 1440,
-    1280,  720,
+    2048, 1536,
+    1600, 1200,
+    1280, 1024,
+    1280,  960,
+    1152,  864,
+     640,  480,
+     320,  240,
 };
 
 ExynosCamera2InfoS5K4E5::ExynosCamera2InfoS5K4E5()
@@ -142,16 +150,28 @@ ExynosCamera2InfoS5K4E5::ExynosCamera2InfoS5K4E5()
     aperture            = 2.7f;
 }
 
+ExynosCamera2InfoS5K4E5::~ExynosCamera2InfoS5K4E5()
+{
+    ALOGV("%s", __FUNCTION__);
+}
 const int32_t scalerResolutionS5K6A3[] =
 {
     1280,  960,
     1280,  720,
+     640,  480,
+     176,  144,
 };
 
 const int32_t jpegResolutionS5K6A3[] =
 {
+    1392, 1392,
+    1392, 1040,
+    1392,  784,
+    1280, 1024,
     1280,  960,
-    1280,  720,
+    1152,  864,
+     640,  480,
+     320,  240,
 };
 
 ExynosCamera2InfoS5K6A3::ExynosCamera2InfoS5K6A3()
@@ -169,6 +189,10 @@ ExynosCamera2InfoS5K6A3::ExynosCamera2InfoS5K6A3()
     aperture            = 2.8f;
 }
 
+ExynosCamera2InfoS5K6A3::~ExynosCamera2InfoS5K6A3()
+{
+    ALOGV("%s", __FUNCTION__);
+}
 ExynosCamera2::ExynosCamera2(int cameraId):
     m_cameraId(cameraId)
 {
@@ -180,7 +204,9 @@ ExynosCamera2::ExynosCamera2(int cameraId):
 
 ExynosCamera2::~ExynosCamera2()
 {
+    ALOGV("%s", __FUNCTION__);
 	delete m_curCameraInfo;
+    m_curCameraInfo = NULL;
 }
 
 int32_t ExynosCamera2::getSensorW()
