@@ -51,6 +51,7 @@
 #include "ExynosExif.h"
 #include "csc.h"
 #include "ExynosCamera2.h"
+#include "cutils/properties.h"
 
 namespace android {
 
@@ -487,6 +488,9 @@ class MainThread : public SignalDrivenThread {
     void            SetAfStateForService(int newState);
     int             GetAfStateForService();
     exif_attribute_t    mExifInfo;
+    void            m_setExifFixedAttribute(void);
+    void            m_setExifChangedAttribute(exif_attribute_t *exifInfo, ExynosRect *rect,
+                         camera2_shot *currentEntry);
     void               *m_exynosPictureCSC;
     void               *m_exynosVideoCSC;
 
@@ -543,6 +547,7 @@ class MainThread : public SignalDrivenThread {
     bool                                m_IsAfTriggerRequired;
     bool                                m_IsAfLockRequired;
     int                                 m_serviceAfState;
+    struct camera2_shot                 m_jpegMetadata;
 };
 
 }; // namespace android

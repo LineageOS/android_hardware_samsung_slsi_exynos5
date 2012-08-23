@@ -83,8 +83,8 @@ public :
 
     int     updateConfig(void);
 
-    int     setInBuf(int *buf, int *size);
-    int     setOutBuf(int buf, int size);
+    int     setInBuf(int *buf, char** vBuf, int *size);
+    int     setOutBuf(int buf, char* vBuf, int size);
 
     int     encode(int *size, exif_attribute_t *exifInfo);
 
@@ -141,9 +141,6 @@ private:
     void    freeJpegMemory(struct stJpegMem *pstMem, int iMemoryNum);
     void    initJpegMemory(struct stJpegMem *pstMem, int iMemoryNum);
 
-    void    mmapJpegMemory(int *iFd, char **ppcBuf, int *piSize, int iMemoryNum);
-    void    unmapJpegMemory(int *iFd, char **ppcBuf, int *piSize, int iMemoryNum);
-
     bool     m_flagCreate;
 
     ExynosJpegEncoder *m_jpegMain;
@@ -152,6 +149,8 @@ private:
     ion_client m_ionJpegClient;
     struct stJpegMem m_stThumbInBuf;
     struct stJpegMem m_stThumbOutBuf;
+    struct stJpegMem m_stMainInBuf;
+    struct stJpegMem m_stMainOutBuf;
 
     int m_thumbnailW;
     int m_thumbnailH;
