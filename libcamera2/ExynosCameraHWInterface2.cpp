@@ -2321,6 +2321,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
         if (matchedFrameCnt != -1) {
                 frameTime = systemTime();
         m_requestManager->RegisterTimestamp(matchedFrameCnt, &frameTime);
+            m_requestManager->UpdateIspParameters(shot_ext, matchedFrameCnt, false);
             if (m_IsAfModeUpdateRequired) {
                 ALOGE("### AF Mode change(Mode %d) ", m_afMode);
                 shot_ext->shot.ctl.aa.afMode = m_afMode;
@@ -2342,16 +2343,19 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             }
             if (m_IsAfTriggerRequired) {
                 ALOGE("### AF Triggering with mode (%d)", m_afMode);
-                if (m_afState != HAL_AFSTATE_NEEDS_COMMAND)
-                    ALOGE("(%s): wrong trigger state %d", __FUNCTION__, m_afState);
-                else
-                    m_afState = HAL_AFSTATE_STARTED;
-                m_requestManager->UpdateIspParameters(shot_ext, matchedFrameCnt, true);
+                if (m_afState == HAL_AFSTATE_SCANNING) {
+                     ALOGE("(%s): restarting trigger ", __FUNCTION__);
+                }
+                else {
+                    if (m_afState != HAL_AFSTATE_NEEDS_COMMAND)
+                        ALOGE("(%s): wrong trigger state %d", __FUNCTION__, m_afState);
+                    else
+                        m_afState = HAL_AFSTATE_STARTED;
+                }
                 shot_ext->shot.ctl.aa.afMode = m_afMode;
                 m_IsAfTriggerRequired = false;
             }
             else {
-                m_requestManager->UpdateIspParameters(shot_ext, matchedFrameCnt, false);
             }
             if (m_wideAspect) {
 //                shot_ext->setfile = ISS_SUB_SCENARIO_VIDEO;
@@ -3221,17 +3225,28 @@ void ExynosCameraHWInterface2::OnAfTriggerCAFPicture(int id)
         break;
     case HAL_AFSTATE_STARTED:
         nextState = HAL_AFSTATE_NEEDS_DETERMINATION;
+        m_AfHwStateFailed = false;
         break;
     case HAL_AFSTATE_SCANNING:
         nextState = HAL_AFSTATE_NEEDS_DETERMINATION;
+        m_AfHwStateFailed = false;
         break;
     case HAL_AFSTATE_NEEDS_DETERMINATION:
         nextState = NO_TRANSITION;
         break;
     case HAL_AFSTATE_PASSIVE_FOCUSED:
         m_IsAfLockRequired = true;
-        SetAfStateForService(ANDROID_CONTROL_AF_STATE_FOCUSED_LOCKED);
-        nextState = HAL_AFSTATE_LOCKED;
+        if (m_AfHwStateFailed) {
+            ALOGV("(%s): LAST : fail", __FUNCTION__);
+            SetAfStateForService(ANDROID_CONTROL_AF_STATE_NOT_FOCUSED_LOCKED);
+            nextState = HAL_AFSTATE_FAILED;
+        }
+        else {
+            ALOGV("(%s): LAST : success", __FUNCTION__);
+            SetAfStateForService(ANDROID_CONTROL_AF_STATE_FOCUSED_LOCKED);
+            nextState = HAL_AFSTATE_LOCKED;
+        }
+        m_AfHwStateFailed = false;
         break;
     case HAL_AFSTATE_LOCKED:
         nextState = NO_TRANSITION;
@@ -3449,17 +3464,21 @@ void ExynosCameraHWInterface2::OnAfNotificationCAFPicture(enum aa_afstate noti)
     else if (m_afState == HAL_AFSTATE_SCANNING) {
         switch (noti) {
         case AA_AFSTATE_INACTIVE:
-            bWrongTransition = true;
+            nextState = NO_TRANSITION;
             break;
         case AA_AFSTATE_ACTIVE_SCAN:
             nextState = NO_TRANSITION;
+            m_AfHwStateFailed = false;
             break;
         case AA_AFSTATE_AF_ACQUIRED_FOCUS:
             nextState = HAL_AFSTATE_PASSIVE_FOCUSED;
+            m_AfHwStateFailed = false;
             SetAfStateForService(ANDROID_CONTROL_AF_STATE_PASSIVE_FOCUSED);
             break;
         case AA_AFSTATE_AF_FAILED_FOCUS:
-            nextState = NO_TRANSITION;
+            nextState = HAL_AFSTATE_PASSIVE_FOCUSED;
+            m_AfHwStateFailed = true;
+            SetAfStateForService(ANDROID_CONTROL_AF_STATE_PASSIVE_FOCUSED);
             break;
         default:
             bWrongTransition = true;
@@ -3469,18 +3488,20 @@ void ExynosCameraHWInterface2::OnAfNotificationCAFPicture(enum aa_afstate noti)
     else if (m_afState == HAL_AFSTATE_PASSIVE_FOCUSED) {
         switch (noti) {
         case AA_AFSTATE_INACTIVE:
-            bWrongTransition = true;
+            nextState = NO_TRANSITION;
             break;
         case AA_AFSTATE_ACTIVE_SCAN:
             nextState = HAL_AFSTATE_SCANNING;
+            m_AfHwStateFailed = false;
             SetAfStateForService(ANDROID_CONTROL_AF_STATE_PASSIVE_SCAN);
             break;
         case AA_AFSTATE_AF_ACQUIRED_FOCUS:
             nextState = NO_TRANSITION;
+            m_AfHwStateFailed = false;
             break;
         case AA_AFSTATE_AF_FAILED_FOCUS:
-            nextState = HAL_AFSTATE_FAILED;
-            SetAfStateForService(ANDROID_CONTROL_AF_STATE_NOT_FOCUSED_LOCKED);
+            nextState = NO_TRANSITION;
+            m_AfHwStateFailed = true;
             break;
         default:
             bWrongTransition = true;
@@ -3490,7 +3511,7 @@ void ExynosCameraHWInterface2::OnAfNotificationCAFPicture(enum aa_afstate noti)
     else if (m_afState == HAL_AFSTATE_NEEDS_DETERMINATION) {
         switch (noti) {
         case AA_AFSTATE_INACTIVE:
-            bWrongTransition = true;
+            nextState = NO_TRANSITION;
             break;
         case AA_AFSTATE_ACTIVE_SCAN:
             nextState = NO_TRANSITION;
@@ -3530,7 +3551,11 @@ void ExynosCameraHWInterface2::OnAfNotificationCAFPicture(enum aa_afstate noti)
     else if (m_afState == HAL_AFSTATE_FAILED) {
         switch (noti) {
             case AA_AFSTATE_INACTIVE:
+                bWrongTransition = true;
+                break;
             case AA_AFSTATE_ACTIVE_SCAN:
+                nextState = HAL_AFSTATE_SCANNING;
+                break;
             case AA_AFSTATE_AF_ACQUIRED_FOCUS:
                 bWrongTransition = true;
                 break;
@@ -3603,6 +3628,7 @@ void ExynosCameraHWInterface2::OnAfNotificationCAFVideo(enum aa_afstate noti)
             break;
         case AA_AFSTATE_AF_FAILED_FOCUS:
             nextState = NO_TRANSITION;
+            m_IsAfTriggerRequired = true;
             break;
         default:
             bWrongTransition = true;
