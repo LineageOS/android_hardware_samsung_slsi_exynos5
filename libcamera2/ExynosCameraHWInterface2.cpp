@@ -1178,20 +1178,8 @@ void ExynosCameraHWInterface2::InitializeISPChain()
 
 void ExynosCameraHWInterface2::StartISP()
 {
-    int i;
-
-    for (i = 0; i < m_camera_info.isp.buffers; i++) {
-        ALOGV("DEBUG(%s): isp initial QBUF [%d]",  __FUNCTION__, i);
-        cam_int_qbuf(&(m_camera_info.isp), i);
-    }
-
     ALOGV("== stream_on :: isp");
     cam_int_streamon(&(m_camera_info.isp));
-
-    for (i = 0; i < m_camera_info.isp.buffers; i++) {
-        ALOGV("DEBUG(%s): isp initial DQBUF [%d]",  __FUNCTION__, i);
-        cam_int_dqbuf(&(m_camera_info.isp));
-    }
     exynos_v4l2_s_ctrl(m_camera_info.sensor.fd, V4L2_CID_IS_S_STREAM, IS_ENABLE_STREAM);
 }
 
