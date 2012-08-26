@@ -1342,7 +1342,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
 
             *format_actual = HAL_PIXEL_FORMAT_YCbCr_420_SP; // NV12M
             *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
-            *max_buffers = 10;
+            *max_buffers = 6;
 
             recordParameters.outputWidth   = width;
             recordParameters.outputHeight  = height;
