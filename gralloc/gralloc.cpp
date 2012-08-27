@@ -151,8 +151,38 @@ static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int usage,
     return err;
 }
 
-static int gralloc_alloc_yuv(int ionfd, int w, int h, int format, int usage,
-                             unsigned int ion_flags, private_handle_t **hnd, int *stride)
+static int gralloc_alloc_framework_yuv(int ionfd, int w, int h, int format,
+                                       int usage, unsigned int ion_flags,
+                                       private_handle_t **hnd, int *stride)
+{
+    size_t size;
+    int err, fd;
+
+    switch (format) {
+        case HAL_PIXEL_FORMAT_YV12:
+            *stride = ALIGN(w, 16);
+            break;
+        case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+            *stride = w;
+            break;
+        default:
+        ALOGE("invalid yuv format %d\n", format);
+        return -EINVAL;
+    }
+
+    size = *stride * h * 3 / 2;
+    err = ion_alloc_fd(ionfd, size, 0, 1 << ION_HEAP_TYPE_SYSTEM,
+                       ion_flags, &fd);
+    if (err)
+        return err;
+
+    *hnd = new private_handle_t(fd, size, usage, w, h, format, *stride, h);
+    return err;
+}
+
+static int gralloc_alloc_yuv(int ionfd, int w, int h, int format,
+                             int usage, unsigned int ion_flags,
+                             private_handle_t **hnd, int *stride)
 {
     size_t luma_size, chroma_size;
     int err, planes, fd, fd1, fd2 = 0;
@@ -160,7 +190,6 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format, int usage,
     *stride = ALIGN(w, 16);
 
     switch (format) {
-        ALOGE("invalid yuv format %d\n", format);
         case HAL_PIXEL_FORMAT_EXYNOS_YV12:
         {
             luma_vstride = ALIGN(h, 16);
@@ -180,6 +209,10 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format, int usage,
             planes = 2;
             break;
         }
+        case HAL_PIXEL_FORMAT_YV12:
+        case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+            return gralloc_alloc_framework_yuv(ionfd, w, h, format, usage,
+                                               ion_flags, hnd, stride);
         default:
         ALOGE("invalid yuv format %d\n", format);
         return -EINVAL;
