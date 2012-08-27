@@ -821,6 +821,8 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
             m_IsAfLockRequired(false),
             m_wideAspect(false),
             m_afTriggerId(0),
+            m_afPendingTriggerId(0),
+            m_afModeWaitingCnt(0),
             m_halDevice(dev),
             m_need_streamoff(0),
             m_cameraId(cameraId)
@@ -1396,17 +1398,17 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
         *stream_id = 1;
 
         if (!(m_streamThreads[*stream_id].get())) {
-            ALOGV("DEBUG(%s): stream 0 not exist", __FUNCTION__);
+            ALOGV("DEBUG(%s): stream 1 not exist", __FUNCTION__);
             m_streamThreads[1]  = new StreamThread(this, *stream_id);
             allocCase = 0;
         }
         else {
             if ((m_streamThreads[*stream_id].get())->m_activated == true) {
-                ALOGV("DEBUG(%s): stream 0 exists and activated.", __FUNCTION__);
+                ALOGV("DEBUG(%s): stream 1 exists and activated.", __FUNCTION__);
                 allocCase = 1;
             }
             else {
-                ALOGV("DEBUG(%s): stream 0 exists and deactivated.", __FUNCTION__);
+                ALOGV("DEBUG(%s): stream 1 exists and deactivated.", __FUNCTION__);
                 allocCase = 2;
             }
         }
@@ -1779,7 +1781,7 @@ int ExynosCameraHWInterface2::triggerAction(uint32_t trigger_id, int ext1, int e
     switch (trigger_id) {
     case CAMERA2_TRIGGER_AUTOFOCUS:
         ALOGV("DEBUG(%s):TRIGGER_AUTOFOCUS id(%d)", __FUNCTION__, ext1);
-        OnAfTrigger(ext1);
+        OnAfTriggerStart(ext1);
         break;
 
     case CAMERA2_TRIGGER_CANCEL_AUTOFOCUS:
@@ -2320,6 +2322,14 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 frameTime = systemTime();
         m_requestManager->RegisterTimestamp(matchedFrameCnt, &frameTime);
             m_requestManager->UpdateIspParameters(shot_ext, matchedFrameCnt, false);
+            if (m_afModeWaitingCnt != 0) {
+                ALOGV("### Af Trigger pulled, waiting for mode change cnt(%d) ", m_afModeWaitingCnt);
+                m_afModeWaitingCnt --;
+                if (m_afModeWaitingCnt == 1) {
+                    m_afModeWaitingCnt == 0;
+                    OnAfTrigger(m_afPendingTriggerId);
+                }
+            }
             if (m_IsAfModeUpdateRequired) {
                 ALOGE("### AF Mode change(Mode %d) ", m_afMode);
                 shot_ext->shot.ctl.aa.afMode = m_afMode;
@@ -2350,10 +2360,12 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                     else
                         m_afState = HAL_AFSTATE_STARTED;
                 }
+                shot_ext->shot.ctl.aa.afTrigger = 1;
                 shot_ext->shot.ctl.aa.afMode = m_afMode;
                 m_IsAfTriggerRequired = false;
             }
             else {
+                shot_ext->shot.ctl.aa.afTrigger = 0;
             }
             if (m_wideAspect) {
 //                shot_ext->setfile = ISS_SUB_SCENARIO_VIDEO;
@@ -2390,7 +2402,31 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                     shot_ext_capture->request_scc = 1;
                 }
             }
-
+            if (0 == shot_ext->shot.ctl.aa.afRegions[0] && 0 == shot_ext->shot.ctl.aa.afRegions[1]
+                && 0 == shot_ext->shot.ctl.aa.afRegions[2] && 0 == shot_ext->shot.ctl.aa.afRegions[3]) {
+                ALOGV("(%s): AF region resetting", __FUNCTION__);
+                lastAfRegion[0] = 0;
+                lastAfRegion[1] = 0;
+                lastAfRegion[2] = 0;
+                lastAfRegion[3] = 0;
+            }
+            else {
+                if (!(lastAfRegion[0] == shot_ext->shot.ctl.aa.afRegions[0] && lastAfRegion[1] == shot_ext->shot.ctl.aa.afRegions[1]
+                        && lastAfRegion[2] == shot_ext->shot.ctl.aa.afRegions[2] && lastAfRegion[3] == shot_ext->shot.ctl.aa.afRegions[3])) {
+                    ALOGV("(%s): AF region changed : triggering", __FUNCTION__);
+                    shot_ext->shot.ctl.aa.afTrigger = 1;
+                    shot_ext->shot.ctl.aa.afMode = m_afMode;
+                    m_afState = HAL_AFSTATE_STARTED;
+                    lastAfRegion[0] = shot_ext->shot.ctl.aa.afRegions[0];
+                    lastAfRegion[1] = shot_ext->shot.ctl.aa.afRegions[1];
+                    lastAfRegion[2] = shot_ext->shot.ctl.aa.afRegions[2];
+                    lastAfRegion[3] = shot_ext->shot.ctl.aa.afRegions[3];
+                }
+            }
+            ALOGV("(%s): queued  aa(%d) aemode(%d) awb(%d) afmode(%d) trigger(%d)", __FUNCTION__,
+            (int)(shot_ext->shot.ctl.aa.mode), (int)(shot_ext->shot.ctl.aa.aeMode),
+            (int)(shot_ext->shot.ctl.aa.awbMode), (int)(shot_ext->shot.ctl.aa.afMode),
+            (int)(shot_ext->shot.ctl.aa.afTrigger));
             cam_int_qbuf(&(m_camera_info.isp), index);
             //m_ispThread->SetSignal(SIGNAL_ISP_START_BAYER_DEQUEUE);
 
@@ -2427,6 +2463,10 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 shot_ext->request_scp,
                 shot_ext->request_scc,
                 shot_ext->dis_bypass, sizeof(camera2_shot));
+                ALOGV("(%s): DM aa(%d) aemode(%d) awb(%d) afmode(%d)", __FUNCTION__,
+                (int)(shot_ext->shot.dm.aa.mode), (int)(shot_ext->shot.dm.aa.aeMode),
+                (int)(shot_ext->shot.dm.aa.awbMode),
+                (int)(shot_ext->shot.dm.aa.afMode));
 
             if(isCapture) {
                     ALOGD("======= request_scc is 1");
@@ -3175,12 +3215,19 @@ jpeg_encode_done:
     return ret;
 }
 
+void ExynosCameraHWInterface2::OnAfTriggerStart(int id)
+{
+    m_afPendingTriggerId = id;
+    m_afModeWaitingCnt = 4;
+}
 
 void ExynosCameraHWInterface2::OnAfTrigger(int id)
 {
+    m_afTriggerId = id;
     switch (m_afMode) {
     case AA_AFMODE_AUTO:
     case AA_AFMODE_MACRO:
+    case AA_AFMODE_OFF:
         OnAfTriggerAutoMacro(id);
         break;
     case AA_AFMODE_CONTINUOUS_VIDEO:
@@ -3189,7 +3236,7 @@ void ExynosCameraHWInterface2::OnAfTrigger(int id)
     case AA_AFMODE_CONTINUOUS_PICTURE:
         OnAfTriggerCAFPicture(id);
         break;
-    case AA_AFMODE_OFF:
+
     default:
         break;
     }
@@ -3198,7 +3245,6 @@ void ExynosCameraHWInterface2::OnAfTrigger(int id)
 void ExynosCameraHWInterface2::OnAfTriggerAutoMacro(int id)
 {
     int nextState = NO_TRANSITION;
-    m_afTriggerId = id;
 
     switch (m_afState) {
     case HAL_AFSTATE_INACTIVE:
@@ -3233,7 +3279,6 @@ void ExynosCameraHWInterface2::OnAfTriggerAutoMacro(int id)
 void ExynosCameraHWInterface2::OnAfTriggerCAFPicture(int id)
 {
     int nextState = NO_TRANSITION;
-    m_afTriggerId = id;
 
     switch (m_afState) {
     case HAL_AFSTATE_INACTIVE:
@@ -3286,7 +3331,6 @@ void ExynosCameraHWInterface2::OnAfTriggerCAFPicture(int id)
 void ExynosCameraHWInterface2::OnAfTriggerCAFVideo(int id)
 {
     int nextState = NO_TRANSITION;
-    m_afTriggerId = id;
 
     switch (m_afState) {
     case HAL_AFSTATE_INACTIVE:
@@ -3670,6 +3714,7 @@ void ExynosCameraHWInterface2::OnAfNotificationCAFVideo(enum aa_afstate noti)
         case AA_AFSTATE_AF_FAILED_FOCUS:
             nextState = HAL_AFSTATE_FAILED;
             SetAfStateForService(ANDROID_CONTROL_AF_STATE_NOT_FOCUSED_LOCKED);
+            // TODO : needs NO_TRANSITION ?
             break;
         default:
             bWrongTransition = true;
@@ -3741,9 +3786,12 @@ void ExynosCameraHWInterface2::OnAfNotificationCAFVideo(enum aa_afstate noti)
 
 void ExynosCameraHWInterface2::OnAfCancel(int id)
 {
+    m_afTriggerId = id;
+
     switch (m_afMode) {
     case AA_AFMODE_AUTO:
     case AA_AFMODE_MACRO:
+    case AA_AFMODE_OFF:
         OnAfCancelAutoMacro(id);
         break;
     case AA_AFMODE_CONTINUOUS_VIDEO:
@@ -3752,7 +3800,6 @@ void ExynosCameraHWInterface2::OnAfCancel(int id)
     case AA_AFMODE_CONTINUOUS_PICTURE:
         OnAfCancelCAFPicture(id);
         break;
-    case AA_AFMODE_OFF:
     default:
         break;
     }
@@ -3844,8 +3891,9 @@ void ExynosCameraHWInterface2::OnAfCancelCAFVideo(int id)
 
 void ExynosCameraHWInterface2::SetAfStateForService(int newState)
 {
+    if (m_serviceAfState != newState || newState == 0)
+        m_notifyCb(CAMERA2_MSG_AUTOFOCUS, newState, m_afTriggerId, 0, m_callbackCookie);
     m_serviceAfState = newState;
-    m_notifyCb(CAMERA2_MSG_AUTOFOCUS, newState, m_afTriggerId, 0, m_callbackCookie);
 }
 
 int ExynosCameraHWInterface2::GetAfStateForService()
@@ -3864,6 +3912,10 @@ void ExynosCameraHWInterface2::SetAfMode(enum aa_afmode afMode)
             ALOGV("(%s): current(%d) new(%d)", __FUNCTION__, m_afMode, afMode);
             m_IsAfModeUpdateRequired = true;
             m_afMode = afMode;
+        }
+        if (m_afModeWaitingCnt != 0) {
+            m_afModeWaitingCnt = 0;
+            OnAfTrigger(m_afPendingTriggerId);
         }
     }
 }

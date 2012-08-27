@@ -463,7 +463,7 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
     ADD_OR_SIZE(ANDROID_CONTROL_AVAILABLE_EFFECTS,
             availableEffects, sizeof(availableEffects));
 
-    int32_t max3aRegions = 0;
+    int32_t max3aRegions = 1;
     ADD_OR_SIZE(ANDROID_CONTROL_MAX_REGIONS,
             &max3aRegions, 1);
 

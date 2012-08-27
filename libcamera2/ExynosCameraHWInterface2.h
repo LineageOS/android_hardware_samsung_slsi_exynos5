@@ -473,6 +473,7 @@ class MainThread : public SignalDrivenThread {
     void            StartISP();
     int             GetAfState();
     void            SetAfMode(enum aa_afmode afMode);
+    void            OnAfTriggerStart(int id);
     void            OnAfTrigger(int id);
     void            OnAfTriggerAutoMacro(int id);
     void            OnAfTriggerCAFPicture(int id);
@@ -536,6 +537,7 @@ class MainThread : public SignalDrivenThread {
     bool                                m_scp_closing;
     bool                                m_scp_closed;
     bool                                m_wideAspect;
+    uint32_t                            lastAfRegion[4];
 
     mutable Mutex    m_qbufLock;
 
@@ -548,6 +550,8 @@ class MainThread : public SignalDrivenThread {
     bool                                m_IsAfLockRequired;
     int                                 m_serviceAfState;
     bool                                m_AfHwStateFailed;
+    int                                 m_afPendingTriggerId;
+    int                                 m_afModeWaitingCnt;
     struct camera2_shot                 m_jpegMetadata;
 };
 
