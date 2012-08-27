@@ -149,7 +149,7 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
     OMX_ERRORTYPE          ret = OMX_ErrorNone;
     OMX_COMPONENTTYPE     *pOMXComponent = NULL;
     EXYNOS_OMX_BASECOMPONENT *pExynosComponent = NULL;
-    EXYNOS_OMX_VIDEOENC_COMPONENT *pVideoDec = NULL;
+    EXYNOS_OMX_VIDEOENC_COMPONENT *pVideoEnc = NULL;
     EXYNOS_OMX_BASEPORT      *pExynosPort = NULL;
     OMX_BUFFERHEADERTYPE  *temp_bufferHeader = NULL;
     OMX_U8                *temp_buffer = NULL;
@@ -174,7 +174,7 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
         goto EXIT;
     }
     pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
-    pVideoDec = (EXYNOS_OMX_VIDEOENC_COMPONENT *)pExynosComponent->hComponentHandle;
+    pVideoEnc = (EXYNOS_OMX_VIDEOENC_COMPONENT *)pExynosComponent->hComponentHandle;
 
     pExynosPort = &pExynosComponent->pExynosPort[nPortIndex];
     if (nPortIndex >= pExynosComponent->portParam.nPorts) {
@@ -197,16 +197,16 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
     } else {
         mem_type = SYSTEM_MEMORY;
     }
-    temp_buffer = Exynos_OSAL_SharedMemory_Alloc(pVideoDec->hSharedMemory, nSizeBytes, mem_type);
+    temp_buffer = Exynos_OSAL_SharedMemory_Alloc(pVideoEnc->hSharedMemory, nSizeBytes, mem_type);
     if (temp_buffer == NULL) {
         ret = OMX_ErrorInsufficientResources;
         goto EXIT;
     }
-    temp_buffer_fd = Exynos_OSAL_SharedMemory_VirtToION(pVideoDec->hSharedMemory, temp_buffer);
+    temp_buffer_fd = Exynos_OSAL_SharedMemory_VirtToION(pVideoEnc->hSharedMemory, temp_buffer);
 
     temp_bufferHeader = (OMX_BUFFERHEADERTYPE *)Exynos_OSAL_Malloc(sizeof(OMX_BUFFERHEADERTYPE));
     if (temp_bufferHeader == NULL) {
-        Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, temp_buffer);
+        Exynos_OSAL_SharedMemory_Free(pVideoEnc->hSharedMemory, temp_buffer);
         ret = OMX_ErrorInsufficientResources;
         goto EXIT;
     }
@@ -239,7 +239,7 @@ OMX_ERRORTYPE Exynos_OMX_AllocateBuffer(
     }
 
     Exynos_OSAL_Free(temp_bufferHeader);
-    Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, temp_buffer);
+    Exynos_OSAL_SharedMemory_Free(pVideoEnc->hSharedMemory, temp_buffer);
 
     ret = OMX_ErrorInsufficientResources;
 
@@ -257,7 +257,7 @@ OMX_ERRORTYPE Exynos_OMX_FreeBuffer(
     OMX_ERRORTYPE          ret = OMX_ErrorNone;
     OMX_COMPONENTTYPE     *pOMXComponent = NULL;
     EXYNOS_OMX_BASECOMPONENT *pExynosComponent = NULL;
-    EXYNOS_OMX_VIDEOENC_COMPONENT *pVideoDec = NULL;
+    EXYNOS_OMX_VIDEOENC_COMPONENT *pVideoEnc = NULL;
     EXYNOS_OMX_BASEPORT      *pExynosPort = NULL;
     OMX_BUFFERHEADERTYPE  *temp_bufferHeader = NULL;
     OMX_U8                *temp_buffer = NULL;
@@ -280,7 +280,7 @@ OMX_ERRORTYPE Exynos_OMX_FreeBuffer(
         goto EXIT;
     }
     pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
-    pVideoDec = (EXYNOS_OMX_VIDEOENC_COMPONENT *)pExynosComponent->hComponentHandle;
+    pVideoEnc = (EXYNOS_OMX_VIDEOENC_COMPONENT *)pExynosComponent->hComponentHandle;
     pExynosPort = &pExynosComponent->pExynosPort[nPortIndex];
 
     if (CHECK_PORT_TUNNELED(pExynosPort) && CHECK_PORT_BUFFER_SUPPLIER(pExynosPort)) {
@@ -300,7 +300,7 @@ OMX_ERRORTYPE Exynos_OMX_FreeBuffer(
         if (((pExynosPort->bufferStateAllocate[i] | BUFFER_STATE_FREE) != 0) && (pExynosPort->extendBufferHeader[i].OMXBufferHeader != NULL)) {
             if (pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer == pBufferHdr->pBuffer) {
                 if (pExynosPort->bufferStateAllocate[i] & BUFFER_STATE_ALLOCATED) {
-                    Exynos_OSAL_SharedMemory_Free(pVideoDec->hSharedMemory, pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer);
+                    Exynos_OSAL_SharedMemory_Free(pVideoEnc->hSharedMemory, pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer);
                     pExynosPort->extendBufferHeader[i].OMXBufferHeader->pBuffer = NULL;
                     pBufferHdr->pBuffer = NULL;
                 } else if (pExynosPort->bufferStateAllocate[i] & BUFFER_STATE_ASSIGNED) {
