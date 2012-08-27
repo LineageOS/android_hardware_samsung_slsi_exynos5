@@ -49,6 +49,9 @@ public:
     float       minFocusDistance;
     float       focalLength;
     float       aperture;
+
+    /* FD information */
+    int32_t    maxFaceCount;
 };
 
 struct ExynosCamera2InfoS5K4E5 : public ExynosCamera2Info

@@ -485,10 +485,32 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
                 &intData, 1))
         return NO_MEMORY;
 
-    byteData = ANDROID_STATS_FACE_DETECTION_OFF;
+    byteData = metadata->dm.stats.faceDetectMode - 1;
     if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_DETECT_MODE,
                 &byteData, 1))
         return NO_MEMORY;
+
+    int maxFacecount = 16;
+    if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_MAX_FACE_COUNT,
+                &maxFacecount, 1))
+        return NO_MEMORY;
+
+    if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_RECTANGLES,
+                &metadata->dm.stats.faceRectangles, 4 * maxFacecount))
+        return NO_MEMORY;
+
+    if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_LANDMARKS,
+                &metadata->dm.stats.faceLandmarks, 6 * maxFacecount))
+        return NO_MEMORY;
+
+    if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_IDS,
+                &metadata->dm.stats.faceIds, maxFacecount))
+        return NO_MEMORY;
+
+    if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_SCORES,
+                &metadata->dm.stats.faceScores, maxFacecount))
+        return NO_MEMORY;
+
 
     ALOGV("(%s): AWB(%d) AE(%d) SCENE(%d)  AEComp(%d)", __FUNCTION__,
        metadata->dm.aa.awbMode - 1, metadata->dm.aa.aeMode - 1, metadata->ctl.aa.sceneMode - 1,
