@@ -93,18 +93,18 @@ tag: HARDWARE_MODULE_TAG,
      author: "The Android Open Source Project",
      methods: &gralloc_module_methods
         },
-registerBuffer: gralloc_register_buffer,
-                unregisterBuffer: gralloc_unregister_buffer,
-                lock: gralloc_lock,
-                unlock: gralloc_unlock,
+    registerBuffer: gralloc_register_buffer,
+    unregisterBuffer: gralloc_unregister_buffer,
+    lock: gralloc_lock,
+    unlock: gralloc_unlock,
       },
-framebuffer: 0,
-             flags: 0,
-             numBuffers: 0,
-             bufferMask: 0,
-             lock: PTHREAD_MUTEX_INITIALIZER,
-             currentBuffer: 0,
-             ionfd: -1,
+    framebuffer: 0,
+    flags: 0,
+    numBuffers: 0,
+    bufferMask: 0,
+    lock: PTHREAD_MUTEX_INITIALIZER,
+    currentBuffer: 0,
+    ionfd: -1,
 };
 
 /*****************************************************************************/
@@ -199,10 +199,13 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format, int usage,
                            ion_flags, &fd2);
         if (err)
             goto err2;
-    }
 
-    *hnd = new private_handle_t(fd, fd1, fd2, luma_size, usage, w, h, format,
-                                *stride, luma_vstride);
+        *hnd = new private_handle_t(fd, fd1, fd2, luma_size, usage, w, h,
+                                    format, *stride, luma_vstride);
+    } else {
+        *hnd = new private_handle_t(fd, fd1, luma_size, usage, w, h, format,
+                                    *stride, luma_vstride);
+    }
     return err;
 
 err2:
@@ -250,9 +253,9 @@ static int gralloc_alloc(alloc_device_t* dev,
     return 0;
 err:
     close(hnd->fd);
-    if (hnd->fd1 > 0)
+    if (hnd->fd1 >= 0)
         close(hnd->fd1);
-    if (hnd->fd2 > 0)
+    if (hnd->fd2 >= 0)
         close(hnd->fd2);
     return err;
 }
@@ -269,9 +272,9 @@ static int gralloc_free(alloc_device_t* dev,
 
     grallocUnmap(module, const_cast<private_handle_t*>(hnd));
     close(hnd->fd);
-    if (hnd->fd1 > 0)
+    if (hnd->fd1 >= 0)
         close(hnd->fd1);
-    if (hnd->fd2 > 0)
+    if (hnd->fd2 >= 0)
         close(hnd->fd2);
 
     delete hnd;
