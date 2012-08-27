@@ -36,6 +36,7 @@
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer.h>
 #include <hardware_legacy/uevent.h>
+#include <utils/String8.h>
 #include <utils/Vector.h>
 
 #include <sync/sync.h>
@@ -112,6 +113,10 @@ struct exynos5_hwc_composer_device_1_t {
     exynos_gsc_img hdmi_cfg;
 
     exynos5_gsc_data_t      gsc[NUM_GSC_UNITS];
+
+    struct s3c_fb_win_config last_config[NUM_HW_WINDOWS];
+    const void              *last_handles[NUM_HW_WINDOWS];
+    exynos5_gsc_map_t       last_gsc_map[NUM_HW_WINDOWS];
 };
 
 static void dump_handle(private_handle_t *h)
@@ -948,6 +953,20 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
     int ret = ioctl(pdata->pdev->fd, S3CFB_WIN_CONFIG, &win_data);
     if (ret < 0)
         ALOGE("ioctl S3CFB_WIN_CONFIG failed: %d", errno);
+    else {
+        memcpy(pdata->pdev->last_config, &win_data.config,
+                sizeof(win_data.config));
+        memcpy(pdata->pdev->last_gsc_map, pdata->gsc_map,
+                sizeof(pdata->gsc_map));
+        for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
+            if (i == pdata->fb_window) {
+                pdata->pdev->last_handles[i] = NULL;
+            } else if (pdata->overlay_map[i] != -1) {
+                hwc_layer_1_t &layer = pdata->overlays[i];
+                pdata->pdev->last_handles[i] = layer.handle;
+            }
+        }
+    }
 
     if (pdata->pdev->hdmi_mirroring)
         hdmi_output(pdata->pdev, fb);
@@ -1211,6 +1230,59 @@ static int exynos5_blank(struct hwc_composer_device_1 *dev, int dpy, int blank)
     return 0;
 }
 
+static void exynos5_dump(hwc_composer_device_1* dev, char *buff, int buff_len)
+{
+    if (buff_len <= 0)
+        return;
+
+    struct exynos5_hwc_composer_device_1_t *pdev =
+            (struct exynos5_hwc_composer_device_1_t *)dev;
+
+    android::String8 result;
+
+    result.appendFormat("  hdmi_mirroring=%u\n", pdev->hdmi_mirroring);
+    if (pdev->hdmi_mirroring)
+        result.appendFormat("    w=%u, h=%u\n", pdev->hdmi_cfg.w,
+                pdev->hdmi_cfg.h);
+    result.append(
+            "   type   |  handle  |  color   | blend | format |   position    |     size      | gsc \n"
+            "----------+----------|----------+-------+--------+---------------+---------------------\n");
+    //        8_______ | 8_______ | 8_______ | 5____ | 6_____ | [5____,5____] | [5____,5____] | 3__ \n"
+
+    for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
+        struct s3c_fb_win_config &config = pdev->last_config[i];
+        if (config.state == config.S3C_FB_WIN_STATE_DISABLED) {
+            result.appendFormat(" %8s | %8s | %8s | %5s | %6s | %13s | %13s",
+                    "DISABLED", "-", "-", "-", "-", "-", "-");
+        }
+        else {
+            if (config.state == config.S3C_FB_WIN_STATE_COLOR)
+                result.appendFormat(" %8s | %8s | %8x | %5s | %6s", "COLOR",
+                        "-", config.color, "-", "-");
+            else {
+                if (pdev->last_handles[i])
+                    result.appendFormat(" %8s | %8x", "OVERLAY", intptr_t(pdev->last_handles[i]));
+                else
+                    result.appendFormat(" %8s | %8s", "FB", "-");
+
+                result.appendFormat(" | %8s | %5x | %6x", "-", config.blending,
+                        config.format);
+            }
+
+            result.appendFormat(" | [%5d,%5d] | [%5u,%5u]", config.x, config.y,
+                    config.w, config.h);
+        }
+        if (pdev->last_gsc_map[i].mode == exynos5_gsc_map_t::GSC_NONE)
+            result.appendFormat(" | %3s", "-");
+        else
+            result.appendFormat(" | %3d",
+                    AVAILABLE_GSC_UNITS[pdev->last_gsc_map[i].idx]);
+        result.append("\n");
+    }
+
+    strlcpy(buff, result.string(), buff_len);
+}
+
 static int exynos5_close(hw_device_t* device);
 
 static int exynos5_open(const struct hw_module_t *module, const char *name,
@@ -1280,6 +1352,7 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
     dev->base.blank = exynos5_blank;
     dev->base.query = exynos5_query;
     dev->base.registerProcs = exynos5_registerProcs;
+    dev->base.dump = exynos5_dump;
 
     dev->bufs.pdev = dev;
 
