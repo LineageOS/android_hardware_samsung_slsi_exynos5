@@ -3853,6 +3853,7 @@ void ExynosCameraHWInterface2::m_setExifFixedAttribute(void)
     char property[PROPERTY_VALUE_MAX];
 
     //2 0th IFD TIFF Tags
+#if 0 // STOPSHIP TODO(aray): remove before launch, but for now don't leak product data
     //3 Maker
     property_get("ro.product.brand", property, EXIF_DEF_MAKER);
     strncpy((char *)mExifInfo.maker, property,
@@ -3868,6 +3869,7 @@ void ExynosCameraHWInterface2::m_setExifFixedAttribute(void)
     strncpy((char *)mExifInfo.software, property,
                 sizeof(mExifInfo.software) - 1);
     mExifInfo.software[sizeof(mExifInfo.software) - 1] = '\0';
+#endif
 
     //3 YCbCr Positioning
     mExifInfo.ycbcr_positioning = EXIF_DEF_YCBCR_POSITIONING;
