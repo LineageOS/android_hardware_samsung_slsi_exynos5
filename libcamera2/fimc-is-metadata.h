@@ -879,6 +879,13 @@ struct camera2_shot_ext {
     uint8_t		gpsProcessingMethod[32];
 };
 
+/** \brief
+	stream structure for scaler.
+*/
+struct camera2_stream {
+	uint32_t		fcount;
+};
+
 #define CAM_LENS_CMD		(0x1 << 0x0)
 #define CAM_SENSOR_CMD		(0x1 << 0x1)
 #define CAM_FLASH_CMD		(0x1 << 0x2)

@@ -55,7 +55,7 @@
 
 namespace android {
 
-
+//#define ENABLE_FRAME_SYNC
 #define NODE_PREFIX     "/dev/video"
 
 #define NUM_MAX_STREAM_THREAD       (5)
@@ -277,11 +277,13 @@ typedef struct stream_parameters {
             int                     fd;
             int                     svcPlanes;
             int                     nodePlanes;
+            int                     metaPlanes;
     enum v4l2_memory                memory;
     enum v4l2_buf_type              halBuftype;
             int                     numSvcBufsInHal;
             buffer_handle_t         svcBufHandle[NUM_MAX_CAMERA_BUFFERS];
             ExynosBuffer            svcBuffers[NUM_MAX_CAMERA_BUFFERS];
+            ExynosBuffer        metaBuffers[NUM_MAX_CAMERA_BUFFERS];
             int                     svcBufStatus[NUM_MAX_CAMERA_BUFFERS];
             int                     svcBufIndex;
             ion_client              ionClient;
