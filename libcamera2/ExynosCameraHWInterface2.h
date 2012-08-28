@@ -65,8 +65,8 @@ namespace android {
 #define NUM_BAYER_BUFFERS           (8)
 #define NUM_SENSOR_QBUF             (3)
 
-#define PREVIEW_GSC_NODE_NUM (1)
 #define PICTURE_GSC_NODE_NUM (2)
+#define VIDEO_GSC_NODE_NUM (1)
 
 #define STREAM_TYPE_DIRECT   (0)
 #define STREAM_TYPE_INDIRECT (1)
@@ -103,6 +103,14 @@ enum sensor_name {
     SENSOR_NAME_END
 };
 
+enum is_subscenario_id {
+	ISS_SUB_SCENARIO_STILL,
+	ISS_SUB_SCENARIO_VIDEO,
+	ISS_SUB_SCENARIO_SCENE1,
+	ISS_SUB_SCENARIO_SCENE2,
+	ISS_SUB_SCENARIO_SCENE3,
+	ISS_SUB_END
+};
 
 typedef struct node_info {
     int fd;
@@ -115,6 +123,7 @@ typedef struct node_info {
     enum v4l2_buf_type type;
     ion_client ionClient;
     ExynosBuffer buffer[NUM_MAX_CAMERA_BUFFERS];
+    int status;
 } node_info_t;
 
 
@@ -342,6 +351,7 @@ class MainThread : public SignalDrivenThread {
             return;
         }
         void        release(void);
+        bool        m_releasing;
     };
 
     class SensorThread : public SignalDrivenThread {
@@ -364,6 +374,7 @@ class MainThread : public SignalDrivenThread {
     //private:
         bool            m_isBayerOutputEnabled;
         int             m_sensorFd;
+        bool            m_releasing;
     };
 
     class IspThread : public SignalDrivenThread {
@@ -384,6 +395,7 @@ class MainThread : public SignalDrivenThread {
         void            release(void);
     //private:
         int             m_ispFd;
+        bool            m_releasing;
     };
 
     class StreamThread : public SignalDrivenThread {
@@ -504,7 +516,6 @@ class MainThread : public SignalDrivenThread {
 
     bool                                m_initFlag1;
     bool                                m_initFlag2;
-    int                                 m_ispProcessingFrameCnt;
 
     int                                 indexToQueue[3+1];
     int                                 m_fd_scp;
@@ -520,6 +531,7 @@ class MainThread : public SignalDrivenThread {
     int             				    m_cameraId;
     bool                                m_scp_closing;
     bool                                m_scp_closed;
+    bool                                m_wideAspect;
 
     mutable Mutex    m_qbufLock;
 
