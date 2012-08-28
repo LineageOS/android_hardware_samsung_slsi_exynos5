@@ -480,13 +480,13 @@ OMX_BOOL Exynos_Postprocess_OutputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
                 pExynosComponent->checkTimeStamp.needSetStartTimeStamp = OMX_FALSE;
                 pExynosComponent->checkTimeStamp.needCheckStartTimeStamp = OMX_FALSE;
             } else {
-                Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "drop frame after seeking");
+                Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "garbage frame drop after flush");
                 ret = OMX_TRUE;
                 goto EXIT;
             }
         } else if (pExynosComponent->checkTimeStamp.needSetStartTimeStamp == OMX_TRUE) {
             ret = OMX_TRUE;
-            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "not set check timestame after seeking");
+            Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "input buffer has not come after flush.");
             goto EXIT;
         }
 
