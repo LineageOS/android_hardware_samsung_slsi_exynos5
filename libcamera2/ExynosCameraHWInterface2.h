@@ -547,6 +547,7 @@ class MainThread : public SignalDrivenThread {
     bool                                m_IsAfTriggerRequired;
     bool                                m_IsAfLockRequired;
     int                                 m_serviceAfState;
+    bool                                m_AfHwStateFailed;
     struct camera2_shot                 m_jpegMetadata;
 };
 
