@@ -44,6 +44,9 @@
 #include "exynos_format.h"
 #include "gr.h"
 
+#define ION_HEAP_EXYNOS_CONTIG_MASK     (1 << 4)
+#define ION_EXYNOS_VIDEO_MASK           (1 << 29)
+
 /*****************************************************************************/
 
 struct gralloc_context_t {
@@ -111,11 +114,25 @@ tag: HARDWARE_MODULE_TAG,
 
 #define ALIGN(x, a) (((x) + (a - 1)) & ~(a - 1))
 
+static unsigned int _select_heap(int usage)
+{
+    unsigned int heap_mask;
+
+    if (usage & GRALLOC_USAGE_PROTECTED)
+        heap_mask = ION_HEAP_EXYNOS_CONTIG_MASK;
+    else
+        heap_mask = ION_HEAP_SYSTEM_MASK;
+
+    return heap_mask;
+}
+
 static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int usage,
                              unsigned int ion_flags, private_handle_t **hnd, int *stride)
 {
     size_t size, bpr;
     int bpp = 0, vstride, fd, err;
+    unsigned int heap_mask = _select_heap(usage);
+
     switch (format) {
         case HAL_PIXEL_FORMAT_RGBA_8888:
         case HAL_PIXEL_FORMAT_RGBX_8888:
@@ -143,7 +160,7 @@ static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int usage,
     *stride = bpr / bpp;
     size = ALIGN(size, PAGE_SIZE);
 
-    err = ion_alloc_fd(ionfd, size, 0, 1 << ION_HEAP_TYPE_SYSTEM, ion_flags,
+    err = ion_alloc_fd(ionfd, size, 0, heap_mask, ion_flags,
                        &fd);
     *hnd = new private_handle_t(fd, size, usage, w, h, format, *stride,
                                 vstride);
@@ -187,6 +204,8 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format,
     size_t luma_size, chroma_size;
     int err, planes, fd, fd1, fd2 = 0;
     size_t luma_vstride;
+    unsigned int heap_mask = _select_heap(usage);
+
     *stride = ALIGN(w, 16);
 
     switch (format) {
@@ -218,18 +237,14 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format,
             return -EINVAL;
     }
 
-    err = ion_alloc_fd(ionfd, luma_size, 0, 1 << ION_HEAP_TYPE_SYSTEM,
-                       ion_flags, &fd);
+    err = ion_alloc_fd(ionfd, luma_size, 0, heap_mask, ion_flags, &fd);
     if (err)
         return err;
-    err = ion_alloc_fd(ionfd, chroma_size, 0, 1 << ION_HEAP_TYPE_SYSTEM,
-                       ion_flags,
-                       &fd1);
+    err = ion_alloc_fd(ionfd, chroma_size, 0, heap_mask, ion_flags, &fd1);
     if (err)
         goto err1;
     if (planes == 3) {
-        err = ion_alloc_fd(ionfd, chroma_size, 0, 1 << ION_HEAP_TYPE_SYSTEM,
-                           ion_flags, &fd2);
+        err = ion_alloc_fd(ionfd, chroma_size, 0, heap_mask, ion_flags, &fd2);
         if (err)
             goto err2;
 
@@ -262,6 +277,8 @@ static int gralloc_alloc(alloc_device_t* dev,
 
     if( (usage & GRALLOC_USAGE_SW_READ_MASK) == GRALLOC_USAGE_SW_READ_OFTEN )
         ion_flags = ION_FLAG_CACHED;
+    if (usage & GRALLOC_USAGE_PROTECTED)
+        ion_flags |= ION_EXYNOS_VIDEO_MASK;
 
     private_module_t* m = reinterpret_cast<private_module_t*>
         (dev->common.module);
