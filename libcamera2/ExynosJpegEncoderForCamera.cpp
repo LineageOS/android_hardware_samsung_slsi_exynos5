@@ -350,6 +350,7 @@ int ExynosJpegEncoderForCamera::makeExif (unsigned char *exifOut,
                  1, exifInfo->width);
     writeExifIfd(&pCur, EXIF_TAG_IMAGE_HEIGHT, EXIF_TYPE_LONG,
                  1, exifInfo->height);
+#if 0 // STOPSHIP TODO(aray): remove before launch, but don't leak product data
     writeExifIfd(&pCur, EXIF_TAG_MAKE, EXIF_TYPE_ASCII,
                  strlen((char *)exifInfo->maker) + 1, exifInfo->maker, &LongerTagOffest, pIfdStart);
     writeExifIfd(&pCur, EXIF_TAG_MODEL, EXIF_TYPE_ASCII,
@@ -358,6 +359,7 @@ int ExynosJpegEncoderForCamera::makeExif (unsigned char *exifOut,
                  1, exifInfo->orientation);
     writeExifIfd(&pCur, EXIF_TAG_SOFTWARE, EXIF_TYPE_ASCII,
                  strlen((char *)exifInfo->software) + 1, exifInfo->software, &LongerTagOffest, pIfdStart);
+#endif
     writeExifIfd(&pCur, EXIF_TAG_DATE_TIME, EXIF_TYPE_ASCII,
                  20, exifInfo->date_time, &LongerTagOffest, pIfdStart);
     writeExifIfd(&pCur, EXIF_TAG_YCBCR_POSITIONING, EXIF_TYPE_SHORT,
@@ -1009,4 +1011,3 @@ void ExynosJpegEncoderForCamera::initJpegMemory(struct stJpegMem *pstMem, int iM
     }
     pstMem->ionClient = 0;
 }
-
