@@ -2396,7 +2396,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 ALOGV("### Af Trigger pulled, waiting for mode change cnt(%d) ", m_afModeWaitingCnt);
                 m_afModeWaitingCnt --;
                 if (m_afModeWaitingCnt == 1) {
-                    m_afModeWaitingCnt == 0;
+                    m_afModeWaitingCnt = 0;
                     OnAfTrigger(m_afPendingTriggerId);
                 }
             }
@@ -3420,7 +3420,7 @@ jpeg_encode_done:
 void ExynosCameraHWInterface2::OnAfTriggerStart(int id)
 {
     m_afPendingTriggerId = id;
-    m_afModeWaitingCnt = 4;
+    m_afModeWaitingCnt = 3;
 }
 
 void ExynosCameraHWInterface2::OnAfTrigger(int id)
@@ -3719,8 +3719,9 @@ void ExynosCameraHWInterface2::OnAfNotificationCAFPicture(enum aa_afstate noti)
             SetAfStateForService(ANDROID_CONTROL_AF_STATE_PASSIVE_FOCUSED);
             break;
         case AA_AFSTATE_AF_FAILED_FOCUS:
-            nextState = HAL_AFSTATE_FAILED;
-            SetAfStateForService(ANDROID_CONTROL_AF_STATE_NOT_FOCUSED_LOCKED);
+            //nextState = HAL_AFSTATE_FAILED;
+            //SetAfStateForService(ANDROID_CONTROL_AF_STATE_NOT_FOCUSED_LOCKED);
+            nextState = NO_TRANSITION;
             break;
         default:
             bWrongTransition = true;
@@ -4015,6 +4016,7 @@ void ExynosCameraHWInterface2::OnAfCancelAutoMacro(int id)
     switch (m_afState) {
     case HAL_AFSTATE_INACTIVE:
         nextState = NO_TRANSITION;
+        SetAfStateForService(ANDROID_CONTROL_AF_STATE_INACTIVE);
         break;
     case HAL_AFSTATE_NEEDS_COMMAND:
     case HAL_AFSTATE_STARTED:
@@ -4114,10 +4116,10 @@ void ExynosCameraHWInterface2::SetAfMode(enum aa_afmode afMode)
             ALOGV("(%s): current(%d) new(%d)", __FUNCTION__, m_afMode, afMode);
             m_IsAfModeUpdateRequired = true;
             m_afMode = afMode;
-        }
-        if (m_afModeWaitingCnt != 0) {
-            m_afModeWaitingCnt = 0;
-            OnAfTrigger(m_afPendingTriggerId);
+            if (m_afModeWaitingCnt != 0) {
+                m_afModeWaitingCnt = 0;
+                OnAfTrigger(m_afPendingTriggerId);
+            }
         }
     }
 }
