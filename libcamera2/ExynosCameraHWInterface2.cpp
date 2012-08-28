@@ -835,6 +835,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
             m_afModeWaitingCnt(0),
             m_halDevice(dev),
             m_need_streamoff(0),
+            m_nightCaptureCnt(0),
             m_cameraId(cameraId)
 {
     ALOGV("DEBUG(%s):", __FUNCTION__);
@@ -2380,7 +2381,12 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
 
         m_recordOutput = shot_ext->shot.ctl.request.outputStreams[2];
 
-        matchedFrameCnt = m_requestManager->FindFrameCnt(shot_ext);
+        if (m_nightCaptureCnt != 0) {
+            matchedFrameCnt = m_nightCaptureFrameCnt;
+        }
+        else {
+            matchedFrameCnt = m_requestManager->FindFrameCnt(shot_ext);
+        }
 
         if (matchedFrameCnt != -1) {
             frameTime = systemTime();
@@ -2432,12 +2438,12 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 shot_ext->shot.ctl.aa.afTrigger = 0;
             }
             if (m_wideAspect) {
-                //shot_ext->setfile = ISS_SUB_SCENARIO_VIDEO;
+                shot_ext->setfile = ISS_SUB_SCENARIO_VIDEO;
                 shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 30;
                 shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
             }
             else {
-                //shot_ext->setfile = ISS_SUB_SCENARIO_STILL;
+                shot_ext->setfile = ISS_SUB_SCENARIO_STILL;
             }
             if (triggered)
                 shot_ext->shot.ctl.aa.afTrigger = 1;
@@ -2453,7 +2459,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 shot_ext->request_scp,
                 shot_ext->request_scc,
                 shot_ext->dis_bypass, sizeof(camera2_shot));
-
+            ALOGV("### m_nightCaptureCnt (%d)", m_nightCaptureCnt);
             if (0 == shot_ext->shot.ctl.aa.afRegions[0] && 0 == shot_ext->shot.ctl.aa.afRegions[1]
                 && 0 == shot_ext->shot.ctl.aa.afRegions[2] && 0 == shot_ext->shot.ctl.aa.afRegions[3]) {
                 ALOGV("(%s): AF region resetting", __FUNCTION__);
@@ -2474,6 +2480,31 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                     lastAfRegion[2] = shot_ext->shot.ctl.aa.afRegions[2];
                     lastAfRegion[3] = shot_ext->shot.ctl.aa.afRegions[3];
                 }
+            }
+            if (m_nightCaptureCnt == 0) {
+                if (shot_ext->shot.ctl.aa.captureIntent == ANDROID_CONTROL_INTENT_STILL_CAPTURE
+                        && shot_ext->shot.ctl.aa.sceneMode == AA_SCENE_MODE_NIGHT) {
+                    shot_ext->shot.ctl.aa.sceneMode = AA_SCENE_MODE_NIGHT_CAPTURE;
+                    shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 2;
+                    shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
+                    m_nightCaptureCnt = 4;
+                    m_nightCaptureFrameCnt = matchedFrameCnt;
+                    shot_ext->request_scc = 0;
+                }
+            }
+            else if (m_nightCaptureCnt == 1) {
+                shot_ext->shot.ctl.aa.sceneMode = AA_SCENE_MODE_NIGHT_CAPTURE;
+                    shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 2;
+                    shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
+                m_nightCaptureCnt--;
+                shot_ext->request_scc = 1;
+            }
+            else if (m_nightCaptureCnt == 2 || m_nightCaptureCnt == 3 || m_nightCaptureCnt == 4) {
+                shot_ext->shot.ctl.aa.sceneMode = AA_SCENE_MODE_NIGHT_CAPTURE;
+                    shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 2;
+                    shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
+                m_nightCaptureCnt--;
+                shot_ext->request_scc = 0;
             }
             ALOGV("(%s): queued  aa(%d) aemode(%d) awb(%d) afmode(%d) trigger(%d)", __FUNCTION__,
             (int)(shot_ext->shot.ctl.aa.mode), (int)(shot_ext->shot.ctl.aa.aeMode),
@@ -2505,8 +2536,14 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 m_previewOutput = 1;
                 m_streamThreads[0]->SetSignal(SIGNAL_STREAM_DATA_COMING);
             }
-
             if (shot_ext->request_scc) {
+                 ALOGV("### m_nightCaptureCnt (%d) request_scc true", m_nightCaptureCnt);
+                memcpy(&m_jpegMetadata, &shot_ext->shot, sizeof(struct camera2_shot));
+                int shutterSpeed = (m_jpegMetadata.dm.sensor.exposureTime/1000);
+
+                if (shutterSpeed < 0) {
+                    shutterSpeed = 100;
+                }
                 m_streamThreads[1]->SetSignal(SIGNAL_STREAM_DATA_COMING);
             }
 
@@ -2540,8 +2577,9 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                                                                                                 / m_streamThreads[0].get()->m_parameters.outputHeight;
                 }
             }
-
-            m_requestManager->ApplyDynamicMetadata(shot_ext);
+            if (m_nightCaptureCnt == 0) {
+                m_requestManager->ApplyDynamicMetadata(shot_ext);
+            }
             OnAfNotification(shot_ext->shot.dm.aa.afState);
         }
 
