@@ -743,6 +743,7 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
         src_cfg.vaddr = src_handle->fd2;
     }
     src_cfg.format = src_handle->format;
+    src_cfg.drmMode = !!(src_handle->flags & GRALLOC_USAGE_PROTECTED);
 
     dst_cfg.x = 0;
     dst_cfg.y = 0;
@@ -760,7 +761,9 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
         int usage = GRALLOC_USAGE_SW_READ_NEVER |
                 GRALLOC_USAGE_SW_WRITE_NEVER |
                 GRALLOC_USAGE_HW_COMPOSER;
-        // TODO: add GRALLOC_USAGE_PROTECTED if source buffer is also protected
+
+        if (src_handle->flags & GRALLOC_USAGE_PROTECTED)
+            usage |= GRALLOC_USAGE_PROTECTED;
 
         int w = ALIGN(WIDTH(layer.displayFrame), GSC_W_ALIGNMENT);
         int h = ALIGN(HEIGHT(layer.displayFrame), GSC_H_ALIGNMENT);
@@ -790,6 +793,7 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     dst_cfg.fw = dst_handle->stride;
     dst_cfg.fh = dst_handle->vstride;
     dst_cfg.yaddr = dst_handle->fd;
+    dst_cfg.drmMode = !!(dst_handle->flags & GRALLOC_USAGE_PROTECTED);
 
     ALOGV("destination configuration:");
     dump_gsc_img(dst_cfg);
