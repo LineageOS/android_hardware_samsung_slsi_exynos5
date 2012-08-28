@@ -659,6 +659,11 @@ static bool m_exynos_gsc_set_format(
         return false;
     }
 
+    if (exynos_v4l2_s_ctrl(fd, V4L2_CID_CONTENT_PROTECTION, info->mode_drm) < 0) {
+        ALOGE("%s::exynos_v4l2_s_ctrl() fail", __func__);
+        return false;
+    }
+
     req_buf.count  = 1;
     req_buf.type   = info->buf_type;
     req_buf.memory = V4L2_MEMORY_DMABUF;
@@ -1109,21 +1114,6 @@ int exynos_gsc_set_dst_format(
     return 0;
 }
 
-static int exynos_gsc_ctrl_sysmmu(
-    int fd,
-    int flag)
-{
-    int sys_mmu_flag = flag ^ 1;
-
-#if 0 //it will be enabled later
-    if (exynos_v4l2_s_ctrl(fd, V4L2_CID_USE_SYSMMU, sys_mmu_flag) < 0) {
-        ALOGE("%s::exynos_v4l2_s_ctrl(V4L2_CID_USE_SYSMMU) fail", __func__);
-        return -1;
-    }
-#endif
-    return 0;
-}
-
 int exynos_gsc_set_rotation(
     void *handle,
     int   rotation,
@@ -1355,7 +1345,7 @@ int exynos_gsc_m2m_config(void *handle,
 
     ret = exynos_gsc_set_dst_format(gsc_handle, dst_img->fw, dst_img->fh,
                                   dst_img->x, dst_img->y, dst_img->w, dst_img->h,
-                                  dst_color_space, dst_img->cacheable, src_img->drmMode);
+                                  dst_color_space, dst_img->cacheable, dst_img->drmMode);
     if (ret < 0) {
         ALOGE("%s: fail: exynos_gsc_set_dst_format [fw %d fh %d x %d y %d w %d h %d f %x rot %d]",
             __func__, dst_img->fw, dst_img->fh, dst_img->x, dst_img->y, dst_img->w, dst_img->h,
@@ -1507,6 +1497,12 @@ int exynos_gsc_out_config(void *handle,
 
      if (exynos_v4l2_s_ctrl(gsc_handle->gsc_vd_entity->fd, V4L2_CID_CACHEABLE, 1) < 0) {
         ALOGE("%s:: exynos_v4l2_s_ctrl (V4L2_CID_CACHEABLE: 1) failed", __func__);
+        return -1;
+    }
+
+    if (exynos_v4l2_s_ctrl(gsc_handle->gsc_vd_entity->fd,
+        V4L2_CID_CONTENT_PROTECTION, gsc_handle->src_img.drmMode) < 0) {
+        ALOGE("%s::exynos_v4l2_s_ctrl(V4L2_CID_CONTENT_PROTECTION) fail", __func__);
         return -1;
     }
 
