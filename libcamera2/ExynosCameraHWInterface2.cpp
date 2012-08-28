@@ -2421,18 +2421,6 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 shot_ext->request_scc,
                 shot_ext->dis_bypass, sizeof(camera2_shot));
 
-            if(shot_ext->request_scc == 1) {
-                isCapture = true;
-            }
-
-            if(isCapture)
-            {
-                for(j = 0; j < m_camera_info.isp.buffers; j++)
-                {
-                    shot_ext_capture = (struct camera2_shot_ext *)(m_camera_info.isp.buffer[j].virt.extP[1]);
-                    shot_ext_capture->request_scc = 1;
-                }
-            }
             if (0 == shot_ext->shot.ctl.aa.afRegions[0] && 0 == shot_ext->shot.ctl.aa.afRegions[1]
                 && 0 == shot_ext->shot.ctl.aa.afRegions[2] && 0 == shot_ext->shot.ctl.aa.afRegions[3]) {
                 ALOGV("(%s): AF region resetting", __FUNCTION__);
@@ -2462,30 +2450,11 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             //m_ispThread->SetSignal(SIGNAL_ISP_START_BAYER_DEQUEUE);
 
             usleep(10000);
-            if(isCapture)
-            {
-                for(j = 0; j < m_camera_info.isp.buffers; j++)
-                {
-                    shot_ext_capture = (struct camera2_shot_ext *)(m_camera_info.isp.buffer[j].virt.extP[1]);
-                    ALOGD("shot_ext_capture[%d] scp = %d, scc = %d", j, shot_ext_capture->request_scp, shot_ext_capture->request_scc);
-//                    DumpInfoWithShot(shot_ext_capture);
-                }
-            }
-
 
             ALOGV("### isp DQBUF start");
             index_isp = cam_int_dqbuf(&(m_camera_info.isp));
             //m_previewOutput = 0;
 
-            if(isCapture)
-            {
-                for(j = 0; j < m_camera_info.isp.buffers; j++)
-                {
-                    shot_ext_capture = (struct camera2_shot_ext *)(m_camera_info.isp.buffer[j].virt.extP[1]);
-                    ALOGD("shot_ext_capture[%d] scp = %d, scc = %d", j, shot_ext_capture->request_scp, shot_ext_capture->request_scc);
-//                    DumpInfoWithShot(shot_ext_capture);
-                }
-            }
             shot_ext = (struct camera2_shot_ext *)(m_camera_info.isp.buffer[index_isp].virt.extP[1]);
 
             ALOGV("### Isp DQbuf done(%d) count (%d), SCP(%d) SCC(%d) shot_size(%d)",
@@ -2498,21 +2467,6 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 (int)(shot_ext->shot.dm.aa.mode), (int)(shot_ext->shot.dm.aa.aeMode),
                 (int)(shot_ext->shot.dm.aa.awbMode),
                 (int)(shot_ext->shot.dm.aa.afMode));
-
-            if(isCapture) {
-                    ALOGD("======= request_scc is 1");
-                    memcpy(&m_jpegMetadata, &shot_ext->shot, sizeof(struct camera2_shot));
-                    ALOGV("### Saving informationfor jpeg");
-                    m_streamThreads[1]->SetSignal(SIGNAL_STREAM_DATA_COMING);
-
-                for(j = 0; j < m_camera_info.isp.buffers; j++)
-                {
-                    shot_ext_capture = (struct camera2_shot_ext *)(m_camera_info.isp.buffer[j].virt.extP[1]);
-                    shot_ext_capture->request_scc = 0;
-                }
-
-                isCapture = false;
-            }
 
             if (shot_ext->request_scp) {
                 m_previewOutput = 1;
@@ -2603,6 +2557,127 @@ void ExynosCameraHWInterface2::m_ispThreadFunc(SignalDrivenThread * self)
     return;
 }
 
+void ExynosCameraHWInterface2::m_streamBufferInit(SignalDrivenThread *self)
+{
+    uint32_t                currentSignal   = self->GetProcessingSignal();
+    StreamThread *          selfThread      = ((StreamThread*)self);
+    stream_parameters_t     *selfStreamParms =  &(selfThread->m_parameters);
+    record_parameters_t     *selfRecordParms =  &(selfThread->m_recordParameters);
+    node_info_t             *currentNode    = &(selfStreamParms->node);
+
+    buffer_handle_t * buf = NULL;
+    status_t res;
+    void *virtAddr[3];
+    int i, j;
+    int index;
+    nsecs_t timestamp;
+
+    if (!(selfThread->m_isBufferInit))
+    {
+        for ( i=0 ; i < selfStreamParms->numSvcBuffers; i++) {
+            res = selfStreamParms->streamOps->dequeue_buffer(selfStreamParms->streamOps, &buf);
+            if (res != NO_ERROR || buf == NULL) {
+                ALOGE("ERR(%s): Init: unable to dequeue buffer : %d",__FUNCTION__ , res);
+                return;
+            }
+            ALOGV("DEBUG(%s): got buf(%x) version(%d), numFds(%d), numInts(%d)", __FUNCTION__, (uint32_t)(*buf),
+               ((native_handle_t*)(*buf))->version, ((native_handle_t*)(*buf))->numFds, ((native_handle_t*)(*buf))->numInts);
+
+            if (m_grallocHal->lock(m_grallocHal, *buf,
+                       selfStreamParms->usage,
+                       0, 0, selfStreamParms->outputWidth, selfStreamParms->outputHeight, virtAddr) != 0) {
+                ALOGE("ERR(%s): could not obtain gralloc buffer", __FUNCTION__);
+                return;
+            }
+            ALOGV("DEBUG(%s): locked img buf plane0(%x) plane1(%x) plane2(%x)",
+            __FUNCTION__, (unsigned int)virtAddr[0], (unsigned int)virtAddr[1], (unsigned int)virtAddr[2]);
+
+            index = selfThread->findBufferIndex(virtAddr[0]);
+            if (index == -1) {
+                ALOGE("ERR(%s): could not find buffer index", __FUNCTION__);
+            }
+            else {
+                ALOGV("DEBUG(%s): found buffer index[%d] - status(%d)",
+                    __FUNCTION__, index, selfStreamParms->svcBufStatus[index]);
+                if (selfStreamParms->svcBufStatus[index]== REQUIRES_DQ_FROM_SVC)
+                    selfStreamParms->svcBufStatus[index] = ON_DRIVER;
+                else if (selfStreamParms->svcBufStatus[index]== ON_SERVICE)
+                    selfStreamParms->svcBufStatus[index] = ON_HAL;
+                else {
+                    ALOGV("DBG(%s): buffer status abnormal (%d) "
+                        , __FUNCTION__, selfStreamParms->svcBufStatus[index]);
+                }
+                selfStreamParms->numSvcBufsInHal++;
+                if (*buf != selfStreamParms->svcBufHandle[index])
+                    ALOGV("DBG(%s): different buf_handle index ", __FUNCTION__);
+                else
+                    ALOGV("DEBUG(%s): same buf_handle index", __FUNCTION__);
+            }
+            selfStreamParms->svcBufIndex = 0;
+        }
+        selfThread->m_isBufferInit = true;
+    }
+
+    if (m_recordingEnabled && m_needsRecordBufferInit) {
+        ALOGV("DEBUG(%s): Recording Buffer Initialization numsvcbuf(%d)",
+            __FUNCTION__, selfRecordParms->numSvcBuffers);
+        int checkingIndex = 0;
+        bool found = false;
+        for ( i=0 ; i < selfRecordParms->numSvcBuffers; i++) {
+            res = selfRecordParms->streamOps->dequeue_buffer(selfRecordParms->streamOps, &buf);
+            if (res != NO_ERROR || buf == NULL) {
+                ALOGE("ERR(%s): Init: unable to dequeue buffer : %d",__FUNCTION__ , res);
+                return;
+            }
+            selfRecordParms->numSvcBufsInHal++;
+            ALOGV("DEBUG(%s): [record] got buf(%x) bufInHal(%d) version(%d), numFds(%d), numInts(%d)", __FUNCTION__, (uint32_t)(*buf),
+               selfRecordParms->numSvcBufsInHal, ((native_handle_t*)(*buf))->version, ((native_handle_t*)(*buf))->numFds, ((native_handle_t*)(*buf))->numInts);
+
+            if (m_grallocHal->lock(m_grallocHal, *buf,
+                   selfRecordParms->usage, 0, 0,
+                   selfRecordParms->outputWidth, selfRecordParms->outputHeight, virtAddr) != 0) {
+                ALOGE("ERR(%s): could not obtain gralloc buffer", __FUNCTION__);
+            }
+            else {
+                  ALOGV("DEBUG(%s): [record] locked img buf plane0(%x) plane1(%x) plane2(%x)",
+                    __FUNCTION__, (unsigned int)virtAddr[0], (unsigned int)virtAddr[1], (unsigned int)virtAddr[2]);
+            }
+            found = false;
+            for (checkingIndex = 0; checkingIndex < selfRecordParms->numSvcBuffers ; checkingIndex++) {
+                if (selfRecordParms->svcBufHandle[checkingIndex] == *buf ) {
+                    found = true;
+                    break;
+                }
+            }
+            ALOGV("DEBUG(%s): [record] found(%d) - index[%d]", __FUNCTION__, found, checkingIndex);
+            if (!found) break;
+
+            index = checkingIndex;
+
+            if (index == -1) {
+                ALOGV("ERR(%s): could not find buffer index", __FUNCTION__);
+            }
+            else {
+                ALOGV("DEBUG(%s): found buffer index[%d] - status(%d)",
+                    __FUNCTION__, index, selfRecordParms->svcBufStatus[index]);
+                if (selfRecordParms->svcBufStatus[index]== ON_SERVICE)
+                    selfRecordParms->svcBufStatus[index] = ON_HAL;
+                else {
+                    ALOGV("DBG(%s): buffer status abnormal (%d) "
+                        , __FUNCTION__, selfRecordParms->svcBufStatus[index]);
+                }
+                if (*buf != selfRecordParms->svcBufHandle[index])
+                    ALOGV("DBG(%s): different buf_handle index ", __FUNCTION__);
+                else
+                    ALOGV("DEBUG(%s): same buf_handle index", __FUNCTION__);
+            }
+            selfRecordParms->svcBufIndex = 0;
+        }
+        m_needsRecordBufferInit = false;
+    }
+
+}
+
 void ExynosCameraHWInterface2::m_streamThreadInitialize(SignalDrivenThread * self)
 {
     StreamThread *          selfThread      = ((StreamThread*)self);
@@ -2613,7 +2688,7 @@ void ExynosCameraHWInterface2::m_streamThreadInitialize(SignalDrivenThread * sel
     return;
 }
 
-void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
+void ExynosCameraHWInterface2::m_streamFunc0(SignalDrivenThread *self)
 {
     uint32_t                currentSignal   = self->GetProcessingSignal();
     StreamThread *          selfThread      = ((StreamThread*)self);
@@ -2621,66 +2696,10 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
     record_parameters_t     *selfRecordParms =  &(selfThread->m_recordParameters);
     node_info_t             *currentNode    = &(selfStreamParms->node);
 
-    ALOGV("DEBUG(%s): m_streamThreadFunc[%d] (%x)", __FUNCTION__, selfThread->m_index, currentSignal);
-
     if (currentSignal & SIGNAL_STREAM_CHANGE_PARAMETER) {
         ALOGV("DEBUG(%s): processing SIGNAL_STREAM_CHANGE_PARAMETER", __FUNCTION__);
-        selfThread->applyChange();
-        if (selfStreamParms->streamType == STREAM_TYPE_INDIRECT) {
-            m_resizeBuf.size.extS[0] = ALIGN(selfStreamParms->outputWidth, 16) * ALIGN(selfStreamParms->outputHeight, 16) * 2;
-            m_resizeBuf.size.extS[1] = 0;
-            m_resizeBuf.size.extS[2] = 0;
 
-            if (allocCameraMemory(selfStreamParms->ionClient, &m_resizeBuf, 1) == -1) {
-                ALOGE("ERR(%s): Failed to allocate resize buf", __FUNCTION__);
-            }
-        }
         ALOGV("DEBUG(%s): processing SIGNAL_STREAM_CHANGE_PARAMETER DONE", __FUNCTION__);
-    }
-
-    if (currentSignal & SIGNAL_THREAD_RELEASE) {
-        int i, index = -1, cnt_to_dq = 0;
-        status_t res;
-        ALOGV("DEBUG(%s): processing SIGNAL_THREAD_RELEASE", __FUNCTION__);
-        ALOGD("(%s):(%d) SIGNAL_THREAD_RELEASE", __FUNCTION__, selfStreamParms->streamType);
-
-        if (selfThread->m_isBufferInit) {
-            for ( i=0 ; i < selfStreamParms->numSvcBuffers; i++) {
-                ALOGV("DEBUG(%s): checking buffer index[%d] - status(%d)",
-                    __FUNCTION__, i, selfStreamParms->svcBufStatus[i]);
-                if (selfStreamParms->svcBufStatus[i] ==ON_DRIVER) cnt_to_dq++;
-            }
-
-            ALOGV("DEBUG(%s): calling stream(%d) streamoff (fd:%d)", __FUNCTION__,
-            selfThread->m_index, selfStreamParms->fd);
-            if (cam_int_streamoff(&(selfStreamParms->node)) < 0 ){
-                ALOGE("ERR(%s): stream off fail", __FUNCTION__);
-            } else {
-                if (selfStreamParms->streamType == STREAM_TYPE_DIRECT) {
-                    m_scp_closing = true;
-                } else {
-                    m_camera_info.capture.status = false;
-                }
-            }
-            ALOGV("DEBUG(%s): calling stream(%d) streamoff done", __FUNCTION__, selfThread->m_index);
-            ALOGV("DEBUG(%s): calling stream(%d) reqbuf 0 (fd:%d)", __FUNCTION__,
-                    selfThread->m_index, selfStreamParms->fd);
-            currentNode->buffers = 0;
-            cam_int_reqbufs(currentNode);
-            ALOGV("DEBUG(%s): calling stream(%d) reqbuf 0 DONE(fd:%d)", __FUNCTION__,
-                    selfThread->m_index, selfStreamParms->fd);
-        }
-        if (selfThread->m_index == 1 && m_resizeBuf.size.s != 0) {
-            freeCameraMemory(&m_resizeBuf, 1);
-        }
-        selfThread->m_isBufferInit = false;
-        selfThread->m_index = 255;
-
-        selfThread->m_releasing = false;
-
-        ALOGV("DEBUG(%s): processing SIGNAL_THREAD_RELEASE DONE", __FUNCTION__);
-
-        return;
     }
 
     if (currentSignal & SIGNAL_STREAM_DATA_COMING) {
@@ -2694,341 +2713,117 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
         ALOGV("DEBUG(%s): stream(%d) processing SIGNAL_STREAM_DATA_COMING",
             __FUNCTION__,selfThread->m_index);
 
-        if (selfStreamParms->streamType == STREAM_TYPE_INDIRECT)
-        {
-            ALOGD("stream(%s) processing SIGNAL_STREAM_DATA_COMING",
-                __FUNCTION__,selfThread->m_index);
-        }
-
-        if (!(selfThread->m_isBufferInit)) {
-            for ( i=0 ; i < selfStreamParms->numSvcBuffers; i++) {
-                res = selfStreamParms->streamOps->dequeue_buffer(selfStreamParms->streamOps, &buf);
-                if (res != NO_ERROR || buf == NULL) {
-                    ALOGE("ERR(%s): Init: unable to dequeue buffer : %d",__FUNCTION__ , res);
-                    return;
-                }
-                ALOGV("DEBUG(%s): got buf(%x) version(%d), numFds(%d), numInts(%d)", __FUNCTION__, (uint32_t)(*buf),
-                   ((native_handle_t*)(*buf))->version, ((native_handle_t*)(*buf))->numFds, ((native_handle_t*)(*buf))->numInts);
-
-                if (m_grallocHal->lock(m_grallocHal, *buf,
-                           selfStreamParms->usage,
-                           0, 0, selfStreamParms->outputWidth, selfStreamParms->outputHeight, virtAddr) != 0) {
-                    ALOGE("ERR(%s): could not obtain gralloc buffer", __FUNCTION__);
-                    return;
-                }
-                ALOGV("DEBUG(%s): locked img buf plane0(%x) plane1(%x) plane2(%x)",
-                __FUNCTION__, (unsigned int)virtAddr[0], (unsigned int)virtAddr[1], (unsigned int)virtAddr[2]);
-
-                index = selfThread->findBufferIndex(virtAddr[0]);
-                if (index == -1) {
-                    ALOGE("ERR(%s): could not find buffer index", __FUNCTION__);
-                }
-                else {
-                    ALOGV("DEBUG(%s): found buffer index[%d] - status(%d)",
-                        __FUNCTION__, index, selfStreamParms->svcBufStatus[index]);
-                    if (selfStreamParms->svcBufStatus[index]== REQUIRES_DQ_FROM_SVC)
-                        selfStreamParms->svcBufStatus[index] = ON_DRIVER;
-                    else if (selfStreamParms->svcBufStatus[index]== ON_SERVICE)
-                        selfStreamParms->svcBufStatus[index] = ON_HAL;
-                    else {
-                        ALOGV("DBG(%s): buffer status abnormal (%d) "
-                            , __FUNCTION__, selfStreamParms->svcBufStatus[index]);
-                    }
-                    selfStreamParms->numSvcBufsInHal++;
-                    if (*buf != selfStreamParms->svcBufHandle[index])
-                        ALOGV("DBG(%s): different buf_handle index ", __FUNCTION__);
-                    else
-                        ALOGV("DEBUG(%s): same buf_handle index", __FUNCTION__);
-                }
-                selfStreamParms->svcBufIndex = 0;
-            }
-            selfThread->m_isBufferInit = true;
-        }
-
-        if (m_recordingEnabled && m_needsRecordBufferInit) {
-            ALOGV("DEBUG(%s): Recording Buffer Initialization numsvcbuf(%d)",
-                __FUNCTION__, selfRecordParms->numSvcBuffers);
-            int checkingIndex = 0;
-            bool found = false;
-            for ( i=0 ; i < selfRecordParms->numSvcBuffers; i++) {
-                res = selfRecordParms->streamOps->dequeue_buffer(selfRecordParms->streamOps, &buf);
-                if (res != NO_ERROR || buf == NULL) {
-                    ALOGE("ERR(%s): Init: unable to dequeue buffer : %d",__FUNCTION__ , res);
-                    return;
-                }
-                selfRecordParms->numSvcBufsInHal++;
-                ALOGV("DEBUG(%s): [record] got buf(%x) bufInHal(%d) version(%d), numFds(%d), numInts(%d)", __FUNCTION__, (uint32_t)(*buf),
-                   selfRecordParms->numSvcBufsInHal, ((native_handle_t*)(*buf))->version, ((native_handle_t*)(*buf))->numFds, ((native_handle_t*)(*buf))->numInts);
-
-                if (m_grallocHal->lock(m_grallocHal, *buf,
-                       selfRecordParms->usage, 0, 0,
-                       selfRecordParms->outputWidth, selfRecordParms->outputHeight, virtAddr) != 0) {
-                    ALOGE("ERR(%s): could not obtain gralloc buffer", __FUNCTION__);
-                }
-                else {
-                      ALOGV("DEBUG(%s): [record] locked img buf plane0(%x) plane1(%x) plane2(%x)",
-                        __FUNCTION__, (unsigned int)virtAddr[0], (unsigned int)virtAddr[1], (unsigned int)virtAddr[2]);
-                }
-                found = false;
-                for (checkingIndex = 0; checkingIndex < selfRecordParms->numSvcBuffers ; checkingIndex++) {
-                    if (selfRecordParms->svcBufHandle[checkingIndex] == *buf ) {
-                        found = true;
-                        break;
-                    }
-                }
-                ALOGV("DEBUG(%s): [record] found(%d) - index[%d]", __FUNCTION__, found, checkingIndex);
-                if (!found) break;
-
-                index = checkingIndex;
-
-                if (index == -1) {
-                    ALOGV("ERR(%s): could not find buffer index", __FUNCTION__);
-                }
-                else {
-                    ALOGV("DEBUG(%s): found buffer index[%d] - status(%d)",
-                        __FUNCTION__, index, selfRecordParms->svcBufStatus[index]);
-                    if (selfRecordParms->svcBufStatus[index]== ON_SERVICE)
-                        selfRecordParms->svcBufStatus[index] = ON_HAL;
-                    else {
-                        ALOGV("DBG(%s): buffer status abnormal (%d) "
-                            , __FUNCTION__, selfRecordParms->svcBufStatus[index]);
-                    }
-                    if (*buf != selfRecordParms->svcBufHandle[index])
-                        ALOGV("DBG(%s): different buf_handle index ", __FUNCTION__);
-                    else
-                        ALOGV("DEBUG(%s): same buf_handle index", __FUNCTION__);
-                }
-                selfRecordParms->svcBufIndex = 0;
-            }
-            m_needsRecordBufferInit = false;
-        }
+        m_streamBufferInit(self);
 
         do {
-            if (selfStreamParms->streamType == STREAM_TYPE_DIRECT) {
-                ALOGV("DEBUG(%s): stream(%d) type(%d) DQBUF START ",__FUNCTION__,
-                    selfThread->m_index, selfStreamParms->streamType);
+            ALOGV("DEBUG(%s): stream(%d) type(%d) DQBUF START ",__FUNCTION__,
+                selfThread->m_index, selfStreamParms->streamType);
 
-                index = cam_int_dqbuf(&(selfStreamParms->node));
-                ALOGV("DEBUG(%s): stream(%d) type(%d) DQBUF done index(%d)",__FUNCTION__,
-                    selfThread->m_index, selfStreamParms->streamType, index);
+            index = cam_int_dqbuf(&(selfStreamParms->node));
+            ALOGV("DEBUG(%s): stream(%d) type(%d) DQBUF done index(%d)",__FUNCTION__,
+                selfThread->m_index, selfStreamParms->streamType, index);
 
+            if (selfStreamParms->svcBufStatus[index] !=  ON_DRIVER)
+                ALOGV("DBG(%s): DQed buffer status abnormal (%d) ",
+                       __FUNCTION__, selfStreamParms->svcBufStatus[index]);
+            selfStreamParms->svcBufStatus[index] = ON_HAL;
 
-                if (selfStreamParms->svcBufStatus[index] !=  ON_DRIVER)
-                    ALOGV("DBG(%s): DQed buffer status abnormal (%d) ",
-                           __FUNCTION__, selfStreamParms->svcBufStatus[index]);
-                selfStreamParms->svcBufStatus[index] = ON_HAL;
-
-                if (m_recordOutput && m_recordingEnabled) {
-                    ALOGV("DEBUG(%s): Entering record frame creator, index(%d)",__FUNCTION__, selfRecordParms->svcBufIndex);
-                    bool found = false;
-                    for (int i = 0 ; selfRecordParms->numSvcBuffers ; i++) {
-                        if (selfRecordParms->svcBufStatus[selfRecordParms->svcBufIndex] == ON_HAL) {
-                            found = true;
-                            break;
-                        }
-                        selfRecordParms->svcBufIndex++;
-                        if (selfRecordParms->svcBufIndex >= selfRecordParms->numSvcBuffers)
-                            selfRecordParms->svcBufIndex = 0;
-                    }
-                    if (!found) {
-                        ALOGE("(%s): cannot find free recording buffer", __FUNCTION__);
-                        selfRecordParms->svcBufIndex++;
-                        break;
-                    }
-
-                    if (m_exynosVideoCSC) {
-                        int videoW = selfRecordParms->outputWidth, videoH = selfRecordParms->outputHeight;
-                        int cropX, cropY, cropW, cropH = 0;
-                        int previewW = selfStreamParms->outputWidth, previewH = selfStreamParms->outputHeight;
-                        m_getRatioSize(previewW, previewH,
-                                       videoW, videoH,
-                                       &cropX, &cropY,
-                                       &cropW, &cropH,
-                                       0);
-
-                        ALOGV("DEBUG(%s):cropX = %d, cropY = %d, cropW = %d, cropH = %d",
-                                 __FUNCTION__, cropX, cropY, cropW, cropH);
-
-                        csc_set_src_format(m_exynosVideoCSC,
-                                           previewW, previewH,
-                                           cropX, cropY, cropW, cropH,
-                                           HAL_PIXEL_FORMAT_EXYNOS_YV12,
-                                           0);
-
-                        csc_set_dst_format(m_exynosVideoCSC,
-                                           videoW, videoH,
-                                           0, 0, videoW, videoH,
-                                           selfRecordParms->outputFormat,
-                                           1);
-
-                        csc_set_src_buffer(m_exynosVideoCSC,
-                                       (void **)(&(selfStreamParms->svcBuffers[index].fd.fd)));
-
-                        csc_set_dst_buffer(m_exynosVideoCSC,
-                            (void **)(&(selfRecordParms->svcBuffers[selfRecordParms->svcBufIndex].fd.fd)));
-
-                        if (csc_convert(m_exynosVideoCSC) != 0) {
-                            ALOGE("ERR(%s):csc_convert() fail", __FUNCTION__);
-                        }
-                        else {
-                            ALOGV("(%s):csc_convert() SUCCESS", __FUNCTION__);
-                        }
-                    }
-                    else {
-                        ALOGE("ERR(%s):m_exynosVideoCSC == NULL", __FUNCTION__);
-                    }
-
-                    res = selfRecordParms->streamOps->enqueue_buffer(selfRecordParms->streamOps,
-                            systemTime(),
-                            &(selfRecordParms->svcBufHandle[selfRecordParms->svcBufIndex]));
-                    ALOGV("DEBUG(%s): stream(%d) record enqueue_buffer to svc done res(%d)", __FUNCTION__,
-                        selfThread->m_index, res);
-                    if (res == 0) {
-                        selfRecordParms->svcBufStatus[selfRecordParms->svcBufIndex] = ON_SERVICE;
-                        selfRecordParms->numSvcBufsInHal--;
-                    }
-                }
-                if (m_previewOutput && m_requestManager->GetSkipCnt() <= 0) {
-
-                    ALOGV("** Display Preview(frameCnt:%d)", m_requestManager->GetFrameIndex());
-                    res = selfStreamParms->streamOps->enqueue_buffer(selfStreamParms->streamOps,
-                            m_requestManager->GetTimestamp(m_requestManager->GetFrameIndex()),
-                            &(selfStreamParms->svcBufHandle[index]));
-
-                    ALOGV("DEBUG(%s): stream(%d) enqueue_buffer to svc done res(%d)", __FUNCTION__, selfThread->m_index, res);
-                }
-                else {
-                    res = selfStreamParms->streamOps->cancel_buffer(selfStreamParms->streamOps,
-                            &(selfStreamParms->svcBufHandle[index]));
-                    ALOGV("DEBUG(%s): stream(%d) cancel_buffer to svc done res(%d)", __FUNCTION__, selfThread->m_index, res);
-                }
-                if (res == 0) {
-                    selfStreamParms->svcBufStatus[index] = ON_SERVICE;
-                    selfStreamParms->numSvcBufsInHal--;
-                }
-                else {
-                    selfStreamParms->svcBufStatus[index] = ON_HAL;
-                }
-            }
-            else if (selfStreamParms->streamType == STREAM_TYPE_INDIRECT) {
-                ExynosRect jpegRect;
+            if (m_recordOutput && m_recordingEnabled) {
+                ALOGV("DEBUG(%s): Entering record frame creator, index(%d)",__FUNCTION__, selfRecordParms->svcBufIndex);
                 bool found = false;
-                bool ret = false;
-                int pictureW, pictureH, pictureFramesize = 0;
-                int pictureFormat;
-                int cropX, cropY, cropW, cropH = 0;
-                ExynosBuffer resizeBufInfo;
-                ExynosRect   m_orgPictureRect;
-
-                ALOGD("DEBUG(%s): stream(%d) type(%d) DQBUF START ",__FUNCTION__,
-                    selfThread->m_index, selfStreamParms->streamType);
-                index = cam_int_dqbuf(&(selfStreamParms->node));
-                ALOGD("DEBUG(%s): stream(%d) type(%d) DQBUF done index(%d)",__FUNCTION__,
-                    selfThread->m_index, selfStreamParms->streamType, index);
-
-
-                for (int i = 0; i < selfStreamParms->numSvcBuffers ; i++) {
-                    if (selfStreamParms->svcBufStatus[selfStreamParms->svcBufIndex] == ON_HAL) {
+                for (int i = 0 ; selfRecordParms->numSvcBuffers ; i++) {
+                    if (selfRecordParms->svcBufStatus[selfRecordParms->svcBufIndex] == ON_HAL) {
                         found = true;
                         break;
                     }
-                    selfStreamParms->svcBufIndex++;
-                    if (selfStreamParms->svcBufIndex >= selfStreamParms->numSvcBuffers)
-                        selfStreamParms->svcBufIndex = 0;
+                    selfRecordParms->svcBufIndex++;
+                    if (selfRecordParms->svcBufIndex >= selfRecordParms->numSvcBuffers)
+                        selfRecordParms->svcBufIndex = 0;
                 }
                 if (!found) {
-                    ALOGE("ERR(%s): NO free SVC buffer for JPEG", __FUNCTION__);
+                    ALOGE("(%s): cannot find free recording buffer", __FUNCTION__);
+                    selfRecordParms->svcBufIndex++;
                     break;
                 }
 
-                m_orgPictureRect.w = selfStreamParms->outputWidth;
-                m_orgPictureRect.h = selfStreamParms->outputHeight;
-
-                ExynosBuffer* m_pictureBuf = &(m_camera_info.capture.buffer[index]);
-
-                pictureW = selfStreamParms->nodeWidth;
-                pictureH = selfStreamParms->nodeHeight;
-                pictureFormat = V4L2_PIX_FMT_YUYV;
-                pictureFramesize = FRAME_SIZE(V4L2_PIX_2_HAL_PIXEL_FORMAT(pictureFormat), pictureW, pictureH);
-
-                if (m_exynosPictureCSC) {
-                    m_getRatioSize(pictureW, pictureH,
-                                   m_orgPictureRect.w, m_orgPictureRect.h,
+                if (m_exynosVideoCSC) {
+                    int videoW = selfRecordParms->outputWidth, videoH = selfRecordParms->outputHeight;
+                    int cropX, cropY, cropW, cropH = 0;
+                    int previewW = selfStreamParms->outputWidth, previewH = selfStreamParms->outputHeight;
+                    m_getRatioSize(previewW, previewH,
+                                   videoW, videoH,
                                    &cropX, &cropY,
                                    &cropW, &cropH,
                                    0);
 
                     ALOGV("DEBUG(%s):cropX = %d, cropY = %d, cropW = %d, cropH = %d",
-                          __FUNCTION__, cropX, cropY, cropW, cropH);
+                             __FUNCTION__, cropX, cropY, cropW, cropH);
 
-                    csc_set_src_format(m_exynosPictureCSC,
-                                       ALIGN(pictureW, 16), ALIGN(pictureH, 16),
+                    csc_set_src_format(m_exynosVideoCSC,
+                                       previewW, previewH,
                                        cropX, cropY, cropW, cropH,
-                                       V4L2_PIX_2_HAL_PIXEL_FORMAT(pictureFormat),
+                                       HAL_PIXEL_FORMAT_YV12,
                                        0);
 
-                    csc_set_dst_format(m_exynosPictureCSC,
-                                       m_orgPictureRect.w, m_orgPictureRect.h,
-                                       0, 0, m_orgPictureRect.w, m_orgPictureRect.h,
-                                       V4L2_PIX_2_HAL_PIXEL_FORMAT(V4L2_PIX_FMT_NV16),
-                                       0);
-                    csc_set_src_buffer(m_exynosPictureCSC,
-                                       (void **)&m_pictureBuf->fd.fd);
+                    csc_set_dst_format(m_exynosVideoCSC,
+                                       videoW, videoH,
+                                       0, 0, videoW, videoH,
+                                       selfRecordParms->outputFormat,
+                                       1);
 
-                    csc_set_dst_buffer(m_exynosPictureCSC,
-                                       (void **)&m_resizeBuf.fd.fd);
-                    for (int i = 0 ; i < 3 ; i++)
-                        ALOGV("DEBUG(%s): m_resizeBuf.virt.extP[%d]=%d m_resizeBuf.size.extS[%d]=%d",
-                            __FUNCTION__, i, m_resizeBuf.fd.extFd[i], i, m_resizeBuf.size.extS[i]);
+                    csc_set_src_buffer(m_exynosVideoCSC,
+                                   (void **)(&(selfStreamParms->svcBuffers[index].fd.fd)));
 
-                    if (csc_convert(m_exynosPictureCSC) != 0)
-                        ALOGE("ERR(%s): csc_convert() fail", __FUNCTION__);
+                    csc_set_dst_buffer(m_exynosVideoCSC,
+                        (void **)(&(selfRecordParms->svcBuffers[selfRecordParms->svcBufIndex].fd.fd)));
 
-
+                    if (csc_convert(m_exynosVideoCSC) != 0) {
+                        ALOGE("ERR(%s):csc_convert() fail", __FUNCTION__);
+                    }
+                    else {
+                        ALOGV("(%s):csc_convert() SUCCESS", __FUNCTION__);
+                    }
                 }
                 else {
-                    ALOGE("ERR(%s): m_exynosPictureCSC == NULL", __FUNCTION__);
+                    ALOGE("ERR(%s):m_exynosVideoCSC == NULL", __FUNCTION__);
                 }
 
-                resizeBufInfo = m_resizeBuf;
-
-                m_getAlignedYUVSize(V4L2_PIX_FMT_NV16, m_orgPictureRect.w, m_orgPictureRect.h, &m_resizeBuf);
-
-                for (int i = 1; i < 3; i++) {
-                    if (m_resizeBuf.size.extS[i] != 0)
-                        m_resizeBuf.fd.extFd[i] = m_resizeBuf.fd.extFd[i-1] + m_resizeBuf.size.extS[i-1];
-
-                    ALOGV("(%s): m_resizeBuf.size.extS[%d] = %d", __FUNCTION__, i, m_resizeBuf.size.extS[i]);
-                }
-
-                jpegRect.w = m_orgPictureRect.w;
-                jpegRect.h = m_orgPictureRect.h;
-                jpegRect.colorFormat = V4L2_PIX_FMT_NV16;
-
-                if (yuv2Jpeg(&m_resizeBuf, &selfStreamParms->svcBuffers[selfStreamParms->svcBufIndex], &jpegRect) == false)
-                    ALOGE("ERR(%s):yuv2Jpeg() fail", __FUNCTION__);
-                cam_int_qbuf(&(selfStreamParms->node), index);
-                ALOGV("DEBUG(%s): stream(%d) type(%d) QBUF DONE ",__FUNCTION__,
-                    selfThread->m_index, selfStreamParms->streamType);
-
-                m_resizeBuf = resizeBufInfo;
-
-                res = selfStreamParms->streamOps->enqueue_buffer(selfStreamParms->streamOps, systemTime(), &(selfStreamParms->svcBufHandle[selfStreamParms->svcBufIndex]));
-
-                ALOGV("DEBUG(%s): stream(%d) enqueue_buffer index(%d) to svc done res(%d)",
-                        __FUNCTION__, selfThread->m_index, selfStreamParms->svcBufIndex, res);
+                res = selfRecordParms->streamOps->enqueue_buffer(selfRecordParms->streamOps,
+                        systemTime(),
+                        &(selfRecordParms->svcBufHandle[selfRecordParms->svcBufIndex]));
+                ALOGV("DEBUG(%s): stream(%d) record enqueue_buffer to svc done res(%d)", __FUNCTION__,
+                    selfThread->m_index, res);
                 if (res == 0) {
-                    selfStreamParms->svcBufStatus[selfStreamParms->svcBufIndex] = ON_SERVICE;
-                    selfStreamParms->numSvcBufsInHal--;
-                }
-                else {
-                    selfStreamParms->svcBufStatus[selfStreamParms->svcBufIndex] = ON_HAL;
+                    selfRecordParms->svcBufStatus[selfRecordParms->svcBufIndex] = ON_SERVICE;
+                    selfRecordParms->numSvcBufsInHal--;
                 }
             }
+            if (m_previewOutput && m_requestManager->GetSkipCnt() <= 0) {
+
+                ALOGV("** Display Preview(frameCnt:%d)", m_requestManager->GetFrameIndex());
+                res = selfStreamParms->streamOps->enqueue_buffer(selfStreamParms->streamOps,
+                        m_requestManager->GetTimestamp(m_requestManager->GetFrameIndex()),
+                        &(selfStreamParms->svcBufHandle[index]));
+
+                ALOGV("DEBUG(%s): stream(%d) enqueue_buffer to svc done res(%d)", __FUNCTION__, selfThread->m_index, res);
+            }
+            else {
+                res = selfStreamParms->streamOps->cancel_buffer(selfStreamParms->streamOps,
+                        &(selfStreamParms->svcBufHandle[index]));
+                ALOGV("DEBUG(%s): stream(%d) cancel_buffer to svc done res(%d)", __FUNCTION__, selfThread->m_index, res);
+            }
+            if (res == 0) {
+                selfStreamParms->svcBufStatus[index] = ON_SERVICE;
+                selfStreamParms->numSvcBufsInHal--;
+            }
+            else {
+                selfStreamParms->svcBufStatus[index] = ON_HAL;
+            }
+
         }
         while (0);
 
-        if (selfStreamParms->streamType == STREAM_TYPE_DIRECT  && m_recordOutput && m_recordingEnabled) {
+        if (m_recordOutput && m_recordingEnabled) {
             do {
                 ALOGV("DEBUG(%s): record currentBuf#(%d)", __FUNCTION__ , selfRecordParms->numSvcBufsInHal);
                 if (selfRecordParms->numSvcBufsInHal >= 1)
@@ -3070,94 +2865,380 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
                 }
             } while (0);
         }
-        if (selfStreamParms->streamType == STREAM_TYPE_DIRECT) {
-            while (selfStreamParms->numSvcBufsInHal < selfStreamParms->numOwnSvcBuffers) {
-                res = selfStreamParms->streamOps->dequeue_buffer(selfStreamParms->streamOps, &buf);
-                if (res != NO_ERROR || buf == NULL) {
-                    ALOGV("DEBUG(%s): stream(%d) dequeue_buffer fail res(%d)",__FUNCTION__ , selfThread->m_index,  res);
+
+        while (selfStreamParms->numSvcBufsInHal < selfStreamParms->numOwnSvcBuffers) {
+            res = selfStreamParms->streamOps->dequeue_buffer(selfStreamParms->streamOps, &buf);
+            if (res != NO_ERROR || buf == NULL) {
+                ALOGV("DEBUG(%s): stream(%d) dequeue_buffer fail res(%d)",__FUNCTION__ , selfThread->m_index,  res);
+                break;
+            }
+            selfStreamParms->numSvcBufsInHal++;
+            ALOGV("DEBUG(%s): stream(%d) got buf(%x) numInHal(%d) version(%d), numFds(%d), numInts(%d)", __FUNCTION__,
+                selfThread->m_index, (uint32_t)(*buf), selfStreamParms->numSvcBufsInHal,
+               ((native_handle_t*)(*buf))->version, ((native_handle_t*)(*buf))->numFds, ((native_handle_t*)(*buf))->numInts);
+            const private_handle_t *priv_handle = reinterpret_cast<const private_handle_t *>(*buf);
+
+            bool found = false;
+            int checkingIndex = 0;
+            for (checkingIndex = 0; checkingIndex < selfStreamParms->numSvcBuffers ; checkingIndex++) {
+                if (priv_handle->fd == selfStreamParms->svcBuffers[checkingIndex].fd.extFd[0] ) {
+                    found = true;
                     break;
                 }
-                selfStreamParms->numSvcBufsInHal++;
-                ALOGV("DEBUG(%s): stream(%d) got buf(%x) numInHal(%d) version(%d), numFds(%d), numInts(%d)", __FUNCTION__,
-                    selfThread->m_index, (uint32_t)(*buf), selfStreamParms->numSvcBufsInHal,
-                   ((native_handle_t*)(*buf))->version, ((native_handle_t*)(*buf))->numFds, ((native_handle_t*)(*buf))->numInts);
-                const private_handle_t *priv_handle = reinterpret_cast<const private_handle_t *>(*buf);
+            }
+            ALOGV("DEBUG(%s): post_dequeue_buffer found(%d)", __FUNCTION__, found);
+            if (!found) break;
+            ALOGV("DEBUG(%s): preparing to qbuf [%d]", __FUNCTION__, checkingIndex);
+            index = checkingIndex;
+            if (index < selfStreamParms->numHwBuffers) {
+                uint32_t    plane_index = 0;
+                ExynosBuffer*  currentBuf = &(selfStreamParms->svcBuffers[index]);
+                struct v4l2_buffer v4l2_buf;
+                struct v4l2_plane  planes[VIDEO_MAX_PLANES];
 
-                bool found = false;
-                int checkingIndex = 0;
-                for (checkingIndex = 0; checkingIndex < selfStreamParms->numSvcBuffers ; checkingIndex++) {
-                    if (priv_handle->fd == selfStreamParms->svcBuffers[checkingIndex].fd.extFd[0] ) {
-                        found = true;
-                        break;
-                    }
+                v4l2_buf.m.planes   = planes;
+                v4l2_buf.type       = currentNode->type;
+                v4l2_buf.memory     = currentNode->memory;
+                v4l2_buf.index      = index;
+                v4l2_buf.length     = currentNode->planes;
+
+                v4l2_buf.m.planes[0].m.fd = priv_handle->fd;
+                v4l2_buf.m.planes[2].m.fd = priv_handle->fd1;
+                v4l2_buf.m.planes[1].m.fd = priv_handle->fd2;
+                for (plane_index=0 ; plane_index < v4l2_buf.length ; plane_index++) {
+                    v4l2_buf.m.planes[plane_index].length  = currentBuf->size.extS[plane_index];
+                    ALOGV("DEBUG(%s): plane(%d): fd(%d)  length(%d)",
+                         __FUNCTION__, plane_index, v4l2_buf.m.planes[plane_index].m.fd,
+                         v4l2_buf.m.planes[plane_index].length);
                 }
-                ALOGV("DEBUG(%s): post_dequeue_buffer found(%d)", __FUNCTION__, found);
-                if (!found) break;
-                ALOGV("DEBUG(%s): preparing to qbuf [%d]", __FUNCTION__, checkingIndex);
-                index = checkingIndex;
-                if (index < selfStreamParms->numHwBuffers) {
-                    uint32_t    plane_index = 0;
-                    ExynosBuffer*  currentBuf = &(selfStreamParms->svcBuffers[index]);
-                    struct v4l2_buffer v4l2_buf;
-                    struct v4l2_plane  planes[VIDEO_MAX_PLANES];
-
-                    v4l2_buf.m.planes   = planes;
-                    v4l2_buf.type       = currentNode->type;
-                    v4l2_buf.memory     = currentNode->memory;
-                    v4l2_buf.index      = index;
-                    v4l2_buf.length     = currentNode->planes;
-
-                    v4l2_buf.m.planes[0].m.fd = priv_handle->fd;
-                    v4l2_buf.m.planes[2].m.fd = priv_handle->fd1;
-                    v4l2_buf.m.planes[1].m.fd = priv_handle->fd2;
-                    for (plane_index=0 ; plane_index < v4l2_buf.length ; plane_index++) {
-                        v4l2_buf.m.planes[plane_index].length  = currentBuf->size.extS[plane_index];
-                        ALOGV("DEBUG(%s): plane(%d): fd(%d)  length(%d)",
-                             __FUNCTION__, plane_index, v4l2_buf.m.planes[plane_index].m.fd,
-                             v4l2_buf.m.planes[plane_index].length);
-                    }
-                    if (exynos_v4l2_qbuf(currentNode->fd, &v4l2_buf) < 0) {
-                        ALOGE("ERR(%s): stream id(%d) exynos_v4l2_qbuf() fail",
-                            __FUNCTION__, selfThread->m_index);
-                        return;
-                    }
-                    selfStreamParms->svcBufStatus[index] = ON_DRIVER;
-                    ALOGV("DEBUG(%s): stream id(%d) type0 QBUF done index(%d)",
-                        __FUNCTION__, selfThread->m_index, index);
+                if (exynos_v4l2_qbuf(currentNode->fd, &v4l2_buf) < 0) {
+                    ALOGE("ERR(%s): stream id(%d) exynos_v4l2_qbuf() fail",
+                        __FUNCTION__, selfThread->m_index);
+                    return;
                 }
+                selfStreamParms->svcBufStatus[index] = ON_DRIVER;
+                ALOGV("DEBUG(%s): stream id(%d) type0 QBUF done index(%d)",
+                    __FUNCTION__, selfThread->m_index, index);
             }
         }
-        else if (selfStreamParms->streamType == STREAM_TYPE_INDIRECT) {
-            while (selfStreamParms->numSvcBufsInHal < selfStreamParms->numOwnSvcBuffers) {
-                res = selfStreamParms->streamOps->dequeue_buffer(selfStreamParms->streamOps, &buf);
-                if (res != NO_ERROR || buf == NULL) {
-                    ALOGV("DEBUG(%s): stream(%d) dequeue_buffer fail res(%d)",__FUNCTION__ , selfThread->m_index,  res);
-                    break;
-                }
 
-                ALOGV("DEBUG(%s): stream(%d) got buf(%x) numInHal(%d) version(%d), numFds(%d), numInts(%d)", __FUNCTION__,
-                    selfThread->m_index, (uint32_t)(*buf), selfStreamParms->numSvcBufsInHal,
-                   ((native_handle_t*)(*buf))->version, ((native_handle_t*)(*buf))->numFds, ((native_handle_t*)(*buf))->numInts);
-
-                const private_handle_t *priv_handle = reinterpret_cast<const private_handle_t *>(*buf);
-
-                bool found = false;
-                int checkingIndex = 0;
-                for (checkingIndex = 0; checkingIndex < selfStreamParms->numSvcBuffers ; checkingIndex++) {
-                    if (priv_handle->fd == selfStreamParms->svcBuffers[checkingIndex].fd.extFd[0] ) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) break;
-                selfStreamParms->svcBufStatus[checkingIndex] = ON_HAL;
-                selfStreamParms->numSvcBufsInHal++;
-            }
-
-        }
         ALOGV("DEBUG(%s): stream(%d) processing SIGNAL_STREAM_DATA_COMING DONE",
             __FUNCTION__,selfThread->m_index);
     }
+
+
+    if (currentSignal & SIGNAL_THREAD_RELEASE) {
+        int i, index = -1, cnt_to_dq = 0;
+        status_t res;
+        ALOGV("DEBUG(%s): processing SIGNAL_THREAD_RELEASE", __FUNCTION__);
+        ALOGD("(%s):(%d) SIGNAL_THREAD_RELEASE", __FUNCTION__, selfStreamParms->streamType);
+
+        if (selfThread->m_isBufferInit) {
+            for ( i=0 ; i < selfStreamParms->numSvcBuffers; i++) {
+                ALOGV("DEBUG(%s): checking buffer index[%d] - status(%d)",
+                    __FUNCTION__, i, selfStreamParms->svcBufStatus[i]);
+                if (selfStreamParms->svcBufStatus[i] ==ON_DRIVER) cnt_to_dq++;
+            }
+
+            ALOGV("DEBUG(%s): calling stream(%d) streamoff (fd:%d)", __FUNCTION__,
+            selfThread->m_index, selfStreamParms->fd);
+            if (cam_int_streamoff(&(selfStreamParms->node)) < 0 ){
+                ALOGE("ERR(%s): stream off fail", __FUNCTION__);
+            } else {
+                    m_scp_closing = true;
+            }
+            ALOGV("DEBUG(%s): calling stream(%d) streamoff done", __FUNCTION__, selfThread->m_index);
+            ALOGV("DEBUG(%s): calling stream(%d) reqbuf 0 (fd:%d)", __FUNCTION__,
+                    selfThread->m_index, selfStreamParms->fd);
+            currentNode->buffers = 0;
+            cam_int_reqbufs(currentNode);
+            ALOGV("DEBUG(%s): calling stream(%d) reqbuf 0 DONE(fd:%d)", __FUNCTION__,
+                    selfThread->m_index, selfStreamParms->fd);
+        }
+        if (selfThread->m_index == 1 && m_resizeBuf.size.s != 0) {
+            freeCameraMemory(&m_resizeBuf, 1);
+        }
+        selfThread->m_isBufferInit = false;
+        selfThread->m_index = 255;
+
+        selfThread->m_releasing = false;
+
+        ALOGV("DEBUG(%s): processing SIGNAL_THREAD_RELEASE DONE", __FUNCTION__);
+
+        return;
+    }
+
+    return;
+}
+
+void ExynosCameraHWInterface2::m_streamFunc1(SignalDrivenThread *self)
+{
+    uint32_t                currentSignal   = self->GetProcessingSignal();
+    StreamThread *          selfThread      = ((StreamThread*)self);
+    stream_parameters_t     *selfStreamParms =  &(selfThread->m_parameters);
+    record_parameters_t     *selfRecordParms =  &(selfThread->m_recordParameters);
+    node_info_t             *currentNode    = &(selfStreamParms->node);
+
+    if (currentSignal & SIGNAL_STREAM_CHANGE_PARAMETER) {
+        ALOGV("DEBUG(%s): processing SIGNAL_STREAM_CHANGE_PARAMETER", __FUNCTION__);
+
+        m_resizeBuf.size.extS[0] = ALIGN(selfStreamParms->outputWidth, 16) * ALIGN(selfStreamParms->outputHeight, 16) * 2;
+        m_resizeBuf.size.extS[1] = 0;
+        m_resizeBuf.size.extS[2] = 0;
+
+        if (allocCameraMemory(selfStreamParms->ionClient, &m_resizeBuf, 1) == -1) {
+            ALOGE("ERR(%s): Failed to allocate resize buf", __FUNCTION__);
+        }
+
+        ALOGV("DEBUG(%s): processing SIGNAL_STREAM_CHANGE_PARAMETER DONE", __FUNCTION__);
+    }
+
+    if (currentSignal & SIGNAL_STREAM_DATA_COMING) {
+        buffer_handle_t * buf = NULL;
+        status_t res;
+        void *virtAddr[3];
+        int i, j;
+        int index;
+        nsecs_t timestamp;
+
+        ALOGV("DEBUG(%s): stream(%d) processing SIGNAL_STREAM_DATA_COMING",
+            __FUNCTION__,selfThread->m_index);
+
+        m_streamBufferInit(self);
+
+        do {
+            ExynosRect jpegRect;
+            bool found = false;
+            bool ret = false;
+            int pictureW, pictureH, pictureFramesize = 0;
+            int pictureFormat;
+            int cropX, cropY, cropW, cropH = 0;
+            ExynosBuffer resizeBufInfo;
+            ExynosRect   m_orgPictureRect;
+
+            ALOGD("DEBUG(%s): stream(%d) type(%d) DQBUF START ",__FUNCTION__,
+                selfThread->m_index, selfStreamParms->streamType);
+            index = cam_int_dqbuf(&(selfStreamParms->node));
+            ALOGD("DEBUG(%s): stream(%d) type(%d) DQBUF done index(%d)",__FUNCTION__,
+                selfThread->m_index, selfStreamParms->streamType, index);
+
+
+            for (int i = 0; i < selfStreamParms->numSvcBuffers ; i++) {
+                if (selfStreamParms->svcBufStatus[selfStreamParms->svcBufIndex] == ON_HAL) {
+                    found = true;
+                    break;
+                }
+                selfStreamParms->svcBufIndex++;
+                if (selfStreamParms->svcBufIndex >= selfStreamParms->numSvcBuffers)
+                    selfStreamParms->svcBufIndex = 0;
+            }
+            if (!found) {
+                ALOGE("ERR(%s): NO free SVC buffer for JPEG", __FUNCTION__);
+                break;
+            }
+
+            m_orgPictureRect.w = selfStreamParms->outputWidth;
+            m_orgPictureRect.h = selfStreamParms->outputHeight;
+
+            ExynosBuffer* m_pictureBuf = &(m_camera_info.capture.buffer[index]);
+
+            pictureW = selfStreamParms->nodeWidth;
+            pictureH = selfStreamParms->nodeHeight;
+            pictureFormat = V4L2_PIX_FMT_YUYV;
+            pictureFramesize = FRAME_SIZE(V4L2_PIX_2_HAL_PIXEL_FORMAT(pictureFormat), pictureW, pictureH);
+
+            if (m_exynosPictureCSC) {
+                m_getRatioSize(pictureW, pictureH,
+                               m_orgPictureRect.w, m_orgPictureRect.h,
+                               &cropX, &cropY,
+                               &cropW, &cropH,
+                               0);
+
+                ALOGV("DEBUG(%s):cropX = %d, cropY = %d, cropW = %d, cropH = %d",
+                      __FUNCTION__, cropX, cropY, cropW, cropH);
+
+                csc_set_src_format(m_exynosPictureCSC,
+                                   ALIGN(pictureW, 16), ALIGN(pictureH, 16),
+                                   cropX, cropY, cropW, cropH,
+                                   V4L2_PIX_2_HAL_PIXEL_FORMAT(pictureFormat),
+                                   0);
+
+                csc_set_dst_format(m_exynosPictureCSC,
+                                   m_orgPictureRect.w, m_orgPictureRect.h,
+                                   0, 0, m_orgPictureRect.w, m_orgPictureRect.h,
+                                   V4L2_PIX_2_HAL_PIXEL_FORMAT(V4L2_PIX_FMT_NV16),
+                                   0);
+                csc_set_src_buffer(m_exynosPictureCSC,
+                                   (void **)&m_pictureBuf->fd.fd);
+
+                csc_set_dst_buffer(m_exynosPictureCSC,
+                                   (void **)&m_resizeBuf.fd.fd);
+                for (int i = 0 ; i < 3 ; i++)
+                    ALOGV("DEBUG(%s): m_resizeBuf.virt.extP[%d]=%d m_resizeBuf.size.extS[%d]=%d",
+                        __FUNCTION__, i, m_resizeBuf.fd.extFd[i], i, m_resizeBuf.size.extS[i]);
+
+                if (csc_convert(m_exynosPictureCSC) != 0)
+                    ALOGE("ERR(%s): csc_convert() fail", __FUNCTION__);
+
+
+            }
+            else {
+                ALOGE("ERR(%s): m_exynosPictureCSC == NULL", __FUNCTION__);
+            }
+
+            resizeBufInfo = m_resizeBuf;
+
+            m_getAlignedYUVSize(V4L2_PIX_FMT_NV16, m_orgPictureRect.w, m_orgPictureRect.h, &m_resizeBuf);
+
+            for (int i = 1; i < 3; i++) {
+                if (m_resizeBuf.size.extS[i] != 0)
+                    m_resizeBuf.fd.extFd[i] = m_resizeBuf.fd.extFd[i-1] + m_resizeBuf.size.extS[i-1];
+
+                ALOGV("(%s): m_resizeBuf.size.extS[%d] = %d", __FUNCTION__, i, m_resizeBuf.size.extS[i]);
+            }
+
+            jpegRect.w = m_orgPictureRect.w;
+            jpegRect.h = m_orgPictureRect.h;
+            jpegRect.colorFormat = V4L2_PIX_FMT_NV16;
+
+            if (yuv2Jpeg(&m_resizeBuf, &selfStreamParms->svcBuffers[selfStreamParms->svcBufIndex], &jpegRect) == false)
+                ALOGE("ERR(%s):yuv2Jpeg() fail", __FUNCTION__);
+            cam_int_qbuf(&(selfStreamParms->node), index);
+            ALOGV("DEBUG(%s): stream(%d) type(%d) QBUF DONE ",__FUNCTION__,
+                selfThread->m_index, selfStreamParms->streamType);
+
+            m_resizeBuf = resizeBufInfo;
+
+            res = selfStreamParms->streamOps->enqueue_buffer(selfStreamParms->streamOps, systemTime(), &(selfStreamParms->svcBufHandle[selfStreamParms->svcBufIndex]));
+
+            ALOGV("DEBUG(%s): stream(%d) enqueue_buffer index(%d) to svc done res(%d)",
+                    __FUNCTION__, selfThread->m_index, selfStreamParms->svcBufIndex, res);
+            if (res == 0) {
+                selfStreamParms->svcBufStatus[selfStreamParms->svcBufIndex] = ON_SERVICE;
+                selfStreamParms->numSvcBufsInHal--;
+            }
+            else {
+                selfStreamParms->svcBufStatus[selfStreamParms->svcBufIndex] = ON_HAL;
+            }
+        }
+        while (0);
+
+        while (selfStreamParms->numSvcBufsInHal < selfStreamParms->numOwnSvcBuffers) {
+            res = selfStreamParms->streamOps->dequeue_buffer(selfStreamParms->streamOps, &buf);
+            if (res != NO_ERROR || buf == NULL) {
+                ALOGV("DEBUG(%s): stream(%d) dequeue_buffer fail res(%d)",__FUNCTION__ , selfThread->m_index,  res);
+                break;
+            }
+
+            ALOGV("DEBUG(%s): stream(%d) got buf(%x) numInHal(%d) version(%d), numFds(%d), numInts(%d)", __FUNCTION__,
+                selfThread->m_index, (uint32_t)(*buf), selfStreamParms->numSvcBufsInHal,
+                ((native_handle_t*)(*buf))->version, ((native_handle_t*)(*buf))->numFds, ((native_handle_t*)(*buf))->numInts);
+
+            const private_handle_t *priv_handle = reinterpret_cast<const private_handle_t *>(*buf);
+
+            bool found = false;
+            int checkingIndex = 0;
+            for (checkingIndex = 0; checkingIndex < selfStreamParms->numSvcBuffers ; checkingIndex++) {
+                if (priv_handle->fd == selfStreamParms->svcBuffers[checkingIndex].fd.extFd[0] ) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) break;
+            selfStreamParms->svcBufStatus[checkingIndex] = ON_HAL;
+            selfStreamParms->numSvcBufsInHal++;
+        }
+
+        ALOGV("DEBUG(%s): stream(%d) processing SIGNAL_STREAM_DATA_COMING DONE",
+            __FUNCTION__,selfThread->m_index);
+    }
+
+    if (currentSignal & SIGNAL_THREAD_RELEASE) {
+        int i, index = -1, cnt_to_dq = 0;
+        status_t res;
+        ALOGV("DEBUG(%s): processing SIGNAL_THREAD_RELEASE", __FUNCTION__);
+        ALOGD("(%s):(%d) SIGNAL_THREAD_RELEASE", __FUNCTION__, selfStreamParms->streamType);
+
+        if (selfThread->m_isBufferInit) {
+            for ( i=0 ; i < selfStreamParms->numSvcBuffers; i++) {
+                ALOGV("DEBUG(%s): checking buffer index[%d] - status(%d)",
+                    __FUNCTION__, i, selfStreamParms->svcBufStatus[i]);
+                if (selfStreamParms->svcBufStatus[i] ==ON_DRIVER) cnt_to_dq++;
+            }
+
+            ALOGV("DEBUG(%s): calling stream(%d) streamoff (fd:%d)", __FUNCTION__,
+            selfThread->m_index, selfStreamParms->fd);
+            if (cam_int_streamoff(&(selfStreamParms->node)) < 0 ){
+                ALOGE("ERR(%s): stream off fail", __FUNCTION__);
+            } else {
+                    m_camera_info.capture.status = false;
+            }
+            ALOGV("DEBUG(%s): calling stream(%d) streamoff done", __FUNCTION__, selfThread->m_index);
+            ALOGV("DEBUG(%s): calling stream(%d) reqbuf 0 (fd:%d)", __FUNCTION__,
+                    selfThread->m_index, selfStreamParms->fd);
+            currentNode->buffers = 0;
+            cam_int_reqbufs(currentNode);
+            ALOGV("DEBUG(%s): calling stream(%d) reqbuf 0 DONE(fd:%d)", __FUNCTION__,
+                    selfThread->m_index, selfStreamParms->fd);
+        }
+        if (selfThread->m_index == 1 && m_resizeBuf.size.s != 0) {
+            freeCameraMemory(&m_resizeBuf, 1);
+        }
+        selfThread->m_isBufferInit = false;
+        selfThread->m_index = 255;
+
+        selfThread->m_releasing = false;
+
+        ALOGV("DEBUG(%s): processing SIGNAL_THREAD_RELEASE DONE", __FUNCTION__);
+
+        return;
+    }
+
+    return;
+}
+
+
+void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
+{
+    uint32_t                currentSignal   = self->GetProcessingSignal();
+    StreamThread *          selfThread      = ((StreamThread*)self);
+    stream_parameters_t     *selfStreamParms =  &(selfThread->m_parameters);
+    record_parameters_t     *selfRecordParms =  &(selfThread->m_recordParameters);
+    node_info_t             *currentNode    = &(selfStreamParms->node);
+
+    ALOGV("DEBUG(%s): m_streamThreadFunc[%d] (%x)", __FUNCTION__, selfThread->m_index, currentSignal);
+
+    if (currentSignal & SIGNAL_STREAM_CHANGE_PARAMETER) {
+        ALOGV("DEBUG(%s): processing SIGNAL_STREAM_CHANGE_PARAMETER", __FUNCTION__);
+
+        //Do something in Parent thread handler
+        selfThread->applyChange();
+
+        ALOGV("DEBUG(%s): processing SIGNAL_STREAM_CHANGE_PARAMETER DONE", __FUNCTION__);
+    }
+
+    // Do something in Child thread handler
+    // Should change function to class that inherited StreamThread class to support dynamic stream allocation
+    if (selfStreamParms->streamType == STREAM_TYPE_DIRECT)
+    {
+        m_streamFunc0(self);
+    }
+    else if (selfStreamParms->streamType == STREAM_TYPE_INDIRECT)
+    {
+        m_streamFunc1(self);
+    }
+
+    if (currentSignal & SIGNAL_THREAD_RELEASE) {
+        ALOGV("DEBUG(%s): processing SIGNAL_THREAD_RELEASE", __FUNCTION__);
+        ALOGD("(%s):(%d) SIGNAL_THREAD_RELEASE", __FUNCTION__, selfStreamParms->streamType);
+
+        //Do something in Parent thread handler
+
+        ALOGV("DEBUG(%s): processing SIGNAL_THREAD_RELEASE DONE", __FUNCTION__);
+
+        return;
+    }
+
     return;
 }
 
