@@ -171,7 +171,7 @@ public:
     void    DumpInfoWithIndex(int index);
     void    ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext);
     void    CheckCompleted(int index);
-    void    UpdateIspParameters(struct camera2_shot_ext *shot_ext, int frameCnt, bool afTrigger);
+    void    UpdateIspParameters(struct camera2_shot_ext *shot_ext, int frameCnt);
     void    RegisterTimestamp(int frameCnt, nsecs_t *frameTime);
     uint64_t  GetTimestamp(int frameCnt);
     int     FindFrameCnt(struct camera2_shot_ext * shot_ext);
