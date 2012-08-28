@@ -166,8 +166,8 @@ static int gralloc_alloc_framework_yuv(int ionfd, int w, int h, int format,
             *stride = w;
             break;
         default:
-        ALOGE("invalid yuv format %d\n", format);
-        return -EINVAL;
+            ALOGE("invalid yuv format %d\n", format);
+            return -EINVAL;
     }
 
     size = *stride * h * 3 / 2;
@@ -191,31 +191,31 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format,
 
     switch (format) {
         case HAL_PIXEL_FORMAT_EXYNOS_YV12:
-        {
-            luma_vstride = ALIGN(h, 16);
-            luma_size = luma_vstride * *stride;
-            chroma_size = (luma_vstride / 2) * ALIGN(*stride / 2, 16);
-            planes = 3;
-            break;
-        }
+            {
+                luma_vstride = ALIGN(h, 16);
+                luma_size = luma_vstride * *stride;
+                chroma_size = (luma_vstride / 2) * ALIGN(*stride / 2, 16);
+                planes = 3;
+                break;
+            }
         case HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP:
         case HAL_PIXEL_FORMAT_YCbCr_420_SP:
         case HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
-        {
-            size_t chroma_vstride = ALIGN(h / 2, 32);
-            luma_vstride = ALIGN(h, 32);
-            luma_size = luma_vstride * *stride;
-            chroma_size = chroma_vstride * *stride;
-            planes = 2;
-            break;
-        }
+            {
+                size_t chroma_vstride = ALIGN(h / 2, 32);
+                luma_vstride = ALIGN(h, 32);
+                luma_size = luma_vstride * *stride;
+                chroma_size = chroma_vstride * *stride;
+                planes = 2;
+                break;
+            }
         case HAL_PIXEL_FORMAT_YV12:
         case HAL_PIXEL_FORMAT_YCrCb_420_SP:
             return gralloc_alloc_framework_yuv(ionfd, w, h, format, usage,
                                                ion_flags, hnd, stride);
         default:
-        ALOGE("invalid yuv format %d\n", format);
-        return -EINVAL;
+            ALOGE("invalid yuv format %d\n", format);
+            return -EINVAL;
     }
 
     err = ion_alloc_fd(ionfd, luma_size, 0, 1 << ION_HEAP_TYPE_SYSTEM,
