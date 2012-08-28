@@ -49,6 +49,7 @@ extern "C" {
 #define GSCALER_SUBDEV_PAD_SINK     (0)
 #define GSCALER_SUBDEV_PAD_SOURCE   (1)
 #define MIXER_V_SUBDEV_PAD_SINK     (0)
+#define MIXER_V_SUBDEV_PAD_SOURCE   (3)
 #define FIMD_SUBDEV_PAD_SINK     (0)
 #define MAX_BUFFERS                 (6)
 
