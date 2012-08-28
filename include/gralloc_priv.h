@@ -89,31 +89,47 @@ struct private_handle_t {
 
     // FIXME: the attributes below should be out-of-line
     void    *base;
+    void    *base1;
+    void    *base2;
+    struct ion_handle *handle;
+    struct ion_handle *handle1;
+    struct ion_handle *handle2;
 
 #ifdef __cplusplus
     static const int sNumFds = 3;
-    static const int sNumInts = 10;
+    static const int sNumInts = 15;
     static const int sMagic = 0x3141592;
 
 
     private_handle_t(int fd, int size, int flags, int w,
 		     int h, int format, int stride, int vstride) :
-        fd(fd), magic(sMagic), flags(flags), size(size),
+        fd(fd), fd1(-1), fd2(-1), magic(sMagic), flags(flags), size(size),
         offset(0), format(format), width(w), height(h), stride(stride),
-        vstride(vstride), base(0)
+        vstride(vstride), base(0), handle(0), handle1(0), handle2(0)
     {
         version = sizeof(native_handle);
-        numInts = sNumInts;
-        numFds = sNumFds;
-	fd1 = 0;
-	fd2 = 0;
+        numInts = sNumInts + 2;
+        numFds = sNumFds - 2;
+    }
+
+    private_handle_t(int fd, int fd1, int size, int flags, int w,
+		     int h, int format, int stride, int vstride) :
+        fd(fd), fd1(fd1), fd2(-1), magic(sMagic), flags(flags), size(size),
+        offset(0), format(format), width(w), height(h), stride(stride),
+        vstride(vstride), base(0), base1(0), base2(0), handle(0), handle1(0),
+        handle2(0)
+    {
+        version = sizeof(native_handle);
+        numInts = sNumInts + 1;
+        numFds = sNumFds - 1;
     }
 
     private_handle_t(int fd, int fd1, int fd2, int size, int flags, int w,
 		     int h, int format, int stride, int vstride) :
         fd(fd), fd1(fd1), fd2(fd2), magic(sMagic), flags(flags), size(size),
         offset(0), format(format), width(w), height(h), stride(stride),
-        vstride(vstride), base(0)
+        vstride(vstride), base(0), base1(0), base2(0), handle(0), handle1(0),
+        handle2(0)
     {
         version = sizeof(native_handle);
         numInts = sNumInts;
@@ -126,8 +142,8 @@ struct private_handle_t {
     static int validate(const native_handle* h) {
         const private_handle_t* hnd = (const private_handle_t*)h;
         if (!h || h->version != sizeof(native_handle) ||
-                h->numInts != sNumInts || h->numFds != sNumFds ||
-                hnd->magic != sMagic) 
+            hnd->numInts + hnd->numFds != sNumInts + sNumFds || 
+            hnd->magic != sMagic) 
         {
             ALOGE("invalid gralloc handle (at %p)", reinterpret_cast<void *>(const_cast<native_handle *>(h)));
             return -EINVAL;
