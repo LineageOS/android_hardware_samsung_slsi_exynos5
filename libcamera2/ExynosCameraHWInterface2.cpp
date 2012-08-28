@@ -510,9 +510,10 @@ int RequestManager::MarkProcessingRequest(ExynosBuffer* buf, int *afMode)
     shot_ext->shot.ctl.sensor.frameDuration = 33*1000*1000;
     shot_ext->shot.ctl.sensor.sensitivity = 0;
 
-    shot_ext->shot.ctl.scaler.cropRegion[0] = 0;
-    shot_ext->shot.ctl.scaler.cropRegion[1] = 0;
-    shot_ext->shot.ctl.scaler.cropRegion[2] = m_cropX;
+
+    shot_ext->shot.ctl.scaler.cropRegion[0] = newEntry->internal_shot.shot.ctl.scaler.cropRegion[0];
+    shot_ext->shot.ctl.scaler.cropRegion[1] = newEntry->internal_shot.shot.ctl.scaler.cropRegion[1];
+    shot_ext->shot.ctl.scaler.cropRegion[2] = newEntry->internal_shot.shot.ctl.scaler.cropRegion[2];
 
     m_entryProcessingIndex = newProcessingIndex;
     return newProcessingIndex;
@@ -634,6 +635,10 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
     shot_ext->shot.ctl.request.outputStreams[0] = 0;
     shot_ext->shot.ctl.request.outputStreams[1] = 0;
     shot_ext->shot.ctl.request.outputStreams[2] = 0;
+
+    shot_ext->shot.ctl.scaler.cropRegion[0] = request_shot->shot.ctl.scaler.cropRegion[0];
+    shot_ext->shot.ctl.scaler.cropRegion[1] = request_shot->shot.ctl.scaler.cropRegion[1];
+    shot_ext->shot.ctl.scaler.cropRegion[2] = request_shot->shot.ctl.scaler.cropRegion[2];
 
     if (m_lastAaMode == request_shot->shot.ctl.aa.mode) {
         shot_ext->shot.ctl.aa.mode = (enum aa_mode)(0);
@@ -2400,6 +2405,33 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                     OnAfTrigger(m_afPendingTriggerId);
                 }
             }
+            float zoomRatio = m_camera2->getSensorW() / shot_ext->shot.ctl.scaler.cropRegion[2];
+            float zoomLeft, zoomTop, zoomWidth, zoomHeight;
+            int crop_x = 0, crop_y = 0, crop_w = 0, crop_h = 0;
+
+            m_getRatioSize(m_camera2->getSensorW(), m_camera2->getSensorH(),
+                           m_streamThreads[0]->m_parameters.outputWidth, m_streamThreads[0]->m_parameters.outputHeight,
+                           &crop_x, &crop_y,
+                           &crop_w, &crop_h,
+                           0);
+
+            if (m_streamThreads[0]->m_parameters.outputWidth >= m_streamThreads[0]->m_parameters.outputHeight) {
+                zoomWidth =  m_camera2->getSensorW() / zoomRatio;
+                zoomHeight = zoomWidth *
+                        m_streamThreads[0]->m_parameters.outputHeight / m_streamThreads[0]->m_parameters.outputWidth;
+            } else {
+                zoomHeight = m_camera2->getSensorH() / zoomRatio;
+                zoomWidth = zoomHeight *
+                        m_streamThreads[0]->m_parameters.outputWidth / m_streamThreads[0]->m_parameters.outputHeight;
+            }
+            zoomLeft = (crop_w - zoomWidth) / 2;
+            zoomTop = (crop_h - zoomHeight) / 2;
+
+            int32_t new_cropRegion[3] = { zoomLeft, zoomTop, zoomWidth };
+
+            shot_ext->shot.ctl.scaler.cropRegion[0] = new_cropRegion[0];
+            shot_ext->shot.ctl.scaler.cropRegion[1] = new_cropRegion[1];
+            shot_ext->shot.ctl.scaler.cropRegion[2] = new_cropRegion[2];
             if (m_IsAfModeUpdateRequired) {
                 ALOGE("### AF Mode change(Mode %d) ", m_afMode);
                 shot_ext->shot.ctl.aa.afMode = m_afMode;
@@ -3132,8 +3164,11 @@ void ExynosCameraHWInterface2::m_streamFunc1(SignalDrivenThread *self)
 
             ExynosBuffer* m_pictureBuf = &(m_camera_info.capture.buffer[index]);
 
-            pictureW = selfStreamParms->nodeWidth;
-            pictureH = selfStreamParms->nodeHeight;
+            m_getRatioSize(selfStreamParms->nodeWidth, selfStreamParms->nodeHeight,
+                           m_orgPictureRect.w, m_orgPictureRect.h,
+                           &cropX, &cropY,
+                           &pictureW, &pictureH,
+                           0);
             pictureFormat = V4L2_PIX_FMT_YUYV;
             pictureFramesize = FRAME_SIZE(V4L2_PIX_2_HAL_PIXEL_FORMAT(pictureFormat), pictureW, pictureH);
 
