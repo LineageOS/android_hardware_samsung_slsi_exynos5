@@ -306,7 +306,7 @@ typedef struct record_parameters {
 
 class ExynosCameraHWInterface2 : public virtual RefBase {
 public:
-    ExynosCameraHWInterface2(int cameraId, camera2_device_t *dev, ExynosCamera2 * camera);
+    ExynosCameraHWInterface2(int cameraId, camera2_device_t *dev, ExynosCamera2 * camera, int *openInvalid);
     virtual             ~ExynosCameraHWInterface2();
 
     virtual void        release();
@@ -469,7 +469,7 @@ class MainThread : public SignalDrivenThread {
     bool            yuv2Jpeg(ExynosBuffer *yuvBuf,
                             ExynosBuffer *jpegBuf,
                             ExynosRect *rect);
-    void            InitializeISPChain();
+    int            InitializeISPChain();
     void            StartISP();
     int             GetAfState();
     void            SetAfMode(enum aa_afmode afMode);
