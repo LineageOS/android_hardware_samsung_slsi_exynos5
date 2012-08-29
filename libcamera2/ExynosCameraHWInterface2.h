@@ -560,6 +560,8 @@ class MainThread : public SignalDrivenThread {
     int                                 m_afPendingTriggerId;
     int                                 m_afModeWaitingCnt;
     struct camera2_shot                 m_jpegMetadata;
+    int                                 m_nightCaptureCnt;
+    int                                 m_nightCaptureFrameCnt;
 };
 
 }; // namespace android

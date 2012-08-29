@@ -503,7 +503,8 @@ enum aa_scene_mode {
 	AA_SCENE_MODE_SPORTS,
 	AA_SCENE_MODE_PARTY,
 	AA_SCENE_MODE_CANDLELIGHT,
-	AA_SCENE_MODE_BARCODE
+	AA_SCENE_MODE_BARCODE,
+	AA_SCENE_MODE_NIGHT_CAPTURE  /* part of night mode */
 };
 
 enum aa_effect_mode {
