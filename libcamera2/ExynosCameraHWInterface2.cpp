@@ -586,7 +586,7 @@ void RequestManager::DumpInfoWithIndex(int index)
         ALOGV("####   OutputStream num (%d) abnormal ", currMetadata->shot.ctl.request.outputStreams[15]);
 }
 
-void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, int frameCnt, bool afTrigger)
+void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, int frameCnt)
 {
     int index, targetStreamIndex;
     struct camera2_shot_ext * request_shot;
@@ -645,17 +645,9 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
         shot_ext->shot.ctl.aa.aeExpCompensation = request_shot->shot.ctl.aa.aeExpCompensation;
         m_lastAeComp = (int)(shot_ext->shot.ctl.aa.aeExpCompensation);
     }
-    if (afTrigger) {
-        ALOGE("### AF Trigger ");
-        shot_ext->shot.ctl.aa.afTrigger = 1;
-        shot_ext->shot.ctl.aa.afRegions[0] = 0;
-        shot_ext->shot.ctl.aa.afRegions[1] = 0;
-        shot_ext->shot.ctl.aa.afRegions[2] = 0;
-        shot_ext->shot.ctl.aa.afRegions[3] = 0;
-        shot_ext->shot.ctl.aa.afRegions[4] = 0;
-    }
-    else
-        shot_ext->shot.ctl.aa.afTrigger = 0;
+
+    shot_ext->shot.ctl.aa.afTrigger = 0;
+
     for (int i = 0; i < newEntry->output_stream_count; i++) {
        targetStreamIndex = newEntry->internal_shot.shot.ctl.request.outputStreams[i];
 
@@ -2350,9 +2342,9 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
         matchedFrameCnt = m_requestManager->FindFrameCnt(shot_ext);
 
         if (matchedFrameCnt != -1) {
-                frameTime = systemTime();
-        m_requestManager->RegisterTimestamp(matchedFrameCnt, &frameTime);
-            m_requestManager->UpdateIspParameters(shot_ext, matchedFrameCnt, false);
+            frameTime = systemTime();
+            m_requestManager->RegisterTimestamp(matchedFrameCnt, &frameTime);
+            m_requestManager->UpdateIspParameters(shot_ext, matchedFrameCnt);
             if (m_afModeWaitingCnt != 0) {
                 ALOGV("### Af Trigger pulled, waiting for mode change cnt(%d) ", m_afModeWaitingCnt);
                 m_afModeWaitingCnt --;
@@ -2399,12 +2391,12 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 shot_ext->shot.ctl.aa.afTrigger = 0;
             }
             if (m_wideAspect) {
-//                shot_ext->setfile = ISS_SUB_SCENARIO_VIDEO;
+                //shot_ext->setfile = ISS_SUB_SCENARIO_VIDEO;
                 shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 30;
                 shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
             }
             else {
-//                shot_ext->setfile = ISS_SUB_SCENARIO_STILL;
+                //shot_ext->setfile = ISS_SUB_SCENARIO_STILL;
             }
             if (triggered)
                 shot_ext->shot.ctl.aa.afTrigger = 1;
@@ -2447,13 +2439,12 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             (int)(shot_ext->shot.ctl.aa.awbMode), (int)(shot_ext->shot.ctl.aa.afMode),
             (int)(shot_ext->shot.ctl.aa.afTrigger));
             cam_int_qbuf(&(m_camera_info.isp), index);
-            //m_ispThread->SetSignal(SIGNAL_ISP_START_BAYER_DEQUEUE);
 
             usleep(10000);
 
             ALOGV("### isp DQBUF start");
             index_isp = cam_int_dqbuf(&(m_camera_info.isp));
-            //m_previewOutput = 0;
+
 
             shot_ext = (struct camera2_shot_ext *)(m_camera_info.isp.buffer[index_isp].virt.extP[1]);
 
@@ -2463,11 +2454,12 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 shot_ext->request_scp,
                 shot_ext->request_scc,
                 shot_ext->dis_bypass, sizeof(camera2_shot));
-                ALOGV("(%s): DM aa(%d) aemode(%d) awb(%d) afmode(%d)", __FUNCTION__,
+            ALOGV("(%s): DM aa(%d) aemode(%d) awb(%d) afmode(%d)", __FUNCTION__,
                 (int)(shot_ext->shot.dm.aa.mode), (int)(shot_ext->shot.dm.aa.aeMode),
                 (int)(shot_ext->shot.dm.aa.awbMode),
                 (int)(shot_ext->shot.dm.aa.afMode));
 
+            m_previewOutput = 0;
             if (shot_ext->request_scp) {
                 m_previewOutput = 1;
                 m_streamThreads[0]->SetSignal(SIGNAL_STREAM_DATA_COMING);
@@ -2491,20 +2483,20 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 for (int i=0; i < CAMERA2_MAX_FACES; i++) {
                     if (shot_ext->shot.dm.stats.faceRectangles[i][0] > 0)
                         shot_ext->shot.dm.stats.faceRectangles[i][0] = (m_camera2->m_curCameraInfo->sensorW
-													* shot_ext->shot.dm.stats.faceRectangles[i][0])
-													/ m_streamThreads[0].get()->m_parameters.outputWidth;
+                                                                                                * shot_ext->shot.dm.stats.faceRectangles[i][0])
+                                                                                                / m_streamThreads[0].get()->m_parameters.outputWidth;
                     if (shot_ext->shot.dm.stats.faceRectangles[i][1] > 0)
                         shot_ext->shot.dm.stats.faceRectangles[i][1] = (m_camera2->m_curCameraInfo->sensorH
-													* shot_ext->shot.dm.stats.faceRectangles[i][1])
-													/ m_streamThreads[0].get()->m_parameters.outputHeight;
+                                                                                                * shot_ext->shot.dm.stats.faceRectangles[i][1])
+                                                                                                / m_streamThreads[0].get()->m_parameters.outputHeight;
                     if (shot_ext->shot.dm.stats.faceRectangles[i][2] > 0)
                         shot_ext->shot.dm.stats.faceRectangles[i][2] = (m_camera2->m_curCameraInfo->sensorW
-													* shot_ext->shot.dm.stats.faceRectangles[i][2])
-													/ m_streamThreads[0].get()->m_parameters.outputWidth;
+                                                                                                * shot_ext->shot.dm.stats.faceRectangles[i][2])
+                                                                                                / m_streamThreads[0].get()->m_parameters.outputWidth;
                     if (shot_ext->shot.dm.stats.faceRectangles[i][3] > 0)
                         shot_ext->shot.dm.stats.faceRectangles[i][3] = (m_camera2->m_curCameraInfo->sensorH
-													* shot_ext->shot.dm.stats.faceRectangles[i][3])
-													/ m_streamThreads[0].get()->m_parameters.outputHeight;
+                                                                                                * shot_ext->shot.dm.stats.faceRectangles[i][3])
+                                                                                                / m_streamThreads[0].get()->m_parameters.outputHeight;
                 }
             }
 
@@ -2513,13 +2505,9 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
         }
 
         processingReqIndex = m_requestManager->MarkProcessingRequest(&(m_camera_info.sensor.buffer[index]), &afMode);
-        if (processingReqIndex == -1)
-        {
-            ALOGE("DEBUG(%s) req underrun => inserting bubble to BayerIndex(%d)", __FUNCTION__, index);
-        }
-        else {
+        if (processingReqIndex != -1)
             SetAfMode((enum aa_afmode)afMode);
-        }
+
 
         shot_ext = (struct camera2_shot_ext *)(m_camera_info.sensor.buffer[index].virt.extP[1]);
         if (m_scp_closing || m_scp_closed) {
@@ -2529,15 +2517,15 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             shot_ext->request_sensor = 0;
         }
 
-//        ALOGD("### Sensor Qbuf start(%d) SCP(%d) SCC(%d) DIS(%d)", index, shot_ext->request_scp, shot_ext->request_scc, shot_ext->dis_bypass);
-
         cam_int_qbuf(&(m_camera_info.sensor), index);
         ALOGV("### Sensor QBUF done");
 
-        if (!m_closing){
+        if (!m_scp_closing
+            && ((matchedFrameCnt == -1) || (processingReqIndex == -1))){
+            ALOGD("make bubble shot: matchedFramcnt(%d) processingReqIndex(%d)",
+                                    matchedFrameCnt, processingReqIndex);
             selfThread->SetSignal(SIGNAL_SENSOR_START_REQ_PROCESSING);
         }
-        return;
     }
     return;
 }
