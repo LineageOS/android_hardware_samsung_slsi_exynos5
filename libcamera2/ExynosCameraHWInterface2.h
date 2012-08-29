@@ -524,6 +524,7 @@ class MainThread : public SignalDrivenThread {
 	int					deleteIonClient(ion_client ionClient);
 
     int				allocCameraMemory(ion_client ionClient, ExynosBuffer *buf, int iMemoryNum);
+    int             allocCameraMemory(ion_client ionClient, ExynosBuffer *buf, int iMemoryNum, int cacheFlag);
 	void				freeCameraMemory(ExynosBuffer *buf, int iMemoryNum);
 	void				initCameraMemory(ExynosBuffer *buf, int iMemoryNum);
 
