@@ -838,6 +838,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
             m_needsRecordBufferInit(false),
             m_needsPreviewCbBufferInit(false),
             lastFrameCnt(-1),
+            m_zoomRatio(1),
             m_scp_closing(false),
             m_scp_closed(false),
             m_afState(HAL_AFSTATE_INACTIVE),
@@ -2645,7 +2646,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                     OnAfTrigger(m_afPendingTriggerId);
                 }
             }
-            float zoomRatio = m_camera2->getSensorW() / shot_ext->shot.ctl.scaler.cropRegion[2];
+            m_zoomRatio = (float)m_camera2->getSensorW() / (float)shot_ext->shot.ctl.scaler.cropRegion[2];
             float zoomLeft, zoomTop, zoomWidth, zoomHeight;
             int crop_x = 0, crop_y = 0, crop_w = 0, crop_h = 0;
 
@@ -2656,11 +2657,11 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                            0);
 
             if (m_streamThreads[0]->m_parameters.outputWidth >= m_streamThreads[0]->m_parameters.outputHeight) {
-                zoomWidth =  m_camera2->getSensorW() / zoomRatio;
+                zoomWidth =  m_camera2->getSensorW() / m_zoomRatio;
                 zoomHeight = zoomWidth *
                         m_streamThreads[0]->m_parameters.outputHeight / m_streamThreads[0]->m_parameters.outputWidth;
             } else {
-                zoomHeight = m_camera2->getSensorH() / zoomRatio;
+                zoomHeight = m_camera2->getSensorH() / m_zoomRatio;
                 zoomWidth = zoomHeight *
                         m_streamThreads[0]->m_parameters.outputWidth / m_streamThreads[0]->m_parameters.outputHeight;
             }
@@ -2668,6 +2669,11 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             zoomTop = (crop_h - zoomHeight) / 2;
 
             int32_t new_cropRegion[3] = { zoomLeft, zoomTop, zoomWidth };
+
+            if (new_cropRegion[0] * 2 + new_cropRegion[2] > m_camera2->getSensorW())
+                new_cropRegion[2]--;
+            else if (new_cropRegion[0] * 2 + new_cropRegion[2] < m_camera2->getSensorW())
+                new_cropRegion[2]++;
 
             shot_ext->shot.ctl.scaler.cropRegion[0] = new_cropRegion[0];
             shot_ext->shot.ctl.scaler.cropRegion[1] = new_cropRegion[1];
@@ -3664,11 +3670,18 @@ void ExynosCameraHWInterface2::m_streamFunc1(SignalDrivenThread *self)
             pictureFramesize = FRAME_SIZE(V4L2_PIX_2_HAL_PIXEL_FORMAT(pictureFormat), pictureW, pictureH);
 
             if (m_exynosPictureCSC) {
-                m_getRatioSize(pictureW, pictureH,
-                               m_orgPictureRect.w, m_orgPictureRect.h,
-                               &cropX, &cropY,
-                               &cropW, &cropH,
-                               0);
+                float zoom_w = 0, zoom_h = 0;
+                if (m_orgPictureRect.w >= m_orgPictureRect.h) {
+                    zoom_w =  pictureW / m_zoomRatio;
+                    zoom_h = zoom_w * m_orgPictureRect.h / m_orgPictureRect.w;
+                } else {
+                    zoom_h = pictureH / m_zoomRatio;
+                    zoom_w = zoom_h * m_orgPictureRect.w / m_orgPictureRect.h;
+                }
+                cropX = (pictureW - zoom_w) / 2;
+                cropY = (pictureH - zoom_h) / 2;
+                cropW = zoom_w;
+                cropH = zoom_h;
 
                 ALOGV("DEBUG(%s):cropX = %d, cropY = %d, cropW = %d, cropH = %d",
                       __FUNCTION__, cropX, cropY, cropW, cropH);

@@ -608,6 +608,7 @@ class MainThread : public SignalDrivenThread {
     bool                                m_wideAspect;
     bool                                m_aspectChanged;
     uint32_t                            lastAfRegion[4];
+    float                               m_zoomRatio;
 
     mutable Mutex    m_qbufLock;
 
