@@ -306,6 +306,24 @@ typedef struct record_parameters {
             int                     numSvcBufsInHal;
 } record_parameters_t;
 
+typedef struct callback_parameters {
+            uint32_t                outputWidth;
+            uint32_t                outputHeight;
+            int                     outputFormat;
+            int                     internalFormat;
+            int                     internalPlanes;
+    const   camera2_stream_ops_t*   streamOps;
+            uint32_t                usage;
+            int                     numSvcBuffers;
+            int                     numOwnSvcBuffers;
+            int                     svcPlanes;
+            buffer_handle_t         svcBufHandle[NUM_MAX_CAMERA_BUFFERS];
+            ExynosBuffer            svcBuffers[NUM_MAX_CAMERA_BUFFERS];
+            int                     svcBufStatus[NUM_MAX_CAMERA_BUFFERS];
+            int                     svcBufIndex;
+            int                     numSvcBufsInHal;
+} callback_parameters_t;
+
 class ExynosCameraHWInterface2 : public virtual RefBase {
 public:
     ExynosCameraHWInterface2(int cameraId, camera2_device_t *dev, ExynosCamera2 * camera, int *openInvalid);
@@ -418,6 +436,7 @@ class MainThread : public SignalDrivenThread {
             return;
         }
         void        setRecordingParameter(record_parameters_t * recordParm);
+        void        setCallbackParameter(callback_parameters_t * callbackParm);
         void        setParameter(stream_parameters_t * new_parameters);
         void        applyChange(void);
         void        release(void);
@@ -430,6 +449,7 @@ class MainThread : public SignalDrivenThread {
         stream_parameters_t             m_parameters;
         stream_parameters_t             *m_tempParameters;
         record_parameters_t             m_recordParameters;
+        callback_parameters_t           m_previewCbParameters;
         bool                            m_isBufferInit;
         bool                            m_releasing;
      };
@@ -539,6 +559,10 @@ class MainThread : public SignalDrivenThread {
     int                                 m_previewOutput;
     int                                 m_recordOutput;
     bool                                m_needsRecordBufferInit;
+    ExynosBuffer                        m_previewCbBuf;
+    int                                 m_previewCbEnabled;
+    int                                 m_previewCbOutput;
+    bool                                m_needsPreviewCbBufferInit;
     int                                 lastFrameCnt;
     int             				    m_cameraId;
     bool                                m_scp_closing;
