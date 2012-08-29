@@ -392,12 +392,11 @@ status_t MetadataConverter::ApplySceneModeParameters(camera_metadata_t * request
 
     case AA_SCENE_MODE_NIGHT:
         dst->ctl.aa.mode = AA_CONTROL_USE_SCENE_MODE;
-        if (dst->ctl.aa.aeMode != AA_AEMODE_LOCKED)
-            dst->ctl.aa.aeMode = AA_AEMODE_ON;
+        dst->ctl.aa.aeMode = AA_AEMODE_ON; // AE_LOCK is prohibited
         dst->ctl.aa.awbMode = AA_AWBMODE_WB_AUTO;
         dst->ctl.aa.isoMode = AA_ISOMODE_AUTO;
         dst->ctl.aa.isoValue = 0;
-        dst->ctl.aa.aeTargetFpsRange[0] = 2;
+        dst->ctl.aa.aeTargetFpsRange[0] = 8;
         dst->ctl.aa.aeTargetFpsRange[1] = 30;
 
         dst->ctl.noise.mode = PROCESSING_MODE_FAST;
