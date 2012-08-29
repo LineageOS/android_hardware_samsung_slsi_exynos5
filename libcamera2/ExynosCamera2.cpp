@@ -356,7 +356,7 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
     //TODO: sensor color calibration fields
 
     // android.flash
-    static const uint8_t flashAvailable = 0;
+    static const uint8_t flashAvailable = 1;
     ADD_OR_SIZE(ANDROID_FLASH_AVAILABLE, &flashAvailable, 1);
 
     static const int64_t flashChargeDuration = 0;
@@ -419,15 +419,16 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
     // android.stats
 
     static const uint8_t availableFaceDetectModes[] = {
-            ANDROID_STATS_FACE_DETECTION_OFF
+            ANDROID_STATS_FACE_DETECTION_OFF,
+            ANDROID_STATS_FACE_DETECTION_FULL
     };
     ADD_OR_SIZE(ANDROID_STATS_AVAILABLE_FACE_DETECT_MODES,
             availableFaceDetectModes,
             sizeof(availableFaceDetectModes));
 
-    static const int32_t maxFaceCount = 0;
+    m_curCameraInfo->maxFaceCount = 16;
     ADD_OR_SIZE(ANDROID_STATS_MAX_FACE_COUNT,
-            &maxFaceCount, 1);
+            &(m_curCameraInfo->maxFaceCount), 1);
 
     static const int32_t histogramSize = 64;
     ADD_OR_SIZE(ANDROID_STATS_HISTOGRAM_BUCKET_COUNT,
@@ -468,7 +469,8 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
 
     static const uint8_t availableAeModes[] = {
             ANDROID_CONTROL_AE_OFF,
-            ANDROID_CONTROL_AE_ON
+            ANDROID_CONTROL_AE_ON,
+            ANDROID_CONTROL_AE_ON_AUTO_FLASH
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AE_AVAILABLE_MODES,
             availableAeModes, sizeof(availableAeModes));
@@ -749,7 +751,7 @@ status_t ExynosCamera2::constructDefaultRequest(
 
     /** android.stats */
 
-    static const uint8_t faceDetectMode = ANDROID_STATS_FACE_DETECTION_OFF;
+    static const uint8_t faceDetectMode = ANDROID_STATS_FACE_DETECTION_FULL;
     ADD_OR_SIZE(ANDROID_STATS_FACE_DETECT_MODE, &faceDetectMode, 1);
 
     static const uint8_t histogramMode = ANDROID_STATS_OFF;
