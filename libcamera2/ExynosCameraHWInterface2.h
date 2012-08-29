@@ -451,6 +451,11 @@ class MainThread : public SignalDrivenThread {
     void                m_streamThreadFunc(SignalDrivenThread * self);
     void                m_streamThreadInitialize(SignalDrivenThread * self);
 
+    void                m_streamFunc0(SignalDrivenThread *self);
+    void                m_streamFunc1(SignalDrivenThread *self);
+
+    void                m_streamBufferInit(SignalDrivenThread *self);
+
     void                m_getAlignedYUVSize(int colorFormat, int w, int h,
                                                 ExynosBuffer *buf);
     bool                m_getRatioSize(int  src_w,  int   src_h,
