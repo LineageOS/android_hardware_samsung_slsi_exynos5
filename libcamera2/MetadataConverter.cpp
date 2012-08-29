@@ -32,6 +32,7 @@
 #include <utils/Log.h>
 
 #include "MetadataConverter.h"
+#include "exynos_format.h"
 
 namespace android {
 
@@ -151,6 +152,12 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
 
 
 
+            case ANDROID_SCALER_CROP_REGION:
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 3))
+                    break;
+                for (i=0 ; i<curr_entry.count ; i++)
+                    dst->ctl.scaler.cropRegion[i] = ALIGN(curr_entry.data.i32[i], 2);
+                break;
 
 
             case ANDROID_JPEG_QUALITY:
