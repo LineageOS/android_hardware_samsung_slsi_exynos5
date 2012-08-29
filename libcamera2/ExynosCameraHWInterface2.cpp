@@ -392,7 +392,7 @@ bool RequestManager::PrepareFrame(size_t* num_entries, size_t* frame_size,
         return false;
     }
     m_entryFrameOutputIndex = tempFrameOutputIndex;
-    m_tempFrameMetadata = place_camera_metadata(m_tempFrameMetadataBuf, 2000, 15, 500); //estimated
+    m_tempFrameMetadata = place_camera_metadata(m_tempFrameMetadataBuf, 2000, 20, 500); //estimated
     add_camera_metadata_entry(m_tempFrameMetadata, ANDROID_CONTROL_AF_STATE, &afState, 1);
     res = m_metadataConverter->ToDynamicMetadata(&(currentEntry->internal_shot),
                 m_tempFrameMetadata);
@@ -460,6 +460,8 @@ int RequestManager::MarkProcessingRequest(ExynosBuffer* buf, int *afMode)
         if (targetStreamIndex==0) {
             ALOGV("DEBUG(%s): outputstreams(%d) is for scalerP", __FUNCTION__, i);
             shot_ext->request_scp = 1;
+	      if (shot_ext->shot.ctl.stats.faceDetectMode != FACEDETECT_MODE_OFF)
+                shot_ext->fd_bypass = 0;
         }
         else if (targetStreamIndex == 1) {
             ALOGV("DEBUG(%s): outputstreams(%d) is for scalerC", __FUNCTION__, i);
@@ -469,6 +471,8 @@ int RequestManager::MarkProcessingRequest(ExynosBuffer* buf, int *afMode)
             ALOGV("DEBUG(%s): outputstreams(%d) is for scalerP (record)", __FUNCTION__, i);
             shot_ext->request_scp = 1;
             shot_ext->shot.ctl.request.outputStreams[2] = 1;
+            if (shot_ext->shot.ctl.stats.faceDetectMode != FACEDETECT_MODE_OFF)
+                shot_ext->fd_bypass = 0;
         }
         else {
             ALOGV("DEBUG(%s): outputstreams(%d) has abnormal value(%d)", __FUNCTION__, i, targetStreamIndex);
@@ -658,10 +662,14 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
         if (targetStreamIndex==0) {
             ALOGV("DEBUG(%s): outputstreams(%d) is for scalerP", __FUNCTION__, i);
             shot_ext->request_scp = 1;
+            if (shot_ext->shot.ctl.stats.faceDetectMode != FACEDETECT_MODE_OFF)
+                shot_ext->fd_bypass = 0;
         }
         else if (targetStreamIndex == 1) {
             ALOGV("DEBUG(%s): outputstreams(%d) is for scalerC", __FUNCTION__, i);
             shot_ext->request_scc = 1;
+            if (shot_ext->shot.ctl.stats.faceDetectMode != FACEDETECT_MODE_OFF)
+                shot_ext->fd_bypass = 0;
         }
         else if (targetStreamIndex == 2) {
             ALOGV("DEBUG(%s): outputstreams(%d) is for scalerP (record)", __FUNCTION__, i);
@@ -669,6 +677,8 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
             shot_ext->shot.ctl.request.outputStreams[2] = 1;
             shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 30;
             shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
+            if (shot_ext->shot.ctl.stats.faceDetectMode != FACEDETECT_MODE_OFF)
+                shot_ext->fd_bypass = 0;
         }
         else {
             ALOGV("DEBUG(%s): outputstreams(%d) has abnormal value(%d)", __FUNCTION__, i, targetStreamIndex);
@@ -2450,6 +2460,28 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             }
             else
                 m_scp_closed = false;
+
+            if (!shot_ext->fd_bypass) {
+                /* FD orientation axis transformation */
+                for (int i=0; i < CAMERA2_MAX_FACES; i++) {
+                    if (shot_ext->shot.dm.stats.faceRectangles[i][0] > 0)
+                        shot_ext->shot.dm.stats.faceRectangles[i][0] = (m_camera2->m_curCameraInfo->sensorW
+													* shot_ext->shot.dm.stats.faceRectangles[i][0])
+													/ m_streamThreads[0].get()->m_parameters.outputWidth;
+                    if (shot_ext->shot.dm.stats.faceRectangles[i][1] > 0)
+                        shot_ext->shot.dm.stats.faceRectangles[i][1] = (m_camera2->m_curCameraInfo->sensorH
+													* shot_ext->shot.dm.stats.faceRectangles[i][1])
+													/ m_streamThreads[0].get()->m_parameters.outputHeight;
+                    if (shot_ext->shot.dm.stats.faceRectangles[i][2] > 0)
+                        shot_ext->shot.dm.stats.faceRectangles[i][2] = (m_camera2->m_curCameraInfo->sensorW
+													* shot_ext->shot.dm.stats.faceRectangles[i][2])
+													/ m_streamThreads[0].get()->m_parameters.outputWidth;
+                    if (shot_ext->shot.dm.stats.faceRectangles[i][3] > 0)
+                        shot_ext->shot.dm.stats.faceRectangles[i][3] = (m_camera2->m_curCameraInfo->sensorH
+													* shot_ext->shot.dm.stats.faceRectangles[i][3])
+													/ m_streamThreads[0].get()->m_parameters.outputHeight;
+                }
+            }
 
             m_requestManager->ApplyDynamicMetadata(shot_ext);
             OnAfNotification(shot_ext->shot.dm.aa.afState);
