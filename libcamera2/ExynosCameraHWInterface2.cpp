@@ -249,6 +249,24 @@ int cam_int_dqbuf(node_info_t *node)
     return v4l2_buf.index;
 }
 
+int cam_int_dqbuf(node_info_t *node, int num_plane)
+{
+    struct v4l2_buffer v4l2_buf;
+    struct v4l2_plane planes[VIDEO_MAX_PLANES];
+    int ret;
+
+    v4l2_buf.type       = node->type;
+    v4l2_buf.memory     = node->memory;
+    v4l2_buf.m.planes   = planes;
+    v4l2_buf.length     = num_plane;
+
+    ret = exynos_v4l2_dqbuf(node->fd, &v4l2_buf);
+    if (ret < 0)
+        ALOGE("%s: VIDIOC_DQBUF failed (%d)",__FUNCTION__, ret);
+
+    return v4l2_buf.index;
+}
+
 int cam_int_s_input(node_info_t *node, int index)
 {
     int ret;
@@ -1178,7 +1196,11 @@ int ExynosCameraHWInterface2::InitializeISPChain()
     m_camera_info.capture.width = m_camera2->getSensorW();
     m_camera_info.capture.height = m_camera2->getSensorH();
     m_camera_info.capture.format = V4L2_PIX_FMT_YUYV;
+#ifdef ENABLE_FRAME_SYNC
+    m_camera_info.capture.planes = 2;
+#else
     m_camera_info.capture.planes = 1;
+#endif
     m_camera_info.capture.buffers = 8;
     m_camera_info.capture.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
     m_camera_info.capture.memory = V4L2_MEMORY_DMABUF;
@@ -1187,6 +1209,9 @@ int ExynosCameraHWInterface2::InitializeISPChain()
     for(i = 0; i < m_camera_info.capture.buffers; i++){
         initCameraMemory(&m_camera_info.capture.buffer[i], m_camera_info.capture.planes);
         m_camera_info.capture.buffer[i].size.extS[0] = m_camera_info.capture.width*m_camera_info.capture.height*2;
+#ifdef ENABLE_FRAME_SYNC
+        m_camera_info.capture.buffer[i].size.extS[1] = 4*1024; // HACK, driver use 4*1024, should be use predefined value
+#endif
         allocCameraMemory(m_camera_info.capture.ionClient, &m_camera_info.capture.buffer[i], m_camera_info.capture.planes);
     }
 
@@ -1368,6 +1393,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             newParameters.fd            = m_fd_scp;
             newParameters.nodePlanes    = 3;
             newParameters.svcPlanes     = 3;
+            newParameters.metaPlanes     = 1;
             newParameters.halBuftype    = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
             newParameters.memory        = V4L2_MEMORY_DMABUF;
             newParameters.ionClient     = m_ionCameraClient;
@@ -1665,6 +1691,7 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
                 v4l2_buf.length     = currentNode->planes;
 
                 ExynosBuffer currentBuf;
+                ExynosBuffer metaBuf;
                 const private_handle_t *priv_handle = reinterpret_cast<const private_handle_t *>(registeringBuffers[i]);
 
                 m_getAlignedYUVSize(currentNode->format,
@@ -1693,6 +1720,19 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
 
                 if (targetStreamParms->streamType == STREAM_TYPE_DIRECT) {
                     if (i < currentNode->buffers) {
+
+
+#ifdef ENABLE_FRAME_SYNC
+                        /* add plane for metadata*/
+                        metaBuf.size.extS[0] = 4*1024;
+                        allocCameraMemory(targetStreamParms->ionClient , &metaBuf, 1);
+
+                        v4l2_buf.length += targetStreamParms->metaPlanes;
+                        v4l2_buf.m.planes[3].m.fd = metaBuf.fd.extFd[0];
+                        v4l2_buf.m.planes[3].length = metaBuf.size.extS[0];
+
+                        ALOGV("Qbuf metaBuf: fd(%d), length(%d) plane(%d)", metaBuf.fd.extFd[0], metaBuf.size.extS[0], v4l2_buf.length);
+#endif
                         if (exynos_v4l2_qbuf(currentNode->fd, &v4l2_buf) < 0) {
                             ALOGE("ERR(%s): stream id(%d) exynos_v4l2_qbuf() fail fd(%d)",
                                 __FUNCTION__, stream_id, currentNode->fd);
@@ -1710,6 +1750,7 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
                     targetStreamParms->svcBufStatus[i]  = ON_SERVICE;
                 }
                 targetStreamParms->svcBuffers[i]       = currentBuf;
+                targetStreamParms->metaBuffers[i] = metaBuf;
                 targetStreamParms->svcBufHandle[i]     = registeringBuffers[i];
             }
         }
@@ -2705,6 +2746,7 @@ void ExynosCameraHWInterface2::m_streamFunc0(SignalDrivenThread *self)
         int i, j;
         int index;
         nsecs_t timestamp;
+        camera2_stream *frame;
 
         ALOGV("DEBUG(%s): stream(%d) processing SIGNAL_STREAM_DATA_COMING",
             __FUNCTION__,selfThread->m_index);
@@ -2715,7 +2757,13 @@ void ExynosCameraHWInterface2::m_streamFunc0(SignalDrivenThread *self)
             ALOGV("DEBUG(%s): stream(%d) type(%d) DQBUF START ",__FUNCTION__,
                 selfThread->m_index, selfStreamParms->streamType);
 
+#ifdef ENABLE_FRAME_SYNC
+            index = cam_int_dqbuf(&(selfStreamParms->node), selfStreamParms->nodePlanes + selfStreamParms->metaPlanes);
+            frame = (struct camera2_stream *)(selfStreamParms->metaBuffers[index].virt.extP[0]);
+            ALOGD("frame count(SCP) : %d", frame->fcount);
+#else
             index = cam_int_dqbuf(&(selfStreamParms->node));
+#endif
             ALOGV("DEBUG(%s): stream(%d) type(%d) DQBUF done index(%d)",__FUNCTION__,
                 selfThread->m_index, selfStreamParms->streamType, index);
 
@@ -2907,6 +2955,12 @@ void ExynosCameraHWInterface2::m_streamFunc0(SignalDrivenThread *self)
                          __FUNCTION__, plane_index, v4l2_buf.m.planes[plane_index].m.fd,
                          v4l2_buf.m.planes[plane_index].length);
                 }
+#ifdef ENABLE_FRAME_SYNC
+                /* add plane for metadata*/
+                v4l2_buf.length += selfStreamParms->metaPlanes;
+                v4l2_buf.m.planes[3].m.fd = selfStreamParms->metaBuffers[index].fd.extFd[0];
+                v4l2_buf.m.planes[3].length = selfStreamParms->metaBuffers[index].size.extS[0];
+#endif
                 if (exynos_v4l2_qbuf(currentNode->fd, &v4l2_buf) < 0) {
                     ALOGE("ERR(%s): stream id(%d) exynos_v4l2_qbuf() fail",
                         __FUNCTION__, selfThread->m_index);
@@ -2951,9 +3005,15 @@ void ExynosCameraHWInterface2::m_streamFunc0(SignalDrivenThread *self)
             ALOGV("DEBUG(%s): calling stream(%d) reqbuf 0 DONE(fd:%d)", __FUNCTION__,
                     selfThread->m_index, selfStreamParms->fd);
         }
-        if (selfThread->m_index == 1 && m_resizeBuf.size.s != 0) {
-            freeCameraMemory(&m_resizeBuf, 1);
-        }
+#ifdef ENABLE_FRAME_SYNC
+        // free metabuffers
+        for(i = 0; i < NUM_MAX_CAMERA_BUFFERS; i++)
+            if(selfStreamParms->metaBuffers[i].fd.extFd[0] != 0){
+                freeCameraMemory(&(selfStreamParms->metaBuffers[i]), 1);
+                selfStreamParms->metaBuffers[i].fd.extFd[0] = 0;
+                selfStreamParms->metaBuffers[i].size.extS[0] = 0;
+            }
+#endif
         selfThread->m_isBufferInit = false;
         selfThread->m_index = 255;
 
@@ -3011,6 +3071,7 @@ void ExynosCameraHWInterface2::m_streamFunc1(SignalDrivenThread *self)
             int cropX, cropY, cropW, cropH = 0;
             ExynosBuffer resizeBufInfo;
             ExynosRect   m_orgPictureRect;
+            camera2_stream *frame;
 
             ALOGD("DEBUG(%s): stream(%d) type(%d) DQBUF START ",__FUNCTION__,
                 selfThread->m_index, selfStreamParms->streamType);
@@ -3018,7 +3079,10 @@ void ExynosCameraHWInterface2::m_streamFunc1(SignalDrivenThread *self)
             ALOGD("DEBUG(%s): stream(%d) type(%d) DQBUF done index(%d)",__FUNCTION__,
                 selfThread->m_index, selfStreamParms->streamType, index);
 
-
+#ifdef ENABLE_FRAME_SYNC
+            frame = (struct camera2_stream *)(selfStreamParms->svcBuffers[index].virt.extP[selfStreamParms->nodePlanes -1]);
+            ALOGD("frame count(SCC) : %d", frame->fcount);
+#endif
             for (int i = 0; i < selfStreamParms->numSvcBuffers ; i++) {
                 if (selfStreamParms->svcBufStatus[selfStreamParms->svcBufIndex] == ON_HAL) {
                     found = true;
