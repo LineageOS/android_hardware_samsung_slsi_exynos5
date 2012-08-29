@@ -793,7 +793,7 @@ int     RequestManager::GetNextIndex(int index)
     return index;
 }
 
-ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_t *dev, ExynosCamera2 * camera):
+ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_t *dev, ExynosCamera2 * camera, int *openInvalid):
             m_requestQueueOps(NULL),
             m_frameQueueOps(NULL),
             m_callbackCookie(NULL),
@@ -829,6 +829,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
 {
     ALOGV("DEBUG(%s):", __FUNCTION__);
     int ret = 0;
+    int res = 0;
 
     m_exynosPictureCSC = NULL;
     m_exynosVideoCSC = NULL;
@@ -847,26 +848,49 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
 
     m_BayerManager = new BayerBufManager();
     m_mainThread    = new MainThread(this);
-    InitializeISPChain();
-    m_sensorThread  = new SensorThread(this);
-    m_mainThread->Start("MainThread", PRIORITY_DEFAULT, 0);
-    ALOGV("DEBUG(%s): created sensorthread ################", __FUNCTION__);
+    *openInvalid = InitializeISPChain();
+    if (*openInvalid < 0) {
+        // clean process
+        // 1. close video nodes
+        // SCP
+        res = exynos_v4l2_close(m_fd_scp);
+        if (res != NO_ERROR ) {
+            ALOGE("ERR(%s): exynos_v4l2_close failed(%d)",__FUNCTION__ , res);
+        }
+        // SCC
+        res = exynos_v4l2_close(m_camera_info.capture.fd);
+        if (res != NO_ERROR ) {
+            ALOGE("ERR(%s): exynos_v4l2_close failed(%d)",__FUNCTION__ , res);
+        }
+        // Sensor
+        res = exynos_v4l2_close(m_camera_info.sensor.fd);
+        if (res != NO_ERROR ) {
+            ALOGE("ERR(%s): exynos_v4l2_close failed(%d)",__FUNCTION__ , res);
+        }
+        // ISP
+        res = exynos_v4l2_close(m_camera_info.isp.fd);
+        if (res != NO_ERROR ) {
+            ALOGE("ERR(%s): exynos_v4l2_close failed(%d)",__FUNCTION__ , res);
+        }
+    } else {
+        m_sensorThread  = new SensorThread(this);
+        m_mainThread->Start("MainThread", PRIORITY_DEFAULT, 0);
+        ALOGV("DEBUG(%s): created sensorthread ################", __FUNCTION__);
+        m_requestManager = new RequestManager((SignalDrivenThread*)(m_mainThread.get()));
+        CSC_METHOD cscMethod = CSC_METHOD_HW;
+        m_exynosPictureCSC = csc_init(cscMethod);
+        if (m_exynosPictureCSC == NULL)
+            ALOGE("ERR(%s): csc_init() fail", __FUNCTION__);
+        csc_set_hw_property(m_exynosPictureCSC, CSC_HW_PROPERTY_FIXED_NODE, PICTURE_GSC_NODE_NUM);
 
-    m_requestManager = new RequestManager((SignalDrivenThread*)(m_mainThread.get()));
-    CSC_METHOD cscMethod = CSC_METHOD_HW;
-    m_exynosPictureCSC = csc_init(cscMethod);
-    if (m_exynosPictureCSC == NULL)
-        ALOGE("ERR(%s): csc_init() fail", __FUNCTION__);
-    csc_set_hw_property(m_exynosPictureCSC, CSC_HW_PROPERTY_FIXED_NODE, PICTURE_GSC_NODE_NUM);
+        m_exynosVideoCSC = csc_init(cscMethod);
+        if (m_exynosVideoCSC == NULL)
+            ALOGE("ERR(%s): csc_init() fail", __FUNCTION__);
+        csc_set_hw_property(m_exynosVideoCSC, CSC_HW_PROPERTY_FIXED_NODE, VIDEO_GSC_NODE_NUM);
 
-    m_exynosVideoCSC = csc_init(cscMethod);
-    if (m_exynosVideoCSC == NULL)
-        ALOGE("ERR(%s): csc_init() fail", __FUNCTION__);
-    csc_set_hw_property(m_exynosVideoCSC, CSC_HW_PROPERTY_FIXED_NODE, VIDEO_GSC_NODE_NUM);
-
-
-    ALOGV("DEBUG(%s): END", __FUNCTION__);
-    m_setExifFixedAttribute();
+        ALOGV("DEBUG(%s): END", __FUNCTION__);
+        m_setExifFixedAttribute();
+    }
 }
 
 ExynosCameraHWInterface2::~ExynosCameraHWInterface2()
@@ -1003,11 +1027,12 @@ void ExynosCameraHWInterface2::release()
     ALOGV("%s: EXIT", __func__);
 }
 
-void ExynosCameraHWInterface2::InitializeISPChain()
+int ExynosCameraHWInterface2::InitializeISPChain()
 {
     char node_name[30];
     int fd = 0;
     int i;
+    int ret = 0;
 
     /* Open Sensor */
     memset(&node_name, 0x00, sizeof(char[30]));
@@ -1126,7 +1151,11 @@ void ExynosCameraHWInterface2::InitializeISPChain()
     };
 
     /* init ISP */
-    cam_int_s_input(&(m_camera_info.isp), m_camera_info.sensor_id);
+    ret = cam_int_s_input(&(m_camera_info.isp), m_camera_info.sensor_id);
+    if (ret < 0) {
+        ALOGE("ERR(%s): cam_int_s_input(%d) failed!!!! ",  __FUNCTION__, m_camera_info.sensor_id);
+        return false;
+    }
     cam_int_s_fmt(&(m_camera_info.isp));
     ALOGV("DEBUG(%s): isp calling reqbuf", __FUNCTION__);
     cam_int_reqbufs(&(m_camera_info.isp));
@@ -1186,6 +1215,8 @@ void ExynosCameraHWInterface2::InitializeISPChain()
     } else {
         m_camera_info.capture.status = true;
     }
+
+    return true;
 }
 
 void ExynosCameraHWInterface2::StartISP()
@@ -4597,6 +4628,7 @@ static int HAL2_camera_device_open(const struct hw_module_t* module,
 
 
     int cameraId = atoi(id);
+    int openInvalid = 0;
 
     g_camera_vaild = false;
     ALOGV("\n\n>>> I'm Samsung's CameraHAL_2(ID:%d) <<<\n\n", cameraId);
@@ -4632,8 +4664,11 @@ static int HAL2_camera_device_open(const struct hw_module_t* module,
 
     ALOGV("DEBUG(%s):open camera2 %s", __FUNCTION__, id);
 
-    g_cam2_device->priv = new ExynosCameraHWInterface2(cameraId, g_cam2_device, g_camera2[cameraId]);
-
+    g_cam2_device->priv = new ExynosCameraHWInterface2(cameraId, g_cam2_device, g_camera2[cameraId], &openInvalid);
+    if (!openInvalid) {
+        ALOGE("DEBUG(%s): ExynosCameraHWInterface2 creation failed(%d)", __FUNCTION__);
+        return -ENOMEM;
+    }
 done:
     *device = (hw_device_t *)g_cam2_device;
     ALOGV("DEBUG(%s):opened camera2 %s (%p)", __FUNCTION__, id, *device);
