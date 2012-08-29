@@ -4478,15 +4478,6 @@ static int HAL2_camera_device_close(struct hw_device_t* device)
         free(cam_device);
         g_camera_vaild = false;
     }
-    if (g_camera2[0] != NULL) {
-        delete static_cast<ExynosCamera2 *>(g_camera2[0]);
-        g_camera2[0] = NULL;
-    }
-
-    if (g_camera2[1] != NULL) {
-        delete static_cast<ExynosCamera2 *>(g_camera2[1]);
-        g_camera2[1] = NULL;
-    }
 
     ALOGV("%s: EXIT", __FUNCTION__);
     return 0;
