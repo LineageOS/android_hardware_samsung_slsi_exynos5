@@ -117,6 +117,7 @@ const int32_t scalerResolutionS5K4E5[] =
 {
     1920, 1080,
     1440, 1080,
+    1280, 1024,
     1280,  720,
      640,  480,
      320,  240,
@@ -126,6 +127,7 @@ const int32_t scalerResolutionS5K4E5[] =
 const int32_t jpegResolutionS5K4E5[] =
 {
     2560, 1920,
+    2560, 1440,
     2048, 1536,
     1600, 1200,
     1280, 1024,
@@ -156,6 +158,8 @@ ExynosCamera2InfoS5K4E5::~ExynosCamera2InfoS5K4E5()
 }
 const int32_t scalerResolutionS5K6A3[] =
 {
+    1392, 1392,
+    1280, 1024,
     1280,  960,
     1280,  720,
      640,  480,
@@ -169,6 +173,7 @@ const int32_t jpegResolutionS5K6A3[] =
     1392,  784,
     1280, 1024,
     1280,  960,
+    1280,  720,
     1152,  864,
      640,  480,
      320,  240,
@@ -399,7 +404,7 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
             kAvailableJpegMinDurations,
             sizeof(kAvailableJpegMinDurations)/sizeof(uint64_t));
 
-    static const float maxZoom = 1;
+    static const float maxZoom = 4;
     ADD_OR_SIZE(ANDROID_SCALER_AVAILABLE_MAX_ZOOM, &maxZoom, 1);
 
     // android.jpeg
