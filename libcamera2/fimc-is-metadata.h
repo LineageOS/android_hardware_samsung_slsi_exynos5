@@ -529,6 +529,7 @@ enum aa_aemode {
 };
 
 enum aa_ae_flashmode {
+	AA_FLASHMODE_NOP = 0,
 	/*all flash control stop*/
 	AA_FLASHMODE_OFF = 1,
 	/*internal 3A can control flash*/
