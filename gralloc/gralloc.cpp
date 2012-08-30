@@ -155,8 +155,11 @@ static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int usage,
             return -EINVAL;
     }
     bpr = ALIGN(w*bpp, 16);
-    vstride = ALIGN(h+1, 16);
-    size = bpr * vstride;
+    vstride = ALIGN(h, 16);
+    if (vstride == h)
+        size = bpr * (vstride + 1);
+    else
+        size = bpr * vstride;
     *stride = bpr / bpp;
     size = ALIGN(size, PAGE_SIZE);
 
