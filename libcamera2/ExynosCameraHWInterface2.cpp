@@ -853,7 +853,9 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
             m_halDevice(dev),
             m_need_streamoff(0),
             m_nightCaptureCnt(0),
-            m_cameraId(cameraId)
+            m_cameraId(cameraId),
+            m_thumbNailW(160),
+            m_thumbNailH(120)
 {
     ALOGV("DEBUG(%s):", __FUNCTION__);
     int ret = 0;
@@ -3673,14 +3675,36 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
     return;
 }
 
+bool ExynosCameraHWInterface2::m_checkThumbnailSize(int w, int h)
+{
+    int sizeOfSupportList;
+
+    //REAR Camera
+    if(this->getCameraId() == 0) {
+        sizeOfSupportList = sizeof(SUPPORT_THUMBNAIL_REAR_SIZE) / (sizeof(int)*2);
+
+        for(int i = 0; i < sizeOfSupportList; i++) {
+            if((SUPPORT_THUMBNAIL_REAR_SIZE[i][0] == w) &&(SUPPORT_THUMBNAIL_REAR_SIZE[i][1] == h))
+                return true;
+        }
+
+    }
+    else {
+        sizeOfSupportList = sizeof(SUPPORT_THUMBNAIL_FRONT_SIZE) / (sizeof(int)*2);
+
+        for(int i = 0; i < sizeOfSupportList; i++) {
+            if((SUPPORT_THUMBNAIL_FRONT_SIZE[i][0] == w) &&(SUPPORT_THUMBNAIL_FRONT_SIZE[i][1] == h))
+                return true;
+        }
+    }
+
+    return false;
+}
 bool ExynosCameraHWInterface2::yuv2Jpeg(ExynosBuffer *yuvBuf,
                             ExynosBuffer *jpegBuf,
                             ExynosRect *rect)
 {
     unsigned char *addr;
-
-    int thumbW = 320;
-    int thumbH = 240;
 
     ExynosJpegEncoderForCamera jpegEnc;
     bool ret = false;
@@ -3714,14 +3738,29 @@ bool ExynosCameraHWInterface2::yuv2Jpeg(ExynosBuffer *yuvBuf,
         goto jpeg_encode_done;
     }
 
-    mExifInfo.enableThumb = true;
+    if((m_jpegMetadata.ctl.jpeg.thumbnailSize[0] != 0) && (m_jpegMetadata.ctl.jpeg.thumbnailSize[1] != 0)) {
+        mExifInfo.enableThumb = true;
+        if(!m_checkThumbnailSize(m_jpegMetadata.ctl.jpeg.thumbnailSize[0], m_jpegMetadata.ctl.jpeg.thumbnailSize[1])) {
+            //default value
+            m_thumbNailW = SUPPORT_THUMBNAIL_REAR_SIZE[0][0];
+            m_thumbNailH = SUPPORT_THUMBNAIL_REAR_SIZE[0][1];
+        } else {
+            m_thumbNailW = m_jpegMetadata.ctl.jpeg.thumbnailSize[0];
+            m_thumbNailH = m_jpegMetadata.ctl.jpeg.thumbnailSize[1];
+        }
 
-    if (jpegEnc.setThumbnailSize(thumbW, thumbH)) {
-        ALOGE("ERR(%s):jpegEnc.setThumbnailSize(%d, %d) fail", __FUNCTION__, thumbW, thumbH);
+        ALOGV("(%s) m_thumbNailW = %d, m_thumbNailH = %d", __FUNCTION__, m_thumbNailW, m_thumbNailH);
+
+    } else {
+        mExifInfo.enableThumb = false;
+    }
+
+    if (jpegEnc.setThumbnailSize(m_thumbNailW, m_thumbNailH)) {
+        ALOGE("ERR(%s):jpegEnc.setThumbnailSize(%d, %d) fail", __FUNCTION__, m_thumbNailH, m_thumbNailH);
         goto jpeg_encode_done;
     }
 
-    ALOGV("(%s):jpegEnc.setThumbnailSize(%d, %d) ", __FUNCTION__, thumbW, thumbH);
+    ALOGV("(%s):jpegEnc.setThumbnailSize(%d, %d) ", __FUNCTION__, m_thumbNailW, m_thumbNailW);
     if (jpegEnc.setThumbnailQuality(50)) {
         ALOGE("ERR(%s):jpegEnc.setThumbnailQuality fail", __FUNCTION__);
         goto jpeg_encode_done;
@@ -4470,7 +4509,7 @@ void ExynosCameraHWInterface2::m_setExifFixedAttribute(void)
     char property[PROPERTY_VALUE_MAX];
 
     //2 0th IFD TIFF Tags
-#if 0 // STOPSHIP TODO(aray): remove before launch, but for now don't leak product data
+#if 1 // STOPSHIP TODO(aray): remove before launch, but for now don't leak product data
     //3 Maker
     property_get("ro.product.brand", property, EXIF_DEF_MAKER);
     strncpy((char *)mExifInfo.maker, property,

@@ -411,8 +411,9 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
 
     static const int32_t jpegThumbnailSizes[] = {
             160, 120,
-            320, 240,
-            640, 480
+            160, 160,
+            160, 90,
+            144, 96
     };
 
     ADD_OR_SIZE(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES,
@@ -733,7 +734,7 @@ status_t ExynosCamera2::constructDefaultRequest(
     ADD_OR_SIZE(ANDROID_JPEG_QUALITY, &jpegQuality, 1);
 
     static const int32_t thumbnailSize[2] = {
-        640, 480
+        160, 120
     };
     ADD_OR_SIZE(ANDROID_JPEG_THUMBNAIL_SIZE, thumbnailSize, 2);
 
