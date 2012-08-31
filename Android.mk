@@ -31,6 +31,7 @@ exynos5_dirs := \
 	libhwc \
 	libcamera2 \
 	mobicore \
+	libkeymaster \
 	gralloc
 
 BOARD_USE_V4L2 := true
