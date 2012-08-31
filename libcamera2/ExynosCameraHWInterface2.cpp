@@ -1379,7 +1379,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
                 allocCase = 2;
             }
         }
-        if ((width == 1920 && height == 1080) || (width == 1280 && height == 720)) {
+        if ((width == 1920 && height == 1080) || (width == 1280 && height == 720) || (width == 720 && height == 480)) {
             m_wideAspect = true;
         }
         else {
