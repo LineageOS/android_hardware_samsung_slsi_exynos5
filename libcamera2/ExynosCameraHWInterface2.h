@@ -113,6 +113,21 @@ enum is_subscenario_id {
 	ISS_SUB_END
 };
 
+int SUPPORT_THUMBNAIL_REAR_SIZE[][2] =
+{
+    {160, 120},
+    {160, 90},
+    {144, 96}
+};
+
+int SUPPORT_THUMBNAIL_FRONT_SIZE[][2] =
+{
+    {160, 120},
+    {160, 160},
+    {160, 90},
+    {144, 96}
+};
+
 typedef struct node_info {
     int fd;
     int width;
@@ -493,6 +508,7 @@ class MainThread : public SignalDrivenThread {
 	void				initCameraMemory(ExynosBuffer *buf, int iMemoryNum);
 
     void            DumpInfoWithShot(struct camera2_shot_ext * shot_ext);
+    bool            m_checkThumbnailSize(int w, int h);
     bool            yuv2Jpeg(ExynosBuffer *yuvBuf,
                             ExynosBuffer *jpegBuf,
                             ExynosRect *rect);
@@ -586,6 +602,8 @@ class MainThread : public SignalDrivenThread {
     struct camera2_shot                 m_jpegMetadata;
     int                                 m_nightCaptureCnt;
     int                                 m_nightCaptureFrameCnt;
+    int                                 m_thumbNailW;
+    int                                 m_thumbNailH;
 };
 
 }; // namespace android
