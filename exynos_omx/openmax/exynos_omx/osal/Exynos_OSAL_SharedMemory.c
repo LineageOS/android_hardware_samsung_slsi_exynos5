@@ -25,6 +25,7 @@
  *   2012.02.20 : Create
  */
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -49,6 +50,7 @@ typedef struct _EXYNOS_SHAREDMEM_LIST
     OMX_U32                        IONBuffer;
     OMX_PTR                        mapAddr;
     OMX_U32                        allocSize;
+    bool                           owner;
     struct _EXYNOS_SHAREDMEM_LIST *pNextMemory;
 } EXYNOS_SHAREDMEM_LIST;
 
@@ -109,7 +111,8 @@ void Exynos_OSAL_SharedMemory_Close(OMX_HANDLETYPE handle)
         pDeleteElement->mapAddr = NULL;
         pDeleteElement->allocSize = 0;
 
-        ion_free(pDeleteElement->IONBuffer);
+        if (pDeleteElement->owner)
+            ion_free(pDeleteElement->IONBuffer);
         pDeleteElement->IONBuffer = 0;
 
         Exynos_OSAL_Free(pDeleteElement);
@@ -149,6 +152,7 @@ OMX_PTR Exynos_OSAL_SharedMemory_Alloc(OMX_HANDLETYPE handle, OMX_U32 size, MEMO
 
     pElement = (EXYNOS_SHAREDMEM_LIST *)Exynos_OSAL_Malloc(sizeof(EXYNOS_SHAREDMEM_LIST));
     Exynos_OSAL_Memset(pElement, 0, sizeof(EXYNOS_SHAREDMEM_LIST));
+    pElement->owner = true;
 
     switch (memoryType) {
     case SECURE_MEMORY:
@@ -256,7 +260,8 @@ void Exynos_OSAL_SharedMemory_Free(OMX_HANDLETYPE handle, OMX_PTR pBuffer)
     pDeleteElement->mapAddr = NULL;
     pDeleteElement->allocSize = 0;
 
-    ion_free(pDeleteElement->IONBuffer);
+    if (pDeleteElement->owner)
+        ion_free(pDeleteElement->IONBuffer);
     pDeleteElement->IONBuffer = 0;
 
     Exynos_OSAL_Free(pDeleteElement);
