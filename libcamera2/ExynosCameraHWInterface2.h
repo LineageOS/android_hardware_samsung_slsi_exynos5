@@ -128,6 +128,26 @@ int SUPPORT_THUMBNAIL_FRONT_SIZE[][2] =
     {144, 96}
 };
 
+enum is_flash_scenario_state {
+    IS_FLASH_ON = 1,
+    IS_FLASH_ON_DONE = 2,
+    IS_FLASH_AUTO_AE_AWB_LOCK = 10,
+    IS_FLASH_AUTO_END,
+    IS_FLASH_AUTO_AE_AWB_LOCKED_AUTO_END,
+    IS_FLASH_CAPTURE,
+    IS_FLASH_CAPTURE_JPEG,
+    IS_FLASH_CAPTURE_END,
+    IS_FLASH_MAX
+};
+
+enum is_af_flash_scenario_state {
+    IS_FLASH_AF_ON = 1,
+    IS_FLASH_AF_ON_START,
+    IS_FLASH_AF_ON_DONE,
+    IF_FLASH_AF_OFF,
+    IS_FLASH_AF_MAX
+};
+
 typedef struct node_info {
     int fd;
     int width;
@@ -535,6 +555,8 @@ class MainThread : public SignalDrivenThread {
     void            m_setExifFixedAttribute(void);
     void            m_setExifChangedAttribute(exif_attribute_t *exifInfo, ExynosRect *rect,
                          camera2_shot *currentEntry);
+    void            flashSetter(struct camera2_shot_ext * shot_ext);
+    void            flashListener(struct camera2_shot_ext * shot_ext);
     void               *m_exynosPictureCSC;
     void               *m_exynosVideoCSC;
 
@@ -604,6 +626,14 @@ class MainThread : public SignalDrivenThread {
     int                                 m_nightCaptureFrameCnt;
     int                                 m_thumbNailW;
     int                                 m_thumbNailH;
+    bool                        m_afFlashEnableFlg;
+    int                     m_afFlashCnt;
+    bool                        m_flashEnableFlg;
+    bool                        m_flashCaptured;
+    int                     m_flashFrameCount;
+    int                     m_flashCnt;
+    int                     m_flashTimeOut;
+
 };
 
 }; // namespace android
