@@ -310,6 +310,7 @@ RequestManager::~RequestManager()
         m_metadataConverter = NULL;
     }
 
+    releaseSensorQ();
     return;
 }
 
@@ -429,14 +430,13 @@ bool RequestManager::PrepareFrame(size_t* num_entries, size_t* frame_size,
 
 int RequestManager::MarkProcessingRequest(ExynosBuffer* buf, int *afMode)
 {
-
-    Mutex::Autolock lock(m_requestMutex);
     struct camera2_shot_ext * shot_ext;
     struct camera2_shot_ext * request_shot;
     int targetStreamIndex = 0;
     request_manager_entry * newEntry = NULL;
     static int count = 0;
 
+    Mutex::Autolock lock(m_requestMutex);
     if (m_numOfEntries == 0)  {
         CAM_LOGD("DEBUG(%s): Request Manager Empty ", __FUNCTION__);
         return -1;
@@ -552,13 +552,49 @@ void RequestManager::CheckCompleted(int index)
 
 void RequestManager::SetFrameIndex(int index)
 {
-    Mutex::Autolock lock(m_requestMutex);
     m_frameIndex = index;
 }
 
 int RequestManager::GetFrameIndex()
 {
     return m_frameIndex;
+}
+
+void  RequestManager::pushSensorQ(int index)
+{
+    Mutex::Autolock lock(m_requestMutex);
+    m_sensorQ.push_back(index);
+}
+
+int RequestManager::popSensorQ()
+{
+   List<int>::iterator sensor_token;
+   int index;
+
+    Mutex::Autolock lock(m_requestMutex);
+
+    if(m_sensorQ.size() == 0)
+        return -1;
+
+    sensor_token = m_sensorQ.begin()++;
+    index = *sensor_token;
+    m_sensorQ.erase(sensor_token);
+
+    return (index);
+}
+
+void RequestManager::releaseSensorQ()
+{
+    List<int>::iterator r;
+
+    Mutex::Autolock lock(m_requestMutex);
+    ALOGV("(%d)m_sensorQ.size : %d", __FUNCTION__, m_sensorQ.size());
+
+    while(m_sensorQ.size() > 0){
+        r  = m_sensorQ.begin()++;
+        m_sensorQ.erase(r);
+    }
+    return;
 }
 
 void RequestManager::ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext)
@@ -568,6 +604,7 @@ void RequestManager::ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext)
     nsecs_t timeStamp;
     int i;
 
+    Mutex::Autolock lock(m_requestMutex);
     ALOGV("DEBUG(%s): frameCnt(%d)", __FUNCTION__, shot_ext->shot.ctl.request.frameCount);
 
     for (i = 0 ; i < NUM_MAX_REQUEST_MGR_ENTRY ; i++) {
@@ -882,6 +919,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
 
     m_BayerManager = new BayerBufManager();
     m_mainThread    = new MainThread(this);
+    m_requestManager = new RequestManager((SignalDrivenThread*)(m_mainThread.get()));
     *openInvalid = InitializeISPChain();
     if (*openInvalid < 0) {
         // clean process
@@ -910,7 +948,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
         m_sensorThread  = new SensorThread(this);
         m_mainThread->Start("MainThread", PRIORITY_DEFAULT, 0);
         ALOGV("DEBUG(%s): created sensorthread ################", __FUNCTION__);
-        m_requestManager = new RequestManager((SignalDrivenThread*)(m_mainThread.get()));
+
         CSC_METHOD cscMethod = CSC_METHOD_HW;
         m_exynosPictureCSC = csc_init(cscMethod);
         if (m_exynosPictureCSC == NULL)
@@ -1221,12 +1259,18 @@ int ExynosCameraHWInterface2::InitializeISPChain()
     ALOGV("DEBUG(%s): sensor reqbuf done",  __FUNCTION__);
     for (i = 0; i < m_camera_info.sensor.buffers; i++) {
         ALOGV("DEBUG(%s): sensor initial QBUF [%d]",  __FUNCTION__, i);
-        memcpy( m_camera_info.sensor.buffer[i].virt.extP[1], &(m_camera_info.dummy_shot),
-                sizeof(struct camera2_shot_ext));
         m_camera_info.dummy_shot.shot.ctl.sensor.frameDuration = 33*1000*1000; // apply from frame #1
         m_camera_info.dummy_shot.shot.ctl.request.frameCount = -1;
-        cam_int_qbuf(&(m_camera_info.sensor), i);
+        memcpy( m_camera_info.sensor.buffer[i].virt.extP[1], &(m_camera_info.dummy_shot),
+                sizeof(struct camera2_shot_ext));
     }
+
+    for (i = 0; i < NUM_MIN_SENSOR_QBUF; i++)
+        cam_int_qbuf(&(m_camera_info.sensor), i);
+
+    for (i = NUM_MIN_SENSOR_QBUF; i < m_camera_info.sensor.buffers; i++)
+        m_requestManager->pushSensorQ(i);
+
     ALOGV("== stream_on :: .sensor");
     cam_int_streamon(&(m_camera_info.sensor));
 
@@ -1759,14 +1803,19 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
             cam_int_s_fmt(&(m_camera_info.sensor));
             cam_int_reqbufs(&(m_camera_info.sensor));
 
-            for (i = 0; i < 8; i++) {
+            for (i = 0; i < m_camera_info.sensor.buffers; i++) {
                 ALOGV("DEBUG(%s): sensor initial QBUF [%d]",  __FUNCTION__, i);
-                memcpy( m_camera_info.sensor.buffer[i].virt.extP[1], &(m_camera_info.dummy_shot),
-                        sizeof(struct camera2_shot_ext));
                 m_camera_info.dummy_shot.shot.ctl.sensor.frameDuration = 33*1000*1000; // apply from frame #1
                 m_camera_info.dummy_shot.shot.ctl.request.frameCount = -1;
-                cam_int_qbuf(&(m_camera_info.sensor), i);
+                memcpy( m_camera_info.sensor.buffer[i].virt.extP[1], &(m_camera_info.dummy_shot),
+                        sizeof(struct camera2_shot_ext));
             }
+
+            for (i = 0; i < NUM_MIN_SENSOR_QBUF; i++)
+                cam_int_qbuf(&(m_camera_info.sensor), i);
+
+            for (i = NUM_MIN_SENSOR_QBUF; i < m_camera_info.sensor.buffers; i++)
+                m_requestManager->pushSensorQ(i);
 
             /* capture */
             cam_int_s_fmt(&(m_camera_info.capture));
@@ -2704,6 +2753,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
 
         exynos_v4l2_s_ctrl(m_camera_info.sensor.fd, V4L2_CID_IS_S_STREAM, IS_DISABLE_STREAM);
 
+        m_requestManager->releaseSensorQ();
         ALOGV("(%s): EXIT processing SIGNAL_THREAD_RELEASE", __FUNCTION__);
         selfThread->SetSignal(SIGNAL_THREAD_TERMINATE);
         return;
@@ -2720,8 +2770,10 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
         int afMode;
 
         /* dqbuf from sensor */
-        ALOGV("Sensor DQbuf start");
+
         index = cam_int_dqbuf(&(m_camera_info.sensor));
+        m_requestManager->pushSensorQ(index);
+        ALOGV("Sensor DQbuf done(%d)", index);
         shot_ext = (struct camera2_shot_ext *)(m_camera_info.sensor.buffer[index].virt.extP[1]);
 
         m_recordOutput = shot_ext->shot.ctl.request.outputStreams[2];
@@ -3062,6 +3114,12 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             OnAfNotification(shot_ext->shot.dm.aa.afState);
         }
 
+        index = m_requestManager->popSensorQ();
+        if(index < 0){
+            ALOGE("sensorQ is empty");
+            return;
+        }
+
         processingReqIndex = m_requestManager->MarkProcessingRequest(&(m_camera_info.sensor.buffer[index]), &afMode);
         if (processingReqIndex != -1)
             SetAfMode((enum aa_afmode)afMode);
@@ -3074,9 +3132,8 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             shot_ext->request_scp = 0;
             shot_ext->request_sensor = 0;
         }
-
         cam_int_qbuf(&(m_camera_info.sensor), index);
-        ALOGV("### Sensor QBUF done");
+        ALOGV("Sensor Qbuf done(%d)", index);
 
         if (!m_scp_closing
             && ((matchedFrameCnt == -1) || (processingReqIndex == -1))){
@@ -3531,7 +3588,7 @@ void ExynosCameraHWInterface2::m_streamFunc0(SignalDrivenThread *self)
                             ALOGV("(%s):previewcb %d = %d", __FUNCTION__, previewCbW, ALIGN(previewCbW, 16));
                             memcpy(selfPreviewCbParms->svcBuffers[selfPreviewCbParms->svcBufIndex].virt.extP[0],
                                 m_previewCbBuf.virt.extP[0], previewCbW * previewCbH);
-                            memcpy(selfPreviewCbParms->svcBuffers[selfPreviewCbParms->svcBufIndex].virt.extP[0] + previewCbW * previewCbH, 
+                            memcpy(selfPreviewCbParms->svcBuffers[selfPreviewCbParms->svcBufIndex].virt.extP[0] + previewCbW * previewCbH,
                                 m_previewCbBuf.virt.extP[1], previewCbW * previewCbH / 2 );
                         }
                         else {
@@ -3550,7 +3607,7 @@ void ExynosCameraHWInterface2::m_streamFunc0(SignalDrivenThread *self)
                         selfStreamParms->svcBuffers[index].virt.extP[0], stride * previewCbH);
                     memcpy(selfPreviewCbParms->svcBuffers[selfPreviewCbParms->svcBufIndex].virt.extP[0] + stride * previewCbH,
                         selfStreamParms->svcBuffers[index].virt.extP[1], c_stride * previewCbH / 2 );
-                    memcpy(selfPreviewCbParms->svcBuffers[selfPreviewCbParms->svcBufIndex].virt.extP[0] + (stride * previewCbH) + (c_stride * previewCbH / 2), 
+                    memcpy(selfPreviewCbParms->svcBuffers[selfPreviewCbParms->svcBufIndex].virt.extP[0] + (stride * previewCbH) + (c_stride * previewCbH / 2),
                         selfStreamParms->svcBuffers[index].virt.extP[2], c_stride * previewCbH / 2 );
 
                 }

@@ -37,6 +37,7 @@
 #include <hardware/camera2.h>
 #include <camera/Camera.h>
 #include <camera/CameraParameters.h>
+#include <utils/List.h>
 #include "SignalDrivenThread.h"
 #include "MetadataConverter.h"
 #include "exynos_v4l2.h"
@@ -61,12 +62,10 @@ namespace android {
 #define NODE_PREFIX     "/dev/video"
 
 #define NUM_MAX_STREAM_THREAD       (5)
-#define NUM_MAX_REQUEST_MGR_ENTRY   (10)
-#define NUM_MAX_DEQUEUED_REQUEST NUM_MAX_REQUEST_MGR_ENTRY
-#define MAX_CAMERA_MEMORY_PLANE_NUM	(4)
+#define NUM_MAX_REQUEST_MGR_ENTRY   (4)
 #define NUM_MAX_CAMERA_BUFFERS      (16)
 #define NUM_BAYER_BUFFERS           (8)
-#define NUM_SENSOR_QBUF             (3)
+#define NUM_MIN_SENSOR_QBUF         (3)
 
 #define PICTURE_GSC_NODE_NUM (2)
 #define VIDEO_GSC_NODE_NUM (1)
@@ -263,6 +262,9 @@ public:
     int     GetSkipCnt();
     void    SetFrameIndex(int index);
     int    GetFrameIndex();
+    void  pushSensorQ(int index);
+    int popSensorQ();
+    void releaseSensorQ();
 private:
 
     MetadataConverter               *m_metadataConverter;
@@ -287,6 +289,7 @@ private:
     int                             m_lastAaMode;
     int                             m_lastAwbMode;
     int                             m_lastAeComp;
+    List<int>                   m_sensorQ;
 };
 
 
