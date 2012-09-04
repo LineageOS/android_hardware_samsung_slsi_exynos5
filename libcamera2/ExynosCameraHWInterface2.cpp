@@ -5249,6 +5249,18 @@ static int HAL2_device_allocate_reprocess_stream(
                                     stream_id, consumer_usage, max_buffers);
 }
 
+static int HAL2_device_allocate_reprocess_stream_from_stream(
+           const struct camera2_device *dev,
+            uint32_t output_stream_id,
+            const camera2_stream_in_ops_t *reprocess_stream_ops,
+            // outputs
+            uint32_t *stream_id)
+{
+    ALOGV("DEBUG(%s):", __FUNCTION__);
+    // Temporary stub
+    return 0;
+}
+
 static int HAL2_device_release_reprocess_stream(
         const struct camera2_device *dev,
             uint32_t stream_id)
@@ -5351,6 +5363,7 @@ static camera2_device_ops_t camera2_device_ops = {
         SET_METHOD(register_stream_buffers),
         SET_METHOD(release_stream),
         SET_METHOD(allocate_reprocess_stream),
+        SET_METHOD(allocate_reprocess_stream_from_stream),
         SET_METHOD(release_reprocess_stream),
         SET_METHOD(trigger_action),
         SET_METHOD(set_notify_callback),
