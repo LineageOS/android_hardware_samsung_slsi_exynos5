@@ -45,7 +45,8 @@
 #include "gralloc_priv.h"
 #include "exynos_gscaler.h"
 #include "exynos_format.h"
-#include "videodev2.h"
+#include "exynos_v4l2.h"
+#include "s5p_tvout_v4l2.h"
 
 struct hwc_callback_entry {
     void (*callback)(void *, private_handle_t *);
@@ -106,11 +107,16 @@ struct exynos5_hwc_composer_device_1_t {
     const hwc_procs_t       *procs;
     pthread_t               vsync_thread;
 
-    int  hdmi_fd;
+    int  hdmi_mixer0;
+    int  hdmi_layer0;
+    int  hdmi_layer1;
     bool hdmi_hpd;
-    bool hdmi_mirroring;
+    bool hdmi_enabled;
     void *hdmi_gsc;
-    exynos_gsc_img hdmi_cfg;
+    int  hdmi_w;
+    int  hdmi_h;
+    exynos_gsc_img hdmi_src;
+    exynos_gsc_img hdmi_dst;
 
     exynos5_gsc_data_t      gsc[NUM_GSC_UNITS];
 
@@ -188,6 +194,25 @@ static bool is_scaled(const hwc_layer_1_t &layer)
 {
     return WIDTH(layer.displayFrame) != WIDTH(layer.sourceCrop) ||
             HEIGHT(layer.displayFrame) != HEIGHT(layer.sourceCrop);
+}
+
+static inline bool gsc_dst_cfg_changed(exynos_gsc_img &c1, exynos_gsc_img &c2)
+{
+    return c1.x != c2.x ||
+            c1.y != c2.y ||
+            c1.w != c2.w ||
+            c1.h != c2.h ||
+            c1.format != c2.format ||
+            c1.rot != c2.rot ||
+            c1.cacheable != c2.cacheable ||
+            c1.drmMode != c2.drmMode;
+}
+
+static inline bool gsc_src_cfg_changed(exynos_gsc_img &c1, exynos_gsc_img &c2)
+{
+    return gsc_dst_cfg_changed(c1, c2) ||
+            c1.fw != c2.fw ||
+            c1.fh != c2.fh;
 }
 
 static enum s3c_fb_pixel_format exynos5_format_to_s3c_format(int format)
@@ -312,19 +337,18 @@ int hdmi_get_config(struct exynos5_hwc_composer_device_1_t *dev)
 {
     struct v4l2_dv_preset preset;
     struct v4l2_dv_enum_preset enum_preset;
-    exynos_gsc_img *info = &dev->hdmi_cfg;
     int index = 0;
     bool found = false;
     int ret;
 
-    if (ioctl(dev->hdmi_fd, VIDIOC_G_DV_PRESET, &preset) < 0) {
+    if (ioctl(dev->hdmi_layer0, VIDIOC_G_DV_PRESET, &preset) < 0) {
         ALOGE("%s: g_dv_preset error, %d", __func__, errno);
         return -1;
     }
 
     while (true) {
         enum_preset.index = index++;
-        ret = ioctl(dev->hdmi_fd, VIDIOC_ENUM_DV_PRESETS, &enum_preset);
+        ret = ioctl(dev->hdmi_layer0, VIDIOC_ENUM_DV_PRESETS, &enum_preset);
 
         if (ret < 0) {
             if (errno == EINVAL)
@@ -338,11 +362,8 @@ int hdmi_get_config(struct exynos5_hwc_composer_device_1_t *dev)
                 enum_preset.width, enum_preset.height, enum_preset.name);
 
         if (preset.preset == enum_preset.preset) {
-            info->w  = enum_preset.width;
-            info->h  = enum_preset.height;
-            info->fw = enum_preset.width;
-            info->fh = enum_preset.height;
-            info->format = HAL_PIXEL_FORMAT_EXYNOS_YV12;
+            dev->hdmi_w  = enum_preset.width;
+            dev->hdmi_h  = enum_preset.height;
             found = true;
         }
     }
@@ -370,14 +391,153 @@ static bool exynos5_blending_is_supported(int32_t blending)
     return exynos5_blending_to_s3c_blending(blending) < S3C_FB_BLENDING_MAX;
 }
 
+static int hdmi_start_background(struct exynos5_hwc_composer_device_1_t *dev)
+{
+    struct v4l2_requestbuffers reqbuf;
+    struct v4l2_subdev_format  sd_fmt;
+    struct v4l2_subdev_crop    sd_crop;
+    struct v4l2_format         fmt;
+    struct v4l2_buffer         buffer;
+    struct v4l2_plane          planes[1];
+
+    memset(&reqbuf, 0, sizeof(reqbuf));
+    memset(&sd_fmt, 0, sizeof(sd_fmt));
+    memset(&sd_crop, 0, sizeof(sd_crop));
+    memset(&fmt, 0, sizeof(fmt));
+    memset(&buffer, 0, sizeof(buffer));
+    memset(planes, 0, sizeof(planes));
+
+    sd_fmt.pad   = MIXER_G1_SUBDEV_PAD_SINK;
+    sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+    sd_fmt.format.width  = 1;
+    sd_fmt.format.height = 1;
+    sd_fmt.format.code   = V4L2_MBUS_FMT_XRGB8888_4X8_LE;
+    if (exynos_subdev_s_fmt(dev->hdmi_mixer0, &sd_fmt) < 0) {
+            ALOGE("%s: s_fmt failed pad=%d", __func__, sd_fmt.pad);
+            return -1;
+    }
+
+    sd_crop.pad   = MIXER_G1_SUBDEV_PAD_SINK;
+    sd_crop.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+    sd_crop.rect.left   = 0;
+    sd_crop.rect.top    = 0;
+    sd_crop.rect.width  = 1;
+    sd_crop.rect.height = 1;
+    if (exynos_subdev_s_crop(dev->hdmi_mixer0, &sd_crop) < 0) {
+        ALOGE("%s: set_crop failed pad=%d", __func__, sd_crop.pad);
+        return -1;
+    }
+
+    sd_fmt.pad   = MIXER_G1_SUBDEV_PAD_SOURCE;
+    sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+    sd_fmt.format.width  = dev->hdmi_w;
+    sd_fmt.format.height = dev->hdmi_h;
+    sd_fmt.format.code   = V4L2_MBUS_FMT_XRGB8888_4X8_LE;
+    if (exynos_subdev_s_fmt(dev->hdmi_mixer0, &sd_fmt) < 0) {
+        ALOGE("%s: s_fmt failed pad=%d", __func__, sd_fmt.pad);
+        return -1;
+    }
+
+    sd_crop.pad   = MIXER_G1_SUBDEV_PAD_SOURCE;
+    sd_crop.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+    sd_crop.rect.left   = 0;
+    sd_crop.rect.top    = 0;
+    sd_crop.rect.width  = 1;
+    sd_crop.rect.height = 1;
+    if (exynos_subdev_s_crop(dev->hdmi_mixer0, &sd_crop) < 0) {
+        ALOGE("%s: s_crop failed pad=%d", __func__, sd_crop.pad);
+        return -1;
+    }
+
+    fmt.type  = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+    fmt.fmt.pix_mp.width       = 1;
+    fmt.fmt.pix_mp.height      = 1;
+    fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_BGR32;
+    fmt.fmt.pix_mp.field       = V4L2_FIELD_ANY;
+    fmt.fmt.pix_mp.num_planes  = 1;
+    if (exynos_v4l2_s_fmt(dev->hdmi_layer1, &fmt) < 0) {
+        ALOGE("%s::videodev set format failed", __func__);
+        return -1;
+    }
+
+    reqbuf.count  = 1;
+    reqbuf.type   = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+    reqbuf.memory = V4L2_MEMORY_MMAP;
+
+    if (exynos_v4l2_reqbufs(dev->hdmi_layer1, &reqbuf) < 0) {
+        ALOGE("%s: exynos_v4l2_reqbufs failed %d", __func__, errno);
+        return -1;
+    }
+
+    if (reqbuf.count != 1) {
+        ALOGE("%s: didn't get buffer", __func__);
+        return -1;
+    }
+
+    memset(&buffer, 0, sizeof(buffer));
+    buffer.type = reqbuf.type;
+    buffer.memory = V4L2_MEMORY_MMAP;
+    buffer.length = 1;
+    buffer.m.planes = planes;
+    if (exynos_v4l2_querybuf(dev->hdmi_layer1, &buffer) < 0) {
+        ALOGE("%s: exynos_v4l2_querybuf failed %d", __func__, errno);
+        return -1;
+    }
+
+    void *start = mmap(NULL, planes[0].length, PROT_READ | PROT_WRITE,
+                       MAP_SHARED, dev->hdmi_layer1, planes[0].m.mem_offset);
+    if (start == MAP_FAILED) {
+        ALOGE("%s: mmap failed %d", __func__, errno);
+        return -1;
+    }
+
+    memset(start, 0, planes[0].length);
+
+    munmap(start, planes[0].length);
+
+    if (exynos_v4l2_qbuf(dev->hdmi_layer1, &buffer) < 0) {
+        ALOGE("%s: exynos_v4l2_qbuf failed %d", __func__, errno);
+        return -1;
+    }
+
+    if (exynos_v4l2_streamon(dev->hdmi_layer1, buffer.type) < 0) {
+        ALOGE("%s:stream on failed", __func__);
+        return -1;
+    }
+
+    if (exynos_v4l2_s_ctrl(dev->hdmi_layer1, V4L2_CID_TV_LAYER_PRIO, 0) < 0) {
+        ALOGE("%s: s_ctrl LAYER_PRIO failed", __func__);
+        return -1;
+    }
+
+    return 0;
+}
+
+static int hdmi_stop_background(struct exynos5_hwc_composer_device_1_t *dev)
+{
+    struct v4l2_requestbuffers reqbuf;
+
+    if (exynos_v4l2_streamoff(dev->hdmi_layer1, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) < 0) {
+        ALOGE("%s:stream off failed", __func__);
+        return -1;
+    }
+
+    memset(&reqbuf, 0, sizeof(reqbuf));
+    reqbuf.count  = 0;
+    reqbuf.type   = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+    reqbuf.memory = V4L2_MEMORY_MMAP;
+    if (exynos_v4l2_reqbufs(dev->hdmi_layer1, &reqbuf) < 0) {
+        ALOGE("%s: exynos_v4l2_reqbufs failed %d", __func__, errno);
+        return -1;
+    }
+
+    return 0;
+}
+
 static int hdmi_enable(struct exynos5_hwc_composer_device_1_t *dev)
 {
-    if (dev->hdmi_mirroring)
+    if (dev->hdmi_enabled)
         return 0;
-
-    exynos_gsc_img src_info;
-    int src_w = 2560;
-    int src_h = 1600;
 
     dev->hdmi_gsc = exynos_gsc_create_exclusive(3, GSC_OUTPUT_MODE, GSC_OUT_TV);
     if (!dev->hdmi_gsc) {
@@ -385,36 +545,106 @@ static int hdmi_enable(struct exynos5_hwc_composer_device_1_t *dev)
         return -ENODEV;
     }
 
-    memset(&src_info, 0, sizeof(src_info));
+    memset(&dev->hdmi_src, 0, sizeof(dev->hdmi_src));
 
-    src_info.w = src_w;
-    src_info.h = src_h;
-    src_info.fw = src_w;
-    src_info.fh = src_h;
-    src_info.format = HAL_PIXEL_FORMAT_BGRA_8888;
-
-    int ret = exynos_gsc_config_exclusive(dev->hdmi_gsc, &src_info, &dev->hdmi_cfg);
-    if (ret < 0) {
-        ALOGE("%s: exynos_gsc_config_exclusive failed %d", __func__, ret);
-        exynos_gsc_destroy(dev->hdmi_gsc);
-        dev->hdmi_gsc = NULL;
-        return ret;
+    if (hdmi_start_background(dev) < 0) {
+        ALOGE("%s: hdmi_start_background failed", __func__);
+        return -1;
     }
 
-    dev->hdmi_mirroring = true;
+    dev->hdmi_enabled = true;
     return 0;
 }
 
 static void hdmi_disable(struct exynos5_hwc_composer_device_1_t *dev)
 {
-    if (!dev->hdmi_mirroring)
+    if (!dev->hdmi_enabled)
         return;
+    hdmi_stop_background(dev);
     exynos_gsc_destroy(dev->hdmi_gsc);
     dev->hdmi_gsc = NULL;
-    dev->hdmi_mirroring = false;
+    dev->hdmi_enabled = false;
 }
 
-static int hdmi_output(struct exynos5_hwc_composer_device_1_t *dev, private_handle_t *fb)
+static int hdmi_configure(struct exynos5_hwc_composer_device_1_t *dev,
+                          exynos_gsc_img &src_cfg,
+                          exynos_gsc_img &dst_cfg)
+{
+    if (!gsc_src_cfg_changed(src_cfg, dev->hdmi_src)
+            && !gsc_dst_cfg_changed(dst_cfg, dev->hdmi_dst))
+        return 0;
+
+    ALOGV("HDMI source config:");
+    dump_gsc_img(src_cfg);
+    ALOGV("HDMI dest config:");
+    dump_gsc_img(dst_cfg);
+
+    exynos_gsc_stop_exclusive(dev->hdmi_gsc);
+
+    int ret = exynos_gsc_config_exclusive(dev->hdmi_gsc, &src_cfg, &dst_cfg);
+    if (ret < 0) {
+        ALOGE("%s: exynos_gsc_config_exclusive failed %d", __func__, ret);
+        return ret;
+    }
+
+    dev->hdmi_src = src_cfg;
+    dev->hdmi_dst = dst_cfg;
+    return ret;
+}
+
+static int hdmi_configure_handle(struct exynos5_hwc_composer_device_1_t *dev, private_handle_t *h)
+{
+    exynos_gsc_img src_cfg, dst_cfg;
+    memset(&src_cfg, 0, sizeof(src_cfg));
+    memset(&dst_cfg, 0, sizeof(dst_cfg));
+
+    src_cfg.w = src_cfg.fw = h->width;
+    src_cfg.h = src_cfg.fh = h->height;
+    src_cfg.format = HAL_PIXEL_FORMAT_BGRA_8888;
+
+    dst_cfg.w = dst_cfg.fw = dev->hdmi_w;
+    dst_cfg.h = dst_cfg.fh = dev->hdmi_h;
+    dst_cfg.format = HAL_PIXEL_FORMAT_EXYNOS_YV12;
+
+    return hdmi_configure(dev, src_cfg, dst_cfg);
+}
+
+static int hdmi_configure_layer(struct exynos5_hwc_composer_device_1_t *dev, hwc_layer_1_t &layer)
+{
+    exynos_gsc_img src_cfg, dst_cfg;
+    memset(&src_cfg, 0, sizeof(src_cfg));
+    memset(&dst_cfg, 0, sizeof(dst_cfg));
+    private_handle_t *src_handle = private_handle_t::dynamicCast(layer.handle);
+
+    src_cfg.x = layer.sourceCrop.left;
+    src_cfg.y = layer.sourceCrop.top;
+    src_cfg.w = WIDTH(layer.sourceCrop);
+    src_cfg.fw = src_handle->stride;
+    src_cfg.h = HEIGHT(layer.sourceCrop);
+    src_cfg.fh = src_handle->vstride;
+    src_cfg.format = src_handle->format;
+
+    if (dev->hdmi_w * src_cfg.h < dev->hdmi_h * src_cfg.w) {
+        dst_cfg.w = dev->hdmi_w;
+        dst_cfg.fw = dev->hdmi_w;
+        dst_cfg.fh = dev->hdmi_h;
+        dst_cfg.h = dev->hdmi_w * src_cfg.h / src_cfg.w;
+        dst_cfg.y = (dev->hdmi_h - dst_cfg.h) / 2;
+    }
+    else {
+        dst_cfg.w = dev->hdmi_h * src_cfg.w / src_cfg.h;
+        dst_cfg.fw = dev->hdmi_w;
+        dst_cfg.h = dev->hdmi_h;
+        dst_cfg.fh = dev->hdmi_h;
+        dst_cfg.x = (dev->hdmi_w - dst_cfg.w) / 2;
+    }
+    dst_cfg.format = HAL_PIXEL_FORMAT_EXYNOS_YV12;
+    dst_cfg.rot = layer.transform;
+
+    return hdmi_configure(dev, src_cfg, dst_cfg);
+}
+
+static int hdmi_output(struct exynos5_hwc_composer_device_1_t *dev, private_handle_t *h)
 {
     exynos_gsc_img src_info;
     exynos_gsc_img dst_info;
@@ -422,7 +652,14 @@ static int hdmi_output(struct exynos5_hwc_composer_device_1_t *dev, private_hand
     memset(&src_info, 0, sizeof(src_info));
     memset(&dst_info, 0, sizeof(dst_info));
 
-    src_info.yaddr = fb->fd;
+    src_info.yaddr = h->fd;
+    if (exynos5_format_is_ycrcb(h->format)) {
+        src_info.uaddr = h->fd2;
+        src_info.vaddr = h->fd1;
+    } else {
+        src_info.uaddr = h->fd1;
+        src_info.vaddr = h->fd2;
+    }
 
     int ret = exynos_gsc_run_exclusive(dev->hdmi_gsc, &src_info, &dst_info);
     if (ret < 0) {
@@ -508,6 +745,16 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
     if (pdev->hdmi_hpd) {
         hdmi_enable(pdev);
         force_fb = true;
+        for (size_t i = 0; i < displays[0]->numHwLayers; i++) {
+            hwc_layer_1_t &layer = displays[0]->hwLayers[i];
+            if (layer.flags & HWC_SKIP_LAYER)
+                continue;
+            private_handle_t *handle = private_handle_t::dynamicCast(layer.handle);
+            if (handle->flags & GRALLOC_USAGE_EXTERNAL_DISP) {
+                force_fb = false;
+                break;
+            }
+        }
     } else {
         hdmi_disable(pdev);
     }
@@ -575,7 +822,7 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
             pixels_left = MAX_PIXELS;
             windows_left = NUM_HW_WINDOWS;
         }
-        if (pdev->hdmi_mirroring)
+        if (pdev->hdmi_enabled)
             gsc_left--;
 
         changed = false;
@@ -692,25 +939,6 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
         pdev->bufs.fb_window = NO_FB_NEEDED;
 
     return 0;
-}
-
-static inline bool gsc_dst_cfg_changed(exynos_gsc_img &c1, exynos_gsc_img &c2)
-{
-    return c1.x != c2.x ||
-            c1.y != c2.y ||
-            c1.w != c2.w ||
-            c1.h != c2.h ||
-            c1.format != c2.format ||
-            c1.rot != c2.rot ||
-            c1.cacheable != c2.cacheable ||
-            c1.drmMode != c2.drmMode;
-}
-
-static inline bool gsc_src_cfg_changed(exynos_gsc_img &c1, exynos_gsc_img &c2)
-{
-    return gsc_dst_cfg_changed(c1, c2) ||
-            c1.fw != c2.fw ||
-            c1.fh != c2.fh;
 }
 
 static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
@@ -874,6 +1102,7 @@ static void exynos5_config_overlay(hwc_layer_1_t *layer, s3c_fb_win_config &cfg,
 
 static void exynos5_post_callback(void *data, private_handle_t *fb)
 {
+    hwc_layer_1_t *hdmi_layer = NULL;
     exynos5_hwc_post_data_t *pdata = (exynos5_hwc_post_data_t *)data;
 
     struct s3c_fb_win_config_data win_data;
@@ -939,6 +1168,9 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
                         WIDTH(layer.displayFrame), HEIGHT(layer.displayFrame) };
                 exynos5_config_handle(dst_handle, sourceCrop,
                         layer.displayFrame, layer.blending, config[i]);
+
+                if (handle->flags & GRALLOC_USAGE_EXTERNAL_DISP)
+                    hdmi_layer = &layer;
             }
             else {
                 exynos5_config_overlay(&layer, config[i],
@@ -972,8 +1204,17 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
         }
     }
 
-    if (pdata->pdev->hdmi_mirroring)
-        hdmi_output(pdata->pdev, fb);
+    if (pdata->pdev->hdmi_enabled) {
+        if (hdmi_layer) {
+            private_handle_t *handle =
+                    private_handle_t::dynamicCast(hdmi_layer->handle);
+            hdmi_configure_layer(pdata->pdev, *hdmi_layer);
+            hdmi_output(pdata->pdev, handle);
+        } else {
+            hdmi_configure_handle(pdata->pdev, fb);
+            hdmi_output(pdata->pdev, fb);
+        }
+    }
 
     pthread_mutex_lock(&pdata->completion_lock);
     pdata->fence = win_data.fence;
@@ -1134,7 +1375,7 @@ static void handle_hdmi_uevent(struct exynos5_hwc_composer_device_1_t *pdev,
 
     ALOGV("HDMI HPD changed to %s", pdev->hdmi_hpd ? "enabled" : "disabled");
     if (pdev->hdmi_hpd)
-        ALOGI("HDMI Resolution changed to %dx%d", pdev->hdmi_cfg.h, pdev->hdmi_cfg.w);
+        ALOGI("HDMI Resolution changed to %dx%d", pdev->hdmi_h, pdev->hdmi_w);
 
     /* hwc_dev->procs is set right after the device is opened, but there is
      * still a race condition where a hotplug event might occur after the open
@@ -1244,10 +1485,9 @@ static void exynos5_dump(hwc_composer_device_1* dev, char *buff, int buff_len)
 
     android::String8 result;
 
-    result.appendFormat("  hdmi_mirroring=%u\n", pdev->hdmi_mirroring);
-    if (pdev->hdmi_mirroring)
-        result.appendFormat("    w=%u, h=%u\n", pdev->hdmi_cfg.w,
-                pdev->hdmi_cfg.h);
+    result.appendFormat("  hdmi_enabled=%u\n", pdev->hdmi_enabled);
+    if (pdev->hdmi_enabled)
+        result.appendFormat("    w=%u, h=%u\n", pdev->hdmi_w, pdev->hdmi_h);
     result.append(
             "   type   |  handle  |  color   | blend | format |   position    |     size      | gsc \n"
             "----------+----------|----------+-------+--------+---------------+---------------------\n");
@@ -1324,18 +1564,32 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
         goto err_open_fb;
     }
 
-    dev->hdmi_fd = open("/dev/video16", O_RDWR);
-    if (dev->hdmi_fd < 0) {
-        ALOGE("failed to open hdmi device");
-        ret = dev->hdmi_fd;
+    dev->hdmi_mixer0 = open("/dev/v4l-subdev7", O_RDWR);
+    if (dev->hdmi_layer0 < 0) {
+        ALOGE("failed to open hdmi mixer0 subdev");
+        ret = dev->hdmi_layer0;
         goto err_ioctl;
+    }
+
+    dev->hdmi_layer0 = open("/dev/video16", O_RDWR);
+    if (dev->hdmi_layer0 < 0) {
+        ALOGE("failed to open hdmi layer0 device");
+        ret = dev->hdmi_layer0;
+        goto err_mixer0;
+    }
+
+    dev->hdmi_layer1 = open("/dev/video17", O_RDWR);
+    if (dev->hdmi_layer1 < 0) {
+        ALOGE("failed to open hdmi layer1 device");
+        ret = dev->hdmi_layer1;
+        goto err_hdmi0;
     }
 
     dev->vsync_fd = open("/sys/devices/platform/exynos5-fb.1/vsync", O_RDONLY);
     if (dev->vsync_fd < 0) {
         ALOGE("failed to open vsync attribute");
         ret = dev->vsync_fd;
-        goto err_hdmi;
+        goto err_hdmi1;
     }
 
     sw_fd = open("/sys/class/switch/hdmi/state", O_RDONLY);
@@ -1373,8 +1627,12 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
 
 err_vsync:
     close(dev->vsync_fd);
-err_hdmi:
-    close(dev->hdmi_fd);
+err_mixer0:
+    close(dev->hdmi_mixer0);
+err_hdmi1:
+    close(dev->hdmi_layer0);
+err_hdmi0:
+    close(dev->hdmi_layer1);
 err_ioctl:
     close(dev->fd);
 err_open_fb:
@@ -1399,7 +1657,9 @@ static int exynos5_close(hw_device_t *device)
     }
     gralloc_close(dev->alloc_device);
     close(dev->vsync_fd);
-    close(dev->hdmi_fd);
+    close(dev->hdmi_mixer0);
+    close(dev->hdmi_layer0);
+    close(dev->hdmi_layer1);
     close(dev->fd);
     return 0;
 }
