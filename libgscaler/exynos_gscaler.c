@@ -1425,8 +1425,13 @@ int exynos_gsc_out_config(void *handle,
     /* set format: src pad of GSC sub-dev*/
     sd_fmt.pad   = GSCALER_SUBDEV_PAD_SOURCE;
     sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-    sd_fmt.format.width  = gsc_handle->dst_img.fw;
-    sd_fmt.format.height = gsc_handle->dst_img.fh;
+    if (gsc_handle->out_mode == GSC_OUT_FIMD) {
+        sd_fmt.format.width  = gsc_handle->dst_img.fw;
+        sd_fmt.format.height = gsc_handle->dst_img.fh;
+    } else {
+        sd_fmt.format.width  = gsc_handle->dst_img.w;
+        sd_fmt.format.height = gsc_handle->dst_img.h;
+    }
     sd_fmt.format.code   = rgb ? V4L2_MBUS_FMT_XRGB8888_4X8_LE :
                                     V4L2_MBUS_FMT_YUV8_1X24;
     if (exynos_subdev_s_fmt(gsc_handle->gsc_sd_entity->fd, &sd_fmt) < 0) {
@@ -1437,10 +1442,17 @@ int exynos_gsc_out_config(void *handle,
     /* set crop: src crop of GSC sub-dev*/
     sd_crop.pad   = GSCALER_SUBDEV_PAD_SOURCE;
     sd_crop.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-    sd_crop.rect.left   = gsc_handle->dst_img.x;
-    sd_crop.rect.top    = gsc_handle->dst_img.y;
-    sd_crop.rect.width  = gsc_handle->dst_img.w;
-    sd_crop.rect.height = gsc_handle->dst_img.h;
+    if (gsc_handle->out_mode == GSC_OUT_FIMD) {
+        sd_crop.rect.left   = gsc_handle->dst_img.x;
+        sd_crop.rect.top    = gsc_handle->dst_img.y;
+        sd_crop.rect.width  = gsc_handle->dst_img.w;
+        sd_crop.rect.height = gsc_handle->dst_img.h;
+    } else {
+        sd_crop.rect.left   = 0;
+        sd_crop.rect.top    = 0;
+        sd_crop.rect.width  = gsc_handle->dst_img.w;
+        sd_crop.rect.height = gsc_handle->dst_img.h;
+    }
     if (exynos_subdev_s_crop(gsc_handle->gsc_sd_entity->fd, &sd_crop) < 0) {
             ALOGE("%s::GSC subdev set crop failed", __func__);
             return -1;
@@ -1448,14 +1460,17 @@ int exynos_gsc_out_config(void *handle,
 
     /* sink pad is connected to GSC out */
     /*  set format: sink sub-dev */
-    if (gsc_handle->out_mode == GSC_OUT_FIMD)
+    if (gsc_handle->out_mode == GSC_OUT_FIMD) {
         sd_fmt.pad   = FIMD_SUBDEV_PAD_SINK;
-    else
+        sd_fmt.format.width  = gsc_handle->dst_img.w;
+        sd_fmt.format.height = gsc_handle->dst_img.h;
+    } else {
         sd_fmt.pad   = MIXER_V_SUBDEV_PAD_SINK;
+        sd_fmt.format.width  = gsc_handle->dst_img.w + gsc_handle->dst_img.x*2;
+        sd_fmt.format.height = gsc_handle->dst_img.h + gsc_handle->dst_img.y*2;
+    }
 
     sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-    sd_fmt.format.width  = gsc_handle->dst_img.w;
-    sd_fmt.format.height = gsc_handle->dst_img.h;
     sd_fmt.format.code   = rgb ? V4L2_MBUS_FMT_XRGB8888_4X8_LE :
                                     V4L2_MBUS_FMT_YUV8_1X24;
     if (exynos_subdev_s_fmt(gsc_handle->sink_sd_entity->fd, &sd_fmt) < 0) {
@@ -1470,13 +1485,43 @@ int exynos_gsc_out_config(void *handle,
         sd_crop.pad   = MIXER_V_SUBDEV_PAD_SINK;
 
     sd_crop.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-    sd_crop.rect.left   = gsc_handle->dst_img.x;
-    sd_crop.rect.top    = gsc_handle->dst_img.y;
-    sd_crop.rect.width  = gsc_handle->dst_img.w;
-    sd_crop.rect.height = gsc_handle->dst_img.h;
+    if (gsc_handle->out_mode == GSC_OUT_FIMD) {
+        sd_crop.rect.left   = gsc_handle->dst_img.x;
+        sd_crop.rect.top    = gsc_handle->dst_img.y;
+        sd_crop.rect.width  = gsc_handle->dst_img.w;
+        sd_crop.rect.height = gsc_handle->dst_img.h;
+    } else {
+        sd_crop.rect.left   = 0;
+        sd_crop.rect.top    = 0;
+        sd_crop.rect.width  = gsc_handle->dst_img.w;
+        sd_crop.rect.height = gsc_handle->dst_img.h;
+    }
     if (exynos_subdev_s_crop(gsc_handle->sink_sd_entity->fd, &sd_crop) < 0) {
             ALOGE("%s::sink: subdev set crop failed(PAD=%d)", __func__, sd_crop.pad);
             return -1;
+    }
+
+    if (gsc_handle->out_mode != GSC_OUT_FIMD) {
+        sd_fmt.pad   = MIXER_V_SUBDEV_PAD_SOURCE;
+        sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+        sd_fmt.format.width  = gsc_handle->dst_img.w + gsc_handle->dst_img.x*2;
+        sd_fmt.format.height = gsc_handle->dst_img.h + gsc_handle->dst_img.y*2;
+        sd_fmt.format.code   = V4L2_MBUS_FMT_XRGB8888_4X8_LE;
+        if (exynos_subdev_s_fmt(gsc_handle->sink_sd_entity->fd, &sd_fmt) < 0) {
+            ALOGE("%s::sink:set format failed (PAD=%d)", __func__, sd_fmt.pad);
+            return -1;
+        }
+
+        sd_fmt.pad   = MIXER_V_SUBDEV_PAD_SOURCE;
+        sd_crop.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+        sd_crop.rect.left   = gsc_handle->dst_img.x;
+        sd_crop.rect.top    = gsc_handle->dst_img.y;
+        sd_crop.rect.width  = gsc_handle->dst_img.w;
+        sd_crop.rect.height = gsc_handle->dst_img.h;
+        if (exynos_subdev_s_crop(gsc_handle->sink_sd_entity->fd, &sd_crop) < 0) {
+            ALOGE("%s::sink: subdev set crop failed(PAD=%d)", __func__, sd_crop.pad);
+            return -1;
+        }
     }
 
     /*set GSC ctrls */
