@@ -112,6 +112,7 @@ struct exynos5_hwc_composer_device_1_t {
     int  hdmi_layer1;
     bool hdmi_hpd;
     bool hdmi_enabled;
+    bool hdmi_blanked;
     void *hdmi_gsc;
     int  hdmi_w;
     int  hdmi_h;
@@ -539,6 +540,9 @@ static int hdmi_enable(struct exynos5_hwc_composer_device_1_t *dev)
     if (dev->hdmi_enabled)
         return 0;
 
+    if (dev->hdmi_blanked)
+        return 0;
+
     dev->hdmi_gsc = exynos_gsc_create_exclusive(3, GSC_OUTPUT_MODE, GSC_OUT_TV);
     if (!dev->hdmi_gsc) {
         ALOGE("%s: exynos_gsc_create_exclusive failed", __func__);
@@ -560,8 +564,8 @@ static void hdmi_disable(struct exynos5_hwc_composer_device_1_t *dev)
 {
     if (!dev->hdmi_enabled)
         return;
-    hdmi_stop_background(dev);
     exynos_gsc_destroy(dev->hdmi_gsc);
+    hdmi_stop_background(dev);
     dev->hdmi_gsc = NULL;
     dev->hdmi_enabled = false;
 }
@@ -1470,6 +1474,12 @@ static int exynos5_blank(struct hwc_composer_device_1 *dev, int dpy, int blank)
     if (err < 0) {
         ALOGE("%sblank ioctl failed", blank ? "" : "un");
         return -errno;
+    }
+
+    if (pdev->hdmi_hpd) {
+        if (blank && !pdev->hdmi_blanked)
+            hdmi_disable(pdev);
+        pdev->hdmi_blanked = !!blank;
     }
 
     return 0;
