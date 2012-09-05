@@ -1605,8 +1605,13 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
     sw_fd = open("/sys/class/switch/hdmi/state", O_RDONLY);
     if (sw_fd) {
         char val;
-        if (read(sw_fd, &val, 1) == 1 && val == '1')
+        if (read(sw_fd, &val, 1) == 1 && val == '1') {
             dev->hdmi_hpd = true;
+            if (hdmi_get_config(dev)) {
+                ALOGE("Error reading HDMI configuration");
+                dev->hdmi_hpd = false;
+            }
+        }
     }
 
     dev->base.common.tag = HARDWARE_DEVICE_TAG;
