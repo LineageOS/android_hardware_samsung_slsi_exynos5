@@ -374,6 +374,7 @@ int V4L2_PIX_2_YUV_INFO(unsigned int v4l2_pixel_format, unsigned int * bpp, unsi
     case V4L2_PIX_FMT_NV21X:
     case V4L2_PIX_FMT_NV12M:
     case V4L2_PIX_FMT_NV21M:
+    case V4L2_PIX_FMT_NV12MT_16X16:
         *bpp    = 12;
         *planes = 2;
         break;
