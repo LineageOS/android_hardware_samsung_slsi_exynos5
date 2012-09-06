@@ -201,6 +201,7 @@ struct camera2_flash_dm {
 	uint64_t		firingTime;
 	/*1 : stable, 0 : unstable*/
 	uint32_t		firingStable;
+	uint8_t		decision;
 };
 
 struct camera2_flash_sm {
@@ -537,7 +538,9 @@ enum aa_ae_flashmode {
 	/*internal 3A can do auto flash algorithm*/
 	AA_FLASHMODE_AUTO,
 	/*internal 3A can fire flash by auto result*/
-	AA_FLASHMODE_CAPTURE
+	AA_FLASHMODE_CAPTURE,
+	/*internal 3A can control flash*/
+	AA_FLASHMODE_ON_ALWAYS
 };
 
 enum aa_ae_antibanding_mode {

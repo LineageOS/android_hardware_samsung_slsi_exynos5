@@ -132,9 +132,8 @@ enum is_flash_scenario_state {
     IS_FLASH_ON = 1,
     IS_FLASH_ON_DONE = 2,
     IS_FLASH_AUTO_AE_AWB_LOCK = 10,
-    IS_FLASH_AUTO_END,
-    IS_FLASH_AUTO_AE_AWB_LOCKED_AUTO_END,
     IS_FLASH_CAPTURE,
+    IS_FLASH_CAPTURE_WAIT,
     IS_FLASH_CAPTURE_JPEG,
     IS_FLASH_CAPTURE_END,
     IS_FLASH_MAX
@@ -144,6 +143,8 @@ enum is_af_flash_scenario_state {
     IS_FLASH_AF_ON = 1,
     IS_FLASH_AF_ON_START,
     IS_FLASH_AF_ON_DONE,
+    IS_FLASH_AF_AUTO_AE_AWB_LOCK,
+    IS_FLASH_AF_AUTO_END,
     IF_FLASH_AF_OFF,
     IS_FLASH_AF_MAX
 };
@@ -189,6 +190,28 @@ typedef struct request_manager_entry {
     int                         output_stream_count;
     bool                         dynamic_meta_vaild;
 } request_manager_entry_t;
+
+// structure related to a specific function of camera
+typedef struct flash_control_info {
+    // UI flash mode indicator
+    enum aa_aemode    i_flashMode;
+    // AF flash
+    bool        m_afFlashDoneFlg;
+    bool        m_afFlashEnableFlg;
+    int          m_afFlashCnt;
+    // Capture flash
+    bool        m_flashEnableFlg;
+    bool        m_flashCaptured;
+    int         m_flashFrameCount;
+    int         m_flashCnt;
+    int        m_flashTimeOut;
+    int        m_flashWaitCnt;
+} ctl_flash_info_t;
+
+typedef struct request_control_info {
+    ctl_flash_info_t flash;
+
+} ctl_request_info_t;
 
 class RequestManager {
 public:
@@ -558,6 +581,7 @@ class MainThread : public SignalDrivenThread {
                          camera2_shot *currentEntry);
     void            flashSetter(struct camera2_shot_ext * shot_ext);
     void            flashListener(struct camera2_shot_ext * shot_ext);
+    void            flashListenerCapture(struct camera2_shot_ext * shot_ext);
     void               *m_exynosPictureCSC;
     void               *m_exynosVideoCSC;
 
@@ -631,14 +655,7 @@ class MainThread : public SignalDrivenThread {
     int                                 m_nightCaptureFrameCnt;
     int                                 m_thumbNailW;
     int                                 m_thumbNailH;
-    bool                        m_afFlashEnableFlg;
-    int                     m_afFlashCnt;
-    bool                        m_flashEnableFlg;
-    bool                        m_flashCaptured;
-    int                     m_flashFrameCount;
-    int                     m_flashCnt;
-    int                     m_flashTimeOut;
-
+    ctl_request_info_t        m_ctlInfo;
 };
 
 }; // namespace android
