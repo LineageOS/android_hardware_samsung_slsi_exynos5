@@ -2854,6 +2854,10 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
 
             int current_scp = shot_ext->request_scp;
 
+            if (shot_ext->shot.dm.request.frameCount == 0) {
+                ALOGE("ERR(%s): dm.request.frameCount = %d", shot_ext->shot.dm.request.frameCount);
+            }
+
             cam_int_qbuf(&(m_camera_info.isp), index);
 
             usleep(10000);
@@ -3245,6 +3249,9 @@ void ExynosCameraHWInterface2::m_streamFunc0(SignalDrivenThread *self)
         nsecs_t timestamp;
         camera2_stream *frame;
 
+        int numOfUndqbuf = 0;
+        bool again = false;
+
         ALOGV("DEBUG(%s): stream(%d) processing SIGNAL_STREAM_DATA_COMING",
             __FUNCTION__,selfThread->m_index);
 
@@ -3340,6 +3347,7 @@ void ExynosCameraHWInterface2::m_streamFunc0(SignalDrivenThread *self)
                     selfRecordParms->numSvcBufsInHal--;
                 }
             }
+
             if (m_previewCbOutput && m_previewCbEnabled) {
                 ALOGV("DEBUG(%s): Entering previewcb creator, index(%d)",__FUNCTION__, selfPreviewCbParms->svcBufIndex);
 
@@ -3432,6 +3440,7 @@ void ExynosCameraHWInterface2::m_streamFunc0(SignalDrivenThread *self)
                     selfPreviewCbParms->numSvcBufsInHal--;
                 }
             }
+
             if (m_previewOutput && m_requestManager->GetSkipCnt() <= 0) {
 
                 ALOGV("** Display Preview(frameCnt:%d)", m_requestManager->GetFrameIndex());
@@ -3454,8 +3463,20 @@ void ExynosCameraHWInterface2::m_streamFunc0(SignalDrivenThread *self)
                 selfStreamParms->svcBufStatus[index] = ON_HAL;
             }
 
+            // HACK
+            if (again == false) {
+                if (exynos_v4l2_g_ctrl(currentNode->fd, V4L2_CID_IS_G_COMPLETES, &numOfUndqbuf)) {
+                    ALOGW("WARN(%s): Fail to get SCP completes, val = %d", __FUNCTION__, numOfUndqbuf);
+                } else {
+                    again = (numOfUndqbuf > 0)?true:false;
+                    if (again)
+                        ALOGW("WARN(%s): Drain SCP buf, num of undqbuf = %d", __FUNCTION__, numOfUndqbuf);
+                }
+            } else {
+                again = false;
+            }
         }
-        while (0);
+        while(again);
 
         if (m_recordOutput && m_recordingEnabled) {
             do {
@@ -3562,6 +3583,7 @@ void ExynosCameraHWInterface2::m_streamFunc0(SignalDrivenThread *self)
                     break;
                 }
             }
+
             ALOGV("DEBUG(%s): post_dequeue_buffer found(%d)", __FUNCTION__, found);
             if (!found) break;
             ALOGV("DEBUG(%s): preparing to qbuf [%d]", __FUNCTION__, checkingIndex);
