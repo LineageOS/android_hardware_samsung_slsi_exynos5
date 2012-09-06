@@ -1162,7 +1162,7 @@ int ExynosCameraHWInterface2::InitializeISPChain()
         initCameraMemory(&m_camera_info.sensor.buffer[i], m_camera_info.sensor.planes);
         m_camera_info.sensor.buffer[i].size.extS[0] = m_camera_info.sensor.width*m_camera_info.sensor.height*2;
         m_camera_info.sensor.buffer[i].size.extS[1] = 8*1024; // HACK, driver use 8*1024, should be use predefined value
-        allocCameraMemory(m_camera_info.sensor.ionClient, &m_camera_info.sensor.buffer[i], m_camera_info.sensor.planes);
+        allocCameraMemory(m_camera_info.sensor.ionClient, &m_camera_info.sensor.buffer[i], m_camera_info.sensor.planes, 1<<1);
     }
 
     m_camera_info.isp.width = m_camera_info.sensor.width;
@@ -5092,21 +5092,30 @@ int ExynosCameraHWInterface2::deleteIonClient(ion_client ionClient)
 
 int ExynosCameraHWInterface2::allocCameraMemory(ion_client ionClient, ExynosBuffer *buf, int iMemoryNum)
 {
+    return allocCameraMemory(ionClient, buf, iMemoryNum, 0);
+}
+
+int ExynosCameraHWInterface2::allocCameraMemory(ion_client ionClient, ExynosBuffer *buf, int iMemoryNum, int cacheFlag)
+{
     int ret = 0;
     int i = 0;
+    int flag = 0;
 
     if (ionClient == 0) {
         ALOGE("[%s] ionClient is zero (%d)\n", __FUNCTION__, ionClient);
         return -1;
     }
 
-    for (i=0;i<iMemoryNum;i++) {
+    for (i = 0 ; i < iMemoryNum ; i++) {
         if (buf->size.extS[i] == 0) {
             break;
         }
-
+        if (1 << i & cacheFlag)
+            flag = ION_FLAG_CACHED;
+        else
+            flag = 0;
         buf->fd.extFd[i] = ion_alloc(ionClient, \
-                                      buf->size.extS[i], 0, ION_HEAP_EXYNOS_MASK,0);
+                                      buf->size.extS[i], 0, ION_HEAP_EXYNOS_MASK, flag);
         if ((buf->fd.extFd[i] == -1) ||(buf->fd.extFd[i] == 0)) {
             ALOGE("[%s]ion_alloc(%d) failed\n", __FUNCTION__, buf->size.extS[i]);
             buf->fd.extFd[i] = -1;
@@ -5122,7 +5131,7 @@ int ExynosCameraHWInterface2::allocCameraMemory(ion_client ionClient, ExynosBuff
             freeCameraMemory(buf, iMemoryNum);
             return -1;
         }
-        ALOGV("allocCameraMem : [%d][0x%08x] size(%d)", i, (unsigned int)(buf->virt.extP[i]), buf->size.extS[i]);
+        ALOGV("allocCameraMem : [%d][0x%08x] size(%d) flag(%d)", i, (unsigned int)(buf->virt.extP[i]), buf->size.extS[i], flag);
     }
 
     return ret;
