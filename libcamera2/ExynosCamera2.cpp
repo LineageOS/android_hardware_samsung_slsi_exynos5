@@ -365,7 +365,11 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
     //TODO: sensor color calibration fields
 
     // android.flash
-    static const uint8_t flashAvailable = 1;
+    uint8_t flashAvailable;
+    if (cameraId == 0)
+        flashAvailable = 1;
+    else
+        flashAvailable = 0;
     ADD_OR_SIZE(ANDROID_FLASH_AVAILABLE, &flashAvailable, 1);
 
     static const int64_t flashChargeDuration = 0;

@@ -418,7 +418,7 @@ status_t MetadataConverter::ApplySceneModeParameters(camera_metadata_t * request
 
     default:
         dst->ctl.aa.mode = AA_CONTROL_AUTO;
-        if (dst->ctl.aa.aeMode != AA_AEMODE_LOCKED)
+        if ((dst->ctl.aa.aeMode != AA_AEMODE_LOCKED) && (dst->ctl.aa.aeMode < AA_AEMODE_ON_AUTO_FLASH))
             dst->ctl.aa.aeMode = AA_AEMODE_ON;
         dst->ctl.aa.sceneMode = AA_SCENE_MODE_UNSUPPORTED;
         dst->ctl.aa.isoMode = AA_ISOMODE_AUTO;
