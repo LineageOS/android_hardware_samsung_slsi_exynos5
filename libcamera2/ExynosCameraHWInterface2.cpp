@@ -444,7 +444,7 @@ int RequestManager::MarkProcessingRequest(ExynosBuffer* buf, int *afMode)
 
     if ((m_entryProcessingIndex == m_entryInsertionIndex)
         && (entries[m_entryProcessingIndex].status == REQUESTED || entries[m_entryProcessingIndex].status == CAPTURED)) {
-        ALOGD("## MarkProcReq skipping(request underrun) -  num(%d), insert(%d), processing(%d), frame(%d)",
+        ALOGV("## MarkProcReq skipping(request underrun) -  num(%d), insert(%d), processing(%d), frame(%d)",
          m_numOfEntries,m_entryInsertionIndex,m_entryProcessingIndex, m_entryFrameOutputIndex);
         return -1;
     }
@@ -2788,6 +2788,13 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                     lastAfRegion[2] = shot_ext->shot.ctl.aa.afRegions[2];
                     lastAfRegion[3] = shot_ext->shot.ctl.aa.afRegions[3];
                 }
+                    // clear region infos in case of CAF mode
+                    if (m_afMode == AA_AFMODE_CONTINUOUS_VIDEO || m_afMode == AA_AFMODE_CONTINUOUS_PICTURE) {
+                        shot_ext->shot.ctl.aa.afRegions[0] = lastAfRegion[0] = 0;
+                        shot_ext->shot.ctl.aa.afRegions[1] = lastAfRegion[1] = 0;
+                        shot_ext->shot.ctl.aa.afRegions[2] = lastAfRegion[2] = 0;
+                        shot_ext->shot.ctl.aa.afRegions[3] = lastAfRegion[3] = 0;
+                    }
             }
             if (m_nightCaptureCnt == 0) {
                 if (shot_ext->shot.ctl.aa.captureIntent == ANDROID_CONTROL_INTENT_STILL_CAPTURE
@@ -2937,7 +2944,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
 
         if (!m_scp_closing
             && ((matchedFrameCnt == -1) || (processingReqIndex == -1))){
-            ALOGD("make bubble shot: matchedFramcnt(%d) processingReqIndex(%d)",
+            ALOGV("make bubble shot: matchedFramcnt(%d) processingReqIndex(%d)",
                                     matchedFrameCnt, processingReqIndex);
             selfThread->SetSignal(SIGNAL_SENSOR_START_REQ_PROCESSING);
         }
