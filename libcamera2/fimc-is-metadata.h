@@ -181,10 +181,11 @@ struct camera2_sensor_sm {
 /* android.flash */
 
 enum flash_mode {
-	CAM2_FLASH_MODE_OFF = 1,
-	CAM2_FLASH_MODE_SINGLE,
-	CAM2_FLASH_MODE_TORCH,
-	CAM2_FLASH_MODE_BEST
+    CAM2_FLASH_MODE_NOP = 0,
+    CAM2_FLASH_MODE_OFF = 1,
+    CAM2_FLASH_MODE_SINGLE,
+    CAM2_FLASH_MODE_TORCH,
+    CAM2_FLASH_MODE_BEST
 };
 
 struct camera2_flash_ctl {
