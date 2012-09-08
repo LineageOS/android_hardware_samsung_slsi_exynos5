@@ -49,6 +49,7 @@ public:
     float       minFocusDistance;
     float       focalLength;
     float       aperture;
+    float       fnumber;
 
     /* FD information */
     int32_t    maxFaceCount;

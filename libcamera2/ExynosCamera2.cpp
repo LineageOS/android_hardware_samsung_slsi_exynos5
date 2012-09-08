@@ -160,6 +160,7 @@ ExynosCamera2InfoS5K4E5::ExynosCamera2InfoS5K4E5()
     minFocusDistance    = 0.1f;
     focalLength         = 3.43f;
     aperture            = 2.7f;
+    fnumber             = 2.7f;
 }
 
 ExynosCamera2InfoS5K4E5::~ExynosCamera2InfoS5K4E5()
@@ -213,6 +214,7 @@ ExynosCamera2InfoS5K6A3::ExynosCamera2InfoS5K6A3()
     minFocusDistance    = 0.0f;
     focalLength         = 2.73f;
     aperture            = 2.8f;
+    fnumber             = 2.8f;
 }
 
 ExynosCamera2InfoS5K6A3::~ExynosCamera2InfoS5K6A3()
