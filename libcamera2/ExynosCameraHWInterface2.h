@@ -131,7 +131,8 @@ int SUPPORT_THUMBNAIL_FRONT_SIZE[][2] =
 enum is_flash_scenario_state {
     IS_FLASH_ON = 1,
     IS_FLASH_ON_DONE = 2,
-    IS_FLASH_AUTO_AE_AWB_LOCK = 10,
+    IS_FLASH_AE_AWB_LOCK_WAIT = 10,
+    IS_FLASH_AUTO_WAIT = 10,
     IS_FLASH_CAPTURE,
     IS_FLASH_CAPTURE_WAIT,
     IS_FLASH_CAPTURE_JPEG,
@@ -145,6 +146,7 @@ enum is_af_flash_scenario_state {
     IS_FLASH_AF_ON_DONE,
     IS_FLASH_AF_AUTO_AE_AWB_LOCK,
     IS_FLASH_AF_AUTO_AE_AWB_LOCK_WAIT,
+    IS_FLASH_AF_AUTO_OFF_WAIT,
     IS_FLASH_AF_AUTO_END,
     IF_FLASH_AF_OFF,
     IS_FLASH_AF_MAX
@@ -586,8 +588,8 @@ class MainThread : public SignalDrivenThread {
     void            m_setExifChangedAttribute(exif_attribute_t *exifInfo, ExynosRect *rect,
                          camera2_shot *currentEntry);
     void            flashSetter(struct camera2_shot_ext * shot_ext);
-    void            flashListener(struct camera2_shot_ext * shot_ext);
-    void            flashListenerCapture(struct camera2_shot_ext * shot_ext);
+    void            flashListenerSensor(struct camera2_shot_ext * shot_ext);
+    void            flashListenerISP(struct camera2_shot_ext * shot_ext);
     void               *m_exynosPictureCSC;
     void               *m_exynosVideoCSC;
 
