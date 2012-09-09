@@ -459,7 +459,7 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
             availableFaceDetectModes,
             sizeof(availableFaceDetectModes));
 
-    m_curCameraInfo->maxFaceCount = 3;
+    m_curCameraInfo->maxFaceCount = 16;
     ADD_OR_SIZE(ANDROID_STATS_MAX_FACE_COUNT,
             &(m_curCameraInfo->maxFaceCount), 1);
 

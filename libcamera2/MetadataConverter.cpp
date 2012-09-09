@@ -531,7 +531,7 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
                 &byteData, 1))
         return NO_MEMORY;
 
-    int maxFacecount = 3;
+    int maxFacecount = 16;
     if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_MAX_FACE_COUNT,
                 &maxFacecount, 1))
         return NO_MEMORY;
