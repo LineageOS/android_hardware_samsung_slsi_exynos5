@@ -55,6 +55,8 @@
 
 namespace android {
 
+//#define EXYNOS_CAMERA_LOG
+
 //#define ENABLE_FRAME_SYNC
 #define NODE_PREFIX     "/dev/video"
 
@@ -94,6 +96,18 @@ namespace android {
 #define HAL_AFSTATE_FAILED              (6)
 #define HAL_AFSTATE_NEEDS_DETERMINATION (7)
 #define HAL_AFSTATE_PASSIVE_FOCUSED     (8)
+
+#ifdef EXYNOS_CAMERA_LOG
+#define CAM_LOGV(...) ((void)ALOG(LOG_VERBOSE, LOG_TAG, __VA_ARGS__))
+#define CAM_LOGD(...) ((void)ALOG(LOG_DEBUG, LOG_TAG, __VA_ARGS__))
+#define CAM_LOGW(...) ((void)ALOG(LOG_WARN, LOG_TAG, __VA_ARGS__))
+#define CAM_LOGE(...) ((void)ALOG(LOG_ERROR, LOG_TAG, __VA_ARGS__))
+#else
+#define CAM_LOGV(...) ((void)0)
+#define CAM_LOGD(...) ((void)0)
+#define CAM_LOGW(...) ((void)0)
+#define CAM_LOGE(...) ((void)0)
+#endif
 
 enum sensor_name {
     SENSOR_NAME_S5K3H2  = 1,
