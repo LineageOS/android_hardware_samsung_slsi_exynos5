@@ -107,6 +107,12 @@ struct exynos5_hwc_composer_device_1_t {
     const hwc_procs_t       *procs;
     pthread_t               vsync_thread;
 
+    int32_t                 xres;
+    int32_t                 yres;
+    int32_t                 xdpi;
+    int32_t                 ydpi;
+    int32_t                 vsync_period;
+
     int  hdmi_mixer0;
     int  hdmi_layer0;
     int  hdmi_layer1;
@@ -822,10 +828,9 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
         if (fb_needed) {
             hwc_rect_t fb_rect;
             fb_rect.top = fb_rect.left = 0;
-            fb_rect.right = pdev->gralloc_module->xres - 1;
-            fb_rect.bottom = pdev->gralloc_module->yres - 1;
-            pixels_left = MAX_PIXELS - pdev->gralloc_module->xres *
-                    pdev->gralloc_module->yres;
+            fb_rect.right = pdev->xres - 1;
+            fb_rect.bottom = pdev->yres - 1;
+            pixels_left = MAX_PIXELS - pdev->xres * pdev->yres;
             windows_left = NUM_HW_WINDOWS - 1;
             rects.push_back(fb_rect);
         }
@@ -1095,7 +1100,7 @@ static void exynos5_config_handle(private_handle_t *handle,
 }
 
 static void exynos5_config_overlay(hwc_layer_1_t *layer, s3c_fb_win_config &cfg,
-        const private_module_t *gralloc_module)
+        exynos5_hwc_composer_device_1_t *pdev)
 {
     if (layer->compositionType == HWC_BACKGROUND) {
         hwc_color_t color = layer->backgroundColor;
@@ -1103,8 +1108,8 @@ static void exynos5_config_overlay(hwc_layer_1_t *layer, s3c_fb_win_config &cfg,
         cfg.color = (color.r << 16) | (color.g << 8) | color.b;
         cfg.x = 0;
         cfg.y = 0;
-        cfg.w = gralloc_module->xres;
-        cfg.h = gralloc_module->yres;
+        cfg.w = pdev->xres;
+        cfg.h = pdev->yres;
         return;
     }
 
@@ -1186,8 +1191,7 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
                     hdmi_layer = &layer;
             }
             else {
-                exynos5_config_overlay(&layer, config[i],
-                        pdata->pdev->gralloc_module);
+                exynos5_config_overlay(&layer, config[i], pdata->pdev);
             }
         }
         if (i == 0 && config[i].blending != S3C_FB_BLENDING_NONE) {
@@ -1333,7 +1337,7 @@ static int exynos5_query(struct hwc_composer_device_1* dev, int what, int *value
         break;
     case HWC_VSYNC_PERIOD:
         // vsync period in nanosecond
-        value[0] = 1000000000.0 / pdev->gralloc_module->fps;
+        value[0] = pdev->vsync_period;
         break;
     default:
         // unsupported query
@@ -1552,6 +1556,7 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
         struct hw_device_t **device)
 {
     int ret;
+    int refreshRate;
     int sw_fd;
 
     if (strcmp(name, HWC_HARDWARE_COMPOSER)) {
@@ -1582,6 +1587,40 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
         ret = dev->fd;
         goto err_open_fb;
     }
+
+    struct fb_var_screeninfo info;
+    if (ioctl(dev->fd, FBIOGET_VSCREENINFO, &info) == -1) {
+        ALOGE("FBIOGET_VSCREENINFO ioctl failed: %s", strerror(errno));
+        ret = -errno;
+        goto err_ioctl;
+    }
+
+    refreshRate = 1000000000000LLU /
+        (
+         uint64_t( info.upper_margin + info.lower_margin + info.yres )
+         * ( info.left_margin  + info.right_margin + info.xres )
+         * info.pixclock
+        );
+
+    if (refreshRate == 0) {
+        ALOGW("invalid refresh rate, assuming 60 Hz");
+        refreshRate = 60;
+    }
+
+    dev->xres = info.xres;
+    dev->yres = info.yres;
+    dev->xdpi = 1000 * (info.xres * 25.4f) / info.width;
+    dev->ydpi = 1000 * (info.yres * 25.4f) / info.height;
+    dev->vsync_period  = 1000000000 / refreshRate;
+
+    ALOGV("using\n"
+          "xres         = %d px\n"
+          "yres         = %d px\n"
+          "width        = %d mm (%f dpi)\n"
+          "height       = %d mm (%f dpi)\n"
+          "refresh rate = %d Hz\n",
+          dev->xres, dev->yres, info.width, dev->xdpi / 1000.0,
+          info.height, dev->ydpi / 1000.0, refreshRate);
 
     dev->hdmi_mixer0 = open("/dev/v4l-subdev7", O_RDWR);
     if (dev->hdmi_layer0 < 0) {
