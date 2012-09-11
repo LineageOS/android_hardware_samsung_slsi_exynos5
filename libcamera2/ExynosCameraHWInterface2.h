@@ -144,6 +144,7 @@ enum is_af_flash_scenario_state {
     IS_FLASH_AF_ON_START,
     IS_FLASH_AF_ON_DONE,
     IS_FLASH_AF_AUTO_AE_AWB_LOCK,
+    IS_FLASH_AF_AUTO_AE_AWB_LOCK_WAIT,
     IS_FLASH_AF_AUTO_END,
     IF_FLASH_AF_OFF,
     IS_FLASH_AF_MAX
@@ -206,6 +207,11 @@ typedef struct flash_control_info {
     int         m_flashCnt;
     int        m_flashTimeOut;
     int        m_flashWaitCnt;
+    // Flash decision
+    // At flash auto mode only : 1 -> flash is needed, 0 -> normal case
+    bool        m_flashDecisionResult;
+    // torch indicator. this will be replaced by flashMode meta
+    bool        m_flashTorchMode;
 } ctl_flash_info_t;
 
 typedef struct request_control_info {
