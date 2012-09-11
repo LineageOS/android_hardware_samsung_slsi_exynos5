@@ -990,6 +990,7 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     dst_cfg.h = HEIGHT(layer.displayFrame);
     dst_cfg.format = HAL_PIXEL_FORMAT_BGRA_8888;
     dst_cfg.rot = layer.transform;
+    dst_cfg.drmMode = src_cfg.drmMode;
 
     ALOGV("source configuration:");
     dump_gsc_img(src_cfg);
@@ -1032,7 +1033,6 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     dst_cfg.fw = dst_handle->stride;
     dst_cfg.fh = dst_handle->vstride;
     dst_cfg.yaddr = dst_handle->fd;
-    dst_cfg.drmMode = !!(dst_handle->flags & GRALLOC_USAGE_PROTECTED);
 
     ALOGV("destination configuration:");
     dump_gsc_img(dst_cfg);
