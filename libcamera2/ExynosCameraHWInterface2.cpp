@@ -2962,7 +2962,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             int current_scp = shot_ext->request_scp;
 
             if (shot_ext->shot.dm.request.frameCount == 0) {
-                ALOGE("ERR(%s): dm.request.frameCount = %d", shot_ext->shot.dm.request.frameCount);
+                ALOGE("ERR(%s): dm.request.frameCount = %d", __FUNCTION__, shot_ext->shot.dm.request.frameCount);
             }
 
             cam_int_qbuf(&(m_camera_info.isp), index);
@@ -3573,7 +3573,7 @@ void ExynosCameraHWInterface2::m_streamFunc0(SignalDrivenThread *self)
             }
 
             // HACK
-            if (again == false) {
+            if (again == false && !(m_recordOutput && m_recordingEnabled)) {
                 if (exynos_v4l2_g_ctrl(currentNode->fd, V4L2_CID_IS_G_COMPLETES, &numOfUndqbuf)) {
                     ALOGW("WARN(%s): Fail to get SCP completes, val = %d", __FUNCTION__, numOfUndqbuf);
                 } else {
