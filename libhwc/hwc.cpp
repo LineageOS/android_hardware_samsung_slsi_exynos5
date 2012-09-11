@@ -31,6 +31,7 @@
 
 #define HWC_REMOVE_DEPRECATED_VERSIONS 1
 
+#include <cutils/compiler.h>
 #include <cutils/log.h>
 #include <hardware/gralloc.h>
 #include <hardware/hardware.h>
@@ -47,12 +48,6 @@
 #include "exynos_format.h"
 #include "exynos_v4l2.h"
 #include "s5p_tvout_v4l2.h"
-
-struct hwc_callback_entry {
-    void (*callback)(void *, private_handle_t *);
-    void *data;
-};
-typedef android::Vector<struct hwc_callback_entry> hwc_callback_queue_t;
 
 const size_t NUM_HW_WINDOWS = 5;
 const size_t NO_FB_NEEDED = NUM_HW_WINDOWS + 1;
@@ -75,15 +70,9 @@ struct exynos5_gsc_map_t {
 };
 
 struct exynos5_hwc_post_data_t {
-    exynos5_hwc_composer_device_1_t *pdev;
-    int                             overlay_map[NUM_HW_WINDOWS];
-    exynos5_gsc_map_t               gsc_map[NUM_HW_WINDOWS];
-    hwc_layer_1_t                   overlays[NUM_HW_WINDOWS];
-    int                             num_overlays;
-    size_t                          fb_window;
-    int                             fence;
-    pthread_mutex_t                 completion_lock;
-    pthread_cond_t                  completion;
+    int                 overlay_map[NUM_HW_WINDOWS];
+    exynos5_gsc_map_t   gsc_map[NUM_HW_WINDOWS];
+    size_t              fb_window;
 };
 
 const size_t NUM_GSC_DST_BUFS = 3;
@@ -128,6 +117,7 @@ struct exynos5_hwc_composer_device_1_t {
     exynos5_gsc_data_t      gsc[NUM_GSC_UNITS];
 
     struct s3c_fb_win_config last_config[NUM_HW_WINDOWS];
+    size_t                  last_fb_window;
     const void              *last_handles[NUM_HW_WINDOWS];
     exynos5_gsc_map_t       last_gsc_map[NUM_HW_WINDOWS];
 };
@@ -745,36 +735,12 @@ inline hwc_rect intersection(const hwc_rect &r1, const hwc_rect &r2)
     return i;
 }
 
-static int exynos5_prepare(hwc_composer_device_1_t *dev,
-        size_t numDisplays, hwc_display_contents_1_t** displays)
+static int exynos5_prepare_fimd(exynos5_hwc_composer_device_1_t *pdev,
+        hwc_display_contents_1_t* contents, bool force_fb)
 {
-    if (!numDisplays || !displays)
-        return 0;
+    ALOGV("preparing %u layers for FIMD", contents->numHwLayers);
 
-    ALOGV("preparing %u layers", displays[0]->numHwLayers);
-
-    exynos5_hwc_composer_device_1_t *pdev =
-            (exynos5_hwc_composer_device_1_t *)dev;
-    memset(pdev->bufs.overlays, 0, sizeof(pdev->bufs.overlays));
     memset(pdev->bufs.gsc_map, 0, sizeof(pdev->bufs.gsc_map));
-
-    bool force_fb = false;
-    if (pdev->hdmi_hpd) {
-        hdmi_enable(pdev);
-        force_fb = true;
-        for (size_t i = 0; i < displays[0]->numHwLayers; i++) {
-            hwc_layer_1_t &layer = displays[0]->hwLayers[i];
-            if (layer.flags & HWC_SKIP_LAYER)
-                continue;
-            private_handle_t *handle = private_handle_t::dynamicCast(layer.handle);
-            if (handle->flags & GRALLOC_USAGE_EXTERNAL_DISP) {
-                force_fb = false;
-                break;
-            }
-        }
-    } else {
-        hdmi_disable(pdev);
-    }
 
     for (size_t i = 0; i < NUM_HW_WINDOWS; i++)
         pdev->bufs.overlay_map[i] = -1;
@@ -783,19 +749,24 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
     size_t first_fb = 0, last_fb = 0;
 
     // find unsupported overlays
-    for (size_t i = 0; i < displays[0]->numHwLayers; i++) {
-        hwc_layer_1_t &layer = displays[0]->hwLayers[i];
+    for (size_t i = 0; i < contents->numHwLayers; i++) {
+        hwc_layer_1_t &layer = contents->hwLayers[i];
 
-        if (layer.compositionType == HWC_BACKGROUND && !force_fb) {
-            ALOGV("\tlayer %u: background supported", i);
-            dump_layer(&displays[0]->hwLayers[i]);
+        if (layer.compositionType == HWC_FRAMEBUFFER_TARGET) {
+            ALOGV("\tlayer %u: framebuffer target", i);
             continue;
         }
 
-        if (exynos5_supports_overlay(displays[0]->hwLayers[i], i) && !force_fb) {
+        if (layer.compositionType == HWC_BACKGROUND && !force_fb) {
+            ALOGV("\tlayer %u: background supported", i);
+            dump_layer(&contents->hwLayers[i]);
+            continue;
+        }
+
+        if (exynos5_supports_overlay(contents->hwLayers[i], i) && !force_fb) {
             ALOGV("\tlayer %u: overlay supported", i);
             layer.compositionType = HWC_OVERLAY;
-            dump_layer(&displays[0]->hwLayers[i]);
+            dump_layer(&contents->hwLayers[i]);
             continue;
         }
 
@@ -806,13 +777,13 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
         last_fb = i;
         layer.compositionType = HWC_FRAMEBUFFER;
 
-        dump_layer(&displays[0]->hwLayers[i]);
+        dump_layer(&contents->hwLayers[i]);
     }
 
     // can't composite overlays sandwiched between framebuffers
     if (fb_needed)
         for (size_t i = first_fb; i < last_fb; i++)
-            displays[0]->hwLayers[i].compositionType = HWC_FRAMEBUFFER;
+            contents->hwLayers[i].compositionType = HWC_FRAMEBUFFER;
 
     // Incrementally try to add our supported layers to hardware windows.
     // If adding a layer would violate a hardware constraint, force it
@@ -843,9 +814,10 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
 
         changed = false;
 
-        for (size_t i = 0; i < displays[0]->numHwLayers; i++) {
-            hwc_layer_1_t &layer = displays[0]->hwLayers[i];
-            if (layer.flags & HWC_SKIP_LAYER)
+        for (size_t i = 0; i < contents->numHwLayers; i++) {
+            hwc_layer_1_t &layer = contents->hwLayers[i];
+            if ((layer.flags & HWC_SKIP_LAYER) ||
+                    layer.compositionType == HWC_FRAMEBUFFER_TARGET)
                 continue;
 
             private_handle_t *handle = private_handle_t::dynamicCast(
@@ -908,14 +880,14 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
 
         if (changed)
             for (size_t i = first_fb; i < last_fb; i++)
-                displays[0]->hwLayers[i].compositionType = HWC_FRAMEBUFFER;
+                contents->hwLayers[i].compositionType = HWC_FRAMEBUFFER;
     } while(changed);
 
     unsigned int nextWindow = 0;
     int nextGsc = 0;
 
-    for (size_t i = 0; i < displays[0]->numHwLayers; i++) {
-        hwc_layer_1_t &layer = displays[0]->hwLayers[i];
+    for (size_t i = 0; i < contents->numHwLayers; i++) {
+        hwc_layer_1_t &layer = contents->hwLayers[i];
 
         if (fb_needed && i == first_fb) {
             ALOGV("assigning framebuffer to window %u\n",
@@ -924,7 +896,8 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
             continue;
         }
 
-        if (layer.compositionType != HWC_FRAMEBUFFER) {
+        if (layer.compositionType != HWC_FRAMEBUFFER &&
+                layer.compositionType != HWC_FRAMEBUFFER_TARGET) {
             ALOGV("assigning layer %u to window %u", i, nextWindow);
             pdev->bufs.overlay_map[nextWindow] = i;
             if (layer.compositionType == HWC_OVERLAY) {
@@ -953,6 +926,50 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
         pdev->bufs.fb_window = first_fb;
     else
         pdev->bufs.fb_window = NO_FB_NEEDED;
+
+    return 0;
+}
+
+static int exynos5_prepare_hdmi(exynos5_hwc_composer_device_1_t *pdev,
+        hwc_display_contents_1_t* contents)
+{
+    ALOGE("exynos5_prepare_hdmi() not implemented");
+    return -EINVAL;
+}
+
+static int exynos5_prepare(hwc_composer_device_1_t *dev,
+        size_t numDisplays, hwc_display_contents_1_t** displays)
+{
+    if (!numDisplays || !displays)
+        return 0;
+
+    exynos5_hwc_composer_device_1_t *pdev =
+            (exynos5_hwc_composer_device_1_t *)dev;
+    hwc_display_contents_1_t *fimd_contents = displays[HWC_DISPLAY_PRIMARY];
+    hwc_display_contents_1_t *hdmi_contents = displays[HWC_DISPLAY_EXTERNAL];
+
+    if (pdev->hdmi_hpd) {
+        hdmi_enable(pdev);
+    } else {
+        hdmi_disable(pdev);
+    }
+
+    if (fimd_contents) {
+        bool force_fb = pdev->hdmi_enabled && !hdmi_contents;
+        int err = exynos5_prepare_fimd(pdev, fimd_contents, force_fb);
+        if (err)
+            return err;
+    }
+
+    if (hdmi_contents) {
+        if (!pdev->hdmi_enabled) {
+            ALOGE("HDMI disabled; can't prepare contents of external display");
+            return -EINVAL;
+        }
+        int err = exynos5_prepare_hdmi(pdev, hdmi_contents);
+        if (err)
+            return err;
+    }
 
     return 0;
 }
@@ -1118,20 +1135,19 @@ static void exynos5_config_overlay(hwc_layer_1_t *layer, s3c_fb_win_config &cfg,
             layer->blending, cfg);
 }
 
-static void exynos5_post_callback(void *data, private_handle_t *fb)
+static int exynos5_post_fimd(exynos5_hwc_composer_device_1_t *pdev,
+        hwc_display_contents_1_t* contents, hwc_layer_1_t *fb_layer,
+        bool hdmi_mirroring)
 {
-    hwc_layer_1_t *hdmi_layer = NULL;
-    exynos5_hwc_post_data_t *pdata = (exynos5_hwc_post_data_t *)data;
-
+    exynos5_hwc_post_data_t *pdata = &pdev->bufs;
     struct s3c_fb_win_config_data win_data;
     struct s3c_fb_win_config *config = win_data.config;
     memset(config, 0, sizeof(win_data.config));
 
     for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
-        if ( pdata->overlay_map[i] != -1) {
-            hwc_layer_1_t &layer = pdata->overlays[i];
-            private_handle_t *handle =
-                    private_handle_t::dynamicCast(layer.handle);
+        int layer_idx = pdata->overlay_map[i];
+        if (layer_idx != -1) {
+            hwc_layer_1_t &layer = contents->hwLayers[layer_idx];
 
             if (layer.acquireFenceFd != -1) {
                 int err = sync_wait(layer.acquireFenceFd, 100);
@@ -1143,26 +1159,22 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
 
             if (pdata->gsc_map[i].mode == exynos5_gsc_map_t::GSC_M2M) {
                 int gsc_idx = pdata->gsc_map[i].idx;
-                exynos5_config_gsc_m2m(layer, pdata->pdev->alloc_device,
-                        &pdata->pdev->gsc[gsc_idx], gsc_idx);
+                exynos5_config_gsc_m2m(layer, pdev->alloc_device,
+                        &pdev->gsc[gsc_idx], gsc_idx);
             }
         }
     }
 
     for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
-        if (i == pdata->fb_window) {
-            hwc_rect_t rect = { 0, 0, fb->width, fb->height };
-            int32_t blending = (i == 0) ? HWC_BLENDING_NONE :
-                    HWC_BLENDING_PREMULT;
-            exynos5_config_handle(fb, rect, rect, blending, config[i]);
-        } else if ( pdata->overlay_map[i] != -1) {
-            hwc_layer_1_t &layer = pdata->overlays[i];
+        int layer_idx = pdata->overlay_map[i];
+        if (layer_idx != -1) {
+            hwc_layer_1_t &layer = contents->hwLayers[layer_idx];
             private_handle_t *handle =
                     private_handle_t::dynamicCast(layer.handle);
 
             if (pdata->gsc_map[i].mode == exynos5_gsc_map_t::GSC_M2M) {
                 int gsc_idx = pdata->gsc_map[i].idx;
-                exynos5_gsc_data_t &gsc = pdata->pdev->gsc[gsc_idx];
+                exynos5_gsc_data_t &gsc = pdev->gsc[gsc_idx];
 
                 if (!gsc.gsc) {
                     ALOGE("failed to queue gscaler %u input for layer %u",
@@ -1186,12 +1198,8 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
                         WIDTH(layer.displayFrame), HEIGHT(layer.displayFrame) };
                 exynos5_config_handle(dst_handle, sourceCrop,
                         layer.displayFrame, layer.blending, config[i]);
-
-                if (handle->flags & GRALLOC_USAGE_EXTERNAL_DISP)
-                    hdmi_layer = &layer;
-            }
-            else {
-                exynos5_config_overlay(&layer, config[i], pdata->pdev);
+            } else {
+                exynos5_config_overlay(&layer, config[i], pdev);
             }
         }
         if (i == 0 && config[i].blending != S3C_FB_BLENDING_NONE) {
@@ -1203,117 +1211,113 @@ static void exynos5_post_callback(void *data, private_handle_t *fb)
         dump_config(config[i]);
     }
 
-    int ret = ioctl(pdata->pdev->fd, S3CFB_WIN_CONFIG, &win_data);
-    if (ret < 0)
-        ALOGE("ioctl S3CFB_WIN_CONFIG failed: %d", errno);
-    else {
-        memcpy(pdata->pdev->last_config, &win_data.config,
-                sizeof(win_data.config));
-        memcpy(pdata->pdev->last_gsc_map, pdata->gsc_map,
-                sizeof(pdata->gsc_map));
-        for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
-            if (i == pdata->fb_window) {
-                pdata->pdev->last_handles[i] = NULL;
-            } else if (pdata->overlay_map[i] != -1) {
-                hwc_layer_1_t &layer = pdata->overlays[i];
-                pdata->pdev->last_handles[i] = layer.handle;
+    int ret = ioctl(pdev->fd, S3CFB_WIN_CONFIG, &win_data);
+    if (ret < 0) {
+        ALOGE("ioctl S3CFB_WIN_CONFIG failed: %s", strerror(errno));
+        return ret;
+    }
+
+    memcpy(pdev->last_config, &win_data.config, sizeof(win_data.config));
+    memcpy(pdev->last_gsc_map, pdata->gsc_map, sizeof(pdata->gsc_map));
+    pdev->last_fb_window = pdata->fb_window;
+    for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
+        int layer_idx = pdata->overlay_map[i];
+        if (layer_idx != -1) {
+            hwc_layer_1_t &layer = contents->hwLayers[layer_idx];
+            pdev->last_handles[i] = layer.handle;
+        }
+    }
+
+    if (hdmi_mirroring) {
+        private_handle_t *fb = private_handle_t::dynamicCast(fb_layer->handle);
+        hdmi_configure_handle(pdev, fb);
+        hdmi_output(pdev, fb);
+    }
+
+    return win_data.fence;
+}
+
+static int exynos5_set_fimd(exynos5_hwc_composer_device_1_t *pdev,
+        hwc_display_contents_1_t* contents, bool hdmi_mirroring)
+{
+    if (!contents->dpy || !contents->sur)
+        return 0;
+
+    hwc_layer_1_t *fb_layer = NULL;
+
+    if (pdev->bufs.fb_window != NO_FB_NEEDED) {
+        for (size_t i = 0; i < contents->numHwLayers; i++) {
+            if (contents->hwLayers[i].compositionType ==
+                    HWC_FRAMEBUFFER_TARGET) {
+                pdev->bufs.overlay_map[pdev->bufs.fb_window] = i;
+                fb_layer = &contents->hwLayers[i];
+                break;
             }
         }
+
+        if (CC_UNLIKELY(!fb_layer)) {
+            ALOGE("framebuffer target expected, but not provided");
+            return -EINVAL;
+        }
+
+        ALOGV("framebuffer target buffer:");
+        dump_layer(fb_layer);
     }
 
-    if (pdata->pdev->hdmi_enabled) {
-        if (hdmi_layer) {
-            private_handle_t *handle =
-                    private_handle_t::dynamicCast(hdmi_layer->handle);
-            hdmi_configure_layer(pdata->pdev, *hdmi_layer);
-            hdmi_output(pdata->pdev, handle);
-        } else {
-            hdmi_configure_handle(pdata->pdev, fb);
-            hdmi_output(pdata->pdev, fb);
+    int fence = exynos5_post_fimd(pdev, contents, fb_layer, hdmi_mirroring);
+    if (fence < 0)
+        return fence;
+
+    for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
+        if (pdev->bufs.overlay_map[i] != -1) {
+            hwc_layer_1_t &layer =
+                    contents->hwLayers[pdev->bufs.overlay_map[i]];
+            int dup_fd = dup(fence);
+            if (dup_fd < 0)
+                ALOGW("release fence dup failed: %s", strerror(errno));
+            layer.releaseFenceFd = dup_fd;
         }
     }
+    close(fence);
 
-    pthread_mutex_lock(&pdata->completion_lock);
-    pdata->fence = win_data.fence;
-    pthread_cond_signal(&pdata->completion);
-    pthread_mutex_unlock(&pdata->completion_lock);
+    return 0;
+}
+
+static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
+        hwc_display_contents_1_t* contents)
+{
+    ALOGE("exynos5_set_hdmi() not implemented");
+    return -EINVAL;
 }
 
 static int exynos5_set(struct hwc_composer_device_1 *dev,
         size_t numDisplays, hwc_display_contents_1_t** displays)
 {
-    exynos5_hwc_composer_device_1_t *pdev =
-            (exynos5_hwc_composer_device_1_t *)dev;
-
-    if (!numDisplays || !displays || !displays[0] || !displays[0]->dpy || !displays[0]->sur)
+    if (!numDisplays || !displays)
         return 0;
 
-    hwc_callback_queue_t *queue = NULL;
-    pthread_mutex_t *lock = NULL;
-    exynos5_hwc_post_data_t *data = NULL;
+    exynos5_hwc_composer_device_1_t *pdev =
+            (exynos5_hwc_composer_device_1_t *)dev;
+    hwc_display_contents_1_t *fimd_contents = displays[HWC_DISPLAY_PRIMARY];
+    hwc_display_contents_1_t *hdmi_contents = displays[HWC_DISPLAY_EXTERNAL];
 
-    for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
-        if (pdev->bufs.overlay_map[i] != -1) {
-            pdev->bufs.overlays[i] =
-                displays[0]->hwLayers[pdev->bufs.overlay_map[i]];
-        }
+    if (fimd_contents) {
+        bool hdmi_mirroring = pdev->hdmi_enabled && !hdmi_contents;
+        int err = exynos5_set_fimd(pdev, fimd_contents, hdmi_mirroring);
+        if (err)
+            return err;
     }
 
-    data = (exynos5_hwc_post_data_t *)
-            malloc(sizeof(exynos5_hwc_post_data_t));
-    memcpy(data, &pdev->bufs, sizeof(pdev->bufs));
-
-    data->fence = -1;
-    pthread_mutex_init(&data->completion_lock, NULL);
-    pthread_cond_init(&data->completion, NULL);
-
-    if (displays[0]->numHwLayers && pdev->bufs.fb_window == NO_FB_NEEDED) {
-        exynos5_post_callback(data, NULL);
-    } else {
-
-        struct hwc_callback_entry entry;
-        entry.callback = exynos5_post_callback;
-        entry.data = data;
-
-        queue = reinterpret_cast<hwc_callback_queue_t *>(
-            pdev->gralloc_module->queue);
-        lock = const_cast<pthread_mutex_t *>(
-            &pdev->gralloc_module->queue_lock);
-
-        pthread_mutex_lock(lock);
-        queue->push_front(entry);
-        pthread_mutex_unlock(lock);
-
-        EGLBoolean success = eglSwapBuffers((EGLDisplay)displays[0]->dpy,
-                (EGLSurface)displays[0]->sur);
-        if (!success) {
-            ALOGE("HWC_EGL_ERROR");
-            if (displays[0]) {
-                pthread_mutex_lock(lock);
-                queue->removeAt(0);
-                pthread_mutex_unlock(lock);
-                free(data);
-            }
-            return HWC_EGL_ERROR;
+    if (hdmi_contents) {
+        if (!pdev->hdmi_enabled) {
+            ALOGE("HDMI disabled; can't set contents of external display");
+            return -EINVAL;
         }
+        int err = exynos5_set_hdmi(pdev, hdmi_contents);
+        if (err)
+            return err;
     }
 
-
-    pthread_mutex_lock(&data->completion_lock);
-    while (data->fence == -1)
-        pthread_cond_wait(&data->completion, &data->completion_lock);
-    pthread_mutex_unlock(&data->completion_lock);
-
-    for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
-        if (pdev->bufs.overlay_map[i] != -1) {
-            int dup_fd = dup(data->fence);
-            if (dup_fd < 0)
-                ALOGW("release fence dup failed: %s", strerror(errno));
-            displays[0]->hwLayers[pdev->bufs.overlay_map[i]].releaseFenceFd = dup_fd;
-        }
-    }
-    close(data->fence);
-    free(data);
     return 0;
 }
 
@@ -1526,15 +1530,11 @@ static void exynos5_dump(hwc_composer_device_1* dev, char *buff, int buff_len)
             if (config.state == config.S3C_FB_WIN_STATE_COLOR)
                 result.appendFormat(" %8s | %8s | %8x | %5s | %6s", "COLOR",
                         "-", config.color, "-", "-");
-            else {
-                if (pdev->last_handles[i])
-                    result.appendFormat(" %8s | %8x", "OVERLAY", intptr_t(pdev->last_handles[i]));
-                else
-                    result.appendFormat(" %8s | %8s", "FB", "-");
-
-                result.appendFormat(" | %8s | %5x | %6x", "-", config.blending,
-                        config.format);
-            }
+            else
+                result.appendFormat(" %8s | %8x | %8s | %5x | %6x",
+                        pdev->last_fb_window == i ? "FB" : "OVERLAY",
+                        intptr_t(pdev->last_handles[i]),
+                        "-", config.blending, config.format);
 
             result.appendFormat(" | [%5d,%5d] | [%5u,%5u]", config.x, config.y,
                     config.w, config.h);
@@ -1548,6 +1548,101 @@ static void exynos5_dump(hwc_composer_device_1* dev, char *buff, int buff_len)
     }
 
     strlcpy(buff, result.string(), buff_len);
+}
+
+static int exynos5_getDisplayConfigs(struct hwc_composer_device_1 *dev,
+        int disp, uint32_t *configs, size_t *numConfigs)
+{
+    struct exynos5_hwc_composer_device_1_t *pdev =
+               (struct exynos5_hwc_composer_device_1_t *)dev;
+
+    if (*numConfigs == 0)
+        return 0;
+
+    if (disp == HWC_DISPLAY_PRIMARY) {
+        configs[0] = 0;
+        *numConfigs = 1;
+        return 0;
+    } else if (disp == HWC_DISPLAY_EXTERNAL) {
+        if (!pdev->hdmi_enabled) {
+            return -EINVAL;
+        }
+
+        int err = hdmi_get_config(pdev);
+        if (err) {
+            return -EINVAL;
+        }
+
+        configs[0] = 0;
+        *numConfigs = 1;
+        return 0;
+    }
+
+    return -EINVAL;
+}
+
+static int32_t exynos5_fimd_attribute(struct exynos5_hwc_composer_device_1_t *pdev,
+        const uint32_t attribute)
+{
+    switch(attribute) {
+    case HWC_DISPLAY_VSYNC_PERIOD:
+        return pdev->vsync_period;
+
+    case HWC_DISPLAY_WIDTH:
+        return pdev->xres;
+
+    case HWC_DISPLAY_HEIGHT:
+        return pdev->yres;
+
+    case HWC_DISPLAY_DPI_X:
+        return pdev->xdpi;
+
+    case HWC_DISPLAY_DPI_Y:
+        return pdev->ydpi;
+
+    default:
+        ALOGE("unknown display attribute %u", attribute);
+        return -EINVAL;
+    }
+}
+
+static int32_t exynos5_hdmi_attribute(struct exynos5_hwc_composer_device_1_t *pdev,
+        const uint32_t attribute)
+{
+    switch(attribute) {
+    case HWC_DISPLAY_VSYNC_PERIOD:
+        return pdev->vsync_period;
+
+    case HWC_DISPLAY_WIDTH:
+        return pdev->hdmi_w;
+
+    case HWC_DISPLAY_HEIGHT:
+        return pdev->hdmi_h;
+
+    case HWC_DISPLAY_DPI_X:
+    case HWC_DISPLAY_DPI_Y:
+        return 0; // unknown
+
+    default:
+        ALOGE("unknown display attribute %u", attribute);
+        return -EINVAL;
+    }
+}
+
+static void exynos5_getDisplayAttributes(struct hwc_composer_device_1 *dev,
+        int disp, uint32_t config, const uint32_t *attributes, int32_t *values)
+{
+    struct exynos5_hwc_composer_device_1_t *pdev =
+                   (struct exynos5_hwc_composer_device_1_t *)dev;
+
+    for (int i = 0; attributes[i] != HWC_DISPLAY_NO_ATTRIBUTE; i++) {
+        if (disp == HWC_DISPLAY_PRIMARY)
+            values[i] = exynos5_fimd_attribute(pdev, attributes[i]);
+        else if (disp == HWC_DISPLAY_EXTERNAL)
+            values[i] = exynos5_hdmi_attribute(pdev, attributes[i]);
+        else
+            ALOGE("unknown display type %u", disp);
+    }
 }
 
 static int exynos5_close(hw_device_t* device);
@@ -1663,7 +1758,7 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
     }
 
     dev->base.common.tag = HARDWARE_DEVICE_TAG;
-    dev->base.common.version = HWC_DEVICE_API_VERSION_1_0;
+    dev->base.common.version = HWC_DEVICE_API_VERSION_1_1;
     dev->base.common.module = const_cast<hw_module_t *>(module);
     dev->base.common.close = exynos5_close;
 
@@ -1674,8 +1769,8 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
     dev->base.query = exynos5_query;
     dev->base.registerProcs = exynos5_registerProcs;
     dev->base.dump = exynos5_dump;
-
-    dev->bufs.pdev = dev;
+    dev->base.getDisplayConfigs = exynos5_getDisplayConfigs;
+    dev->base.getDisplayAttributes = exynos5_getDisplayAttributes;
 
     *device = &dev->base.common;
 
