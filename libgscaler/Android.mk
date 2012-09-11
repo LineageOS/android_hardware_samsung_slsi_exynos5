@@ -24,7 +24,7 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/../include \
 	$(LOCAL_PATH)/../libexynosutils
 
-LOCAL_SRC_FILES := exynos_gscaler.c
+LOCAL_SRC_FILES := exynos_gscaler.c exynos_gsc_constraints.c
 
 LOCAL_MODULE_TAGS := eng
 LOCAL_MODULE := libexynosgscaler
