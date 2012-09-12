@@ -25,7 +25,11 @@
 #define ION_HEAP_SYSTEM_CONTIG_MASK     (1 << 1)
 #define ION_HEAP_EXYNOS_CONTIG_MASK     (1 << 4)
 #define ION_HEAP_EXYNOS_MASK            (1 << 5)
-#define ION_EXYNOS_VIDEO_MASK           (1 << 29)
+#define ION_EXYNOS_FIMD_VIDEO_MASK    (1 << 28)
+#define ION_EXYNOS_GSC_MASK		(1 << 27)
+#define ION_EXYNOS_MFC_OUTPUT_MASK    (1 << 26)
+#define ION_EXYNOS_MFC_INPUT_MASK    (1 << 25)
+
 
 /* ION_MSYNC_FLAGS
  * values of @flags parameter to ion_msync()

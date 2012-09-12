@@ -157,7 +157,7 @@ OMX_PTR Exynos_OSAL_SharedMemory_Alloc(OMX_HANDLETYPE handle, OMX_U32 size, MEMO
     switch (memoryType) {
     case SECURE_MEMORY:
         mask = ION_HEAP_EXYNOS_CONTIG_MASK;
-        flag = ION_EXYNOS_VIDEO_MASK;
+        flag = ION_EXYNOS_MFC_INPUT_MASK;
         break;
     case NORMAL_MEMORY:
         mask = ION_HEAP_EXYNOS_MASK;
