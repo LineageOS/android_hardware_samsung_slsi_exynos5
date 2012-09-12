@@ -2682,7 +2682,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
     ALOGV("DEBUG(%s): m_sensorThreadFunc (%x)", __FUNCTION__, currentSignal);
 
     if (currentSignal & SIGNAL_THREAD_RELEASE) {
-        ALOGV("(%s): ENTER processing SIGNAL_THREAD_RELEASE", __FUNCTION__);
+        CAM_LOGD("(%s): ENTER processing SIGNAL_THREAD_RELEASE", __FUNCTION__);
 
         ALOGV("(%s): calling sensor streamoff", __FUNCTION__);
         cam_int_streamoff(&(m_camera_info.sensor));
@@ -3329,7 +3329,7 @@ void ExynosCameraHWInterface2::m_streamFunc0(SignalDrivenThread *self)
         int i, index = -1, cnt_to_dq = 0;
         status_t res;
         ALOGV("DEBUG(%s): processing SIGNAL_THREAD_RELEASE", __FUNCTION__);
-        ALOGD("(%s):(%d) SIGNAL_THREAD_RELEASE", __FUNCTION__, selfStreamParms->streamType);
+        CAM_LOGD("DEBUG(%s):(%d) SIGNAL_THREAD_RELEASE", __FUNCTION__, selfStreamParms->streamType);
 
         if (selfThread->m_isBufferInit) {
             for ( i=0 ; i < selfStreamParms->numSvcBuffers; i++) {
@@ -3790,7 +3790,7 @@ void ExynosCameraHWInterface2::m_streamFunc1(SignalDrivenThread *self)
         int i, index = -1, cnt_to_dq = 0;
         status_t res;
         ALOGV("DEBUG(%s): processing SIGNAL_THREAD_RELEASE", __FUNCTION__);
-        ALOGD("(%s):(%d) SIGNAL_THREAD_RELEASE", __FUNCTION__, selfStreamParms->streamType);
+        CAM_LOGD("DEBUG(%s):(%d) SIGNAL_THREAD_RELEASE", __FUNCTION__, selfStreamParms->streamType);
 
         if (selfThread->m_isBufferInit) {
             for ( i=0 ; i < selfStreamParms->numSvcBuffers; i++) {
@@ -4029,15 +4029,16 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
     if (selfStreamParms->streamType == STREAM_TYPE_DIRECT)
     {
         m_streamFunc0(self);
+        return;
     }
     else if (selfStreamParms->streamType == STREAM_TYPE_INDIRECT)
     {
         m_streamFunc1(self);
+        return;
     }
 
     if (currentSignal & SIGNAL_THREAD_RELEASE) {
-        ALOGV("DEBUG(%s): processing SIGNAL_THREAD_RELEASE", __FUNCTION__);
-        ALOGD("(%s):(%d) SIGNAL_THREAD_RELEASE", __FUNCTION__, selfStreamParms->streamType);
+        ALOGV("DEBUG(%s): processing SIGNAL_THREAD_RELEASE(type:%d)", __FUNCTION__, selfStreamParms->streamType);
 
         //Do something in Parent thread handler
 
