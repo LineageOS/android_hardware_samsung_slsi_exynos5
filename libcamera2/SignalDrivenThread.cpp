@@ -88,11 +88,13 @@ uint32_t SignalDrivenThread::GetProcessingSignal()
 {
     ALOGV("DEBUG(%s): Signal (%x)", __FUNCTION__, m_processingSignal);
 
+    Mutex::Autolock lock(m_signalMutex);
     return m_processingSignal;
 }
 
 bool SignalDrivenThread::IsTerminated()
 {
+    Mutex::Autolock lock(m_signalMutex);
     return m_isTerminated;
 }
 
@@ -120,6 +122,7 @@ bool SignalDrivenThread::threadLoop()
     if (m_processingSignal & SIGNAL_THREAD_TERMINATE)
     {
         ALOGD("(%s): Thread Terminating by SIGNAL", __func__);
+        Mutex::Autolock lock(m_signalMutex);
         m_isTerminated = true;
         return (false);
     }
@@ -128,6 +131,9 @@ bool SignalDrivenThread::threadLoop()
         ALOGV("DEBUG(%s):Thread Paused", __func__);
         return (true);
     }
+
+    if (m_isTerminated)
+        m_isTerminated = false;
 
     threadFunctionInternal();
     return true;
