@@ -5022,21 +5022,22 @@ void ExynosCameraHWInterface2::m_setExifFixedAttribute(void)
 
     //2 0th IFD Exif Private Tags
     //3 F Number
-    mExifInfo.fnumber.num = EXIF_DEF_FNUMBER_NUM;
+    mExifInfo.fnumber.num = (uint32_t)(m_camera2->m_curCameraInfo->fnumber * EXIF_DEF_FNUMBER_DEN);
     mExifInfo.fnumber.den = EXIF_DEF_FNUMBER_DEN;
     //3 Exposure Program
     mExifInfo.exposure_program = EXIF_DEF_EXPOSURE_PROGRAM;
     //3 Exif Version
     memcpy(mExifInfo.exif_version, EXIF_DEF_EXIF_VERSION, sizeof(mExifInfo.exif_version));
     //3 Aperture
-    uint32_t av = APEX_FNUM_TO_APERTURE((double)mExifInfo.fnumber.num/mExifInfo.fnumber.den);
-    mExifInfo.aperture.num = av*EXIF_DEF_APEX_DEN;
+    double av = APEX_FNUM_TO_APERTURE((double)mExifInfo.fnumber.num/mExifInfo.fnumber.den);
+    mExifInfo.aperture.num = (uint32_t)(av*EXIF_DEF_APEX_DEN);
     mExifInfo.aperture.den = EXIF_DEF_APEX_DEN;
     //3 Maximum lens aperture
     mExifInfo.max_aperture.num = mExifInfo.aperture.num;
     mExifInfo.max_aperture.den = mExifInfo.aperture.den;
     //3 Lens Focal Length
-    mExifInfo.focal_length.num = EXIF_DEF_FOCAL_LEN_NUM;
+    mExifInfo.focal_length.num = (uint32_t)(m_camera2->m_curCameraInfo->focalLength * 100);
+
     mExifInfo.focal_length.den = EXIF_DEF_FOCAL_LEN_DEN;
     //3 User Comments
     strcpy((char *)mExifInfo.user_comment, EXIF_DEF_USERCOMMENTS);

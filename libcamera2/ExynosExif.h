@@ -20,7 +20,7 @@
 #include <math.h>
 
 #define EXIF_LOG2(x)                    (log((double)(x)) / log(2.0))
-#define APEX_FNUM_TO_APERTURE(x)        ((int)(EXIF_LOG2((double)(x)) * 2 + 0.5))
+#define APEX_FNUM_TO_APERTURE(x)        (((EXIF_LOG2((double)(x)) * 200) + 0.5)/100)
 #define APEX_EXPOSURE_TO_SHUTTER(x)     ((x) >= 1 ?                                 \
                                         (int)(-(EXIF_LOG2((double)(x)) + 0.5)) :    \
                                         (int)(-(EXIF_LOG2((double)(x)) - 0.5)))
@@ -155,7 +155,7 @@ typedef enum {
 #define EXIF_DEF_FLASH              0   /* O: off, 1: on*/
 #define EXIF_DEF_COLOR_SPACE        1
 #define EXIF_DEF_EXPOSURE_MODE      EXIF_EXPOSURE_AUTO
-#define EXIF_DEF_APEX_DEN           10
+#define EXIF_DEF_APEX_DEN           100
 
 #define EXIF_DEF_COMPRESSION        6
 #define EXIF_DEF_RESOLUTION_NUM     72
