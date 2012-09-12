@@ -211,6 +211,16 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format,
 
     *stride = ALIGN(w, 16);
 
+    if (format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED) {
+        ALOGV("HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED : usage(%x), flags(%x)\n", usage, ion_flags);
+        if ((usage & GRALLOC_USAGE_HW_CAMERA_ZSL) == GRALLOC_USAGE_HW_CAMERA_ZSL) {
+            format = HAL_PIXEL_FORMAT_YCbCr_422_I; // YUYV
+        } else if (usage & GRALLOC_USAGE_HW_TEXTURE) {
+            format = HAL_PIXEL_FORMAT_EXYNOS_YV12;
+        } else if (usage & GRALLOC_USAGE_HW_VIDEO_ENCODER) {
+            format = HAL_PIXEL_FORMAT_YCbCr_420_SP; // NV12M
+        }
+    }
     switch (format) {
         case HAL_PIXEL_FORMAT_EXYNOS_YV12:
             {
@@ -235,6 +245,14 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format,
         case HAL_PIXEL_FORMAT_YCrCb_420_SP:
             return gralloc_alloc_framework_yuv(ionfd, w, h, format, usage,
                                                ion_flags, hnd, stride);
+        case HAL_PIXEL_FORMAT_YCbCr_422_I:
+            {
+                luma_vstride = h;
+                luma_size = luma_vstride * *stride * 2;
+                chroma_size = 0;
+                planes = 1;
+                break;
+            }
         default:
             ALOGE("invalid yuv format %d\n", format);
             return -EINVAL;
@@ -243,19 +261,24 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format,
     err = ion_alloc_fd(ionfd, luma_size, 0, heap_mask, ion_flags, &fd);
     if (err)
         return err;
-    err = ion_alloc_fd(ionfd, chroma_size, 0, heap_mask, ion_flags, &fd1);
-    if (err)
-        goto err1;
-    if (planes == 3) {
-        err = ion_alloc_fd(ionfd, chroma_size, 0, heap_mask, ion_flags, &fd2);
-        if (err)
-            goto err2;
-
-        *hnd = new private_handle_t(fd, fd1, fd2, luma_size, usage, w, h,
+    if (planes == 1) {
+        *hnd = new private_handle_t(fd, luma_size, usage, w, h,
                                     format, *stride, luma_vstride);
     } else {
-        *hnd = new private_handle_t(fd, fd1, luma_size, usage, w, h, format,
-                                    *stride, luma_vstride);
+        err = ion_alloc_fd(ionfd, chroma_size, 0, heap_mask, ion_flags, &fd1);
+        if (err)
+            goto err1;
+        if (planes == 3) {
+            err = ion_alloc_fd(ionfd, chroma_size, 0, heap_mask, ion_flags, &fd2);
+            if (err)
+                goto err2;
+
+            *hnd = new private_handle_t(fd, fd1, fd2, luma_size, usage, w, h,
+                                        format, *stride, luma_vstride);
+        } else {
+            *hnd = new private_handle_t(fd, fd1, luma_size, usage, w, h, format,
+                                        *stride, luma_vstride);
+        }
     }
     return err;
 
