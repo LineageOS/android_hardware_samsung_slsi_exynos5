@@ -44,7 +44,6 @@
  * \brief API for gscaler
  * \addtogroup Exynos
  */
-#include <stdbool.h>
 #include "Exynos_log.h"
 
 #ifndef EXYNOS_GSCALER_H_
@@ -363,28 +362,6 @@ It stops the GSC OUT streaming.
 */
 int exynos_gsc_stop_exclusive
 (void *handle);
-
-/*
- * Check whether a Gscaler can perform the transform at all.  Extra cropping
- * may be needed to align the source crop and destination scaling.
- */
-bool exynos_gsc_cfg_valid(const exynos_gsc_img *src_cfg,
-        const exynos_gsc_img *dst_cfg, bool local_path, bool check_dst_stride);
-
-/*
- * Check whether a Gscaler can perform the transform exactly as specified,
- * with no extra cropping for alignment.  exynos_gsc_cfg_aligned() assumes the
- * configuration is otherwise valid, so exynos_gsc_cfg_valid() should be called
- * to confirm before calling exynos_gsc_cfg_aligned().
- */
-bool exynos_gsc_cfg_aligned(const exynos_gsc_img *src_cfg,
-        const exynos_gsc_img *dst_cfg);
-
-/*
- * Properly align the source crop and destination scaling if needed, by cropping
- * extra pixels from the edges.
- */
-void exynos_gsc_align_cfg(exynos_gsc_img *src_cfg, exynos_gsc_img *dst_cfg);
 
 enum {
     GSC_M2M_MODE = 0,
