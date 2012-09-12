@@ -31,11 +31,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
 #include "MobiCoreRegistry.h"
 #include <stdlib.h>
 #include <dirent.h>
-#include <fstream>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <assert.h>
 #include <string>
@@ -45,7 +44,6 @@
 #include "mcSpid.h"
 #include "mcVersionHelper.h"
 
-#define LOG_TAG "McDaemon"
 #include "log.h"
 
 MC_CHECK_DATA_OBJECT_VERSION(MCLF, 2, 0);
@@ -96,15 +94,17 @@ mcResult_t mcRegistryStoreAuthToken(
     }
     const string& authTokenFilePath = getAuthTokenFilePath();
     LOG_I("store AuthToken: %s", authTokenFilePath.c_str());
-    fstream fs(authTokenFilePath.c_str(), ios_base::out | ios_base::binary);
+
+    FILE *fs = fopen(authTokenFilePath.c_str(), "wb");
     if (!fs) {
         LOG_E("mcRegistry store So.Soc failed: %d", MC_DRV_ERR_INVALID_DEVICE_FILE);
         return MC_DRV_ERR_INVALID_DEVICE_FILE;
     }
-    fs.seekg(0, ios::beg);
-    fs.write((char *)so, sizeof(mcSoAuthTokenCont_t));
-    fs.flush();
-    fs.close();
+    fseek(fs, 0, SEEK_SET);
+    fwrite((char *)so, 1, sizeof(mcSoAuthTokenCont_t), fs);
+    fflush(fs);
+    fclose(fs);
+
     return MC_DRV_OK;
 }
 
@@ -119,21 +119,23 @@ mcResult_t mcRegistryReadAuthToken(
     }
     const string& authTokenFilePath = getAuthTokenFilePath();
     LOG_I("read AuthToken: %s", authTokenFilePath.c_str());
-    fstream fs(authTokenFilePath.c_str(), ios_base::in | ios_base::binary);
+
+    FILE *fs = fopen(authTokenFilePath.c_str(), "rb");
     if (!fs) {
         LOG_E("mcRegistry read So.Soc failed: %d", MC_DRV_ERR_INVALID_DEVICE_FILE);
         return MC_DRV_ERR_INVALID_DEVICE_FILE;
     }
-    fs.seekg(0, ios::end);
-    int32_t filesize = fs.tellg();
+    fseek(fs, 0, SEEK_END);
+    int32_t filesize = ftell(fs);
     if (sizeof(mcSoAuthTokenCont_t) != filesize) {
-        fs.close();
+        fclose(fs);
         LOG_E("mcRegistry read So.Soc failed: %d", MC_DRV_ERR_OUT_OF_RESOURCES);
         return MC_DRV_ERR_OUT_OF_RESOURCES;
     }
-    fs.seekg(0, ios::beg);
-    fs.read((char *)so, sizeof(mcSoAuthTokenCont_t));
-    fs.close();
+    fseek(fs, 0, SEEK_SET);
+    fread((char *)so, 1, sizeof(mcSoAuthTokenCont_t), fs);
+    fclose(fs);
+
     return MC_DRV_OK;
 }
 
@@ -161,15 +163,17 @@ mcResult_t mcRegistryStoreRoot(
     }
     const string& rootContFilePath = getRootContFilePath();
     LOG_I("store Root: %s", rootContFilePath.c_str());
-    fstream fs(rootContFilePath.c_str(), ios_base::out | ios_base::binary);
+
+    FILE *fs = fopen(rootContFilePath.c_str(), "wb");
     if (!fs) {
         LOG_E("mcRegistry store So.Root failed: %d", MC_DRV_ERR_INVALID_DEVICE_FILE);
         return MC_DRV_ERR_INVALID_DEVICE_FILE;
     }
-    fs.seekg(0, ios::beg);
-    fs.write((char *)so, sizeof(mcSoRootCont_t));
-    fs.flush();
-    fs.close();
+    fseek(fs, 0, SEEK_SET);
+    fwrite((char *)so, 1, sizeof(mcSoRootCont_t), fs);
+    fflush(fs);
+    fclose(fs);
+
     return MC_DRV_OK;
 }
 
@@ -184,21 +188,23 @@ mcResult_t mcRegistryReadRoot(
     }
     const string& rootContFilePath = getRootContFilePath();
     LOG_I("read Root: %s", rootContFilePath.c_str());
-    fstream fs(rootContFilePath.c_str(), ios_base::in | ios_base::binary);
+
+    FILE *fs = fopen(rootContFilePath.c_str(), "rb");
     if (!fs) {
         LOG_E("mcRegistry read So.Root failed: %d", MC_DRV_ERR_INVALID_DEVICE_FILE);
         return MC_DRV_ERR_INVALID_DEVICE_FILE;
     }
-    fs.seekg(0, ios::end);
-    int32_t filesize = fs.tellg();
+    fseek(fs, 0, SEEK_END);
+    int32_t filesize = ftell(fs);
     if (sizeof(mcSoRootCont_t) != filesize) {
-        fs.close();
+        fclose(fs);
         LOG_E("mcRegistry read So.Root failed: %d", MC_DRV_ERR_OUT_OF_RESOURCES);
         return MC_DRV_ERR_OUT_OF_RESOURCES;
     }
-    fs.seekg(0, ios::beg);
-    fs.read((char *)so, sizeof(mcSoRootCont_t));
-    fs.close();
+    fseek(fs, 0, SEEK_SET);
+    fread((char *)so, 1, sizeof(mcSoRootCont_t), fs);
+    fclose(fs);
+
     return MC_DRV_OK;
 }
 
@@ -218,15 +224,17 @@ mcResult_t mcRegistryStoreSp(
     }
     const string& spContFilePath = getSpContFilePath(spid);
     LOG_I("store SP: %s", spContFilePath.c_str());
-    fstream fs(spContFilePath.c_str(), ios_base::out | ios_base::binary);
+
+    FILE *fs = fopen(spContFilePath.c_str(), "wb");
     if (!fs) {
         LOG_E("mcRegistry store So.Sp(SpId) failed: %d", MC_DRV_ERR_INVALID_DEVICE_FILE);
         return MC_DRV_ERR_INVALID_DEVICE_FILE;
     }
-    fs.seekg(0, ios::beg);
-    fs.write((char *)so, sizeof(mcSoSpCont_t));
-    fs.flush();
-    fs.close();
+    fseek(fs, 0, SEEK_SET);
+    fwrite((char *)so, 1, sizeof(mcSoSpCont_t), fs);
+    fflush(fs);
+    fclose(fs);
+
     return MC_DRV_OK;
 }
 
@@ -242,21 +250,23 @@ mcResult_t mcRegistryReadSp(
     }
     const string& spContFilePath = getSpContFilePath(spid);
     LOG_I("read SP: %s", spContFilePath.c_str());
-    fstream fs(spContFilePath.c_str(), ios_base::in | ios_base::binary);
+
+    FILE *fs = fopen(spContFilePath.c_str(), "rb");
     if (!fs) {
         LOG_E("mcRegistry read So.Sp(SpId) failed: %d", MC_DRV_ERR_INVALID_DEVICE_FILE);
         return MC_DRV_ERR_INVALID_DEVICE_FILE;
     }
-    fs.seekg(0, ios::end);
-    int32_t filesize = fs.tellg();
+    fseek(fs, 0, SEEK_END);
+    int32_t filesize = ftell(fs);
     if (sizeof(mcSoSpCont_t) != filesize) {
-        fs.close();
+        fclose(fs);
         LOG_E("mcRegistry read So.Sp(SpId) failed: %d", MC_DRV_ERR_OUT_OF_RESOURCES);
         return MC_DRV_ERR_OUT_OF_RESOURCES;
     }
-    fs.seekg(0, ios::beg);
-    fs.read((char *)so, sizeof(mcSoSpCont_t));
-    fs.close();
+    fseek(fs, 0, SEEK_SET);
+    fread((char *)so, 1, sizeof(mcSoSpCont_t), fs);
+    fclose(fs);
+
     return MC_DRV_OK;
 }
 
@@ -276,15 +286,17 @@ mcResult_t mcRegistryStoreTrustletCon(
     }
     const string& tlContFilePath = getTlContFilePath(uuid);
     LOG_I("store TLc: %s", tlContFilePath.c_str());
-    fstream fs(tlContFilePath.c_str(), ios_base::out | ios_base::binary);
+
+    FILE *fs = fopen(tlContFilePath.c_str(), "wb");
     if (!fs) {
         LOG_E("mcRegistry store So.TrustletCont(uuid) failed: %d", MC_DRV_ERR_INVALID_DEVICE_FILE);
         return MC_DRV_ERR_INVALID_DEVICE_FILE;
     }
-    fs.seekg(0, ios::beg);
-    fs.write((char *)so, sizeof(mcSoTltCont_t));
-    fs.flush();
-    fs.close();
+    fseek(fs, 0, SEEK_SET);
+    fwrite((char *)so, 1, sizeof(mcSoTltCont_t), fs);
+    fflush(fs);
+    fclose(fs);
+
     return MC_DRV_OK;
 }
 
@@ -300,21 +312,23 @@ mcResult_t mcRegistryReadTrustletCon(
     }
     const string& tlContFilePath = getTlContFilePath(uuid);
     LOG_I("read TLc: %s", tlContFilePath.c_str());
-    fstream fs(tlContFilePath.c_str(), ios_base::in | ios_base::binary);
+
+    FILE *fs = fopen(tlContFilePath.c_str(), "rb");
     if (!fs) {
         LOG_E("mcRegistry read So.TrustletCont(uuid) failed: %d", MC_DRV_ERR_INVALID_DEVICE_FILE);
         return MC_DRV_ERR_INVALID_DEVICE_FILE;
     }
-    fs.seekg(0, ios::end);
-    int32_t filesize = fs.tellg();
+    fseek(fs, 0, SEEK_END);
+    int32_t filesize = ftell(fs);
     if (sizeof(mcSoTltCont_t) != filesize) {
-        fs.close();
+        fclose(fs);
         LOG_E("mcRegistry read So.TrustletCont(uuid) failed: %d. Size=%i, expected=%i", MC_DRV_ERR_OUT_OF_RESOURCES,filesize,sizeof(mcSoTltCont_t));
         return MC_DRV_ERR_OUT_OF_RESOURCES;
     }
-    fs.seekg(0, ios::beg);
-    fs.read((char *)so, sizeof(mcSoTltCont_t));
-    fs.close();
+    fseek(fs, 0, SEEK_SET);
+    fread((char *)so, 1, sizeof(mcSoTltCont_t), fs);
+    fclose(fs);
+
     return MC_DRV_OK;
 }
 
@@ -345,15 +359,17 @@ mcResult_t mcRegistryStoreData(
     mkdir(pathname.c_str(), 0777);
 
     LOG_I("store DT: %s", filename.c_str());
-    fstream fs(filename.c_str(), ios_base::out | ios_base::binary);
+
+    FILE *fs = fopen(filename.c_str(), "wb");
     if (!fs) {
         LOG_E("mcRegistry store So.Data(cid/pid) failed: %d", MC_DRV_ERR_INVALID_DEVICE_FILE);
         return MC_DRV_ERR_INVALID_DEVICE_FILE;
     }
-    fs.seekg(0, ios::beg);
-    fs.write((char *)so, MC_SO_SIZE(so->soHeader.plainLen, so->soHeader.encryptedLen));
-    fs.flush();
-    fs.close();
+    fseek(fs, 0, SEEK_SET);
+    fwrite((char *)so, 1, MC_SO_SIZE(so->soHeader.plainLen, so->soHeader.encryptedLen), fs);
+    fflush(fs);
+    fclose(fs);
+
     return MC_DRV_OK;
 }
 
@@ -384,24 +400,26 @@ mcResult_t mcRegistryReadData(
         return MC_DRV_ERR_INVALID_PARAMETER;
     }
     LOG_I("read DT: %s", filename.c_str());
-    fstream fs(filename.c_str(), ios_base::in | ios_base::binary);
+
+    FILE *fs = fopen(filename.c_str(), "rb");
     if (!fs) {
         LOG_E("mcRegistry read So.Data(cid/pid) failed: %d", MC_DRV_ERR_INVALID_DEVICE_FILE);
         return MC_DRV_ERR_INVALID_DEVICE_FILE;
     }
-    fs.seekg(0, ios::end);
-    uint32_t filesize = fs.tellg();
+    fseek(fs, 0, SEEK_END);
+    uint32_t filesize = ftell(fs);
     if (maxLen < filesize) {
-        fs.close();
+        fclose(fs);
         LOG_E("mcRegistry read So.Data(cid/pid) failed: %d", MC_DRV_ERR_OUT_OF_RESOURCES);
         return MC_DRV_ERR_OUT_OF_RESOURCES;
     }
-    fs.seekg(0, ios::beg);
+    fseek(fs, 0, SEEK_SET);
     char* p = (char*) so;
-    fs.read(p, sizeof(mcSoHeader_t));
+    fread(p, 1, sizeof(mcSoHeader_t), fs);
     p += sizeof(mcSoHeader_t);
-    fs.read(p, MC_SO_SIZE(so->soHeader.plainLen, so->soHeader.encryptedLen) - sizeof(mcSoHeader_t));
-    fs.close();
+    fread(p, 1, MC_SO_SIZE(so->soHeader.plainLen, so->soHeader.encryptedLen) - sizeof(mcSoHeader_t), fs);
+    fclose(fs);
+
     return MC_DRV_OK;
 }
 
@@ -551,69 +569,78 @@ regObject_t *mcRegistryGetServiceBlob(
 
     // Ensure that a UUID is provided.
     if (NULL == uuid) {
-        LOG_E("mcRegistryGetServiceBlob() failed. No UUID given");
+        LOG_E("No UUID given");
         return NULL;
     }
 
     // Open service blob file.
     string tlBinFilePath = getTlBinFilePath(uuid);
-    LOG_I("mcRegistryGetServiceBlob() Loading service: %s", tlBinFilePath.c_str());
+    LOG_I(" Loading %s", tlBinFilePath.c_str());
 
-    ifstream fs(tlBinFilePath.c_str(), ios_base::binary);
+    FILE *fs = fopen(tlBinFilePath.c_str(), "rb");
     if (!fs) {
-        LOG_E("mcRegistryGetServiceBlob() failed: cannot open %s", tlBinFilePath.c_str());
+        LOG_E("Cannot open %s", tlBinFilePath.c_str());
         return NULL;
     }
 
     // Determine and check service blob size.
-    fs.seekg(0, ios::end);
-    int32_t tlSize = fs.tellg();
-    fs.seekg(0, ios::beg);
+    fseek(fs, 0, SEEK_END);
+    int32_t tlSize = ftell(fs);
+    fseek(fs, 0, SEEK_SET);
     if (MAX_TL_SIZE < tlSize) {
         LOG_E("mcRegistryGetServiceBlob() failed: service blob too big: %d", tlSize);
         return NULL;
     }
 
     // Check TL magic value.
-    fs.seekg(offsetof(mclfIntro_t, magic), ios::beg);
+    fseek(fs, offsetof(mclfIntro_t, magic), SEEK_SET);
     uint32_t magic;
-    fs.read((char*)&magic, sizeof(magic));
+    fread((char*)&magic, 1, sizeof(magic), fs);
     if (magic != MC_SERVICE_HEADER_MAGIC_BE) {
+        fclose(fs);
         LOG_E("mcRegistryGetServiceBlob() failed: wrong header magic value: %d", magic);
         return NULL;
     }
 
     // Check header version.
-    fs.seekg(offsetof(mclfIntro_t, version), ios::beg);
+    fseek(fs, offsetof(mclfIntro_t, version), SEEK_SET);
     uint32_t version;
-    fs.read((char*)&version, sizeof(version));
+    fread((char*)&version, 1, sizeof(version), fs);
 
     char* msg;
     if (!checkVersionOkDataObjectMCLF(version, &msg)) {
-		LOG_E("mcRegistryGetDriverBlob() failed: Trustlet header incompatible with MobiCore interface version. Check your SDK version!");
-		// msg is null for release version
-		LOG_E("%s", msg);
-		return NULL;
+        fclose(fs);
+        LOG_E("%s", msg);
+        return NULL;
     }
 
     // Get service type.
-    fs.seekg(offsetof(mclfHeaderV1_t, serviceType), ios::beg);
+    fseek(fs, offsetof(mclfHeaderV1_t, serviceType), SEEK_SET);
     serviceType_t serviceType;
-    fs.read((char*)&serviceType, sizeof(serviceType));
-    fs.seekg(0, ios::beg);
+    fread((char*)&serviceType, 1, sizeof(serviceType), fs);
+    fseek(fs, 0, SEEK_SET);
 
-    LOG_I("mcRegistryGetServiceBlob() Service is of type: %d", serviceType);
+#ifndef NDEBUG
+    {
+        const char* service_types[] = {
+                "illegal","Driver","Trustlet","System Trustlet"
+        };
+        int serviceType_safe = serviceType>SERVICE_TYPE_SYSTEM_TRUSTLET ? SERVICE_TYPE_ILLEGAL : serviceType;
+        LOG_I(" Service is a %s (service type %d)", service_types[serviceType_safe], serviceType);
+    }
+#endif
 
     // If loadable driver or system trustlet.
     if (SERVICE_TYPE_DRIVER == serviceType || SERVICE_TYPE_SYSTEM_TRUSTLET == serviceType) {
         // Take trustlet blob 'as is'.
         if (NULL == (regobj = (regObject_t*) (malloc(sizeof(regObject_t) + tlSize)))) {
+            fclose(fs);
             LOG_E("mcRegistryGetServiceBlob() failed: Out of memory");
             return NULL;
         }
         regobj->len = tlSize;
-        fs.read((char *)regobj->value, tlSize);
-        fs.close();
+        fread((char *)regobj->value, 1, tlSize, fs);
+        fclose(fs);
     // If user trustlet.
     } else if (SERVICE_TYPE_SP_TRUSTLET == serviceType) {
         // Take trustlet blob and append root, sp, and tl container.
@@ -621,14 +648,15 @@ regObject_t *mcRegistryGetServiceBlob(
 
         // Prepare registry object.
         if (NULL == (regobj = (regObject_t*) malloc(sizeof(regObject_t) + regObjValueSize))) {
+            fclose(fs);
             LOG_E("mcRegistryGetServiceBlob() failed: Out of memory");
             return NULL;
         }
         regobj->len = regObjValueSize;
 
         // Read and fill in trustlet blob at beginning.
-        fs.read((char*)regobj->value, tlSize);
-        fs.close();
+        fread((char*)regobj->value, 1, tlSize, fs);
+        fclose(fs);
 
         // Goto end of allocated space and fill in tl container, sp container,
         // and root container from back to front. Final registry object value
@@ -697,6 +725,7 @@ regObject_t *mcRegistryGetServiceBlob(
         }
     // Any other service type.
     } else {
+        fclose(fs);
         LOG_E("mcRegistryGetServiceBlob() failed: Unsupported service type %u", serviceType);
     }
 
@@ -708,50 +737,51 @@ regObject_t *mcRegistryGetDriverBlob(
 	const char *driverFilename
 ) {
 	regObject_t* regobj = NULL;
-	
-	// Open service blob file.
-	ifstream fs(driverFilename, ios_base::binary);
+
+    // Open service blob file.
+	FILE *fs = fopen(driverFilename, "rb");
 	if (!fs) {
 		LOG_E("mcRegistryGetDriverBlob() failed: cannot open %s", driverFilename);
 		return NULL;
 	}
 	
 	// Determine and check service blob size.
-	fs.seekg(0, ios::end);
-	int32_t tlSize = fs.tellg();
-	fs.seekg(0, ios::beg);
+	fseek(fs, 0, SEEK_END);
+        int32_t tlSize = ftell(fs);
+        fseek(fs, 0, SEEK_SET);
 	if (MAX_TL_SIZE < tlSize) {
 		LOG_E("mcRegistryGetDriverBlob() failed: service blob too big: %d", tlSize);
+                fclose(fs);
 		return NULL;
 	}
 	
 	// Check TL magic value.
-	fs.seekg(offsetof(mclfIntro_t, magic), ios::beg);
+	fseek(fs, offsetof(mclfIntro_t, magic), SEEK_SET);
 	uint32_t magic;
-	fs.read((char*)&magic, sizeof(magic));
+	fread((char*)&magic, 1, sizeof(magic), fs);
 	if (magic != MC_SERVICE_HEADER_MAGIC_BE) {
 		LOG_E("mcRegistryGetDriverBlob() failed: wrong header magic value: %d", magic);
+                fclose(fs);
 		return NULL;
 	}
 	
 	// Check header version.
-	fs.seekg(offsetof(mclfIntro_t, version), ios::beg);
+	fseek(fs, offsetof(mclfIntro_t, version), SEEK_SET);
 	uint32_t version;
-	fs.read((char*)&version, sizeof(version));
+	fread((char*)&version, 1, sizeof(version), fs);
 
     char* msg;
     if (!checkVersionOkDataObjectMCLF(version, &msg)) {
-		LOG_E("mcRegistryGetDriverBlob() failed: Driver header incompatible with MobiCore interface version. Check your SDK version!");
-		// msg is null for release version
-		LOG_E("%s", msg);
-		return NULL;
+        LOG_E("%s", msg);
+        fclose(fs);
+        return NULL;
     }
 	
 	// Get service type.
-	fs.seekg(offsetof(mclfHeaderV1_t, serviceType), ios::beg);
+	fseek(fs, offsetof(mclfHeaderV1_t, serviceType), SEEK_SET);
 	serviceType_t serviceType;
-	fs.read((char*)&serviceType, sizeof(serviceType));
-	fs.seekg(0, ios::beg);
+	fread((char*)&serviceType, 1, sizeof(serviceType), fs);
+	fseek(fs, 0, SEEK_SET);
 	
 	LOG_I("mcRegistryGetDriverBlob() Service is of type: %d", serviceType);
 	
@@ -760,16 +790,18 @@ regObject_t *mcRegistryGetDriverBlob(
 		// Take trustlet blob 'as is'.
 		if (NULL == (regobj = (regObject_t*) (malloc(sizeof(regObject_t) + tlSize)))) {
 			LOG_E("mcRegistryGetDriverBlob() failed: Out of memory");
+                        fclose(fs);
 			return NULL;
 		}
 		regobj->len = tlSize;
-		fs.read((char *)regobj->value, tlSize);
-		fs.close();
+		fread((char *)regobj->value, 1, tlSize, fs);
 		// Otherwise we are not interested
 	} else {
 		LOG_E("mcRegistryGetServiceBlob() failed: Unsupported service type %u", serviceType);
 	}
-	
+
+    fclose(fs);
+
 	return regobj;
 }
 
@@ -795,7 +827,7 @@ static const string getRegistryPath() {
     // As a last resort, use the default registry path.
     if (registryPath.length() == 0) {
         registryPath = MC_REGISTRY_DEFAULT_PATH;
-        LOG_I("getRegistryPath(): Using default registry path %s", registryPath.c_str());
+        LOG_I(" Using default registry path %s", registryPath.c_str());
     }
 
     assert(registryPath.length() != 0);

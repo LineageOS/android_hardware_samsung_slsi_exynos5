@@ -57,13 +57,13 @@ void NetlinkServer::run(
 ) {
 	do
 	{
-		LOG_I("%s: start listening on netlink bus", __func__);
+		LOG_I("NetlinkServer: Starting to listen on netlink bus");
 		
 		// Open a socket
 		serverSock = socket(PF_NETLINK, SOCK_DGRAM,  MC_DAEMON_NETLINK);
 		if (serverSock < 0)
 		{
-			LOG_E("run(): can't open socket, errno=%d", errno);
+		    LOG_ERRNO("Opening socket");
 			break;
 		}
 
@@ -79,8 +79,7 @@ void NetlinkServer::run(
 		src_addr.nl_pid = MC_DAEMON_PID;  /* daemon pid */
 		src_addr.nl_groups = 0;  /* not in mcast groups */
 		if(bind(serverSock, (struct sockaddr*)&src_addr, sizeof(src_addr)) < 0){
-			LOG_E("bind() to server socket failed, errno=%d(%s)", 
-					errno, strerror(errno));
+            LOG_ERRNO("Binding to server socket failed, because bind");
 			close(serverSock);
 			break;
 		}
@@ -105,8 +104,7 @@ void NetlinkServer::run(
 			// Read the incomming message and route it to the connection based
 			// on the incomming PID
 			if ((len = recvmsg(serverSock, &msg, 0)) < 0) {
-				LOG_E("%s: recvmsg() failed, errno=%d(%s)", 
-						__func__, errno, strerror(errno));
+	            LOG_ERRNO("recvmsg");
 				break;
 			}
 			
@@ -118,8 +116,7 @@ void NetlinkServer::run(
 		}
 	} while(false);
 
-    LOG_E("%s: exiting due to error, errno=%d(%s)",
-		  __func__, errno, strerror(errno));
+	LOG_ERRNO("Exiting NetlinkServer! Because it");
 }
 
 //------------------------------------------------------------------------------
@@ -128,7 +125,7 @@ void NetlinkServer::handleMessage(
 ) {
 	uint32_t seq = nlh->nlmsg_seq;
 	uint32_t pid = nlh->nlmsg_pid;
-	//LOG_I("%s: Handling NQ message for pid %u seq %u...", __func__, pid, seq);
+	//LOG_I("%s: Handling NQ message for pid %u seq %u...", __FUNCTION__, pid, seq);
 	uint64_t hash = hashConnection(pid, seq);
 	/* First cleanup the connection list */
 	cleanupConnections();
@@ -136,7 +133,7 @@ void NetlinkServer::handleMessage(
 	NetlinkConnection *connection = findConnection(hash);
 	// This is a message from a new client
 	if (connection == NULL) {
-		//LOG_I("%s: Cound't find the connection, creating a new one", __func__);
+		//LOG_I("%s: Cound't find the connection, creating a new one", __FUNCTION__);
 		connection = new NetlinkConnection(this, serverSock, pid, seq);
 		// Add the new connection
 		insertConnection(hash, connection);
@@ -149,7 +146,7 @@ void NetlinkServer::handleMessage(
 	{
 		if (!connectionHandler->handleConnection(connection))
 		{
-			LOG_I("%s: No command processed.", __func__);
+			LOG_I("%s: No command processed.", __FUNCTION__);
 			connection->socketDescriptor = -1;
 			//Inform the driver
 			connectionHandler->dropConnection(connection);
@@ -240,7 +237,7 @@ void NetlinkServer::cleanupConnections(
 		connection = i->second;
 		// Only 16 bits are for the actual PID, the rest is session magic
 		pid = connection->peerPid & 0xFFFF;
-		//LOG_I("%s: checking PID %u", __func__, pid);
+		//LOG_I("%s: checking PID %u", __FUNCTION__, pid);
 		// Check if the peer pid is still alive
 		if (pid == 0) {
 			continue;
@@ -248,7 +245,7 @@ void NetlinkServer::cleanupConnections(
 		if (kill(pid, 0)) {
 			bool detached = connection->detached;
 			LOG_I("%s: PID %u has died, cleaning up session 0x%X", 
-				  __func__, pid, connection->peerPid);
+				  __FUNCTION__, pid, connection->peerPid);
 			
 			connection->socketDescriptor = -1;
 			//Inform the driver

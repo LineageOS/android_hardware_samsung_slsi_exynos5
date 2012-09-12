@@ -2,7 +2,7 @@
  * @{
  * @file
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -33,9 +33,10 @@
 #include <stdint.h>
 #include <list>
 
-#include "mc_drv_module_api.h"
+#include "mc_linux.h"
 #include "Connection.h"
 #include "CMcKMod.h"
+#include "CMutex.h"
 
 
 class BulkBufferDescriptor{
@@ -69,8 +70,8 @@ typedef bulkBufferDescrList_t::iterator   bulkBufferDescrIterator_t;
  */
 typedef enum
 {
-	SESSION_STATE_INITIAL,
-	SESSION_STATE_OPEN,
+    SESSION_STATE_INITIAL,
+    SESSION_STATE_OPEN,
     SESSION_STATE_TRUSTLET_DEAD
 } sessionState_t;
 
@@ -82,81 +83,72 @@ typedef enum
  */
 typedef struct {
     sessionState_t state;       /**< Session state */
-	int32_t        lastErr;     /**< Last error of session */
+    int32_t        lastErr;     /**< Last error of session */
 } sessionInformation_t;
 
 
 class Session {
-
 private:
-
-    CMcKMod                  *mcKMod;
-    bulkBufferDescrList_t    bulkBufferDescriptors; /**< Descriptors of additional bulk buffer of a session */
-	sessionInformation_t     sessionInfo; /**< Informations about session */
-
+    CMcKMod *mcKMod;
+    CMutex workLock;
+    bulkBufferDescrList_t bulkBufferDescriptors; /**< Descriptors of additional bulk buffer of a session */
+    sessionInformation_t sessionInfo; /**< Informations about session */
 public:
+    uint32_t sessionId;
+    Connection *notificationConnection;
 
-	uint32_t    sessionId;
-	Connection  *notificationConnection;
+    Session(uint32_t sessionId, CMcKMod *mcKMod, Connection *connection);
 
-	Session(
-	    uint32_t     sessionId,
-	    CMcKMod      *mcKMod,
-	    Connection   *connection
-	);
+    virtual ~Session(void);
 
-	virtual ~Session(
-	    void
-	);
+    /**
+     * Add address information of additional bulk buffer memory to session and
+     * register virtual memory in kernel module.
+     *
+     * @attention The virtual address can only be added one time. If the virtual address already exist, NULL is returned.
+     *
+     * @param buf The virtual address of bulk buffer.
+     * @param len Length of bulk buffer.
+     *
+     * @return On success the actual Bulk buffer descriptor with all address information is retured, NULL if an error occurs.
+     */
+    BulkBufferDescriptor * addBulkBuf(addr_t buf, uint32_t len);
 
-	/**
-	 * Add address information of additional bulk buffer memory to session and
-	 * register virtual memory in kernel module.
-	 *
-	 * @attention The virtual address can only be added one time. If the virtual address already exist, NULL is returned.
-	 *
-	 * @param buf The virtual address of bulk buffer.
-	 * @param len Length of bulk buffer.
-	 *
-	 * @return On success the actual Bulk buffer descriptor with all address information is retured, NULL if an error occurs.
-	 */
-	BulkBufferDescriptor * addBulkBuf(
-	    addr_t    buf,
-	    uint32_t  len
-	);
+    /**
+     * Remove address information of additional bulk buffer memory from session and
+     * unregister virtual memory in kernel module
+     *
+     * @param buf The virtual address of the bulk buffer.
+     *
+     * @return true on success.
+     */
+    bool removeBulkBuf(addr_t buf);
 
-	/**
-	 * Remove address information of additional bulk buffer memory from session and
-	 * unregister virtual memory in kernel module
-	 *
-	 * @param buf The virtual address of the bulk buffer.
-	 *
-	 * @return true on success.
-	 */
-	bool removeBulkBuf(
-	    addr_t	buf
-	);
+    /**
+     * Set additional error information of the last error that occured.
+     *
+     * @param errorCode The actual error.
+     */
+    void setErrorInfo(int32_t err);
 
-	/**
-	 * Set additional error information of the last error that occured.
-	 *
-	 * @param errorCode The actual error.
-	 */
-	void setErrorInfo(
-	    int32_t	err
-	);
+    /**
+     * Get additional error information of the last error that occured.
+     *
+     * @attention After request the information is set to SESSION_ERR_NO.
+     *
+     * @return Last stored error code or SESSION_ERR_NO.
+     */
+    int32_t getLastErr(void);
 
-	/**
-	 * Get additional error information of the last error that occured.
-	 *
-	 * @attention After request the information is set to SESSION_ERR_NO.
-	 *
-	 * @return Last stored error code or SESSION_ERR_NO.
-	 */
-	int32_t getLastErr(
-	    void
-	);
+    /**
+     * Lock session for operation
+     */
+    void lock() { workLock.lock(); }
 
+    /**
+     * Unlock session for operation
+     */
+    void unlock()  { workLock.unlock(); }
 };
 
 typedef std::list<Session*>            sessionList_t;

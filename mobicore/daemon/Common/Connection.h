@@ -108,6 +108,7 @@ public:
      * @param buffer	Pointer to source buffer.
      * @param len		Number of bytes to read.
      * @return Number of bytes written.
+     * @return -1 if written bytes not equal to len.
      */
     virtual size_t writeData(
         void      *buffer,

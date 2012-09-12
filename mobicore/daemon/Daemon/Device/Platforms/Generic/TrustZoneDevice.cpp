@@ -4,7 +4,7 @@
  *
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -31,12 +31,12 @@
  */
 
 #include <cstdlib>
-#include <fstream>
+#include <stdio.h>
 #include <inttypes.h>
 #include <list>
 
+#include "mc_linux.h"
 #include "McTypes.h"
-#include "mc_drv_module_api.h"
 #include "Mci/mci.h"
 #include "mcVersionHelper.h"
 
@@ -98,30 +98,31 @@ static int loadMobiCoreImage(
 
     do {
         // Open MobiCore binary for reading only
-        fstream fs(mobicorePath, ios_base::in | ios_base::binary);
-        if (!fs) {
+        FILE *fs = fopen (mobicorePath, "rb");
+        if(!fs) {
             LOG_E("MobiCore not found: %s", mobicorePath);
             break;
         }
 
         // Get the MobiCore file size
-        fs.seekg(0, ios::end);
-        int32_t fileSize = fs.tellg();
-        fs.seekg(0, ios::beg);
+        fseek(fs, 0, SEEK_END);
+        int32_t fileSize = ftell(fs);
+        fseek(fs, 0, SEEK_SET);
         LOG_I("File size: %i", fileSize);
         // Check if file is too big
         if (fileSize > size) {
             LOG_E("MobiCore size exceeds expectations. Size is: %i", fileSize);
+            fclose(fs);
             break;
         }
 
-        fs.read((char*)virtAddr, fileSize);
+        fread((char*)virtAddr, 1, fileSize, fs);
 
         //Create an visible line with different content at the end
         memset((void*)((uint32_t)virtAddr+fileSize),0xff,4096);
 
         // Close file
-        fs.close();
+        fclose(fs);
         ret = 0;
     } while (false);
 
@@ -139,54 +140,52 @@ static int loadMobiCoreImage(
 bool TrustZoneDevice::initDevice(
 	const char	*devFile,
 	bool		loadMobiCore,
-	const char  *mobicoreImage,
-	bool		enableScheduler
-) throw (ExcDevice) {
-
-    notificationQueue_t* nqStartOut;
+	const char	*mobicoreImage,
+	bool		enableScheduler)
+{
+	notificationQueue_t* nqStartOut;
 	notificationQueue_t* nqStartIn;
 	addr_t mciBuffer;
 
-    pMcKMod = new CMcKMod();
-    if (!pMcKMod->open(devFile))
-    {
-        LOG_E("open() kernel module device failed");
-        return false;
-    }
-    if (!pMcKMod->checkKmodVersionOk())
-    {
-        LOG_E("kernel module version mismatch");
-        return false;
-    }
+	pMcKMod = new CMcKMod();
+	if (!pMcKMod->open(devFile))
+	{
+		LOG_W(" Opening kernel module device failed");
+		return false;
+	}
+	if (!pMcKMod->checkVersion()) {
+		LOG_E("kernel module version mismatch");
+		return false;
+	}
 
-    // Start MobiCore from DDRAM
-    if (loadMobiCore) {
-        // 1. Allocate DDRAM as pseudo IRAM
-        mobicoreInDDR = allocateContiguousPersistentWsm(SIZE_DDRAM);
-        if (NULL == mobicoreInDDR) {
-            LOG_E("Allocation of additional RAM failed");
-            return false;
-        }
-        memset(mobicoreInDDR->virtAddr,0xCC,SIZE_DDRAM);
+	// Start MobiCore from DDRAM
+	if (loadMobiCore) {
+		// 1. Allocate DDRAM as pseudo IRAM
+		mobicoreInDDR = allocateContiguousPersistentWsm(SIZE_DDRAM);
+		if (NULL == mobicoreInDDR) {
+			LOG_E("Allocation of additional RAM failed");
+			return false;
+		}
+		memset(mobicoreInDDR->virtAddr,0xCC,SIZE_DDRAM);
 
-        int ret = loadMobiCoreImage(mobicoreInDDR->virtAddr, SIZE_DDRAM,
-					mobicoreImage);
-        if (0 != ret) {
-            LOG_E("loading Mobicore file failed: %d", ret);
-            return false;
-        }
+		int ret = loadMobiCoreImage(mobicoreInDDR->virtAddr, SIZE_DDRAM,
+						mobicoreImage);
+		if (0 != ret) {
+			LOG_E("loading Mobicore file failed: %d", ret);
+			return false;
+		}
 
-        ret = pMcKMod->fcExecute(
-                mobicoreInDDR->physAddr,
-                MCP_BUFFER_SIZE);
-        if (0 != ret) {
-            LOG_E("pMcKMod->fcExecute() failed : %d", ret);
-            return false;
-        }
-    }
-    this->schedulerEnabled = enableScheduler;
+		ret = pMcKMod->fcExecute(
+			mobicoreInDDR->physAddr,
+			MCP_BUFFER_SIZE);
+		if (0 != ret) {
+			LOG_E("pMcKMod->fcExecute() failed : %d", ret);
+			return false;
+		}
+	}
+	this->schedulerEnabled = enableScheduler;
 
-    // Init MC with NQ and MCP buffer addresses
+	// Init MC with NQ and MCP buffer addresses
 
 	// Set up MCI buffer
 	if(!getMciInstance(MCI_BUFFER_SIZE, &pWsmMcp, &mciReused)) {
@@ -205,20 +204,14 @@ bool TrustZoneDevice::initDevice(
 		bzero(mciBuffer, MCI_BUFFER_SIZE);
 
 		// Init MC with NQ and MCP buffer addresses
-		int ret = pMcKMod->fcInit(
-							pWsmMcp->physAddr,
-							0,
-							NQ_BUFFER_SIZE,
-							NQ_BUFFER_SIZE,
-							MCP_BUFFER_SIZE);
-		if (0 != ret)
-		{
+		int ret = pMcKMod->fcInit(0, NQ_BUFFER_SIZE, NQ_BUFFER_SIZE, MCP_BUFFER_SIZE);
+		if (ret != 0) {
 			LOG_E("pMcKMod->fcInit() failed");
 			return false;
 		}
 
 		// First empty N-SIQ which results in set up of the MCI structure
-		if(!nsiq()) {
+		if (!nsiq()) {
 			return false;
 		}
 
@@ -227,7 +220,7 @@ bool TrustZoneDevice::initDevice(
 		while(1)
 		{
 			uint32_t status = getMobicoreStatus();
-			
+
 			if (MC_STATUS_INITIALIZED == status)
 			{
 				break;
@@ -270,7 +263,7 @@ bool TrustZoneDevice::initDevice(
 	mcpMessage = &(mcpBuf->mcpMessage);
 
 	// convert virtual address of mapping to physical address for the init.
-	LOG_I("MCP: virt=%p, phys=%p, reused=%s",
+	LOG_I("MCI established, at %p, phys=%p, reused=%s",
 			pWsmMcp->virtAddr,
 			pWsmMcp->physAddr,
 			mciReused ? "true" : "false");
@@ -302,10 +295,10 @@ bool TrustZoneDevice::yield(
 bool TrustZoneDevice::nsiq(
     void
 ) {
-    // There is no need to set the NON-IDLE flag here. Sending an N-SIQ will 
-    // make the MobiCore run until it could set itself to a state where it 
-    // set the flag itself. IRQs and FIQs are disbaled for this period, so 
-    // there is no way the NWd can interrupt here. 
+    // There is no need to set the NON-IDLE flag here. Sending an N-SIQ will
+    // make the MobiCore run until it could set itself to a state where it
+    // set the flag itself. IRQs and FIQs are disbaled for this period, so
+    // there is no way the NWd can interrupt here.
 
     // not needed: mcFlags->schedule = MC_FLAG_SCHEDULE_NON_IDLE;
 
@@ -324,73 +317,66 @@ bool TrustZoneDevice::nsiq(
 void TrustZoneDevice::notify(
     uint32_t sessionId
 ) {
-	do
+	// Check if it is MCP session - handle openSession() command
+	if (SID_MCP != sessionId)
 	{
-        // Check if it is MCP session - handle openSession() command
-        if (SID_MCP != sessionId)
-        {
-            // Check if session ID exists to avoid flooding of nq by clients
-            TrustletSession* ts = getTrustletSession(sessionId);
-            if (NULL == ts)
-            {
-                LOG_E("notify(): no session with id=%d", sessionId);
-                break;
-            }
-        }
+	    // Check if session ID exists to avoid flooding of nq by clients
+	    TrustletSession* ts = getTrustletSession(sessionId);
+	    if (NULL == ts)
+	    {
+		LOG_E("notify(): no session with id=%d", sessionId);
+		return;
+	    }
 
-		LOG_I("notify(): Send notification for id=%d", sessionId);
-        // Notify MobiCore about new data
+	    LOG_I(" Sending notification for session %d to MobiCore", sessionId);
+	} else {
+        LOG_I(" Sending MCP notification to MobiCore");
+	}
 
-        notification_t notification = {
-                // C++ does not support C99 designated initializers
-                    /* .sessionId = */ sessionId,
-                    /* .payload = */ 0
-                };
+	// Notify MobiCore about new data
 
-        nq->putNotification(&notification);
-        //IMPROVEMENT-2012-03-07-maneaval What happens when/if nsiq fails?
-        //In the old days an exception would be thrown but it was uncertain
-        //where it was handled, some server(sock or Netlink). In that case
-        //the server would just die but never actually signaled to the client
-        //any error condition
-		nsiq();
+	notification_t notification = { sessionId : sessionId, payload : 0};
 
-	} while(0);
+	nq->putNotification(&notification);
+	//IMPROVEMENT-2012-03-07-maneaval What happens when/if nsiq fails?
+	//In the old days an exception would be thrown but it was uncertain
+	//where it was handled, some server(sock or Netlink). In that case
+	//the server would just die but never actually signaled to the client
+	//any error condition
+	nsiq();
 }
 
 //------------------------------------------------------------------------------
-uint32_t TrustZoneDevice::getMobicoreStatus(
-	void
-) {
+uint32_t TrustZoneDevice::getMobicoreStatus(void)
+{
 	uint32_t status;
 	//IMPROVEMENT-2012-03-07-maneaval Can fcInfo ever fail? Before it threw an
 	//exception but the handler depended on the context.
 	pMcKMod->fcInfo(0, &status, NULL);
-	
+
 	return status;
 }
 
 //------------------------------------------------------------------------------
-bool TrustZoneDevice::checkMciVersion(
-    void
-) {
-    int ret;
-    uint32_t version = 0;
+bool TrustZoneDevice::checkMciVersion(void)
+{
+	uint32_t version = 0;
+	int ret;
+	char* errmsg;
 
-    ret = pMcKMod->fcInfo(MC_EXT_INFO_ID_MCI_VERSION, NULL, &version);
-    if (ret != 0) {
-        LOG_E("pMcKMod->fcInfo() failed with %d", ret);
-        return false;
-    }
+	ret = pMcKMod->fcInfo(MC_EXT_INFO_ID_MCI_VERSION, NULL, &version);
+	if (ret != 0) {
+		LOG_E("pMcKMod->fcInfo() failed with %d", ret);
+		return false;
+	}
 
-    // Run-time check.
-    char* errmsg;
-    if (!checkVersionOkMCI(version, &errmsg)) {
-        LOG_E("%s", errmsg);
-        return false;
-    }
-    LOG_I("%s", errmsg);
-    return true;
+	// Run-time check.
+	if (!checkVersionOkMCI(version, &errmsg)) {
+		LOG_E("%s", errmsg);
+		return false;
+	}
+	LOG_I("%s", errmsg);
+	return true;
 }
 
 //------------------------------------------------------------------------------
@@ -401,168 +387,138 @@ void TrustZoneDevice::dumpMobicoreStatus(
 	uint32_t status, info;
 	// read additional info about exception-point and print
 	LOG_E("MobiCore halted !!!");
-	ret = pMcKMod->fcInfo(1, &status, &info);		
+	ret = pMcKMod->fcInfo(1, &status, &info);
 	LOG_W("MC_HALT: flags               : 0x%8x", info);
-	ret = pMcKMod->fcInfo(2, &status, &info);		
+	ret = pMcKMod->fcInfo(2, &status, &info);
 	LOG_W("MC_HALT: haltCode            : 0x%8x", info);
-	ret = pMcKMod->fcInfo(3, &status, &info);		
+	ret = pMcKMod->fcInfo(3, &status, &info);
 	LOG_W("MC_HALT: haltIp              : 0x%8x", info);
-	ret = pMcKMod->fcInfo(4, &status, &info);		
+	ret = pMcKMod->fcInfo(4, &status, &info);
 	LOG_W("MC_HALT: faultRec.cnt        : 0x%8x", info);
-	ret = pMcKMod->fcInfo(5, &status, &info);		
+	ret = pMcKMod->fcInfo(5, &status, &info);
 	LOG_W("MC_HALT: faultRec.cause      : 0x%8x", info);
-	ret = pMcKMod->fcInfo(6, &status, &info);		
+	ret = pMcKMod->fcInfo(6, &status, &info);
 	LOG_W("MC_HALT: faultRec.meta       : 0x%8x", info);
-	ret = pMcKMod->fcInfo(7, &status, &info);		
+	ret = pMcKMod->fcInfo(7, &status, &info);
 	LOG_W("MC_HALT: faultRec.thread     : 0x%8x", info);
-	ret = pMcKMod->fcInfo(8, &status, &info);		
+	ret = pMcKMod->fcInfo(8, &status, &info);
 	LOG_W("MC_HALT: faultRec.ip         : 0x%8x", info);
-	ret = pMcKMod->fcInfo(9, &status, &info);		
+	ret = pMcKMod->fcInfo(9, &status, &info);
 	LOG_W("MC_HALT: faultRec.sp         : 0x%8x", info);
-	ret = pMcKMod->fcInfo(10, &status, &info);		
+	ret = pMcKMod->fcInfo(10, &status, &info);
 	LOG_W("MC_HALT: faultRec.arch.dfsr  : 0x%8x", info);
-	ret = pMcKMod->fcInfo(11, &status, &info);		
+	ret = pMcKMod->fcInfo(11, &status, &info);
 	LOG_W("MC_HALT: faultRec.arch.adfsr : 0x%8x", info);
-	ret = pMcKMod->fcInfo(12, &status, &info);		
+	ret = pMcKMod->fcInfo(12, &status, &info);
 	LOG_W("MC_HALT: faultRec.arch.dfar  : 0x%8x", info);
-	ret = pMcKMod->fcInfo(13, &status, &info);		
+	ret = pMcKMod->fcInfo(13, &status, &info);
 	LOG_W("MC_HALT: faultRec.arch.ifsr  : 0x%8x", info);
-	ret = pMcKMod->fcInfo(14, &status, &info);		
+	ret = pMcKMod->fcInfo(14, &status, &info);
 	LOG_W("MC_HALT: faultRec.arch.aifsr : 0x%8x", info);
-	ret = pMcKMod->fcInfo(15, &status, &info);		
+	ret = pMcKMod->fcInfo(15, &status, &info);
 	LOG_W("MC_HALT: faultRec.arch.ifar  : 0x%8x", info);
-	ret = pMcKMod->fcInfo(16, &status, &info);		
+	ret = pMcKMod->fcInfo(16, &status, &info);
 	LOG_W("MC_HALT: mcData.flags        : 0x%8x", info);
-    ret = pMcKMod->fcInfo(19, &status, &info);
-    LOG_W("MC_HALT: mcExcep.partner     : 0x%8x", info);
-    ret = pMcKMod->fcInfo(20, &status, &info);
-    LOG_W("MC_HALT: mcExcep.peer        : 0x%8x", info);
-    ret = pMcKMod->fcInfo(21, &status, &info);
-    LOG_W("MC_HALT: mcExcep.message     : 0x%8x", info);
-    ret = pMcKMod->fcInfo(22, &status, &info);
-    LOG_W("MC_HALT: mcExcep.data        : 0x%8x", info);
+	ret = pMcKMod->fcInfo(19, &status, &info);
+	LOG_W("MC_HALT: mcExcep.partner     : 0x%8x", info);
+	ret = pMcKMod->fcInfo(20, &status, &info);
+	LOG_W("MC_HALT: mcExcep.peer        : 0x%8x", info);
+	ret = pMcKMod->fcInfo(21, &status, &info);
+	LOG_W("MC_HALT: mcExcep.message     : 0x%8x", info);
+	ret = pMcKMod->fcInfo(22, &status, &info);
+	LOG_W("MC_HALT: mcExcep.data        : 0x%8x", info);
 }
 
 //------------------------------------------------------------------------------
-bool TrustZoneDevice::waitSsiq(
-    void
-) {
-    uint32_t cnt;
-    if (!pMcKMod->waitSSIQ(&cnt))
-    {
-        LOG_E("pMcKMod->SSIQ() failed");
-        return false;
-    }
-    LOG_I("SSIQ Received, COUNTER = %u", cnt);
-    return true;
-}
-
-
-//------------------------------------------------------------------------------
-bool TrustZoneDevice::getMciInstance(
-    uint32_t  len,
-    CWsm_ptr  *mci,
-    bool	  *reused
-) {
-    addr_t    virtAddr;
-    uint32_t  handle;
-    addr_t    physAddr;
-    bool	  isMci = true;
-    if (0 == len)
-    {
-        LOG_E("allocateWsm() length is 0");
-        return false;
-    }
-
-    int ret = pMcKMod->mmap(
-                        len,
-                        &handle,
-                        &virtAddr,
-                        &physAddr,
-                        &isMci);
-    if (0 != ret)
-    {
-        LOG_E("pMcKMod->mmap() failed: %d", ret);
-        return false;
-    }
-    *mci = new CWsm(virtAddr, len, handle, physAddr);
-    // isMci will be set to true if buffer has been reused
-    *reused = isMci;
-    return true;
+bool TrustZoneDevice::waitSsiq(void)
+{
+	uint32_t cnt;
+	if (!pMcKMod->waitSSIQ(&cnt)) {
+		LOG_E("pMcKMod->SSIQ() failed");
+		return false;
+	}
+	LOG_I(" Received SSIQ interrupt from MobiCore, counter=%u", cnt);
+	return true;
 }
 
 
 //------------------------------------------------------------------------------
-bool TrustZoneDevice::freeWsm(
-    CWsm_ptr  pWsm
-) {
+bool TrustZoneDevice::getMciInstance(uint32_t len, CWsm_ptr *mci, bool *reused)
+{
+	addr_t virtAddr;
+	uint32_t handle;
+	addr_t physAddr;
+	bool isReused = true;
+	if (len == 0) {
+		LOG_E("allocateWsm() length is 0");
+		return false;
+	}
 
-    int ret = pMcKMod->free(pWsm->handle);
-    if (ret != 0)
-    {
-        LOG_E("pMcKMod->free() failed: %d", ret);
-        return false;
-    }
-    delete pWsm;
-    return true;
+	int ret = pMcKMod->mapMCI(len, &handle, &virtAddr, &physAddr, &isReused);
+	if (ret != 0) {
+		LOG_E("pMcKMod->mmap() failed: %d", ret);
+		return false;
+	}
+
+	*mci = new CWsm(virtAddr, len, handle, physAddr);
+	*reused = isReused;
+	return true;
 }
 
 
 //------------------------------------------------------------------------------
-CWsm_ptr TrustZoneDevice::registerWsmL2(
-    addr_t    buffer,
-    uint32_t  len,
-    uint32_t  pid
-) {
-    addr_t    physAddr;
-    uint32_t  handle;
-
-    int ret = pMcKMod->registerWsmL2(
-                        buffer,
-                        len,
-                        pid,
-                        &handle,
-                        &physAddr);
-    if (ret != 0)
-    {
-        LOG_E("ipMcKMod->registerWsmL2() failed: %d", ret);
-        return NULL;
-    }
-
-    return new CWsm(buffer,len,handle,physAddr);
+bool TrustZoneDevice::freeWsm(CWsm_ptr  pWsm)
+{
+	int ret = pMcKMod->free(pWsm->handle, pWsm->virtAddr, pWsm->len);
+	if (ret != 0) {
+		LOG_E("pMcKMod->free() failed: %d", ret);
+		return false;
+	}
+	delete pWsm;
+	return true;
 }
 
 
 //------------------------------------------------------------------------------
-CWsm_ptr TrustZoneDevice::allocateContiguousPersistentWsm(
-    uint32_t len
-) {
-    CWsm_ptr  pWsm = NULL;
-	do
-	{
-	    if (0 == len)
-	    {
-		    break;
-	    }
+CWsm_ptr TrustZoneDevice::registerWsmL2(addr_t buffer, uint32_t len, uint32_t pid)
+{
+	addr_t physAddr;
+	uint32_t handle;
 
-	    // Allocate shared memory
-	    addr_t    virtAddr;
-	    uint32_t  handle;
-	    addr_t    physAddr;
-	    int ret = pMcKMod->mapPersistent(
-	                     len,
-	                     &handle,
-	                     &virtAddr,
-	                     &physAddr);
-    	if (0 != ret)
-    	{
-    		break;
-    	}
+	int ret = pMcKMod->registerWsmL2(
+			buffer,
+			len,
+			pid,
+			&handle,
+			&physAddr);
+	if (ret != 0) {
+		LOG_E("ipMcKMod->registerWsmL2() failed: %d", ret);
+		return NULL;
+	}
 
-    	// Register (vaddr,paddr) with device
-        pWsm = new CWsm(virtAddr,len,handle,physAddr);
+	return new CWsm(buffer,len,handle,physAddr);
+}
 
-    } while(0);
+
+//------------------------------------------------------------------------------
+CWsm_ptr TrustZoneDevice::allocateContiguousPersistentWsm(uint32_t len)
+{
+	CWsm_ptr pWsm = NULL;
+	// Allocate shared memory
+	addr_t virtAddr;
+	uint32_t handle;
+	addr_t physAddr;
+
+	if (len == 0 ) {
+		return NULL;
+	}
+
+	if (!pMcKMod->mapPersistent(len, &handle, &virtAddr, &physAddr)) {
+		return NULL;
+	}
+
+	// Register (vaddr,paddr) with device
+	pWsm = new CWsm(virtAddr, len, handle, physAddr);
 
 	// Return pointer to the allocated memory
 	return pWsm;
@@ -570,9 +526,8 @@ CWsm_ptr TrustZoneDevice::allocateContiguousPersistentWsm(
 
 
 //------------------------------------------------------------------------------
-bool TrustZoneDevice::unregisterWsmL2(
-    CWsm_ptr  pWsm
-) {
+bool TrustZoneDevice::unregisterWsmL2(CWsm_ptr pWsm)
+{
     int ret = pMcKMod->unregisterWsmL2(pWsm->handle);
     if (ret != 0) {
         LOG_E("pMcKMod->unregisterWsmL2 failed: %d", ret);
@@ -595,16 +550,13 @@ bool TrustZoneDevice::schedulerAvailable(
 //------------------------------------------------------------------------------
 //TODO Schedulerthread to be switched off if MC is idle. Will be woken up when
 //     driver is called again.
-void TrustZoneDevice::schedule(
-    void
-) {
-    uint32_t timeslice = SCHEDULING_FREQ;
+void TrustZoneDevice::schedule(void)
+{
+	uint32_t timeslice = SCHEDULING_FREQ;
 	// loop forever
-	for (;;)
-	{
+	for (;;) {
 		// Scheduling decision
-		if (MC_FLAG_SCHEDULE_IDLE == mcFlags->schedule)
-		{
+		if (MC_FLAG_SCHEDULE_IDLE == mcFlags->schedule) {
 			// MobiCore is IDLE
 
 			// Prevent unnecessary consumption of CPU cycles -> Wait until S-SIQ received
@@ -614,8 +566,7 @@ void TrustZoneDevice::schedule(
 			// MobiCore is not IDLE (anymore)
 
 			// Check timeslice
-			if (0 == timeslice)
-			{
+			if (timeslice == 0) {
 				// Slice expired, so force MC internal scheduling decision
 				timeslice = SCHEDULING_FREQ;
 				if(!nsiq()) {
@@ -629,21 +580,21 @@ void TrustZoneDevice::schedule(
 				}
 			}
 		}
-	}
+	} //for (;;)
 }
 //------------------------------------------------------------------------------
 void TrustZoneDevice::handleIrq(
 	void
 	) {
-	LOG_I("Starting NQ IRQ handler...");
+	LOG_I("Starting Notification Queue IRQ handler...");
 	for (;;)
 	{
-		LOG_I("NQ empty now");
+		LOG_I(" No notifications pending");
 		if(!waitSsiq()) {
 			LOG_E("Waiting for SSIQ failed");
 			break;
 		}
-		LOG_I("S-SIQ received");
+		LOG_V("S-SIQ received");
 
 		// Save all the
 		for (;;)
@@ -652,18 +603,22 @@ void TrustZoneDevice::handleIrq(
 			if (NULL == notification) {
 				break;
 			}
-			LOG_I("Received notification, sessionId=%d, payload=%d",
-			notification->sessionId, notification->payload);
-			
+
 			// check if the notification belongs to the MCP session
 			if (notification->sessionId == SID_MCP) {
-				// Signal main thread of the driver to continue after MCP
+	            LOG_I(" Found MCP notification, payload=%d",
+	                    notification->payload);
+
+	            // Signal main thread of the driver to continue after MCP
 				// command has been processed by the MC
 				signalMcpNotification();
 			}
 			else
 			{
-				// Get the NQ connection for the session ID
+	            LOG_I(" Found notification for session %d, payload=%d",
+	                    notification->sessionId, notification->payload);
+
+	            // Get the NQ connection for the session ID
 				Connection *connection = getSessionConnection(notification->sessionId, notification);
 				if (connection == NULL) {
 					/* Couldn't find the session for this notifications
@@ -677,7 +632,7 @@ void TrustZoneDevice::handleIrq(
 				}
 				else
 				{
-					LOG_I("Write notification!");
+					LOG_I(" Forward notification to McClient.");
 					// Forward session ID and additional payload of
 					// notification to the TLC/Application layer
 					connection->writeData((void *)notification,

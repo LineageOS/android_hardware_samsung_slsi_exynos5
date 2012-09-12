@@ -33,7 +33,6 @@
 #include "tlcCmApi.h"
 #include "tlCmUuid.h"
 
-#define LOG_TAG "TlcCmApi"
 #include "log.h"
 
 #include <assert.h>
