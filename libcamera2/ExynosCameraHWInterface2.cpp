@@ -1777,7 +1777,7 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
     struct v4l2_buffer v4l2_buf;
     struct v4l2_plane  planes[VIDEO_MAX_PLANES];
 
-    ALOGV("DEBUG(%s): streamID (%d), num_buff(%d), handle(%x) ", __FUNCTION__,
+    CAM_LOGV("DEBUG(%s): streamID (%d), num_buff(%d), handle(%x) ", __FUNCTION__,
         stream_id, num_buffers, (uint32_t)registeringBuffers);
 
     if (stream_id == STREAM_ID_PREVIEW && m_streamThreads[0].get()) {
@@ -1818,7 +1818,7 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
                     }
                     for (plane_index = 0 ; plane_index < targetParms->svcPlanes ; plane_index++) {
                         currentBuf.virt.extP[plane_index] = (char *)virtAddr[plane_index];
-                        ALOGV("DEBUG(%s): plane(%d): fd(%d) addr(%x) size(%d)",
+                        CAM_LOGV("DEBUG(%s): plane(%d): fd(%d) addr(%x) size(%d)",
                              __FUNCTION__, plane_index, currentBuf.fd.extFd[plane_index],
                              (unsigned int)currentBuf.virt.extP[plane_index], currentBuf.size.extS[plane_index]);
                     }
@@ -1847,7 +1847,7 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
             return 1;
         }
     }
-    ALOGV("DEBUG(%s): format(%x) width(%d), height(%d) svcPlanes(%d)",
+    CAM_LOGV("DEBUG(%s): format(%x) width(%d), height(%d) svcPlanes(%d)",
             __FUNCTION__, targetStreamParms->format, targetStreamParms->width,
             targetStreamParms->height, targetStreamParms->planes);
     targetStreamParms->numSvcBuffers = num_buffers;
@@ -1897,9 +1897,11 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
                     currentBuf.fd.extFd[2] = priv_handle->fd1;
                     currentBuf.fd.extFd[1] = priv_handle->fd2;
                 }
+
                 for (plane_index = 0 ; plane_index < (int)v4l2_buf.length ; plane_index++) {
+                    currentBuf.virt.extP[plane_index] = (char *)ion_map(currentBuf.fd.extFd[plane_index], currentBuf.size.extS[plane_index], 0);
                     v4l2_buf.m.planes[plane_index].length  = currentBuf.size.extS[plane_index];
-                    ALOGV("DEBUG(%s): plane(%d): fd(%d) addr(%x), length(%d)",
+                    CAM_LOGV("DEBUG(%s): plane(%d): fd(%d) addr(%x), length(%d)",
                          __FUNCTION__, plane_index, v4l2_buf.m.planes[plane_index].m.fd,
                          (unsigned int)currentBuf.virt.extP[plane_index],
                          v4l2_buf.m.planes[plane_index].length);
@@ -1957,6 +1959,14 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         targetStream->m_numRegisteredStream--;
         ALOGV("(%s): m_numRegisteredStream = %d", __FUNCTION__, targetStream->m_numRegisteredStream);
         releasingScpMain = true;
+        for (int i = 0; i < targetStream->m_parameters.numSvcBuffers; i++) {
+            for (int j = 0; j < targetStream->m_parameters.planes; j++) {
+                ion_unmap(targetStream->m_parameters.svcBuffers[i].virt.extP[j],
+                                targetStream->m_parameters.svcBuffers[i].size.extS[j]);
+                CAM_LOGD("DBG(%s) ummap stream buffer[%d], plane(%d), fd %d vaddr %x", __FUNCTION__, i, j,
+                              targetStream->m_parameters.svcBuffers[i].fd.extFd[j], targetStream->m_parameters.svcBuffers[i].virt.extP[j]);
+            }
+        }
     } else if (stream_id == STREAM_ID_JPEG) {
         targetStream = (StreamThread*)(m_streamThreads[1].get());
         memset(&m_subStreams[stream_id], 0, sizeof(substream_parameters_t));
@@ -2183,7 +2193,7 @@ void ExynosCameraHWInterface2::m_getAlignedYUVSize(int colorFormat, int w, int h
     case V4L2_PIX_FMT_YUV420M:
     case V4L2_PIX_FMT_YVU420M :
     case V4L2_PIX_FMT_YUV422P :
-        buf->size.extS[0] = ALIGN(w,  32) * ALIGN(h,  16);
+        buf->size.extS[0] = ALIGN(w,  16) * ALIGN(h,  16);
         buf->size.extS[1] = ALIGN(w/2, 16) * ALIGN(h/2, 8);
         buf->size.extS[2] = ALIGN(w/2, 16) * ALIGN(h/2, 8);
         break;
@@ -2504,17 +2514,17 @@ void ExynosCameraHWInterface2::m_mainThreadFunc(SignalDrivenThread * self)
         /*while (1)*/ {
             ret = m_requestManager->PrepareFrame(&numEntries, &frameSize, &preparedFrame, GetAfStateForService());
             if (ret == false)
-                CAM_LOGD("++++++ PrepareFrame ret = %d", ret);
+                CAM_LOGE("ERR(%s): PrepareFrame ret = %d", __FUNCTION__, ret);
 
             m_requestManager->DeregisterRequest(&deregisteredRequest);
 
             ret = m_requestQueueOps->free_request(m_requestQueueOps, deregisteredRequest);
             if (ret < 0)
-                CAM_LOGD("++++++ free_request ret = %d", ret);
+                CAM_LOGE("ERR(%s): free_request ret = %d", __FUNCTION__, ret);
 
             ret = m_frameQueueOps->dequeue_frame(m_frameQueueOps, numEntries, frameSize, &currentFrame);
             if (ret < 0)
-                CAM_LOGD("++++++ dequeue_frame ret = %d", ret);
+                CAM_LOGE("ERR(%s): dequeue_frame ret = %d", __FUNCTION__, ret);
 
             if (currentFrame==NULL) {
                 ALOGV("DBG(%s): frame dequeue returned NULL",__FUNCTION__ );
@@ -4059,7 +4069,7 @@ int ExynosCameraHWInterface2::m_prvcbCreator(StreamThread *selfThread, ExynosBuf
     else if (subParms->format == HAL_PIXEL_FORMAT_YV12) {
         int previewCbW = subParms->width, previewCbH = subParms->height;
         int stride = ALIGN(previewCbW, 16);
-        int c_stride = ALIGN(stride, 16);
+        int c_stride = ALIGN(stride / 2, 16);
         memcpy(subParms->svcBuffers[subParms->svcBufIndex].virt.extP[0],
             srcImageBuf->virt.extP[0], stride * previewCbH);
         memcpy(subParms->svcBuffers[subParms->svcBufIndex].virt.extP[0] + stride * previewCbH,
