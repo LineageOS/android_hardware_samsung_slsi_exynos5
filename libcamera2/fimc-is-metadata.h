@@ -587,6 +587,16 @@ enum aa_isomode {
 	AA_ISOMODE_MANUAL,
 };
 
+enum ae_lockmode {
+    AEMODE_LOCK_OFF = 0,
+    AEMODE_LOCK_ON,
+};
+
+enum awb_lockmode {
+    AWBMODE_LOCK_OFF = 0,
+    AWBMODE_LOCK_ON,
+};
+
 struct camera2_aa_ctl {
 	enum aa_capture_intent		captureIntent;
 	enum aa_mode			mode;
@@ -885,6 +895,8 @@ struct camera2_shot_ext {
     uint8_t		gpsProcessingMethod[32];
     uint8_t     isReprocessing;
     uint8_t     reprocessInput;
+    enum ae_lockmode        ae_lock; // this field is used in cameraHAL only
+    enum awb_lockmode        awb_lock; // this field is used in cameraHAL only
 };
 
 /** \brief

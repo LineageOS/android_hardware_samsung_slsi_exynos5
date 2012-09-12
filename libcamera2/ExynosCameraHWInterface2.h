@@ -185,6 +185,13 @@ enum is_af_flash_scenario_state {
     IS_FLASH_AF_MAX
 };
 
+enum is_set_command_state {
+    IS_COMMAND_NONE = 0,
+    IS_COMMAND_EXECUTION,
+    IS_COMMAND_CLEAR,
+    IS_COMMAND_MAX
+};
+
 typedef struct node_info {
     int fd;
     int width;
@@ -249,9 +256,21 @@ typedef struct flash_control_info {
     bool        m_flashTorchMode;
 } ctl_flash_info_t;
 
+typedef struct awb_control_info {
+     // UI awb mode indicator
+    enum aa_awbmode    i_awbMode;
+    enum is_set_command_state        m_awbCnt;
+} ctl_awb_info_t;
+
+typedef struct ae_control_info {
+    // ae mode indicator
+    enum is_set_command_state        m_aeCnt;
+} ctl_ae_info_t;
+
 typedef struct request_control_info {
     ctl_flash_info_t flash;
-
+    ctl_awb_info_t awb;
+    ctl_ae_info_t ae;
 } ctl_request_info_t;
 
 class RequestManager {
@@ -270,7 +289,7 @@ public:
     void    NotifyStreamOutput(int frameCnt);
     void    ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext);
     void    CheckCompleted(int index);
-    void    UpdateIspParameters(struct camera2_shot_ext *shot_ext, int frameCnt);
+    void    UpdateIspParameters(struct camera2_shot_ext *shot_ext, int frameCnt, ctl_request_info_t *ctl_info);
     void    RegisterTimestamp(int frameCnt, nsecs_t *frameTime);
     nsecs_t  GetTimestampByFrameCnt(int frameCnt);
     nsecs_t  GetTimestamp(int index);
