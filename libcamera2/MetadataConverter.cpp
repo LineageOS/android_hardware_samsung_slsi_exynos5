@@ -292,12 +292,30 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE))
                     break;
 
+                dst->ctl.request.outputStreams[0] = 0;
                 for (i=0 ; i<curr_entry.count ; i++) {
-                    dst->ctl.request.outputStreams[i] = curr_entry.data.u8[i];
-                    ALOGV("DEBUG(%s): OUTPUT_STREAM[%d] = %d ",  __FUNCTION__, i, (int)(dst->ctl.request.outputStreams[i]));
+                    ALOGV("DEBUG(%s): OUTPUT_STREAM[%d] = %d ",  __FUNCTION__, i, curr_entry.data.u8[i]);
+                    dst->ctl.request.outputStreams[0] |= (1 << curr_entry.data.u8[i]);
                 }
 
                 dst->ctl.request.outputStreams[15] = curr_entry.count;
+                break;
+
+            case ANDROID_REQUEST_INPUT_STREAMS:
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE))
+                    break;
+
+                for (i=0 ; i<curr_entry.count ; i++) {
+                    dst_ext->reprocessInput = curr_entry.data.u8[0];
+                    ALOGV("DEBUG(%s): ANDROID_REQUEST_INPUT_STREAMS[%d] = %d ",  __FUNCTION__, i, dst_ext->reprocessInput);
+                }
+                break;
+
+            case ANDROID_REQUEST_TYPE:
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
+                    break;
+                dst_ext->isReprocessing = curr_entry.data.u8[0];
+                ALOGV("DEBUG(%s): ANDROID_REQUEST_TYPE (%d)",  __FUNCTION__, dst_ext->isReprocessing);
                 break;
 
             case ANDROID_REQUEST_FRAME_COUNT:

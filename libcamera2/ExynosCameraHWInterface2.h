@@ -65,6 +65,7 @@ namespace android {
 #define NUM_MAX_CAMERA_BUFFERS      (16)
 #define NUM_BAYER_BUFFERS           (8)
 #define NUM_MIN_SENSOR_QBUF         (3)
+#define NUM_MAX_SUBSTREAM           (4)
 
 #define PICTURE_GSC_NODE_NUM (2)
 #define VIDEO_GSC_NODE_NUM (1)
@@ -73,16 +74,13 @@ namespace android {
 #define STREAM_TYPE_INDIRECT (1)
 
 #define SIGNAL_MAIN_REQ_Q_NOT_EMPTY             (SIGNAL_THREAD_COMMON_LAST<<1)
-#define SIGNAL_MAIN_REPROCESS_Q_NOT_EMPTY       (SIGNAL_THREAD_COMMON_LAST<<2)
+
 #define SIGNAL_MAIN_STREAM_OUTPUT_DONE          (SIGNAL_THREAD_COMMON_LAST<<3)
 #define SIGNAL_SENSOR_START_REQ_PROCESSING      (SIGNAL_THREAD_COMMON_LAST<<4)
-#define SIGNAL_STREAM_GET_BUFFER                (SIGNAL_THREAD_COMMON_LAST<<5)
-#define SIGNAL_STREAM_PUT_BUFFER                (SIGNAL_THREAD_COMMON_LAST<<6)
-#define SIGNAL_STREAM_CHANGE_PARAMETER          (SIGNAL_THREAD_COMMON_LAST<<7)
-#define SIGNAL_THREAD_RELEASE                   (SIGNAL_THREAD_COMMON_LAST<<8)
-#define SIGNAL_ISP_START_BAYER_INPUT            (SIGNAL_THREAD_COMMON_LAST<<9)
-#define SIGNAL_ISP_START_BAYER_DEQUEUE          (SIGNAL_THREAD_COMMON_LAST<<10)
 
+#define SIGNAL_THREAD_RELEASE                   (SIGNAL_THREAD_COMMON_LAST<<8)
+
+#define SIGNAL_STREAM_REPROCESSING_START        (SIGNAL_THREAD_COMMON_LAST<<14)
 #define SIGNAL_STREAM_DATA_COMING               (SIGNAL_THREAD_COMMON_LAST<<15)
 
 #define NO_TRANSITION                   (0)
@@ -94,6 +92,29 @@ namespace android {
 #define HAL_AFSTATE_FAILED              (6)
 #define HAL_AFSTATE_NEEDS_DETERMINATION (7)
 #define HAL_AFSTATE_PASSIVE_FOCUSED     (8)
+
+#define STREAM_ID_PREVIEW           (0)
+#define STREAM_MASK_PREVIEW         (1<<STREAM_ID_PREVIEW)
+#define STREAM_ID_RECORD            (1)
+#define STREAM_MASK_RECORD          (1<<STREAM_ID_RECORD)
+#define STREAM_ID_PRVCB             (2)
+#define STREAM_MASK_PRVCB           (1<<STREAM_ID_PRVCB)
+#define STREAM_ID_JPEG              (4)
+#define STREAM_MASK_JPEG            (1<<STREAM_ID_JPEG)
+#define STREAM_ID_ZSL               (5)
+#define STREAM_MASK_ZSL             (1<<STREAM_ID_ZSL)
+
+#define STREAM_ID_JPEG_REPROCESS    (8)
+#define STREAM_ID_LAST              STREAM_ID_JPEG_REPROCESS
+
+#define MASK_OUTPUT_SCP             (STREAM_MASK_PREVIEW|STREAM_MASK_RECORD|STREAM_MASK_PRVCB)
+#define MASK_OUTPUT_SCC             (STREAM_MASK_JPEG|STREAM_MASK_ZSL)
+
+#define SUBSTREAM_TYPE_NONE         (0)
+#define SUBSTREAM_TYPE_JPEG         (1)
+#define SUBSTREAM_TYPE_RECORD       (2)
+#define SUBSTREAM_TYPE_PRVCB        (3)
+#define FLASH_STABLE_WAIT_TIMEOUT        (10)
 
 #ifdef EXYNOS_CAMERA_LOG
 #define CAM_LOGV(...) ((void)ALOG(LOG_VERBOSE, LOG_TAG, __VA_ARGS__))
@@ -173,7 +194,6 @@ typedef struct node_info {
     int buffers;
     enum v4l2_memory memory;
     enum v4l2_buf_type type;
-    ion_client ionClient;
     ExynosBuffer buffer[NUM_MAX_CAMERA_BUFFERS];
     int status;
 } node_info_t;
@@ -185,6 +205,7 @@ typedef struct camera_hw_info {
     node_info_t sensor;
     node_info_t isp;
     node_info_t capture;
+    node_info_t scp;
 
     /*shot*/  // temp
     struct camera2_shot_ext dummy_shot;
@@ -247,12 +268,12 @@ public:
                 camera_metadata_t **prepared_frame, int afState);
     int     MarkProcessingRequest(ExynosBuffer * buf, int *afMode);
     void    NotifyStreamOutput(int frameCnt);
-    void    DumpInfoWithIndex(int index);
     void    ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext);
     void    CheckCompleted(int index);
     void    UpdateIspParameters(struct camera2_shot_ext *shot_ext, int frameCnt);
     void    RegisterTimestamp(int frameCnt, nsecs_t *frameTime);
-    uint64_t  GetTimestamp(int frameCnt);
+    nsecs_t  GetTimestampByFrameCnt(int frameCnt);
+    nsecs_t  GetTimestamp(int index);
     int     FindFrameCnt(struct camera2_shot_ext * shot_ext);
     int     FindEntryIndexByFrameCnt(int frameCnt);
     void    Dump(void);
@@ -289,6 +310,7 @@ private:
     int                             m_lastAaMode;
     int                             m_lastAwbMode;
     int                             m_lastAeComp;
+    nsecs_t                         m_lastTimeStamp;
     List<int>                   m_sensorQ;
 };
 
@@ -345,67 +367,51 @@ private:
 #define BAYER_ON_HAL_EMPTY      (5)
 
 typedef struct stream_parameters {
-            int                     streamType;
-            uint32_t                outputWidth;
-            uint32_t                outputHeight;
-            uint32_t                nodeWidth;
-            uint32_t                nodeHeight;
-            int                     outputFormat;
-            int                     nodeFormat;
+            uint32_t                width;
+            uint32_t                height;
+            int                     format;
     const   camera2_stream_ops_t*   streamOps;
             uint32_t                usage;
             int                     numHwBuffers;
             int                     numSvcBuffers;
             int                     numOwnSvcBuffers;
-            int                     fd;
-            int                     svcPlanes;
-            int                     nodePlanes;
+            int                     planes;
             int                     metaPlanes;
-    enum v4l2_memory                memory;
-    enum v4l2_buf_type              halBuftype;
             int                     numSvcBufsInHal;
             buffer_handle_t         svcBufHandle[NUM_MAX_CAMERA_BUFFERS];
             ExynosBuffer            svcBuffers[NUM_MAX_CAMERA_BUFFERS];
-            ExynosBuffer        metaBuffers[NUM_MAX_CAMERA_BUFFERS];
+            ExynosBuffer            metaBuffers[NUM_MAX_CAMERA_BUFFERS];
             int                     svcBufStatus[NUM_MAX_CAMERA_BUFFERS];
-            int                     svcBufIndex;
-            ion_client              ionClient;
-            node_info_t             node;
+            int                     bufIndex;
+            node_info_t             *node;
+            int                     minUndequedBuffer;
 } stream_parameters_t;
 
-typedef struct record_parameters {
-            uint32_t                outputWidth;
-            uint32_t                outputHeight;
-            int                     outputFormat;
+typedef struct substream_parameters {
+            int                     type;
+            uint32_t                width;
+            uint32_t                height;
+            int                     format;
     const   camera2_stream_ops_t*   streamOps;
             uint32_t                usage;
             int                     numSvcBuffers;
             int                     numOwnSvcBuffers;
-            int                     svcPlanes;
-            buffer_handle_t         svcBufHandle[NUM_MAX_CAMERA_BUFFERS];
-            ExynosBuffer            svcBuffers[NUM_MAX_CAMERA_BUFFERS];
-            int                     svcBufStatus[NUM_MAX_CAMERA_BUFFERS];
-            int                     svcBufIndex;
-            int                     numSvcBufsInHal;
-} record_parameters_t;
-
-typedef struct callback_parameters {
-            uint32_t                outputWidth;
-            uint32_t                outputHeight;
-            int                     outputFormat;
             int                     internalFormat;
             int                     internalPlanes;
-    const   camera2_stream_ops_t*   streamOps;
-            uint32_t                usage;
-            int                     numSvcBuffers;
-            int                     numOwnSvcBuffers;
             int                     svcPlanes;
             buffer_handle_t         svcBufHandle[NUM_MAX_CAMERA_BUFFERS];
             ExynosBuffer            svcBuffers[NUM_MAX_CAMERA_BUFFERS];
             int                     svcBufStatus[NUM_MAX_CAMERA_BUFFERS];
             int                     svcBufIndex;
             int                     numSvcBufsInHal;
-} callback_parameters_t;
+            bool                    needBufferInit;
+            int                     minUndequedBuffer;
+} substream_parameters_t;
+
+typedef struct substream_entry {
+    int                     priority;
+    int                     streamId;
+} substream_entry_t;
 
 class ExynosCameraHWInterface2 : public virtual RefBase {
 public:
@@ -430,6 +436,8 @@ public:
     virtual int         allocateReprocessStream(uint32_t width, uint32_t height,
                                     uint32_t format, const camera2_stream_in_ops_t *reprocess_stream_ops,
                                     uint32_t *stream_id, uint32_t *consumer_usage, uint32_t *max_buffers);
+    virtual int         allocateReprocessStreamFromStream(uint32_t output_stream_id,
+                                const camera2_stream_in_ops_t *reprocess_stream_ops, uint32_t *stream_id);
     virtual int         releaseReprocessStream(uint32_t stream_id);
     virtual int         triggerAction(uint32_t trigger_id, int ext1, int ext2);
     virtual int         setNotifyCallback(camera2_notify_callback notify_cb, void *user);
@@ -463,8 +471,7 @@ class MainThread : public SignalDrivenThread {
     public:
         SensorThread(ExynosCameraHWInterface2 *hw):
             SignalDrivenThread("SensorThread", PRIORITY_DEFAULT, 0),
-            mHardware(hw),
-            m_isBayerOutputEnabled(false) { }
+            mHardware(hw) { }
         ~SensorThread();
         status_t readyToRunInternal() {
             mHardware->m_sensorThreadInitialize(this);
@@ -476,29 +483,6 @@ class MainThread : public SignalDrivenThread {
         }
         void            release(void);
     //private:
-        bool            m_isBayerOutputEnabled;
-        int             m_sensorFd;
-        bool            m_releasing;
-    };
-
-    class IspThread : public SignalDrivenThread {
-        ExynosCameraHWInterface2 *mHardware;
-    public:
-        IspThread(ExynosCameraHWInterface2 *hw):
-            SignalDrivenThread("IspThread", PRIORITY_DEFAULT, 0),
-            mHardware(hw) { }
-        ~IspThread();
-        status_t readyToRunInternal() {
-            mHardware->m_ispThreadInitialize(this);
-            return NO_ERROR;
-        }
-        void threadFunctionInternal() {
-            mHardware->m_ispThreadFunc(this);
-            return;
-        }
-        void            release(void);
-    //private:
-        int             m_ispFd;
         bool            m_releasing;
     };
 
@@ -511,36 +495,35 @@ class MainThread : public SignalDrivenThread {
             m_index(new_index) { }
         ~StreamThread();
         status_t readyToRunInternal() {
-            mHardware->m_streamThreadInitialize(this);
             return NO_ERROR;
         }
         void threadFunctionInternal() {
             mHardware->m_streamThreadFunc(this);
             return;
         }
-        void        setRecordingParameter(record_parameters_t * recordParm);
-        void        setCallbackParameter(callback_parameters_t * callbackParm);
         void        setParameter(stream_parameters_t * new_parameters);
-        void        applyChange(void);
+        status_t    attachSubStream(int stream_id, int priority);
+        status_t    detachSubStream(int stream_id);
         void        release(void);
         int         findBufferIndex(void * bufAddr);
-
+        int         findBufferIndex(buffer_handle_t * bufHandle);
 
         uint8_t                         m_index;
         bool                            m_activated;
     //private:
         stream_parameters_t             m_parameters;
         stream_parameters_t             *m_tempParameters;
-        record_parameters_t             m_recordParameters;
-        callback_parameters_t           m_previewCbParameters;
+        substream_entry_t               m_attachedSubStreams[NUM_MAX_SUBSTREAM];
         bool                            m_isBufferInit;
         bool                            m_releasing;
+        int                             streamType;
+        int                             m_numRegisteredStream;
      };
 
     sp<MainThread>      m_mainThread;
     sp<SensorThread>    m_sensorThread;
-    sp<IspThread>       m_ispThread;
     sp<StreamThread>    m_streamThreads[NUM_MAX_STREAM_THREAD];
+    substream_parameters_t  m_subStreams[STREAM_ID_LAST+1];
 
 
 
@@ -551,16 +534,19 @@ class MainThread : public SignalDrivenThread {
     void                m_mainThreadFunc(SignalDrivenThread * self);
     void                m_sensorThreadFunc(SignalDrivenThread * self);
     void                m_sensorThreadInitialize(SignalDrivenThread * self);
-    void                m_ispThreadFunc(SignalDrivenThread * self);
-    void                m_ispThreadInitialize(SignalDrivenThread * self);
     void                m_streamThreadFunc(SignalDrivenThread * self);
     void                m_streamThreadInitialize(SignalDrivenThread * self);
 
-    void                m_streamFunc0(SignalDrivenThread *self);
-    void                m_streamFunc1(SignalDrivenThread *self);
+    void                m_streamFunc_direct(SignalDrivenThread *self);
+    void                m_streamFunc_indirect(SignalDrivenThread *self);
 
     void                m_streamBufferInit(SignalDrivenThread *self);
 
+    int                 m_runSubStreamFunc(StreamThread *selfThread, ExynosBuffer *srcImageBuf,
+                            int stream_id, nsecs_t frameTimeStamp);
+    int                 m_jpegCreator(StreamThread *selfThread, ExynosBuffer *srcImageBuf, nsecs_t frameTimeStamp);
+    int                 m_recordCreator(StreamThread *selfThread, ExynosBuffer *srcImageBuf, nsecs_t frameTimeStamp);
+    int                 m_prvcbCreator(StreamThread *selfThread, ExynosBuffer *srcImageBuf, nsecs_t frameTimeStamp);
     void                m_getAlignedYUVSize(int colorFormat, int w, int h,
                                                 ExynosBuffer *buf);
     bool                m_getRatioSize(int  src_w,  int   src_h,
@@ -581,8 +567,9 @@ class MainThread : public SignalDrivenThread {
     bool            yuv2Jpeg(ExynosBuffer *yuvBuf,
                             ExynosBuffer *jpegBuf,
                             ExynosRect *rect);
-    int            InitializeISPChain();
+    int             InitializeISPChain();
     void            StartISP();
+    void            StartSCCThread(bool threadExists);
     int             GetAfState();
     void            SetAfMode(enum aa_afmode afMode);
     void            OnAfTriggerStart(int id);
@@ -610,7 +597,6 @@ class MainThread : public SignalDrivenThread {
     void               *m_exynosPictureCSC;
     void               *m_exynosVideoCSC;
 
-    int                 m_jpegEncodingFrameCnt;
 
     camera2_request_queue_src_ops_t     *m_requestQueueOps;
     camera2_frame_queue_dst_ops_t       *m_frameQueueOps;
@@ -628,39 +614,27 @@ class MainThread : public SignalDrivenThread {
 
 	ion_client m_ionCameraClient;
 
-    bool                                m_isSensorThreadOn;
-    bool                                m_isSensorStarted;
     bool                                m_isIspStarted;
 
     int                                 m_need_streamoff;
 
-    bool                                m_initFlag1;
-    bool                                m_initFlag2;
 
     int                                 indexToQueue[3+1];
-    int                                 m_fd_scp;
 
     bool                                m_scp_flushing;
     bool                                m_closing;
     ExynosBuffer                        m_resizeBuf;
-    bool                                m_recordingEnabled;
-    int                                 m_previewOutput;
-    int                                 m_recordOutput;
-    bool                                m_needsRecordBufferInit;
+    int                                 m_currentOutputStreams;
+    int                                 m_currentReprocessOutStreams;
     ExynosBuffer                        m_previewCbBuf;
-    int                                 m_previewCbEnabled;
-    int                                 m_previewCbOutput;
-    bool                                m_needsPreviewCbBufferInit;
-    int                                 lastFrameCnt;
     int             				    m_cameraId;
     bool                                m_scp_closing;
     bool                                m_scp_closed;
     bool                                m_wideAspect;
-    bool                                m_aspectChanged;
     uint32_t                            lastAfRegion[4];
     float                               m_zoomRatio;
 
-    mutable Mutex    m_qbufLock;
+    mutable Mutex                       m_qbufLock;
 
     int                                 m_afState;
     int                                 m_afTriggerId;
@@ -680,6 +654,10 @@ class MainThread : public SignalDrivenThread {
     int                                 m_nightCaptureFrameCnt;
     int                                 m_thumbNailW;
     int                                 m_thumbNailH;
+    int                                 m_reprocessStreamId;
+    const camera2_stream_in_ops_t *     m_reprocessOps;
+    int                                 m_reprocessOutputStreamId;
+    int                                 m_reprocessingFrameCnt;
     ctl_request_info_t        m_ctlInfo;
 };
 
