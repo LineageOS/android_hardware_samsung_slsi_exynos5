@@ -147,6 +147,155 @@ static unsigned int m_gsc_get_plane_size(
     return 0;
 }
 
+static int m_exynos_gsc_multiple_of_n(
+    int number, int N)
+{
+    int result = number;
+    switch (N) {
+    case 1:
+    case 2:
+    case 4:
+    case 8:
+    case 16:
+    case 32:
+    case 64:
+    case 128:
+    case 256:
+        result = (number - (number & (N-1)));
+        break;
+    default:
+        result = number - (number % N);
+        break;
+    }
+    return result;
+}
+
+static bool m_exynos_gsc_check_src_size(
+    unsigned int *w,      unsigned int *h,
+    unsigned int *crop_x, unsigned int *crop_y,
+    unsigned int *crop_w, unsigned int *crop_h,
+    int v4l2_colorformat)
+{
+    if (*w < GSC_MIN_W_SIZE || *h < GSC_MIN_H_SIZE) {
+        ALOGE("%s::too small size (w : %d < %d) (h : %d < %d)",
+            __func__, GSC_MIN_W_SIZE, *w, GSC_MIN_H_SIZE, *h);
+        return false;
+    }
+
+    if (*crop_w < GSC_MIN_W_SIZE || *crop_h < GSC_MIN_H_SIZE) {
+        ALOGE("%s::too small size (w : %d < %d) (h : %d < %d)",
+            __func__, GSC_MIN_W_SIZE,* crop_w, GSC_MIN_H_SIZE, *crop_h);
+        return false;
+    }
+
+    switch (v4l2_colorformat) {
+    // YUV420
+    case V4L2_PIX_FMT_YUV420M:
+    case V4L2_PIX_FMT_YVU420M:
+    case V4L2_PIX_FMT_NV12M:
+    case V4L2_PIX_FMT_NV12MT:
+    case V4L2_PIX_FMT_NV21:
+    case V4L2_PIX_FMT_NV21M:
+        *w = (*w + 15) & ~15;
+        *h = (*h + 15) & ~15;
+        //*w      = m_exynos_gsc_multiple_of_n(*w, 16);
+        //*h      = m_exynos_gsc_multiple_of_n(*h, 16);
+        *crop_w = m_exynos_gsc_multiple_of_n(*crop_w, 4);
+        *crop_h = m_exynos_gsc_multiple_of_n(*crop_h, 4);
+        break;
+    // YUV422
+    case V4L2_PIX_FMT_YUYV:
+    case V4L2_PIX_FMT_YUV422P:
+    case V4L2_PIX_FMT_UYVY:
+    case V4L2_PIX_FMT_NV16:
+    case V4L2_PIX_FMT_YVYU:
+    case V4L2_PIX_FMT_VYUY:
+        *h = (*h + 7) & ~7;
+        //*h      = m_exynos_gsc_multiple_of_n(*h, 8);
+        *crop_w = m_exynos_gsc_multiple_of_n(*crop_w, 4);
+        *crop_h = m_exynos_gsc_multiple_of_n(*crop_h, 2);
+        break;
+    // RGB
+    case V4L2_PIX_FMT_RGB32:
+    case V4L2_PIX_FMT_RGB24:
+    case V4L2_PIX_FMT_RGB565:
+    case V4L2_PIX_FMT_BGR32:
+    case V4L2_PIX_FMT_RGB555X:
+    case V4L2_PIX_FMT_RGB444:
+    default:
+        *h = (*h + 7) & ~7;
+        //*h      = m_exynos_gsc_multiple_of_n(*h, 8);
+        *crop_w = m_exynos_gsc_multiple_of_n(*crop_w, 2);
+        *crop_h = m_exynos_gsc_multiple_of_n(*crop_h, 2);
+        break;
+    }
+
+    return true;
+}
+
+static bool m_exynos_gsc_check_dst_size(
+    unsigned int *w,      unsigned int *h,
+    unsigned int *crop_x, unsigned int *crop_y,
+    unsigned int *crop_w, unsigned int *crop_h,
+    int v4l2_colorformat,
+    int rotation)
+{
+    unsigned int *new_w;
+    unsigned int *new_h;
+    unsigned int *new_crop_w;
+    unsigned int *new_crop_h;
+
+        new_w = w;
+        new_h = h;
+        new_crop_w = crop_w;
+        new_crop_h = crop_h;
+
+    if (*w < GSC_MIN_W_SIZE || *h < GSC_MIN_H_SIZE) {
+        ALOGE("%s::too small size (w : %d < %d) (h : %d < %d)",
+            __func__, GSC_MIN_W_SIZE, *w, GSC_MIN_H_SIZE, *h);
+        return false;
+    }
+
+    if (*crop_w < GSC_MIN_W_SIZE || *crop_h < GSC_MIN_H_SIZE) {
+        ALOGE("%s::too small size (w : %d < %d) (h : %d < %d)",
+            __func__, GSC_MIN_W_SIZE,* crop_w, GSC_MIN_H_SIZE, *crop_h);
+        return false;
+    }
+
+    switch (v4l2_colorformat) {
+    // YUV420
+    case V4L2_PIX_FMT_NV12M:
+    case V4L2_PIX_FMT_NV12MT:
+    case V4L2_PIX_FMT_NV21:
+    case V4L2_PIX_FMT_NV21M:
+    case V4L2_PIX_FMT_YUV420M:
+    case V4L2_PIX_FMT_YVU420M:
+        *new_w = m_exynos_gsc_multiple_of_n(*new_w, 2);
+        *new_h = m_exynos_gsc_multiple_of_n(*new_h, 2);
+        break;
+    // YUV422
+    case V4L2_PIX_FMT_YUYV:
+    case V4L2_PIX_FMT_YUV422P:
+    case V4L2_PIX_FMT_UYVY:
+    case V4L2_PIX_FMT_NV16:
+    case V4L2_PIX_FMT_YVYU:
+    case V4L2_PIX_FMT_VYUY:
+        *new_w = m_exynos_gsc_multiple_of_n(*new_w, 2);
+        break;
+    // RGB
+    case V4L2_PIX_FMT_RGB32:
+    case V4L2_PIX_FMT_RGB24:
+    case V4L2_PIX_FMT_RGB565:
+    case V4L2_PIX_FMT_BGR32:
+    case V4L2_PIX_FMT_RGB555X:
+    case V4L2_PIX_FMT_RGB444:
+    default:
+        break;
+    }
+
+    return true;
+}
+
 static int m_exynos_gsc_output_create(
     struct GSC_HANDLE *gsc_handle,
     int dev_num,
@@ -1253,12 +1402,22 @@ int exynos_gsc_out_config(void *handle,
     rgb = get_yuv_planes(dst_color_space) == -1;
     rotateValueHAL2GSC(dst_img->rot, &rotate, &hflip, &vflip);
 
-    if (!exynos_gsc_cfg_valid(&gsc_handle->src_img, &gsc_handle->dst_img, true,
-            true)) {
-        ALOGE("%s::exynos_gsc_cfg_valid() fail", __func__);
-        return -1;
+    if (m_exynos_gsc_check_src_size(&gsc_handle->src_img.fw, &gsc_handle->src_img.fh,
+                                        &gsc_handle->src_img.x, &gsc_handle->src_img.y,
+                                        &gsc_handle->src_img.w, &gsc_handle->src_img.h,
+                                        src_color_space) == false) {
+            ALOGE("%s::m_exynos_gsc_check_src_size() fail", __func__);
+            return -1;
     }
-    exynos_gsc_align_cfg(&gsc_handle->src_img, &gsc_handle->dst_img);
+
+    if (m_exynos_gsc_check_dst_size(&gsc_handle->dst_img.fw, &gsc_handle->dst_img.fh,
+                                        &gsc_handle->dst_img.x, &gsc_handle->dst_img.y,
+                                        &gsc_handle->dst_img.w, &gsc_handle->dst_img.h,
+                                        dst_color_space,
+                                        rotate) == false) {
+            ALOGE("%s::m_exynos_gsc_check_dst_size() fail", __func__);
+            return -1;
+    }
 
     /*set: src v4l2_buffer*/
     gsc_handle->src.src_buf_idx = 0;
@@ -1592,12 +1751,23 @@ static int exynos_gsc_m2m_run_core(void *handle)
         return -1;
     }
 
-    if (!exynos_gsc_cfg_valid(&gsc_handle->src_img, &gsc_handle->dst_img, false,
-            true)) {
-        ALOGE("%s::exynos_gsc_cfg_valid() fail", __func__);
-        return -1;
+
+    if (m_exynos_gsc_check_src_size(&gsc_handle->src.width, &gsc_handle->src.height,
+                                    &gsc_handle->src.crop_left, &gsc_handle->src.crop_top,
+                                    &gsc_handle->src.crop_width, &gsc_handle->src.crop_height,
+                                    gsc_handle->src.v4l2_colorformat) == false) {
+        ALOGE("%s::m_exynos_gsc_check_src_size() fail", __func__);
+        goto done;
     }
-    exynos_gsc_align_cfg(&gsc_handle->src_img, &gsc_handle->dst_img);
+
+    if (m_exynos_gsc_check_dst_size(&gsc_handle->dst.width, &gsc_handle->dst.height,
+                                    &gsc_handle->dst.crop_left, &gsc_handle->dst.crop_top,
+                                    &gsc_handle->dst.crop_width, &gsc_handle->dst.crop_height,
+                                    gsc_handle->dst.v4l2_colorformat,
+                                    gsc_handle->dst.rotation) == false) {
+        ALOGE("%s::m_exynos_gsc_check_dst_size() fail", __func__);
+        goto done;
+    }
 
     if (m_exynos_gsc_set_format(gsc_handle->gsc_fd, &gsc_handle->src) == false) {
         ALOGE("%s::m_exynos_gsc_set_format(src) fail", __func__);
