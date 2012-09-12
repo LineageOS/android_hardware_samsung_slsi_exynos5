@@ -37,6 +37,7 @@
 #include <hardware/camera2.h>
 #include <camera/Camera.h>
 #include <camera/CameraParameters.h>
+#include <utils/List.h>
 #include "SignalDrivenThread.h"
 #include "MetadataConverter.h"
 #include "exynos_v4l2.h"
@@ -56,17 +57,14 @@
 namespace android {
 
 //#define EXYNOS_CAMERA_LOG
-
-//#define ENABLE_FRAME_SYNC
+#define ENABLE_FRAME_SYNC
 #define NODE_PREFIX     "/dev/video"
 
 #define NUM_MAX_STREAM_THREAD       (5)
-#define NUM_MAX_REQUEST_MGR_ENTRY   (10)
-#define NUM_MAX_DEQUEUED_REQUEST NUM_MAX_REQUEST_MGR_ENTRY
-#define MAX_CAMERA_MEMORY_PLANE_NUM	(4)
+#define NUM_MAX_REQUEST_MGR_ENTRY   (4)
 #define NUM_MAX_CAMERA_BUFFERS      (16)
 #define NUM_BAYER_BUFFERS           (8)
-#define NUM_SENSOR_QBUF             (3)
+#define NUM_MIN_SENSOR_QBUF         (3)
 
 #define PICTURE_GSC_NODE_NUM (2)
 #define VIDEO_GSC_NODE_NUM (1)
@@ -197,7 +195,8 @@ typedef enum request_entry_status {
     EMPTY,
     REGISTERED,
     REQUESTED,
-    CAPTURED
+    CAPTURED,
+    METADONE
 } request_entry_status_t;
 
 typedef struct request_manager_entry {
@@ -205,7 +204,6 @@ typedef struct request_manager_entry {
     camera_metadata_t           *original_request;
     struct camera2_shot_ext     internal_shot;
     int                         output_stream_count;
-    bool                         dynamic_meta_vaild;
 } request_manager_entry_t;
 
 // structure related to a specific function of camera
@@ -239,6 +237,7 @@ class RequestManager {
 public:
     RequestManager(SignalDrivenThread* main_thread);
     ~RequestManager();
+    void    ResetEntry();
     int     GetNumEntries();
     bool    IsRequestQueueFull();
 
@@ -247,7 +246,7 @@ public:
     bool    PrepareFrame(size_t *num_entries, size_t *frame_size,
                 camera_metadata_t **prepared_frame, int afState);
     int     MarkProcessingRequest(ExynosBuffer * buf, int *afMode);
-    void      NotifyStreamOutput(int frameCnt, int stream_id);
+    void    NotifyStreamOutput(int frameCnt);
     void    DumpInfoWithIndex(int index);
     void    ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext);
     void    CheckCompleted(int index);
@@ -263,6 +262,9 @@ public:
     int     GetSkipCnt();
     void    SetFrameIndex(int index);
     int    GetFrameIndex();
+    void  pushSensorQ(int index);
+    int popSensorQ();
+    void releaseSensorQ();
 private:
 
     MetadataConverter               *m_metadataConverter;
@@ -287,6 +289,7 @@ private:
     int                             m_lastAaMode;
     int                             m_lastAwbMode;
     int                             m_lastAeComp;
+    List<int>                   m_sensorQ;
 };
 
 
