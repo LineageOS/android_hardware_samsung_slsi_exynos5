@@ -87,32 +87,30 @@ open: gralloc_device_open
 
 struct private_module_t HAL_MODULE_INFO_SYM = {
 base: {
-common: {
-tag: HARDWARE_MODULE_TAG,
-     version_major: 1,
-     version_minor: 0,
-     id: GRALLOC_HARDWARE_MODULE_ID,
-     name: "Graphics Memory Allocator Module",
-     author: "The Android Open Source Project",
-     methods: &gralloc_module_methods
-        },
+    common: {
+        tag: HARDWARE_MODULE_TAG,
+        version_major: 1,
+        version_minor: 0,
+        id: GRALLOC_HARDWARE_MODULE_ID,
+        name: "Graphics Memory Allocator Module",
+        author: "The Android Open Source Project",
+        methods: &gralloc_module_methods
+    },
     registerBuffer: gralloc_register_buffer,
     unregisterBuffer: gralloc_unregister_buffer,
     lock: gralloc_lock,
     unlock: gralloc_unlock,
-      },
-    framebuffer: 0,
-    flags: 0,
-    numBuffers: 0,
-    bufferMask: 0,
-    lock: PTHREAD_MUTEX_INITIALIZER,
-    currentBuffer: 0,
-    ionfd: -1,
+},
+framebuffer: 0,
+flags: 0,
+numBuffers: 0,
+bufferMask: 0,
+lock: PTHREAD_MUTEX_INITIALIZER,
+currentBuffer: 0,
+ionfd: -1,
 };
 
 /*****************************************************************************/
-
-#define ALIGN(x, a) (((x) + (a - 1)) & ~(a - 1))
 
 static unsigned int _select_heap(int usage)
 {
@@ -296,7 +294,7 @@ static int gralloc_alloc(alloc_device_t* dev,
     int stride;
     int err;
     unsigned int ion_flags = 0;
-    private_handle_t *hnd;
+    private_handle_t *hnd = NULL;
 
     if (!pHandle || !pStride)
         return -EINVAL;
@@ -328,6 +326,8 @@ static int gralloc_alloc(alloc_device_t* dev,
     *pStride = stride;
     return 0;
 err:
+    if (!hnd)
+        return err;
     close(hnd->fd);
     if (hnd->fd1 >= 0)
         close(hnd->fd1);
