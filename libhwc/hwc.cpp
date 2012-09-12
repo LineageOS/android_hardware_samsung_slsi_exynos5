@@ -927,9 +927,9 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
                         private_handle_t::dynamicCast(layer.handle);
                 if (exynos5_format_requires_gscaler(handle->format)) {
                     ALOGV("\tusing gscaler %u", AVAILABLE_GSC_UNITS[nextGsc]);
-                    pdev->bufs.gsc_map[i].mode =
+                    pdev->bufs.gsc_map[nextWindow].mode =
                             exynos5_gsc_map_t::GSC_M2M;
-                    pdev->bufs.gsc_map[i].idx = nextGsc++;
+                    pdev->bufs.gsc_map[nextWindow].idx = nextGsc++;
                 }
             }
             nextWindow++;
