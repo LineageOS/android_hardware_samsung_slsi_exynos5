@@ -438,7 +438,7 @@ int RequestManager::MarkProcessingRequest(ExynosBuffer* buf, int *afMode)
     static int count = 0;
 
     if (m_numOfEntries == 0)  {
-        ALOGD("DEBUG(%s): Request Manager Empty ", __FUNCTION__);
+        CAM_LOGD("DEBUG(%s): Request Manager Empty ", __FUNCTION__);
         return -1;
     }
 
@@ -456,7 +456,7 @@ int RequestManager::MarkProcessingRequest(ExynosBuffer* buf, int *afMode)
     request_shot = &(newEntry->internal_shot);
     *afMode = (int)(newEntry->internal_shot.shot.ctl.aa.afMode);
     if (newEntry->status != REGISTERED) {
-        ALOGD("DEBUG(%s)(%d): Circular buffer abnormal ", __FUNCTION__, newProcessingIndex);
+        CAM_LOGD("DEBUG(%s)(%d): Circular buffer abnormal ", __FUNCTION__, newProcessingIndex);
         return -1;
     }
 
@@ -772,7 +772,7 @@ int     RequestManager::FindFrameCnt(struct camera2_shot_ext * shot_ext)
 
     }
 
-    ALOGD("(%s): No Entry found", __FUNCTION__);
+    CAM_LOGD("(%s): No Entry found", __FUNCTION__);
 
     return -1;
 }
@@ -951,7 +951,7 @@ ExynosCameraHWInterface2::~ExynosCameraHWInterface2()
 void ExynosCameraHWInterface2::release()
 {
     int i, res;
-    ALOGD("%s: ENTER", __func__);
+    CAM_LOGD("%s: ENTER", __func__);
     m_closing = true;
 
     if (m_streamThreads[1] != NULL) {
@@ -987,7 +987,7 @@ void ExynosCameraHWInterface2::release()
     if (m_streamThreads[1] != NULL) {
         while (!m_streamThreads[1]->IsTerminated())
         {
-            ALOGD("Waiting for ISP thread is tetminated");
+            CAM_LOGD("Waiting for ISP thread is tetminated");
             usleep(100000);
         }
         m_streamThreads[1] = NULL;
@@ -996,7 +996,7 @@ void ExynosCameraHWInterface2::release()
     if (m_streamThreads[0] != NULL) {
         while (!m_streamThreads[0]->IsTerminated())
         {
-            ALOGD("Waiting for sensor thread is tetminated");
+            CAM_LOGD("Waiting for sensor thread is tetminated");
             usleep(100000);
         }
         m_streamThreads[0] = NULL;
@@ -1005,7 +1005,7 @@ void ExynosCameraHWInterface2::release()
     if (m_ispThread != NULL) {
         while (!m_ispThread->IsTerminated())
         {
-            ALOGD("Waiting for isp thread is tetminated");
+            CAM_LOGD("Waiting for isp thread is tetminated");
             usleep(100000);
         }
         m_ispThread = NULL;
@@ -1014,7 +1014,7 @@ void ExynosCameraHWInterface2::release()
     if (m_sensorThread != NULL) {
         while (!m_sensorThread->IsTerminated())
         {
-            ALOGD("Waiting for sensor thread is tetminated");
+            CAM_LOGD("Waiting for sensor thread is tetminated");
             usleep(100000);
         }
         m_sensorThread = NULL;
@@ -1023,7 +1023,7 @@ void ExynosCameraHWInterface2::release()
     if (m_mainThread != NULL) {
         while (!m_mainThread->IsTerminated())
         {
-            ALOGD("Waiting for main thread is tetminated");
+            CAM_LOGD("Waiting for main thread is tetminated");
             usleep(100000);
         }
         m_mainThread = NULL;
@@ -1882,7 +1882,7 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
 
     ALOGV("DEBUG(%s): calling  streamon", __FUNCTION__);
     if (targetStreamParms->streamType == STREAM_TYPE_DIRECT) {
-        ALOGD("%s(%d), stream id = %d", __FUNCTION__, __LINE__, stream_id);
+        CAM_LOGD("%s(%d), stream id = %d", __FUNCTION__, __LINE__, stream_id);
         cam_int_streamon(&(targetStreamParms->node));
     }
 
@@ -1943,7 +1943,7 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
 
     targetStream->m_releasing = true;
     do {
-        ALOGD("stream thread release %d", __LINE__);
+        CAM_LOGD("stream thread release %d", __LINE__);
         targetStream->release();
         usleep(33000);
     } while (targetStream->m_releasing);
@@ -2372,17 +2372,17 @@ void ExynosCameraHWInterface2::m_mainThreadFunc(SignalDrivenThread * self)
         /*while (1)*/ {
             ret = m_requestManager->PrepareFrame(&numEntries, &frameSize, &preparedFrame, GetAfStateForService());
             if (ret == false)
-                ALOGD("++++++ PrepareFrame ret = %d", ret);
+                CAM_LOGD("++++++ PrepareFrame ret = %d", ret);
 
             m_requestManager->DeregisterRequest(&deregisteredRequest);
 
             ret = m_requestQueueOps->free_request(m_requestQueueOps, deregisteredRequest);
             if (ret < 0)
-                ALOGD("++++++ free_request ret = %d", ret);
+                CAM_LOGD("++++++ free_request ret = %d", ret);
 
             ret = m_frameQueueOps->dequeue_frame(m_frameQueueOps, numEntries, frameSize, &currentFrame);
             if (ret < 0)
-                ALOGD("++++++ dequeue_frame ret = %d", ret);
+                CAM_LOGD("++++++ dequeue_frame ret = %d", ret);
 
             if (currentFrame==NULL) {
                 ALOGV("DBG(%s): frame dequeue returned NULL",__FUNCTION__ );
@@ -2985,7 +2985,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             int current_scp = shot_ext->request_scp;
 
             if (shot_ext->shot.dm.request.frameCount == 0) {
-                ALOGE("ERR(%s): dm.request.frameCount = %d", __FUNCTION__, shot_ext->shot.dm.request.frameCount);
+                CAM_LOGE("ERR(%s): dm.request.frameCount = %d", __FUNCTION__, shot_ext->shot.dm.request.frameCount);
             }
 
             cam_int_qbuf(&(m_camera_info.isp), index);
@@ -3020,7 +3020,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             }
 
             if (current_scp != shot_ext->request_scp) {
-                ALOGW("WARN(%s): scp frame drop1 request_scp(%d to %d)",
+                CAM_LOGW("WARN(%s): scp frame drop1 request_scp(%d to %d)",
                                 __FUNCTION__, current_scp, shot_ext->request_scp);
             }
             if (shot_ext->request_scc) {
@@ -3598,11 +3598,11 @@ void ExynosCameraHWInterface2::m_streamFunc0(SignalDrivenThread *self)
             // HACK
             if (again == false && !(m_recordOutput && m_recordingEnabled)) {
                 if (exynos_v4l2_g_ctrl(currentNode->fd, V4L2_CID_IS_G_COMPLETES, &numOfUndqbuf)) {
-                    ALOGW("WARN(%s): Fail to get SCP completes, val = %d", __FUNCTION__, numOfUndqbuf);
+                    CAM_LOGW("WARN(%s): Fail to get SCP completes, val = %d", __FUNCTION__, numOfUndqbuf);
                 } else {
                     again = (numOfUndqbuf > 0)?true:false;
                     if (again)
-                        ALOGW("WARN(%s): Drain SCP buf, num of undqbuf = %d", __FUNCTION__, numOfUndqbuf);
+                        CAM_LOGW("WARN(%s): Drain SCP buf, num of undqbuf = %d", __FUNCTION__, numOfUndqbuf);
                 }
             } else {
                 again = false;
