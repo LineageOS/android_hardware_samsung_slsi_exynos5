@@ -54,9 +54,12 @@ struct hwc_callback_entry {
 };
 typedef android::Vector<struct hwc_callback_entry> hwc_callback_queue_t;
 
-const size_t NUM_HW_WINDOWS = 5;
+const int MEMIF_CONFIGURATION[] = { 0, 1, 1, 1, 0 };
+const size_t NUM_HW_WINDOWS = sizeof(MEMIF_CONFIGURATION) /
+        sizeof(MEMIF_CONFIGURATION[0]);
 const size_t NO_FB_NEEDED = NUM_HW_WINDOWS + 1;
-const size_t MAX_PIXELS = 2560 * 1600 * 2;
+const size_t MAX_PIXELS_PER_MEMIF = 2560 * 1600;
+const size_t MAX_PIXELS = MAX_PIXELS_PER_MEMIF * 2;
 const size_t GSC_W_ALIGNMENT = 16;
 const size_t GSC_H_ALIGNMENT = 16;
 const int AVAILABLE_GSC_UNITS[] = { 0, 3 };
@@ -805,6 +808,8 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
     // into the framebuffer and try again.  (Revisiting the entire list is
     // necessary because adding a layer to the framebuffer can cause other
     // windows to retroactively violate constraints.)
+    // For simplicity ignore the way bandwidth is divided between memory
+    // interfaces; this will be enforced separately.
     bool changed;
     do {
         android::Vector<hwc_rect> rects;
@@ -926,6 +931,57 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
             }
             nextWindow++;
         }
+    }
+
+    size_t memif_pixels[] = { 0, 0 };
+    for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
+        int memif_idx = MEMIF_CONFIGURATION[i];
+        if (fb_needed && i == first_fb) {
+            memif_pixels[memif_idx] += pdev->gralloc_module->xres *
+                    pdev->gralloc_module->yres;
+        } else if (pdev->bufs.overlay_map[i] != -1) {
+            int layer_idx = pdev->bufs.overlay_map[i];
+            hwc_layer_1_t &layer = displays[0]->hwLayers[layer_idx];
+            memif_pixels[memif_idx] += WIDTH(layer.displayFrame) *
+                                HEIGHT(layer.displayFrame);
+        }
+    }
+
+    // If there are too many pixels for either memory interface, retroactively
+    // put them into a framebuffer.  One layer can be kept in window 0 if it's
+    // otherwise composable: the framebuffer will be in window 1 which is on a
+    // separate memory interface from window 0.
+    bool memif_pixels_ok = true;
+    for (size_t i = 0; i < 2; i++) {
+        if (memif_pixels[i] > MAX_PIXELS_PER_MEMIF) {
+            ALOGV("too many pixels for memory interface %u", i);
+            memif_pixels_ok = false;
+        }
+    }
+    if (!memif_pixels_ok) {
+        for (size_t i = 1; i < NUM_HW_WINDOWS; i++) {
+            int layer_idx = pdev->bufs.overlay_map[i];
+            if (layer_idx == -1)
+                continue;
+
+            hwc_layer_1_t &layer = displays[0]->hwLayers[layer_idx];
+            layer.transform = HWC_FRAMEBUFFER;
+            pdev->bufs.overlay_map[i] = -1;
+            pdev->bufs.gsc_map[i].mode = exynos5_gsc_map_t::GSC_NONE;
+        }
+
+        if (pdev->bufs.gsc_map[0].mode == exynos5_gsc_map_t::GSC_NONE)
+            nextGsc = 0;
+        else
+            nextGsc = 1;
+
+        if (fb_needed)
+            first_fb = min(first_fb, 1U);
+        else {
+            first_fb = 1;
+            fb_needed = true;
+        }
+        ALOGV("moving framebuffer to window %u", first_fb);
     }
 
     for (size_t i = nextGsc; i < NUM_GSC_UNITS; i++) {
