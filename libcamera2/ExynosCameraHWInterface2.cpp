@@ -38,10 +38,7 @@
 #include "ExynosCameraHWInterface2.h"
 #include "exynos_format.h"
 
-
-
 namespace android {
-
 
 void m_savePostView(const char *fname, uint8_t *buf, uint32_t size)
 {
@@ -285,6 +282,9 @@ RequestManager::RequestManager(SignalDrivenThread* main_thread):
     m_lastAeMode(0),
     m_lastAaMode(0),
     m_lastAwbMode(0),
+#ifdef VDIS_ENABLE
+    m_vdisBubbleEn(false),
+#endif
     m_lastAeComp(0),
     m_frameIndex(-1)
 {
@@ -381,8 +381,8 @@ void RequestManager::DeregisterRequest(camera_metadata_t ** deregistered_request
     frame_index = GetFrameIndex();
     currentEntry =  &(entries[frame_index]);
     if (currentEntry->status != METADONE) {
-        ALOGV("DBG(%s): Circular buffer abnormal. processing(%d), frame(%d), status(%d) ", __FUNCTION__
-        , m_entryProcessingIndex, m_entryFrameOutputIndex,(int)(currentEntry->status));
+        CAM_LOGD("DBG(%s): Circular buffer abnormal. processing(%d), frame(%d), status(%d) ", __FUNCTION__,
+                       m_entryProcessingIndex, frame_index,(int)(currentEntry->status));
         return;
     }
     if (deregistered_request)  *deregistered_request = currentEntry->original_request;
@@ -461,7 +461,10 @@ int RequestManager::MarkProcessingRequest(ExynosBuffer* buf, int *afMode)
     request_shot = &(newEntry->internal_shot);
     *afMode = (int)(newEntry->internal_shot.shot.ctl.aa.afMode);
     if (newEntry->status != REGISTERED) {
-        CAM_LOGD("DEBUG(%s)(%d): Circular buffer abnormal ", __FUNCTION__, newProcessingIndex);
+        CAM_LOGD("DEBUG(%s)(%d): Circular buffer abnormal, numOfEntries(%d), status(%d)", __FUNCTION__, newProcessingIndex, m_numOfEntries, newEntry->status);
+        for (int i = 0; i < NUM_MAX_REQUEST_MGR_ENTRY; i++) {
+                CAM_LOGD("DBG: entrie[%d].stream output cnt = %d, framecnt(%d)", i, entries[i].output_stream_count, entries[i].internal_shot.shot.ctl.request.frameCount);
+        }
         return -1;
     }
 
@@ -714,6 +717,16 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
         m_lastAeComp = (int)(shot_ext->shot.ctl.aa.aeExpCompensation);
     }
 
+#ifdef VDIS_ENABLE
+    if (request_shot->shot.ctl.aa.videoStabilizationMode) {
+        m_vdisBubbleEn = true;
+        shot_ext->dis_bypass = 0;
+    } else {
+        m_vdisBubbleEn = false;
+        shot_ext->dis_bypass = 1;
+    }
+#endif
+
     shot_ext->shot.ctl.aa.afTrigger = 0;
 
     targetStreamIndex = newEntry->internal_shot.shot.ctl.request.outputStreams[0];
@@ -737,6 +750,13 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
     (int)(shot_ext->shot.ctl.aa.aeExpCompensation), (int)(shot_ext->shot.ctl.aa.awbMode),
     (int)(shot_ext->shot.ctl.aa.afMode));
 }
+
+#ifdef VDIS_ENABLE
+bool    RequestManager::IsVdisEnable(void)
+{
+        return m_vdisBubbleEn;
+}
+#endif
 
 int     RequestManager::FindEntryIndexByFrameCnt(int frameCnt)
 {
@@ -796,7 +816,7 @@ int     RequestManager::FindFrameCnt(struct camera2_shot_ext * shot_ext)
     int i;
 
     if (m_numOfEntries == 0) {
-        ALOGV("(%s): No Entry found", __FUNCTION__);
+        CAM_LOGD("DBG(%s): No Entry found", __FUNCTION__);
         return -1;
     }
 
@@ -808,9 +828,10 @@ int     RequestManager::FindFrameCnt(struct camera2_shot_ext * shot_ext)
             entries[i].status = CAPTURED;
             return entries[i].internal_shot.shot.ctl.request.frameCount;
         }
+        CAM_LOGE("ERR(%s): frameCount(%d), index(%d), status(%d)", __FUNCTION__, shot_ext->shot.ctl.request.frameCount, i, entries[i].status);
 
     }
-    CAM_LOGD("(%s): No Entry found", __FUNCTION__);
+    CAM_LOGD("(%s): No Entry found frame count(%d)", __FUNCTION__, shot_ext->shot.ctl.request.frameCount);
 
     return -1;
 }
@@ -871,6 +892,10 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
             m_afState(HAL_AFSTATE_INACTIVE),
             m_afMode(NO_CHANGE),
             m_afMode2(NO_CHANGE),
+#ifdef VDIS_ENABLE
+            m_vdisBubbleCnt(0),
+            m_vdisDupFrame(0),
+#endif
             m_IsAfModeUpdateRequired(false),
             m_IsAfTriggerRequired(false),
             m_IsAfLockRequired(false),
@@ -1784,6 +1809,7 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
     if (stream_id == STREAM_ID_PREVIEW && m_streamThreads[0].get()) {
         targetStream = m_streamThreads[0].get();
         targetStreamParms = &(m_streamThreads[0]->m_parameters);
+
     }
     else if (stream_id == STREAM_ID_JPEG || stream_id == STREAM_ID_RECORD || stream_id == STREAM_ID_PRVCB) {
         substream_parameters_t  *targetParms;
@@ -1952,7 +1978,7 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
 {
     StreamThread *targetStream;
     status_t res = NO_ERROR;
-    ALOGV("DEBUG(%s):stream id %d", __FUNCTION__, stream_id);
+    CAM_LOGV("DEBUG(%s):stream id %d", __FUNCTION__, stream_id);
     bool releasingScpMain = false;
 
     if (stream_id == STREAM_ID_PREVIEW) {
@@ -2493,6 +2519,10 @@ void ExynosCameraHWInterface2::m_mainThreadFunc(SignalDrivenThread * self)
             if (NULL == currentRequest) {
                 ALOGE("DEBUG(%s)(0x%x): dequeue_request returned NULL ", __FUNCTION__, currentSignal);
                 m_isRequestQueueNull = true;
+#ifdef VDIS_ENABLE
+                if (m_requestManager->IsVdisEnable())
+                    m_vdisBubbleCnt = 1;
+#endif
             }
             else {
                 m_requestManager->RegisterRequest(currentRequest);
@@ -2808,10 +2838,24 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             matchedFrameCnt = m_requestManager->FindFrameCnt(shot_ext);
         }
 
+#ifdef VDIS_ENABLE
+        if (matchedFrameCnt == -1 && m_vdisBubbleCnt > 0) {
+            matchedFrameCnt = m_vdisDupFrame;
+        }
+#endif
+
         if (matchedFrameCnt != -1) {
+#ifdef VDIS_ENABLE
+            if (m_vdisBubbleCnt == 0) {
+                frameTime = systemTime();
+                m_requestManager->RegisterTimestamp(matchedFrameCnt, &frameTime);
+                m_requestManager->UpdateIspParameters(shot_ext, matchedFrameCnt, &m_ctlInfo);
+            }
+#else
             frameTime = systemTime();
             m_requestManager->RegisterTimestamp(matchedFrameCnt, &frameTime);
             m_requestManager->UpdateIspParameters(shot_ext, matchedFrameCnt, &m_ctlInfo);
+#endif
 
             if (m_afModeWaitingCnt != 0) {
                 ALOGV("### Af Trigger pulled, waiting for mode change cnt(%d) ", m_afModeWaitingCnt);
@@ -3050,6 +3094,18 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             (int)(shot_ext->shot.ctl.aa.mode), (int)(shot_ext->shot.ctl.aa.aeMode),
             (int)(shot_ext->shot.ctl.aa.awbMode), (int)(shot_ext->shot.ctl.aa.afMode),
             (int)(shot_ext->shot.ctl.aa.afTrigger));
+
+#ifdef VDIS_ENABLE
+            if (m_vdisBubbleCnt > 0 && m_vdisDupFrame == matchedFrameCnt) {
+                shot_ext->dis_bypass = 1;
+                shot_ext->request_scp = 0;
+                shot_ext->request_scc = 0;
+                m_vdisBubbleCnt--;
+                matchedFrameCnt = -1;
+            } else {
+                m_vdisDupFrame = matchedFrameCnt;
+            }
+#endif
 
             uint32_t current_scp = shot_ext->request_scp;
 
