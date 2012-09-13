@@ -161,28 +161,21 @@ int SUPPORT_THUMBNAIL_FRONT_SIZE[][2] =
     {144, 96}
 };
 
-enum is_flash_scenario_state {
-    IS_FLASH_ON = 1,
-    IS_FLASH_ON_DONE = 2,
-    IS_FLASH_AE_AWB_LOCK_WAIT = 10,
-    IS_FLASH_AUTO_WAIT = 10,
-    IS_FLASH_CAPTURE,
-    IS_FLASH_CAPTURE_WAIT,
-    IS_FLASH_CAPTURE_JPEG,
-    IS_FLASH_CAPTURE_END,
-    IS_FLASH_MAX
-};
-
-enum is_af_flash_scenario_state {
-    IS_FLASH_AF_ON = 1,
-    IS_FLASH_AF_ON_START,
-    IS_FLASH_AF_ON_DONE,
-    IS_FLASH_AF_AUTO_AE_AWB_LOCK,
-    IS_FLASH_AF_AUTO_AE_AWB_LOCK_WAIT,
-    IS_FLASH_AF_AUTO_OFF_WAIT,
-    IS_FLASH_AF_AUTO_END,
-    IF_FLASH_AF_OFF,
-    IS_FLASH_AF_MAX
+enum is_set_flash_command_state {
+    IS_FLASH_STATE_NONE = 0,
+    IS_FLASH_STATE_ON = 1,
+    IS_FLASH_STATE_ON_WAIT,
+    IS_FLASH_STATE_ON_DONE,
+    IS_FLASH_STATE_AUTO_AE_AWB_LOCK,
+    IS_FLASH_STATE_AE_AWB_LOCK_WAIT,
+    IS_FLASH_STATE_AUTO_WAIT,
+    IS_FLASH_STATE_AUTO_DONE,
+    IS_FLASH_STATE_AUTO_OFF,
+    IS_FLASH_STATE_CAPTURE,
+    IS_FLASH_STATE_CAPTURE_WAIT,
+    IS_FLASH_STATE_CAPTURE_JPEG,
+    IS_FLASH_STATE_CAPTURE_END,
+    IS_FALSH_STATE_MAX
 };
 
 enum is_set_command_state {
@@ -240,20 +233,19 @@ typedef struct flash_control_info {
     enum aa_aemode    i_flashMode;
     // AF flash
     bool        m_afFlashDoneFlg;
-    bool        m_afFlashEnableFlg;
-    int          m_afFlashCnt;
     // Capture flash
     bool        m_flashEnableFlg;
-    bool        m_flashCaptured;
     int         m_flashFrameCount;
     int         m_flashCnt;
     int        m_flashTimeOut;
-    int        m_flashWaitCnt;
     // Flash decision
     // At flash auto mode only : 1 -> flash is needed, 0 -> normal case
     bool        m_flashDecisionResult;
     // torch indicator. this will be replaced by flashMode meta
     bool        m_flashTorchMode;
+    // for precapture metering
+    int        m_precaptureState;
+    int        m_precaptureTriggerId;
 } ctl_flash_info_t;
 
 typedef struct awb_control_info {
@@ -596,10 +588,12 @@ class MainThread : public SignalDrivenThread {
     void            OnAfTriggerAutoMacro(int id);
     void            OnAfTriggerCAFPicture(int id);
     void            OnAfTriggerCAFVideo(int id);
+    void            OnPrecaptureMeteringTriggerStart(int id);
     void            OnAfCancel(int id);
     void            OnAfCancelAutoMacro(int id);
     void            OnAfCancelCAFPicture(int id);
     void            OnAfCancelCAFVideo(int id);
+    void            OnPrecaptureMeteringNotification();
     void            OnAfNotification(enum aa_afstate noti);
     void            OnAfNotificationAutoMacro(enum aa_afstate noti);
     void            OnAfNotificationCAFPicture(enum aa_afstate noti);
@@ -610,9 +604,9 @@ class MainThread : public SignalDrivenThread {
     void            m_setExifFixedAttribute(void);
     void            m_setExifChangedAttribute(exif_attribute_t *exifInfo, ExynosRect *rect,
                          camera2_shot *currentEntry);
-    void            flashSetter(struct camera2_shot_ext * shot_ext);
-    void            flashListenerSensor(struct camera2_shot_ext * shot_ext);
-    void            flashListenerISP(struct camera2_shot_ext * shot_ext);
+    void            m_preCaptureSetter(struct camera2_shot_ext * shot_ext);
+    void            m_preCaptureListenerSensor(struct camera2_shot_ext * shot_ext);
+    void            m_preCaptureListenerISP(struct camera2_shot_ext * shot_ext);
     void               *m_exynosPictureCSC;
     void               *m_exynosVideoCSC;
 
