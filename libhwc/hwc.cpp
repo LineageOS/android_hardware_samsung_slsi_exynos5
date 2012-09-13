@@ -1072,6 +1072,8 @@ err_alloc:
            gsc_data->dst_buf[i] = NULL;
        }
     }
+    memset(&gsc_data->src_cfg, 0, sizeof(gsc_data->src_cfg));
+    memset(&gsc_data->dst_cfg, 0, sizeof(gsc_data->dst_cfg));
     return ret;
 }
 
