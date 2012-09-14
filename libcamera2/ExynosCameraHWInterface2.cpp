@@ -1058,7 +1058,7 @@ void ExynosCameraHWInterface2::release()
     for (i = 0; i < NUM_BAYER_BUFFERS; i++)
         freeCameraMemory(&m_camera_info.sensor.buffer[i], m_camera_info.sensor.planes);
 
-    for(i = 0; i < m_camera_info.capture.buffers; i++)
+    for (i = 0; i < NUM_SCC_BUFFERS; i++)
         freeCameraMemory(&m_camera_info.capture.buffer[i], m_camera_info.capture.planes);
 
     ALOGV("DEBUG(%s): calling exynos_v4l2_close - sensor", __FUNCTION__);
@@ -1257,7 +1257,7 @@ int ExynosCameraHWInterface2::InitializeISPChain()
 #else
     m_camera_info.capture.planes = 1;
 #endif
-    m_camera_info.capture.buffers = 8;
+    m_camera_info.capture.buffers = NUM_SCC_BUFFERS;
     m_camera_info.capture.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
     m_camera_info.capture.memory = V4L2_MEMORY_DMABUF;
 
@@ -1289,7 +1289,7 @@ void ExynosCameraHWInterface2::StartSCCThread(bool threadExists)
     newParameters.height            = m_camera2->getSensorH();
     newParameters.format            = format_actual;
     newParameters.streamOps         = NULL;
-    newParameters.numHwBuffers      = 8;
+    newParameters.numHwBuffers      = NUM_SCC_BUFFERS;
 #ifdef ENABLE_FRAME_SYNC
     newParameters.planes            = 2;
 #else
@@ -1317,7 +1317,7 @@ void ExynosCameraHWInterface2::StartSCCThread(bool threadExists)
         }
     }
     cam_int_s_input(newParameters.node, m_camera_info.sensor_id);
-    m_camera_info.capture.buffers = 8;
+    m_camera_info.capture.buffers = NUM_SCC_BUFFERS;
     cam_int_s_fmt(newParameters.node);
     ALOGV("DEBUG(%s): capture calling reqbuf", __FUNCTION__);
     cam_int_reqbufs(newParameters.node);
@@ -1418,7 +1418,7 @@ int ExynosCameraHWInterface2::notifyRequestQueueNotEmpty()
             StartSCCThread(true);
         } else {
             if (m_camera_info.capture.status == false) {
-                m_camera_info.capture.buffers = 8;
+                m_camera_info.capture.buffers = NUM_SCC_BUFFERS;
                 cam_int_s_fmt(&(m_camera_info.capture));
                 ALOGV("DEBUG(%s): capture calling reqbuf", __FUNCTION__);
                 cam_int_reqbufs(&(m_camera_info.capture));
@@ -1558,7 +1558,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             newParameters.format                = *format_actual;
             newParameters.streamOps             = stream_ops;
             newParameters.usage                 = *usage;
-            newParameters.numHwBuffers          = 8;
+            newParameters.numHwBuffers          = NUM_SCP_BUFFERS;
             newParameters.numOwnSvcBuffers      = *max_buffers;
             newParameters.planes                = NUM_PLANES(*format_actual);
             newParameters.metaPlanes            = 1;
@@ -1653,7 +1653,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             newParameters.format                = *format_actual;
             newParameters.streamOps             = stream_ops;
             newParameters.usage                 = *usage;
-            newParameters.numHwBuffers          = 8;
+            newParameters.numHwBuffers          = NUM_SCC_BUFFERS;
             newParameters.numOwnSvcBuffers      = *max_buffers;
             newParameters.planes                = NUM_PLANES(*format_actual);
             newParameters.metaPlanes            = 1;
