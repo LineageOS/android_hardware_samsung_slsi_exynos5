@@ -2907,6 +2907,12 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                     triggered = true;
                 }
                 m_IsAfModeUpdateRequired = false;
+                // support inifinity focus mode
+                if ((m_afMode == AA_AFMODE_OFF) && ( shot_ext->shot.ctl.lens.focusDistance == 0)) {
+                    shot_ext->shot.ctl.aa.afMode = AA_AFMODE_INFINITY;
+                    shot_ext->shot.ctl.aa.afTrigger = 1;
+                    triggered = true;
+                }
                 if (m_afMode2 != NO_CHANGE) {
                     enum aa_afmode tempAfMode = m_afMode2;
                     m_afMode2 = NO_CHANGE;
