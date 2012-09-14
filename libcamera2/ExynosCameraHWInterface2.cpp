@@ -2946,11 +2946,14 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                         shot_ext->shot.ctl.aa.afRegions[3] = lastAfRegion[3] = 0;
                     }
             }
+            if (shot_ext->shot.ctl.aa.sceneMode == AA_SCENE_MODE_NIGHT
+                    && shot_ext->shot.ctl.aa.aeMode == AA_AEMODE_LOCKED)
+                shot_ext->shot.ctl.aa.aeMode = AA_AEMODE_ON;
             if (m_nightCaptureCnt == 0) {
                 if (shot_ext->shot.ctl.aa.captureIntent == AA_CAPTURE_INTENT_STILL_CAPTURE
                         && shot_ext->shot.ctl.aa.sceneMode == AA_SCENE_MODE_NIGHT) {
                     shot_ext->shot.ctl.aa.sceneMode = AA_SCENE_MODE_NIGHT_CAPTURE;
-                    shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 2;
+                    shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 8;
                     shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
                     m_nightCaptureCnt = 4;
                     m_nightCaptureFrameCnt = matchedFrameCnt;
@@ -2959,12 +2962,19 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             }
             else if (m_nightCaptureCnt == 1) {
                 shot_ext->shot.ctl.aa.sceneMode = AA_SCENE_MODE_NIGHT_CAPTURE;
-                    shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 2;
+                    shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 8;
                     shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
                 m_nightCaptureCnt--;
                 shot_ext->request_scc = 1;
             }
-            else if (m_nightCaptureCnt == 2 || m_nightCaptureCnt == 3 || m_nightCaptureCnt == 4) {
+            else if (m_nightCaptureCnt == 2) {
+                shot_ext->shot.ctl.aa.sceneMode = AA_SCENE_MODE_NIGHT_CAPTURE;
+                    shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 8;
+                    shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
+                m_nightCaptureCnt--;
+                shot_ext->request_scc = 0;
+            }
+            else if (m_nightCaptureCnt == 3 || m_nightCaptureCnt == 4) {
                 shot_ext->shot.ctl.aa.sceneMode = AA_SCENE_MODE_NIGHT_CAPTURE;
                     shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 2;
                     shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
