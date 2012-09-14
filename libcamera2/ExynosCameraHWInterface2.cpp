@@ -5000,7 +5000,6 @@ void ExynosCameraHWInterface2::OnAfNotificationCAFVideo(enum aa_afstate noti)
             break;
         case AA_AFSTATE_AF_FAILED_FOCUS:
             nextState = NO_TRANSITION;
-            m_IsAfTriggerRequired = true;
             break;
         default:
             bWrongTransition = true;
