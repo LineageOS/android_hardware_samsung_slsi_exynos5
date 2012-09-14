@@ -911,7 +911,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
             m_thumbNailW(160),
             m_thumbNailH(120)
 {
-    ALOGV("DEBUG(%s):", __FUNCTION__);
+    ALOGD("(%s): ENTER", __FUNCTION__);
     int ret = 0;
     int res = 0;
 
@@ -935,6 +935,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
     m_requestManager = new RequestManager((SignalDrivenThread*)(m_mainThread.get()));
     *openInvalid = InitializeISPChain();
     if (*openInvalid < 0) {
+        ALOGD("(%s): ISP chain init failed. exiting", __FUNCTION__);
         // clean process
         // 1. close video nodes
         // SCP
@@ -960,7 +961,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
     } else {
         m_sensorThread  = new SensorThread(this);
         m_mainThread->Start("MainThread", PRIORITY_DEFAULT, 0);
-        ALOGV("DEBUG(%s): created sensorthread ################", __FUNCTION__);
+        ALOGV("DEBUG(%s): created sensorthread ", __FUNCTION__);
 
         for (int i = 0 ; i < STREAM_ID_LAST+1 ; i++)
             m_subStreams[i].type =  SUBSTREAM_TYPE_NONE;
@@ -995,19 +996,20 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
         m_ctlInfo.awb.i_awbMode = AA_AWBMODE_OFF;
         m_ctlInfo.awb.m_awbCnt = IS_COMMAND_NONE;
     }
+    ALOGD("(%s): EXIT", __FUNCTION__);
 }
 
 ExynosCameraHWInterface2::~ExynosCameraHWInterface2()
 {
-    ALOGV("%s: ENTER", __FUNCTION__);
+    ALOGD("(%s): ENTER", __FUNCTION__);
     this->release();
-    ALOGV("%s: EXIT", __FUNCTION__);
+    ALOGD("(%s): EXIT", __FUNCTION__);
 }
 
 void ExynosCameraHWInterface2::release()
 {
     int i, res;
-    CAM_LOGD("%s: ENTER", __func__);
+    ALOGD("(HAL2::release): ENTER");
 
     if (m_streamThreads[1] != NULL) {
         m_streamThreads[1]->release();
@@ -1038,7 +1040,7 @@ void ExynosCameraHWInterface2::release()
     if (m_streamThreads[1] != NULL) {
         while (!m_streamThreads[1]->IsTerminated())
         {
-            CAM_LOGD("Waiting for stream thread 1 is tetminated");
+            ALOGD("(HAL2::release): Waiting for (indirect) stream thread 1 termination");
             usleep(100000);
         }
         m_streamThreads[1] = NULL;
@@ -1047,7 +1049,7 @@ void ExynosCameraHWInterface2::release()
     if (m_streamThreads[0] != NULL) {
         while (!m_streamThreads[0]->IsTerminated())
         {
-            CAM_LOGD("Waiting for stream thread 0 is tetminated");
+            ALOGD("(HAL2::release): Waiting for (indirect) stream thread 0 termination");
             usleep(100000);
         }
         m_streamThreads[0] = NULL;
@@ -1056,7 +1058,7 @@ void ExynosCameraHWInterface2::release()
     if (m_sensorThread != NULL) {
         while (!m_sensorThread->IsTerminated())
         {
-            CAM_LOGD("Waiting for sensor thread is tetminated");
+            ALOGD("(HAL2::release): Waiting for (indirect) sensor thread termination");
             usleep(100000);
         }
         m_sensorThread = NULL;
@@ -1065,7 +1067,7 @@ void ExynosCameraHWInterface2::release()
     if (m_mainThread != NULL) {
         while (!m_mainThread->IsTerminated())
         {
-            CAM_LOGD("Waiting for main thread is tetminated");
+            ALOGD("(HAL2::release): Waiting for (indirect) main thread termination");
             usleep(100000);
         }
         m_mainThread = NULL;
@@ -1112,7 +1114,7 @@ void ExynosCameraHWInterface2::release()
     ALOGV("DEBUG(%s): calling deleteIonClient", __FUNCTION__);
     deleteIonClient(m_ionCameraClient);
 
-    ALOGV("%s: EXIT", __func__);
+    ALOGD("(HAL2::release): EXIT");
 }
 
 int ExynosCameraHWInterface2::InitializeISPChain()
@@ -1530,7 +1532,7 @@ int ExynosCameraHWInterface2::constructDefaultRequest(int request_template, came
 int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, int format, const camera2_stream_ops_t *stream_ops,
                                     uint32_t *stream_id, uint32_t *format_actual, uint32_t *usage, uint32_t *max_buffers)
 {
-    ALOGV("DEBUG(%s): allocate stream width(%d) height(%d) format(%x)", __FUNCTION__,  width, height, format);
+    ALOGD("(%s): stream width(%d) height(%d) format(%x)", __FUNCTION__,  width, height, format);
     bool useDirectOutput = false;
     StreamThread *AllocatedStream;
     stream_parameters_t newParameters;
@@ -1786,7 +1788,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
         ALOGV("(%s): Enabling previewcb", __FUNCTION__);
         return 0;
     }
-    ALOGE("DEBUG(%s): Unsupported Pixel Format", __FUNCTION__);
+    ALOGE("(%s): Unsupported Pixel Format", __FUNCTION__);
     return 1;
 }
 
@@ -1803,7 +1805,7 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
     struct v4l2_buffer v4l2_buf;
     struct v4l2_plane  planes[VIDEO_MAX_PLANES];
 
-    CAM_LOGV("DEBUG(%s): streamID (%d), num_buff(%d), handle(%x) ", __FUNCTION__,
+    ALOGD("(%s): stream_id(%d), num_buff(%d), handle(%x) ", __FUNCTION__,
         stream_id, num_buffers, (uint32_t)registeringBuffers);
 
     if (stream_id == STREAM_ID_PREVIEW && m_streamThreads[0].get()) {
@@ -1863,7 +1865,7 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
         targetStreamParms = &(m_streamThreads[1]->m_parameters);
     }
     else {
-        ALOGE("ERR(%s) unregisterd stream id (%d)", __FUNCTION__, stream_id);
+        ALOGE("(%s): unregistered stream id (%d)", __FUNCTION__, stream_id);
         return 1;
     }
 
@@ -1978,7 +1980,7 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
 {
     StreamThread *targetStream;
     status_t res = NO_ERROR;
-    CAM_LOGV("DEBUG(%s):stream id %d", __FUNCTION__, stream_id);
+    ALOGD("(%s): stream_id(%d)", __FUNCTION__, stream_id);
     bool releasingScpMain = false;
 
     if (stream_id == STREAM_ID_PREVIEW) {
@@ -2050,7 +2052,7 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         targetStream = (StreamThread*)(m_streamThreads[0].get());
         targetStream->m_releasing = true;
         do {
-            ALOGD("stream thread release %d", __LINE__);
+            ALOGD("(%s): Waiting for (indirect) stream thread release - line(%d)", __FUNCTION__, __LINE__);
             targetStream->release();
             usleep(33000);
         } while (targetStream->m_releasing);
@@ -2059,7 +2061,7 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         if (targetStream != NULL) {
             while (targetStream->IsTerminated())
             {
-                ALOGD("Waiting for stream thread is tetminated");
+                ALOGD("(%s): Waiting for (indirect) stream thread termination", __FUNCTION__);
                 usleep(10000);
             }
             m_streamThreads[0] = NULL;
@@ -2068,7 +2070,7 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         if (m_sensorThread != NULL) {
             m_sensorThread->release();
             while (!m_sensorThread->IsTerminated()){
-                ALOGD("Waiting for sensor thread is tetminated");
+                ALOGD("(%s): Waiting for (indirect) sensor thread termination", __FUNCTION__);
                 usleep(10000);
             }
         }
@@ -2111,7 +2113,7 @@ int ExynosCameraHWInterface2::allocateReprocessStreamFromStream(
             // outputs
             uint32_t *stream_id)
 {
-    ALOGV("DEBUG(%s): output_stream_id(%d)", __FUNCTION__, output_stream_id);
+    ALOGD("(%s): output_stream_id(%d)", __FUNCTION__, output_stream_id);
     *stream_id = STREAM_ID_JPEG_REPROCESS;
 
     m_reprocessStreamId = *stream_id;
@@ -2122,7 +2124,7 @@ int ExynosCameraHWInterface2::allocateReprocessStreamFromStream(
 
 int ExynosCameraHWInterface2::releaseReprocessStream(uint32_t stream_id)
 {
-    ALOGV("DEBUG(%s):", __FUNCTION__);
+    ALOGD("(%s): stream_id(%d)", __FUNCTION__, stream_id);
     if (stream_id == STREAM_ID_JPEG_REPROCESS) {
         m_reprocessStreamId = 0;
         m_reprocessOps = NULL;
@@ -2898,10 +2900,10 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             shot_ext->shot.ctl.scaler.cropRegion[1] = new_cropRegion[1];
             shot_ext->shot.ctl.scaler.cropRegion[2] = new_cropRegion[2];
             if (m_IsAfModeUpdateRequired) {
-                ALOGE("### AF Mode change(Mode %d) ", m_afMode);
+                ALOGD("### AF Mode change(Mode %d) ", m_afMode);
                 shot_ext->shot.ctl.aa.afMode = m_afMode;
                 if (m_afMode == AA_AFMODE_CONTINUOUS_VIDEO || m_afMode == AA_AFMODE_CONTINUOUS_PICTURE) {
-                    ALOGE("### With Automatic triger for continuous modes");
+                    ALOGD("### With Automatic triger for continuous modes");
                     m_afState = HAL_AFSTATE_STARTED;
                     shot_ext->shot.ctl.aa.afTrigger = 1;
                     triggered = true;
@@ -2927,25 +2929,25 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                     if (m_ctlInfo.flash.m_flashCnt == IS_FLASH_STATE_ON_DONE) {
                         // Flash is enabled and start AF
                         if (m_afState == HAL_AFSTATE_SCANNING) {
-                            ALOGE("(%s): restarting trigger ", __FUNCTION__);
+                            ALOGD("(%s): restarting trigger ", __FUNCTION__);
                         } else {
                             if (m_afState != HAL_AFSTATE_NEEDS_COMMAND)
-                                ALOGE("(%s): wrong trigger state %d", __FUNCTION__, m_afState);
+                                ALOGD("(%s): wrong trigger state %d", __FUNCTION__, m_afState);
                             else
                                 m_afState = HAL_AFSTATE_STARTED;
                         }
-                        ALOGE("### AF Triggering with mode (%d)", m_afMode);
+                        ALOGD("### AF Triggering with mode (%d)", m_afMode);
                         shot_ext->shot.ctl.aa.afTrigger = 1;
                         shot_ext->shot.ctl.aa.afMode = m_afMode;
                         m_IsAfTriggerRequired = false;
                     }
                 } else {
-                    ALOGE("### AF Triggering with mode (%d)", m_afMode);
+                    ALOGD("### AF Triggering with mode (%d)", m_afMode);
                     if (m_afState == HAL_AFSTATE_SCANNING) {
-                        ALOGE("(%s): restarting trigger ", __FUNCTION__);
+                        ALOGD("(%s): restarting trigger ", __FUNCTION__);
                     } else {
                         if (m_afState != HAL_AFSTATE_NEEDS_COMMAND)
-                            ALOGE("(%s): wrong trigger state %d", __FUNCTION__, m_afState);
+                            ALOGD("(%s): wrong trigger state %d", __FUNCTION__, m_afState);
                         else
                             m_afState = HAL_AFSTATE_STARTED;
                     }
@@ -3686,9 +3688,9 @@ void ExynosCameraHWInterface2::m_streamFunc_indirect(SignalDrivenThread *self)
 
         m_streamBufferInit(self);
 
-        ALOGD("DEBUG(%s): streamthread[%d] DQBUF START", __FUNCTION__, selfThread->m_index);
+        ALOGV("DEBUG(%s): streamthread[%d] DQBUF START", __FUNCTION__, selfThread->m_index);
         selfStreamParms->bufIndex = cam_int_dqbuf(currentNode);
-        ALOGD("DEBUG(%s): streamthread[%d] DQBUF done index(%d)",__FUNCTION__,
+        ALOGV("DEBUG(%s): streamthread[%d] DQBUF done index(%d)",__FUNCTION__,
             selfThread->m_index, selfStreamParms->bufIndex);
 
 #ifdef ENABLE_FRAME_SYNC
@@ -5696,7 +5698,7 @@ ExynosCamera2 * g_camera2[2] = { NULL, NULL };
 
 static int HAL2_camera_device_close(struct hw_device_t* device)
 {
-    ALOGV("%s: ENTER", __FUNCTION__);
+    ALOGD("(%s): ENTER", __FUNCTION__);
     if (device) {
 
         camera2_device_t *cam_device = (camera2_device_t *)device;
@@ -5708,7 +5710,7 @@ static int HAL2_camera_device_close(struct hw_device_t* device)
         g_camera_vaild = false;
     }
 
-    ALOGV("%s: EXIT", __FUNCTION__);
+    ALOGD("(%s): EXIT", __FUNCTION__);
     return 0;
 }
 
