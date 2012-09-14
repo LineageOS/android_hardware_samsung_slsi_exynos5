@@ -280,8 +280,8 @@ static void Set_Mpeg4Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
     Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->eControlRate[OUTPUT_PORT_INDEX]: 0x%x", pVideoEnc->eControlRate[OUTPUT_PORT_INDEX]);
     /* rate control related parameters */
     switch (pVideoEnc->eControlRate[OUTPUT_PORT_INDEX]) {
-    case OMX_Video_ControlRateVariable:
-        Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "Video Encode VBR");
+    case OMX_Video_ControlRateDisable:
+        Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "Video Encode DBR");
         pCommonParam->EnableFRMRateControl = 0; /* 0: Disable, 1: Frame level RC */
         pCommonParam->EnableMBRateControl  = 0; /* 0: Disable, 1:MB level RC */
         pCommonParam->CBRPeriodRf          = 100;
@@ -290,13 +290,13 @@ static void Set_Mpeg4Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
         Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "Video Encode CBR");
         pCommonParam->EnableFRMRateControl = 1; /* 0: Disable, 1: Frame level RC */
         pCommonParam->EnableMBRateControl  = 1; /* 0: Disable, 1:MB level RC */
-        pCommonParam->CBRPeriodRf          = 10;
+        pCommonParam->CBRPeriodRf          = 9;
         break;
-    case OMX_Video_ControlRateDisable:
+    case OMX_Video_ControlRateVariable:
     default: /*Android default */
         Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "Video Encode VBR");
-        pCommonParam->EnableFRMRateControl = 0;
-        pCommonParam->EnableMBRateControl  = 0;
+        pCommonParam->EnableFRMRateControl = 1; /* 0: Disable, 1: Frame level RC */
+        pCommonParam->EnableMBRateControl  = 1; /* 0: Disable, 1:MB level RC */
         pCommonParam->CBRPeriodRf          = 100;
         break;
     }
@@ -374,8 +374,8 @@ static void Set_H263Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
     Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->eControlRate[OUTPUT_PORT_INDEX]: 0x%x", pVideoEnc->eControlRate[OUTPUT_PORT_INDEX]);
     /* rate control related parameters */
     switch (pVideoEnc->eControlRate[OUTPUT_PORT_INDEX]) {
-    case OMX_Video_ControlRateVariable:
-        Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "Video Encode VBR");
+    case OMX_Video_ControlRateDisable:
+        Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "Video Encode DBR");
         pCommonParam->EnableFRMRateControl = 0; /* 0: Disable, 1: Frame level RC */
         pCommonParam->EnableMBRateControl  = 0; /* 0: Disable, 1:MB level RC */
         pCommonParam->CBRPeriodRf          = 100;
@@ -384,13 +384,13 @@ static void Set_H263Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
         Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "Video Encode CBR");
         pCommonParam->EnableFRMRateControl = 1; /* 0: Disable, 1: Frame level RC */
         pCommonParam->EnableMBRateControl  = 1; /* 0: Disable, 1:MB level RC */
-        pCommonParam->CBRPeriodRf          = 10;
+        pCommonParam->CBRPeriodRf          = 9;
         break;
-    case OMX_Video_ControlRateDisable:
+    case OMX_Video_ControlRateVariable:
     default: /*Android default */
         Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "Video Encode VBR");
-        pCommonParam->EnableFRMRateControl = 0;
-        pCommonParam->EnableMBRateControl  = 0;
+        pCommonParam->EnableFRMRateControl = 1; /* 0: Disable, 1: Frame level RC */
+        pCommonParam->EnableMBRateControl  = 1; /* 0: Disable, 1:MB level RC */
         pCommonParam->CBRPeriodRf          = 100;
         break;
     }
