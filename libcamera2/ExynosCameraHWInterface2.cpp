@@ -775,13 +775,14 @@ nsecs_t  RequestManager::GetTimestampByFrameCnt(int frameCnt)
 
 nsecs_t  RequestManager::GetTimestamp(int index)
 {
+    Mutex::Autolock lock(m_requestMutex);
     if (index < 0 || index >= NUM_MAX_REQUEST_MGR_ENTRY) {
         ALOGE("ERR(%s): Request entry outside of bounds (%d)", __FUNCTION__, index);
         return 0;
     }
 
     request_manager_entry * currentEntry = &(entries[index]);
-    uint64_t frameTime = currentEntry->internal_shot.shot.dm.sensor.timeStamp;
+    nsecs_t frameTime = currentEntry->internal_shot.shot.dm.sensor.timeStamp;
     if (frameTime == 0) {
         ALOGV("DEBUG(%s): timestamp null,  returning saved value", __FUNCTION__);
         frameTime = m_lastTimeStamp;
