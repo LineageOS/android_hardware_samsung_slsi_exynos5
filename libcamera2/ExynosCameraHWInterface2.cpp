@@ -1299,15 +1299,16 @@ void ExynosCameraHWInterface2::StartSCCThread(bool threadExists)
     StreamThread *AllocatedStream;
     stream_parameters_t newParameters;
     uint32_t format_actual;
-    int numRegisteredStream = 0;
 
 
     if (!threadExists) {
         m_streamThreads[1]  = new StreamThread(this, 1);
     }
     AllocatedStream = (StreamThread*)(m_streamThreads[1].get());
-    if (!threadExists)
+    if (!threadExists) {
         m_streamThreadInitialize((SignalDrivenThread*)AllocatedStream);
+        AllocatedStream->m_numRegisteredStream = 1;
+    }
     AllocatedStream->m_index        = 1;
 
     format_actual                   = HAL_PIXEL_FORMAT_YCbCr_422_I; // YUYV
@@ -1328,7 +1329,6 @@ void ExynosCameraHWInterface2::StartSCCThread(bool threadExists)
     newParameters.node              = &m_camera_info.capture;
 
     AllocatedStream->streamType     = STREAM_TYPE_INDIRECT;
-    AllocatedStream->m_numRegisteredStream = numRegisteredStream;
     ALOGV("(%s): m_numRegisteredStream = %d", __FUNCTION__, AllocatedStream->m_numRegisteredStream);
 
     for (int i = 0; i < m_camera_info.capture.buffers; i++){
@@ -1451,9 +1451,51 @@ int ExynosCameraHWInterface2::notifyRequestQueueNotEmpty()
                 cam_int_reqbufs(&(m_camera_info.capture));
                 ALOGV("DEBUG(%s): capture calling querybuf", __FUNCTION__);
 
-                for (int i = 0; i < m_camera_info.capture.buffers; i++) {
-                    ALOGV("DEBUG(%s): capture initial QBUF [%d]",  __FUNCTION__, i);
-                    cam_int_qbuf(&(m_camera_info.capture), i);
+                if (m_streamThreads[1]->streamType == STREAM_TYPE_DIRECT) {
+                    StreamThread *          targetStream = m_streamThreads[1].get();
+                    stream_parameters_t     *targetStreamParms = &(targetStream->m_parameters);
+                    node_info_t             *currentNode = targetStreamParms->node;
+
+                    struct v4l2_buffer v4l2_buf;
+                    struct v4l2_plane  planes[VIDEO_MAX_PLANES];
+
+                    for (i = 0 ; i < targetStreamParms->numSvcBuffers ; i++) {
+                        v4l2_buf.m.planes   = planes;
+                        v4l2_buf.type       = currentNode->type;
+                        v4l2_buf.memory     = currentNode->memory;
+
+                        v4l2_buf.length     = currentNode->planes;
+                        v4l2_buf.index      = i;
+                        ExynosBuffer metaBuf = targetStreamParms->metaBuffers[i];
+
+                        if (i < currentNode->buffers) {
+#ifdef ENABLE_FRAME_SYNC
+                            v4l2_buf.m.planes[0].m.fd = targetStreamParms->svcBuffers[i].fd.extFd[0];
+                            v4l2_buf.m.planes[2].m.fd = targetStreamParms->svcBuffers[i].fd.extFd[1];
+                            v4l2_buf.m.planes[1].m.fd = targetStreamParms->svcBuffers[i].fd.extFd[2];
+                            v4l2_buf.length += targetStreamParms->metaPlanes;
+                            v4l2_buf.m.planes[v4l2_buf.length-1].m.fd = metaBuf.fd.extFd[0];
+                            v4l2_buf.m.planes[v4l2_buf.length-1].length = metaBuf.size.extS[0];
+
+                            ALOGV("Qbuf metaBuf: fd(%d), length(%d) plane(%d)", metaBuf.fd.extFd[0], metaBuf.size.extS[0], v4l2_buf.length);
+#endif
+                            if (exynos_v4l2_qbuf(currentNode->fd, &v4l2_buf) < 0) {
+                                ALOGE("ERR(%s): exynos_v4l2_qbuf() fail fd(%d)", __FUNCTION__, currentNode->fd);
+                            }
+                            ALOGV("DEBUG(%s): exynos_v4l2_qbuf() success fd(%d)", __FUNCTION__, currentNode->fd);
+                            targetStreamParms->svcBufStatus[i]  = REQUIRES_DQ_FROM_SVC;
+                        }
+                        else {
+                            targetStreamParms->svcBufStatus[i]  = ON_SERVICE;
+                        }
+
+                    }
+
+                } else {
+                    for (int i = 0; i < m_camera_info.capture.buffers; i++) {
+                        ALOGV("DEBUG(%s): capture initial QBUF [%d]",  __FUNCTION__, i);
+                        cam_int_qbuf(&(m_camera_info.capture), i);
+                    }
                 }
                 ALOGV("== stream_on :: capture");
                 if (cam_int_streamon(&(m_camera_info.capture)) < 0) {
@@ -1646,7 +1688,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             return 0;
         }
     }
-    else if ((format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED|| format == CAMERA2_HAL_PIXEL_FORMAT_OPAQUE)
+    else if ((format == CAMERA2_HAL_PIXEL_FORMAT_ZSL)
             && (width == m_camera2->getSensorW()) && (height == m_camera2->getSensorH())) {
 
         if (!(m_streamThreads[1].get())) {
@@ -1696,7 +1738,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             AllocatedStream->m_index            = 1;
             AllocatedStream->setParameter(&newParameters);
             AllocatedStream->m_activated = true;
-            AllocatedStream->m_numRegisteredStream++;
+            AllocatedStream->m_numRegisteredStream = 1;
             ALOGV("(%s): m_numRegisteredStream = %d", __FUNCTION__, AllocatedStream->m_numRegisteredStream);
             return 0;
         }
@@ -2085,12 +2127,10 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
                 m_camera_info.capture.status = false;
             }
             ALOGV("(%s): calling capture streamoff done", __FUNCTION__);
-            if (m_streamThreads[1]->streamType == STREAM_TYPE_INDIRECT) {
                 m_camera_info.capture.buffers = 0;
                 ALOGV("DEBUG(%s): capture calling reqbuf 0 ", __FUNCTION__);
                 cam_int_reqbufs(&(m_camera_info.capture));
                 ALOGV("DEBUG(%s): capture calling reqbuf 0 done", __FUNCTION__);
-            }
         }
         m_isIspStarted = false;
     }
@@ -5837,6 +5877,8 @@ static int HAL2_device_trigger_action(const struct camera2_device *dev,
             int ext2)
 {
     ALOGV("DEBUG(%s):", __FUNCTION__);
+    if (!g_camera_vaild)
+        return 0;
     return obj(dev)->triggerAction(trigger_id, ext1, ext2);
 }
 
