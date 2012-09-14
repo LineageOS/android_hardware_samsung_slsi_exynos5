@@ -45,7 +45,6 @@
 #include "mcLoadFormat.h"
 
 
-#define LOG_TAG	"McDaemon"
 #include "log.h"
 #include "public/MobiCoreDevice.h"
 
@@ -246,7 +245,7 @@ void MobiCoreDevice::openSession(
 		mcpMessage->cmdOpen.ofsTciBuffer = 0;
 		mcpMessage->cmdOpen.lenTciBuffer = pCmdOpenSessionPayload->len;
 
-		LOG_I("%s(): tciPhys=%p, len=%d,", __FUNCTION__,
+		LOG_I(" Using phys=%p, len=%d as TCI buffer",
 				(addr_t)(pCmdOpenSessionPayload->tci),
 				pCmdOpenSessionPayload->len);
 
@@ -289,12 +288,12 @@ void MobiCoreDevice::openSession(
 
 		if(MC_MCP_RET_OK != mcRet)
 		{
-			LOG_E("%s: CMD_OPEN_SESSION error %d", __FUNCTION__, mcRet);
+			LOG_E("MCP OPEN returned code %d.", mcRet);
 			break;
 		}
 
-		LOG_I("%s: We have %d queued notifications after open session", 
-			  __FUNCTION__, notifications.size());
+		LOG_I(" After MCP OPEN, we have %d queued notifications",
+			  notifications.size());
 		// Read MC answer from MCP buffer
 		TrustletSession *trustletSession = new TrustletSession(
 													deviceConnection,
@@ -322,9 +321,11 @@ TrustletSession *MobiCoreDevice::registerTrustletConnection(
 	Connection                    *connection,
 	mcDrvCmdNqConnectPayload_ptr  pCmdNqConnectPayload
 ) {
-	LOG_I("%s(): searching sessionMagic %d and sessionId %d", __FUNCTION__,
-		pCmdNqConnectPayload->sessionMagic,
-		pCmdNqConnectPayload->sessionId);
+	LOG_I(" Registering notification socket with Service session %d.",
+	        pCmdNqConnectPayload->sessionId);
+    LOG_V("  Searching sessionId %d with sessionMagic %d",
+            pCmdNqConnectPayload->sessionId,
+            pCmdNqConnectPayload->sessionMagic);
 
 	for (trustletSessionIterator_t iterator = trustletSessions.begin();
 			iterator != trustletSessions.end();
@@ -340,10 +341,11 @@ TrustletSession *MobiCoreDevice::registerTrustletConnection(
 			continue;
 		}
 
-		LOG_I("%s(): found connection", __FUNCTION__);
-
 		ts->notificationConnection = connection;
-		return ts;
+
+		LOG_I(" Found Service session, registered connection.");
+
+        return ts;
 	}
 
 	LOG_I("registerTrustletConnection(): search failed");
@@ -386,7 +388,7 @@ bool MobiCoreDevice::closeSession(
 			break;
 		}
 
-		LOG_I("closeSession(): Write MCP close message to buffer and notify, wait");
+		LOG_I(" Write MCP CLOSE message to MCI, notify and wait");
 
 		// Write MCP close message to buffer
 		mcpMessage->cmdClose.cmdHeader.cmdId = MC_MCP_CMD_CLOSE_SESSION;
@@ -463,6 +465,7 @@ void MobiCoreDevice::mapBulk(
 		pRspMapBulkMemPayload->sessionId = pCmdMapBulkMemPayload->sessionId;
 
 		if(MC_MCP_RET_OK != mcRet) {
+            //LOG_E("MCP MAP returned code %d.", mcRet);
 			LOG_E("mapBulk(): CMD_MAP error %d",mcRet);
 			break;
 		}
@@ -508,7 +511,7 @@ void MobiCoreDevice::unmapBulk(
 
 		if(MC_MCP_RET_OK != mcRet)
 		{
-			LOG_E("unmapBulk(): MC_MCP_CMD_UNMAP error %d",mcRet);
+            LOG_E("MCP MAP returned code %d.", mcRet);
 			break;
 		}
 

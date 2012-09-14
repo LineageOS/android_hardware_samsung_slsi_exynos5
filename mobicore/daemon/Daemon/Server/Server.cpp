@@ -37,9 +37,8 @@
 #include <string.h>
 #include <errno.h>
 
-#define LOG_TAG	"McDaemon"
+//#define LOG_VERBOSE
 #include "log.h"
-
 
 //------------------------------------------------------------------------------
 Server::Server(
@@ -57,13 +56,13 @@ void Server::run(
 ) {
     do
     {
-		LOG_I("run(): start listening on socket %s", socketAddr.c_str());
+		LOG_I("Server: start listening on socket %s", socketAddr.c_str());
 
 		// Open a socket (a UNIX domain stream socket)
 		serverSock = socket(AF_UNIX, SOCK_STREAM, 0);
 		if (serverSock < 0)
 		{
-			LOG_E("run(): can't open stream socket, errno=%d", errno);
+			LOG_ERRNO("Can't open stream socket, because socket");
 			break;
 		}
 
@@ -77,17 +76,17 @@ void Server::run(
 		serverAddr.sun_path[0] = 0;
 		if (bind(serverSock, (struct sockaddr *) &serverAddr, len) < 0)
 		{
-			LOG_E("bind() to server socket failed, errno=%d", errno);
+            LOG_ERRNO("Binding to server socket failed, because bind");
 		}
 
 		// Start listening on the socket
 		if (listen(serverSock, LISTEN_QUEUE_LEN) < 0)
 		{
-			LOG_E("run(): listen() failed, errno=%d", errno);
+		    LOG_ERRNO("listen");
 			break;
 		}
 
-		LOG_I("\n********* successfully initialized *********\n");
+		LOG_I("\n********* successfully initialized Daemon *********\n");
 
 		for (;;)
 		{
@@ -116,7 +115,7 @@ void Server::run(
 
 			// Wait for activities, select() returns the number of sockets
 			// which require processing
-			LOG_I("run(): waiting on sockets");
+			LOG_V(" Server: waiting on sockets");
 			int numSockets = select(
 			                    maxSocketDescriptor + 1,
 			                    &fdReadSockets,
@@ -125,25 +124,25 @@ void Server::run(
 			// Check if select failed
 			if (numSockets < 0)
 			{
-				LOG_E("run(): select() failed, errno=%d", errno);
+				LOG_ERRNO("select");
 				break;
 			}
 
             // actually, this should not happen.
 			if (0 == numSockets)
             {
-			    LOG_W("run(): select() returned 0, spurious event?.");
+			    LOG_W(" Server: select() returned 0, spurious event?.");
 			    continue;
             }
 
-			LOG_I("run(): events on %d socket(s).", numSockets);
+			LOG_V(" Server: events on %d socket(s).", numSockets);
 
 			// Check if a new client connected to the server socket
 			if (FD_ISSET(serverSock, &fdReadSockets))
 			{
 				do
 				{
-					LOG_I("run(): new connection");
+					LOG_V(" Server: new connection attempt.");
 					numSockets--;
 
 					struct sockaddr_un clientAddr;
@@ -155,13 +154,13 @@ void Server::run(
 
 					if (clientSock <= 0)
 					{
-						LOG_E("run(): accept() failed, errno=%d", errno);
+						LOG_ERRNO("accept");
 						break;
 					}
 
 					Connection *connection = new Connection(clientSock, &clientAddr);
 					peerConnections.push_back(connection);
-					LOG_I("run(): added new connection");
+					LOG_I(" Server: new socket connection established and start listening.");
 				} while (false);
 
 				// we can ignore any errors from accepting a new connection.
@@ -189,7 +188,7 @@ void Server::run(
 				// fails
 				if (!connectionHandler->handleConnection(connection))
 				{
-					LOG_I("run(): No command processed.");
+					LOG_I(" Server: dropping connection.");
 
 					//Inform the driver
 					connectionHandler->dropConnection(connection);
@@ -206,7 +205,7 @@ void Server::run(
 
 	} while (false);
 
-    LOG_E("run(): exiting due to error, errno=%d", errno);
+    LOG_ERRNO("Exiting Server, because");
 }
 
 
@@ -214,7 +213,7 @@ void Server::run(
 void Server::detachConnection(
     Connection *connection
 ) {
-	LOG_I("Detaching NQ connection...");
+	LOG_V(" Stopping to listen on notification socket.");
 
 	for (connectionIterator_t iterator = peerConnections.begin();
 			iterator != peerConnections.end();
@@ -224,7 +223,7 @@ void Server::detachConnection(
 		if (tmpConnection == connection)
 		{
 			peerConnections.erase(iterator);
-			LOG_I("NQ connection detached");
+			LOG_I(" Stopped listening on notification socket.");
 			break;
 		}
 	}

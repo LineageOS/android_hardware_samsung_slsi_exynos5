@@ -2,7 +2,7 @@
  * @{
  * @file
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -30,11 +30,10 @@
 #include <stdint.h>
 #include <vector>
 
-#include "mc_drv_module_api.h"
+#include "mc_linux.h"
 
 #include "Session.h"
 
-#define LOG_TAG	"McClient"
 #include "log.h"
 
 
@@ -42,8 +41,8 @@
 Session::Session(
     uint32_t    sessionId,
     CMcKMod     *mcKMod,
-    Connection  *connection
-) {
+    Connection  *connection)
+{
     this->sessionId = sessionId;
     this->mcKMod = mcKMod;
     this->notificationConnection = connection;
@@ -72,8 +71,7 @@ Session::~Session(
 
         // ignore any error, as we cannot do anything in this case.
         int ret = mcKMod->unregisterWsmL2(pBlkBufDescr->handle);
-        if (0 != ret)
-        {
+        if (ret != 0) {
             LOG_E("removeBulkBuf(): mcKModUnregisterWsmL2 failed: %d",ret);
         }
 
@@ -83,6 +81,8 @@ Session::~Session(
 
     // Finally delete notification connection
     delete notificationConnection;
+
+    unlock();
 }
 
 
@@ -117,6 +117,8 @@ BulkBufferDescriptor* Session::addBulkBuf(
     ) {
         if ((*iterator)->virtAddr == buf)
         {
+            // TODO-2012-08-03-haenellu: better error reporting.
+            LOG_E("Cannot map a buffer to multiple locations in one Trustlet.");
             return NULL;
         }
     }
@@ -135,11 +137,11 @@ BulkBufferDescriptor* Session::addBulkBuf(
                     &pPhysWsmL2);
 
         if (0 != ret) {
-            LOG_E("mcKModRegisterWsmL2 failed, ret=%d",ret);
+            LOG_V(" mcKMod->registerWsmL2() failed with %d",ret);
             break;
         }
 
-        LOG_I("addBulkBuf - Physical Address of L2 Table = 0x%X, handle=%d",
+        LOG_V(" addBulkBuf - Physical Address of L2 Table = 0x%X, handle=%d",
                 (unsigned int)pPhysWsmL2,
                 handle);
 
@@ -165,7 +167,7 @@ bool Session::removeBulkBuf(
     bool ret = true;
     BulkBufferDescriptor  *pBlkBufDescr = NULL;
 
-    LOG_I("removeBulkBuf(): Virtual Address = 0x%X", (unsigned int) virtAddr);
+    LOG_V("removeBulkBuf(): Virtual Address = 0x%X", (unsigned int) virtAddr);
 
     // Search and remove bulk buffer descriptor
     for ( bulkBufferDescrIterator_t iterator = bulkBufferDescriptors.begin();
@@ -183,18 +185,17 @@ bool Session::removeBulkBuf(
 
     if (NULL == pBlkBufDescr)
     {
-        LOG_E("removeBulkBuf - Virtual Address not found");
+        LOG_E("%p not registered in session %d.", virtAddr, sessionId);
         ret = false;
     }
     else
     {
-        LOG_I("removeBulkBuf(): WsmL2 phys=0x%X, handle=%d",
+        LOG_V("removeBulkBuf(): WsmL2 phys=0x%X, handle=%d",
         		(unsigned int)pBlkBufDescr->physAddrWsmL2, pBlkBufDescr->handle);
 
         // ignore any error, as we cannot do anything
         int ret = mcKMod->unregisterWsmL2(pBlkBufDescr->handle);
-        if (0 != ret)
-        {
+        if (ret != 0) {
             LOG_E("removeBulkBuf(): mcKModUnregisterWsmL2 failed: %d",ret);
         }
 

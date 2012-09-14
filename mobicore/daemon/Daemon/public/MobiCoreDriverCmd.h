@@ -77,59 +77,64 @@ typedef enum {
 
 typedef struct {
     uint32_t  commandId;
-} mcDrvCommandHeader_t, *mcDrvCommandHeader_ptr;
+} mcDrvCommandHeader_t;
 
 typedef struct {
     uint32_t  responseId;
-} mcDrvResponseHeader_t, *mcDrvResponseHeader_ptr;
+} mcDrvResponseHeader_t;
 
 #define MC_DEVICE_ID_DEFAULT    0 /**< The default device ID */
 
 
 //--------------------------------------------------------------
+struct MC_DRV_CMD_OPEN_DEVICE_struct {
+    uint32_t  commandId;
+    uint32_t  deviceId;
+};
+
 typedef struct{
 	uint32_t  deviceId;
-} mcDrvCmdOpenDevicePayload_t, *mcDrvCmdOpenDevicePayload_ptr;
+} mcDrvCmdOpenDevicePayload_t;
 
 typedef struct{
     mcDrvCommandHeader_t         header;
     mcDrvCmdOpenDevicePayload_t  payload;
-} mcDrvCmdOpenDevice_t, *mcDrvCmdOpenDevice_ptr;
+} mcDrvCmdOpenDevice_t;
 
-
-typedef struct{
-    // empty
-} mcDrvRspOpenDevicePayload_t, *mcDrvRspOpenDevicePayload_ptr;
 
 typedef struct{
     mcDrvResponseHeader_t        header;
-    mcDrvRspOpenDevicePayload_t  payload;
-} mcDrvRspOpenDevice_t, *mcDrvRspOpenDevice_ptr;
-
+} mcDrvRspOpenDevice_t;
 
 //--------------------------------------------------------------
+struct MC_DRV_CMD_CLOSE_DEVICE_struct {
+    uint32_t  commandId;
+};
+
 typedef struct{
     mcDrvCommandHeader_t          header;
     // no payload here because close has none.
     // If we use an empty struct, C++ will count it as 4 bytes.
     // This will write too much into the socket at write(cmd,sizeof(cmd))
-} mcDrvCmdCloseDevice_t, *mcDrvCmdCloseDevice_ptr;
+} mcDrvCmdCloseDevice_t;
 
-
-typedef struct{
-    // empty
-} mcDrvRspCloseDevicePayload_t, *mcDrvRspCloseDevicePayload_ptr;
 
 typedef struct{
     mcDrvResponseHeader_t         header;
-    mcDrvRspCloseDevicePayload_t  payload;
-} mcDrvRspCloseDevice_t, *mcDrvRspCloseDevice_ptr;
-
+} mcDrvRspCloseDevice_t;
 
 //--------------------------------------------------------------
+struct MC_DRV_CMD_OPEN_SESSION_struct {
+    uint32_t  commandId;
+    uint32_t  deviceId;
+    mcUuid_t  uuid;
+    uint32_t  tci;
+    uint32_t  len;
+};
+
 typedef struct{
 	uint32_t  deviceId;
-	mcUuid_t    uuid;
+	mcUuid_t  uuid;
 	uint32_t  tci;
 	uint32_t  len;
 } mcDrvCmdOpenSessionPayload_t, *mcDrvCmdOpenSessionPayload_ptr;
@@ -137,7 +142,7 @@ typedef struct{
 typedef struct{
     mcDrvCommandHeader_t          header;
     mcDrvCmdOpenSessionPayload_t  payload;
-} mcDrvCmdOpenSession_t, *mcDrvCmdOpenSession_ptr;
+} mcDrvCmdOpenSession_t;
 
 
 typedef struct{
@@ -151,52 +156,60 @@ typedef struct{
 typedef struct{
     mcDrvResponseHeader_t         header;
     mcDrvRspOpenSessionPayload_t  payload;
-} mcDrvRspOpenSession_t, *mcDrvRspOpenSession_ptr;
+} mcDrvRspOpenSession_t;
 
 
 //--------------------------------------------------------------
+struct MC_DRV_CMD_CLOSE_SESSION_struct {
+    uint32_t  commandId;
+    uint32_t  sessionId;
+};
+
 typedef struct{
 	uint32_t  sessionId;
-} mcDrvCmdCloseSessionPayload_t, *mcDrvCmdCloseSessionPayload_ptr;
+} mcDrvCmdCloseSessionPayload_t;
 
 typedef struct{
     mcDrvCommandHeader_t           header;
     mcDrvCmdCloseSessionPayload_t  payload;
-} mcDrvCmdCloseSession_t, *mcDrvCmdCloseSession_ptr;
+} mcDrvCmdCloseSession_t;
 
-
-typedef struct{
-    // empty
-} mcDrvRspCloseSessionPayload_t, *mcDrvRspCloseSessionPayload_ptr;
 
 typedef struct{
     mcDrvResponseHeader_t         header;
-    mcDrvRspCloseSessionPayload_t  payload;
-} mcDrvRspCloseSession_t, *mcDrvRspCloseSession_ptr;
+} mcDrvRspCloseSession_t;
 
 
 //--------------------------------------------------------------
+struct MC_DRV_CMD_NOTIFY_struct {
+    uint32_t  commandId;
+    uint32_t  sessionId;
+};
+
 typedef struct{
 	uint32_t sessionId;
-} mcDrvCmdNotifyPayload_t, *mcDrvCmdNotifyPayload_ptr;
+} mcDrvCmdNotifyPayload_t;
 
 typedef struct{
     mcDrvCommandHeader_t     header;
     mcDrvCmdNotifyPayload_t  payload;
-} mcDrvCmdNotify_t, *mcDrvCmdNotify_ptr;
+} mcDrvCmdNotify_t;
 
-
-typedef struct{
-    // empty
-} mcDrvRspNotifyPayload_t, *mcDrvRspNotifyPayload_ptr;
 
 typedef struct{
     mcDrvResponseHeader_t    header;
-    mcDrvRspNotifyPayload_t  payload;
-} mcDrvRspNotify_t, *mcDrvRspNotify_ptr;
+} mcDrvRspNotify_t;
 
 
 //--------------------------------------------------------------
+struct MC_DRV_CMD_MAP_BULK_BUF_struct {
+    uint32_t  commandId;
+    uint32_t  sessionId;
+    uint32_t  pAddrL2;
+    uint32_t  offsetPayload;
+    uint32_t  lenBulkMem;
+};
+
 typedef struct{
 	uint32_t  sessionId;
 	uint32_t  pAddrL2;
@@ -207,7 +220,7 @@ typedef struct{
 typedef struct{
     mcDrvCommandHeader_t         header;
     mcDrvCmdMapBulkMemPayload_t  payload;
-} mcDrvCmdMapBulkMem_t, *mcDrvCmdMapBulkMem_ptr;
+} mcDrvCmdMapBulkMem_t;
 
 
 typedef struct{
@@ -219,10 +232,17 @@ typedef struct{
 typedef struct{
     mcDrvResponseHeader_t        header;
     mcDrvRspMapBulkMemPayload_t  payload;
-} mcDrvRspMapBulkMem_t, *mcDrvRspMapBulkMem_ptr;
+} mcDrvRspMapBulkMem_t;
 
 
 //--------------------------------------------------------------
+struct MC_DRV_CMD_UNMAP_BULK_BUF_struct {
+    uint32_t  commandId;
+    uint32_t  sessionId;
+    uint32_t  secureVirtualAdr;
+    uint32_t  lenBulkMem;
+};
+
 typedef struct{
 	uint32_t  sessionId;
 	uint32_t  secureVirtualAdr;
@@ -232,7 +252,7 @@ typedef struct{
 typedef struct{
     mcDrvCommandHeader_t           header;
     mcDrvCmdUnmapBulkMemPayload_t  payload;
-} mcDrvCmdUnmapBulkMem_t, *mcDrvCmdUnmapBulkMem_ptr;
+} mcDrvCmdUnmapBulkMem_t;
 
 
 typedef struct{
@@ -244,10 +264,18 @@ typedef struct{
 typedef struct{
     mcDrvResponseHeader_t          header;
     mcDrvRspUnmapBulkMemPayload_t  payload;
-} mcDrvRspUnmapBulkMem_t, *mcDrvRspUnmapBulkMem_ptr;
+} mcDrvRspUnmapBulkMem_t;
 
 
 //--------------------------------------------------------------
+struct MC_DRV_CMD_NQ_CONNECT_struct {
+    uint32_t  commandId;
+    uint32_t  deviceId;
+    uint32_t  sessionId;
+    uint32_t  deviceSessionId;
+    uint32_t  sessionMagic; //Random data
+};
+
 typedef struct {
     uint32_t  deviceId;
     uint32_t  sessionId;
@@ -258,37 +286,40 @@ typedef struct {
 typedef struct {
     mcDrvCommandHeader_t        header;
     mcDrvCmdNqConnectPayload_t  payload;
-} mcDrvCmdNqConnect_t, *mcDrvCmdNqConnect_ptr;
+} mcDrvCmdNqConnect_t;
 
-
-typedef struct {
-    // empty;
-} mcDrvRspNqConnectPayload_t, *mcDrvRspNqConnectPayload_ptr;
 
 typedef struct{
     mcDrvResponseHeader_t       header;
-    mcDrvRspNqConnectPayload_t  payload;
-} mcDrvRspNqConnect_t, *mcDrvRspNqConnect_ptr;
+} mcDrvRspNqConnect_t;
 
 //--------------------------------------------------------------
+struct MC_DRV_CMD_GET_VERSION_struct {
+    uint32_t  commandId;
+};
+
 typedef struct {
     mcDrvCommandHeader_t        header;
-} mcDrvCmdGetVersion_t, *mcDrvCmdGetVersion_ptr;
+} mcDrvCmdGetVersion_t;
 
 
 typedef struct {
     uint32_t version;
-} mcDrvRspGetVersionPayload_t, *mcDrvRspGetVersionPayload_ptr;
+} mcDrvRspGetVersionPayload_t;
 
 typedef struct{
     mcDrvResponseHeader_t       header;
     mcDrvRspGetVersionPayload_t payload;
-} mcDrvRspGetVersion_t, mcDrvRspGetVersion_ptr;
+} mcDrvRspGetVersion_t;
 
 //--------------------------------------------------------------
+struct MC_DRV_CMD_GET_MOBICORE_VERSION_struct {
+    uint32_t  commandId;
+};
+
 typedef struct {
     mcDrvCommandHeader_t        header;
-} mcDrvCmdGetMobiCoreVersion_t, *mcDrvCmdGetMobiCoreVersion_ptr;
+} mcDrvCmdGetMobiCoreVersion_t;
 
 
 typedef struct {
@@ -299,7 +330,7 @@ typedef struct {
 typedef struct{
     mcDrvResponseHeader_t       header;
     mcDrvRspGetMobiCoreVersionPayload_t payload;
-} mcDrvRspGetMobiCoreVersion_t, mcDrvRspGetMobiCoreVersion_ptr;
+} mcDrvRspGetMobiCoreVersion_t;
 
 //--------------------------------------------------------------
 typedef union {

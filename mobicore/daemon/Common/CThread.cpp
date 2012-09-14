@@ -32,7 +32,6 @@
  */
 #include "CThread.h"
 
-#define LOG_TAG	"McDaemon"
 #include "log.h"
 
 

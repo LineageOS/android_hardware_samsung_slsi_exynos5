@@ -39,8 +39,15 @@
 #include "mcUuid.h"
 #include "mcSpid.h"
 
-#define SO_VERSION_MAJOR   2
-#define SO_VERSION_MINOR   0
+#define SO_USE_VERSION_22 FALSE
+
+#if SO_USE_VERSION_22
+  #define SO_VERSION_MAJOR   2
+  #define SO_VERSION_MINOR   2
+#else
+  #define SO_VERSION_MAJOR   2
+  #define SO_VERSION_MINOR   1
+#endif
 
 #define MC_ENUM_32BIT_SPACER           ((int32_t)-1)
 
@@ -92,7 +99,51 @@ typedef struct {
     mcUuid_t uuid;
 } tlApiSpTrustletId_t;
 
-/** Secure object header.
+/** Secure object header v2.2.
+ * A secure object header introduces a secure object.
+ * Layout of a secure object:
+ * <pre>
+ * <code>
+ *
+ *     +--------+------------------+------------------+--------+--------+
+ *     | Header |   plain-data     |  encrypted-data  |  hash  | random |
+ *     +--------+------------------+------------------+--------+--------+
+ *
+ *     /--------/---- plainLen ----/-- encryptedLen --/-- 32 --/-- 16 --/
+ *
+ *     /----------------- toBeHashedLen --------------/
+ *
+ *                                 /-- toBeEncryptedLen --/
+ *
+ *     /--------------------------- totalSoSize ------------------------/
+ *
+ * </code>
+ * </pre>
+ */
+
+/** Secure object header v2.1.
+ * A secure object header introduces a secure object.
+ * Layout of a secure object:
+ * <pre>
+ * <code>
+ *
+ *     +--------+------------------+------------------+--------+--------+---------+
+ *     | Header |   plain-data     |  encrypted-data  |  hash  | random | padding |
+ *     +--------+------------------+------------------+--------+--------+---------+
+ *
+ *     /--------/---- plainLen ----/-- encryptedLen --/-- 24 --/--- 9 --/- 0..15 -/
+ *
+ *     /----------------- toBeHashedLen --------------/
+ *
+ *                                 /-- toBeEncryptedLen --/
+ *
+ *     /--------------------------- totalSoSize ----------------------------------/
+ *
+ * </code>
+ * </pre>
+ */
+
+/** Secure object header v2.0.
  * A secure object header introduces a secure object.
  * Layout of a secure object:
  * <pre>
@@ -140,12 +191,32 @@ typedef struct {
 /** Maximum number of ISO padding bytes. */
 #define MC_SO_MAX_PADDING_SIZE (MC_SO_ENCRYPT_BLOCK_SIZE)
 
-/** Size of hash used for secure objects. */
+/** Size of hash used for secure objects v2. */
 #define MC_SO_HASH_SIZE             32
 
-/** Calculates gross size of cryptogram within secure object including ISO padding bytes. */
-#define MC_SO_ENCRYPT_PADDED_SIZE(netsize) ( (netsize) + \
-    MC_SO_MAX_PADDING_SIZE - (netsize) % MC_SO_MAX_PADDING_SIZE )
+/** Size of hash used for secure object v2.1. */
+#define MC_SO21_HASH_SIZE            24
+/** Size of random used for secure objects v2.1. */
+#define MC_SO21_RND_SIZE             9
+
+/** Size of hash used for secure object v2.2. */
+#define MC_SO22_HASH_SIZE            32
+/** Size of random used for secure objects v2.2. */
+#define MC_SO22_RND_SIZE             16
+
+/** Hash size for current generated wrapping */
+#define MC_SO2X_HASH_SIZE (SO_USE_VERSION_22 ? MC_SO22_HASH_SIZE : MC_SO21_HASH_SIZE)
+/** Random size for current generated wrapping */
+#define MC_SO2X_RND_SIZE (SO_USE_VERSION_22 ? MC_SO22_RND_SIZE : MC_SO21_RND_SIZE)
+
+#if SO_USE_VERSION_22
+    // #define MC_SO_ENCRYPT_PADDED_SIZE(netsize) netsize
+#else
+    /** Calculates gross size of cryptogram within secure object including ISO padding bytes. */
+    #define MC_SO_ENCRYPT_PADDED_SIZE(netsize) ( (netsize) + \
+        MC_SO_MAX_PADDING_SIZE - (netsize) % MC_SO_MAX_PADDING_SIZE )
+#endif
+
 
 /** Calculates the total size of a secure object.
  * @param plainLen Length of plain text part within secure object.
@@ -154,10 +225,17 @@ typedef struct {
  * @return Total (gross) size of the secure object or 0 if given parameters are
  * illegal or would lead to a secure object of invalid size.
  */
-#define MC_SO_SIZE(plainLen, encryptedLen) ( \
-    ((plainLen) + (encryptedLen) < (encryptedLen) || (plainLen) + (encryptedLen) > MC_SO_PAYLOAD_MAX_SIZE) ? 0 : \
-    sizeof(mcSoHeader_t) + (plainLen) + MC_SO_ENCRYPT_PADDED_SIZE((encryptedLen) + MC_SO_HASH_SIZE) \
-)
+#if SO_USE_VERSION_22
+    #define MC_SO_SIZE(plainLen, encryptedLen) ( \
+        ((plainLen) + (encryptedLen) < (encryptedLen) || (plainLen) + (encryptedLen) > MC_SO_PAYLOAD_MAX_SIZE) ? 0 : \
+                sizeof(mcSoHeader_t) + (plainLen) + (encryptedLen) +MC_SO22_HASH_SIZE +MC_SO22_RND_SIZE \
+    )
+#else
+    #define MC_SO_SIZE(plainLen, encryptedLen) ( \
+        ((plainLen) + (encryptedLen) < (encryptedLen) || (plainLen) + (encryptedLen) > MC_SO_PAYLOAD_MAX_SIZE) ? 0 : \
+                sizeof(mcSoHeader_t) + (plainLen) + MC_SO_ENCRYPT_PADDED_SIZE((encryptedLen) + MC_SO_HASH_SIZE) \
+    )
+#endif
 
 #endif // MC_SO_H_
 

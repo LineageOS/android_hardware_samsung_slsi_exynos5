@@ -5,7 +5,7 @@
  * Kernel Module Interface.
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -38,62 +38,51 @@
 
 #include "CKMod.h"
 
-#define LOG_TAG	"McDaemon"
 #include "log.h"
 
 
 //------------------------------------------------------------------------------
-CKMod::CKMod(
-    void
-) {
+CKMod::CKMod(void)
+{
 	fdKMod = ERROR_KMOD_NOT_OPEN;
 }
 
 
 //------------------------------------------------------------------------------
-CKMod::~CKMod(
-    void
-) {
+CKMod::~CKMod(void)
+{
 	close();
 }
 
 
 //------------------------------------------------------------------------------
-bool CKMod::isOpen(
-    void
-) {
+bool CKMod::isOpen(void)
+{
 	return (ERROR_KMOD_NOT_OPEN == fdKMod) ? false : true;
 }
 
 
 //------------------------------------------------------------------------------
-bool CKMod::open(
-    const char *deviceName
-) {
+bool CKMod::open(const char *deviceName)
+{
 	bool ret = true;
+	int openRet;
 
-	do
-	{
-		if (isOpen())
-		{
-			LOG_W("already open");
-			ret = false;
-			break;
-		}
+	if (isOpen()) {
+		LOG_W("already open");
+		return false;
+	}
 
-		// open return -1 on error, "errno" is set with details
-		int openRet = ::open(deviceName, O_RDWR);
-		if (-1 == openRet)
-		{
-			LOG_E("open failed with errno: %d", errno);
-			ret = false;
-			break;
-		}
+	LOG_I(" Opening kernel module at %s.", deviceName);
 
-		fdKMod = openRet;
+	// open return -1 on error, "errno" is set with details
+	openRet = ::open(deviceName, O_RDWR);
+	if (openRet ==-1) {
+	    LOG_ERRNO("open");
+		return false;
+	}
 
-	} while(0);
-
+	fdKMod = openRet;
 	return ret;
 }
 
@@ -102,20 +91,16 @@ bool CKMod::open(
 void CKMod::close(
     void
 ) {
-	if (isOpen())
-	{
-		if (0 != ::close(fdKMod))
-		{
-			LOG_E("close failed with errno: %d", errno);
+	if (isOpen()) {
+		if (::close(fdKMod) != 0) {
+		    LOG_ERRNO("close");
 		}
-		else
-		{
+		else {
 			fdKMod = ERROR_KMOD_NOT_OPEN;
 		}
 	}
-	else
-	{
-		LOG_W("not open");
+	else {
+		LOG_W(" Kernel module device not open");
 	}
 }
 

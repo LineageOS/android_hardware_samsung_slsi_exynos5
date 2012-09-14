@@ -7,7 +7,7 @@
  * Device and Trustlet Session management Funtions.
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -35,19 +35,15 @@
 #include <stdint.h>
 #include <vector>
 
-#include "mc_drv_module_api.h"
-
+#include "mc_linux.h"
 #include "Device.h"
 
-#define LOG_TAG	"McClientLib_Device"
 #include "log.h"
 
 
 //------------------------------------------------------------------------------
-Device::Device(
-    uint32_t    deviceId,
-    Connection  *connection
-) {
+Device::Device(uint32_t deviceId, Connection *connection)
+{
 	this->deviceId = deviceId;
 	this->connection = connection;
 
@@ -56,9 +52,8 @@ Device::Device(
 
 
 //------------------------------------------------------------------------------
-Device::~Device(
-    void
-) {
+Device::~Device(void)
+{
 	/* Delete all session objects. Usually this should not be needed as closeDevice()
 	 * requires that all sessions have been closed before.
 	 */
@@ -73,12 +68,12 @@ Device::~Device(
 	wsmIterator_t  wsmIterator = wsmL2List.begin();
 	while(wsmIterator != wsmL2List.end())
 	{
-	    CWsm_ptr pWsm = *wsmIterator;
+		CWsm_ptr pWsm = *wsmIterator;
 
-	    // ignore return code
-	    pMcKMod->free(pWsm->handle);
+		// ignore return code
+		pMcKMod->free(pWsm->handle, pWsm->virtAddr, pWsm->len);
 
-	    delete (*wsmIterator);
+		delete (*wsmIterator);
 		wsmIterator = wsmL2List.erase(wsmIterator);
 	}
 	delete connection;
@@ -87,43 +82,37 @@ Device::~Device(
 
 
 //------------------------------------------------------------------------------
-bool Device::open(
-    const char * deviceName
-) {
+bool Device::open(const char * deviceName)
+{
 	return pMcKMod->open(deviceName);
 }
 
 
 //------------------------------------------------------------------------------
-void Device::close(
-    void
-) {
+void Device::close(void)
+{
 	pMcKMod->close();
 }
 
 
 //------------------------------------------------------------------------------
-bool Device::hasSessions(
-    void
-) {
+bool Device::hasSessions(void)
+{
 	return sessionList.size() > 0;
 }
 
 
 //------------------------------------------------------------------------------
-void Device::createNewSession(
-    uint32_t    sessionId,
-    Connection  *connection
-) {
+void Device::createNewSession(uint32_t sessionId, Connection  *connection)
+{
 	Session *session = new Session(sessionId, pMcKMod, connection);
 	sessionList.push_back(session);
 }
 
 
 //------------------------------------------------------------------------------
-bool Device::removeSession(
-    uint32_t sessionId
-) {
+bool Device::removeSession(uint32_t sessionId)
+{
 	bool ret = false;
 
 	sessionIterator_t interator = sessionList.begin();
@@ -146,16 +135,15 @@ bool Device::removeSession(
 
 
 //------------------------------------------------------------------------------
-Session *Device::resolveSessionId(
-    uint32_t sessionId
-) {
+Session *Device::resolveSessionId(uint32_t sessionId)
+{
 	Session  *ret = NULL;
 
 	// Get Session for sessionId
 	for ( sessionIterator_t interator = sessionList.begin();
-	      interator != sessionList.end();
-	      ++interator)
-    {
+		interator != sessionList.end();
+		++interator)
+	{
 		if ((*interator)->sessionId == sessionId) {
 			ret = (*interator);
 			break;
@@ -166,39 +154,28 @@ Session *Device::resolveSessionId(
 
 
 //------------------------------------------------------------------------------
-CWsm_ptr Device::allocateContiguousWsm(
-    uint32_t len
-) {
-    CWsm_ptr  pWsm = NULL;
-	do
-	{
-	    if (0 == len)
-	    {
-		    break;
-	    }
-	    
-		// Allocate shared memory
-		addr_t    virtAddr;
-		uint32_t  handle;
-		addr_t    physAddr;
-		bool      mciReuse = false;
-		int ret = pMcKMod->mmap(
-							len,
-							&handle,
-							&virtAddr,
-							&physAddr,
-							&mciReuse);
-		if (0 != ret)
-		{
-			break;
-		}
+CWsm_ptr Device::allocateContiguousWsm(uint32_t len)
+{
+	CWsm_ptr pWsm = NULL;
+	// Allocate shared memory
+	addr_t    virtAddr;
+	uint32_t  handle;
+	addr_t    physAddr;
 
-		// Register (vaddr,paddr) with device
-		pWsm = new CWsm(virtAddr,len,handle,physAddr);
+	if (!len) {
+		return NULL;
+	}
 
-		wsmL2List.push_back(pWsm);
-		
-	} while(0);
+	if (pMcKMod->mapWsm(len, &handle, &virtAddr, &physAddr)) {
+		return NULL;
+	}
+
+	LOG_I(" mapped handle %d to %p, phys=%p ", handle, virtAddr, physAddr);
+
+	// Register (vaddr,paddr) with device
+	pWsm = new CWsm(virtAddr,len,handle,physAddr);
+
+	wsmL2List.push_back(pWsm);
 
 	// Return pointer to the allocated memory
 	return pWsm;
@@ -206,27 +183,24 @@ CWsm_ptr Device::allocateContiguousWsm(
 
 
 //------------------------------------------------------------------------------
-bool Device::freeContiguousWsm(
-    CWsm_ptr  pWsm
-) {
+bool Device::freeContiguousWsm(CWsm_ptr  pWsm)
+{
 	bool ret = false;
 	wsmIterator_t iterator;
 
-	for (iterator=wsmL2List.begin(); iterator!=wsmL2List.end(); ++iterator)
-	{
-	    if (pWsm == *iterator)
-	    {
-	        ret = true;
-	        break;
-	    }
+	for (iterator=wsmL2List.begin(); iterator!=wsmL2List.end(); ++iterator) {
+		if (pWsm == *iterator){
+			ret = true;
+			break;
+		}
 	}
 
 	if(ret) {
-		LOG_I("freeWsm virtAddr=0x%p, handle=%d",
-				pWsm->virtAddr,pWsm->handle);
+		LOG_I(" unmapping handle %d from %p, phys=%p",
+		        pWsm->handle, pWsm->virtAddr, pWsm->physAddr);
 
 		// ignore return code
-		pMcKMod->free(pWsm->handle);
+		pMcKMod->free(pWsm->handle, pWsm->virtAddr, pWsm->len);
 
 		iterator = wsmL2List.erase(iterator);
 		delete pWsm;
@@ -236,22 +210,20 @@ bool Device::freeContiguousWsm(
 
 
 //------------------------------------------------------------------------------
-CWsm_ptr Device::findContiguousWsm(
-    addr_t  virtAddr
-) {
-    CWsm_ptr pWsm = NULL;
+CWsm_ptr Device::findContiguousWsm(addr_t  virtAddr)
+{
+	CWsm_ptr pWsm = NULL;
 
 	for( wsmIterator_t iterator=wsmL2List.begin();
-	     iterator!=wsmL2List.end();
-	     ++iterator)
+		iterator!=wsmL2List.end();
+		++iterator)
 	{
 		CWsm_ptr pTmpWsm = *iterator;
-	    if (virtAddr == pTmpWsm->virtAddr)
-		{
+		if (virtAddr == pTmpWsm->virtAddr) {
 			pWsm = pTmpWsm;
 			break;
 		}
-	}
+		}
 
 	return pWsm;
 }
