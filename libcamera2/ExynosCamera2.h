@@ -33,6 +33,8 @@
 #include <camera/CameraParameters.h>
 #include "exynos_format.h"
 
+//#define VDIS_ENABLE
+
 namespace android {
 
 struct ExynosCamera2Info
