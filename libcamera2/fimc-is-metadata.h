@@ -883,6 +883,8 @@ struct camera2_shot_ext {
 
 	struct camera2_shot	shot;
     uint8_t		gpsProcessingMethod[32];
+    uint8_t     isReprocessing;
+    uint8_t     reprocessInput;
 };
 
 /** \brief
