@@ -4,7 +4,7 @@
 #
 # =============================================================================
 
-PLATFORMS_PATH := $(call my-dir)
+PLATFORMS_PATH := $(LOCAL_PATH)/Daemon/Device/Platforms
 
 # Always include the Generic code
 include $(PLATFORMS_PATH)/Generic/Android.mk

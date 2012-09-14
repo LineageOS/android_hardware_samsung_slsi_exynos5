@@ -6,21 +6,19 @@
 
 # This is not a separate module.
 # Only for inclusion by other modules.
+# All paths are relative to APP_PROJECT_PATH
 
-MY_MCDRV_DEVICE_PATH	:= $(call my-dir)
-MY_MCDRV_DEVICE_PATH_REL	:= Device
-
-include $(MY_MCDRV_DEVICE_PATH)/Platforms/Android.mk
+DEVICE_PATH := Daemon/Device
+include $(LOCAL_PATH)/$(DEVICE_PATH)/Platforms/Android.mk
 
 # Add new folders with header files here
-LOCAL_C_INCLUDES +=\
-	$(MY_MCDRV_DEVICE_PATH)\
-	$(MY_MCDRV_DEVICE_PATH)/public
+# Include paths are absolute paths
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/$(DEVICE_PATH) \
+	$(LOCAL_PATH)/$(DEVICE_PATH)/public
 
 # Add new source files here
-LOCAL_SRC_FILES +=\
-	$(MY_MCDRV_DEVICE_PATH_REL)/DeviceIrqHandler.cpp\
-	$(MY_MCDRV_DEVICE_PATH_REL)/DeviceScheduler.cpp\
-	$(MY_MCDRV_DEVICE_PATH_REL)/MobiCoreDevice.cpp\
-	$(MY_MCDRV_DEVICE_PATH_REL)/NotificationQueue.cpp\
-	$(MY_MCDRV_DEVICE_PATH_REL)/TrustletSession.cpp\
+LOCAL_SRC_FILES += $(DEVICE_PATH)/DeviceIrqHandler.cpp \
+	$(DEVICE_PATH)/DeviceScheduler.cpp \
+	$(DEVICE_PATH)/MobiCoreDevice.cpp \
+	$(DEVICE_PATH)/NotificationQueue.cpp \
+	$(DEVICE_PATH)/TrustletSession.cpp \

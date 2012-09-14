@@ -41,7 +41,6 @@
 
 #include "NetlinkConnection.h"
 
-#define LOG_TAG	"McDaemon"
 #include "log.h"
 
 
@@ -101,7 +100,7 @@ NetlinkConnection::NetlinkConnection(
 NetlinkConnection::~NetlinkConnection(
     void
 ) {
-    LOG_I("%s: destroy connection for PID 0x%X", __func__, peerPid);
+    LOG_I("%s: destroy connection for PID 0x%X", __FUNCTION__, peerPid);
     socketDescriptor = -1;
     free(dataMsg);
     
@@ -120,11 +119,11 @@ bool NetlinkConnection::connect(
 
 	assert(NULL != dest);
 
-    LOG_I("%s: Connecting to SEQ 0x%X", __func__, MC_DAEMON_PID);
+    LOG_I("%s: Connecting to SEQ 0x%X", __FUNCTION__, MC_DAEMON_PID);
     do {
 		if ((socketDescriptor = socket(PF_NETLINK, SOCK_DGRAM, MC_DAEMON_NETLINK)) < 0) {
             LOG_E("%s: Can't open netlink socket - errno: %d(%s)", 
-                  __func__, errno, strerror(errno));
+                  __FUNCTION__, errno, strerror(errno));
             break;
         }
         memset(&addr, 0, sizeof(addr));
@@ -133,7 +132,7 @@ bool NetlinkConnection::connect(
         addr.nl_groups = 0;  /* not in mcast groups */
         
         if (bind(socketDescriptor, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-            LOG_E("%s: bind() failed - errno: %d(%s)", __func__, errno, strerror(errno));
+            LOG_E("%s: bind() failed - errno: %d(%s)", __FUNCTION__, errno, strerror(errno));
             close(socketDescriptor);
             
             // Set invalid socketDescriptor
@@ -192,7 +191,7 @@ size_t NetlinkConnection::readData(
 	}
 
     //LOG_I("%s: reading connection data %u, connection data left %u", 
-    //      __func__, len, dataLen);
+    //      __FUNCTION__, len, dataLen);
     
     assert(dataStart != NULL);
     
@@ -223,7 +222,7 @@ size_t NetlinkConnection::readData(
 	}
     dataMutex.unlock();
     
-    //LOG_I("%s: read %u", __func__, ret);
+    //LOG_I("%s: read %u", __FUNCTION__, ret);
     return ret;
 }
 
@@ -241,7 +240,7 @@ size_t NetlinkConnection::writeData(
     assert(NULL != buffer);
     assert(-1 != socketDescriptor);
     
-    //LOG_I("%s: send data %u to PID %u", __func__, len, sequenceMagic);
+    //LOG_I("%s: send data %u to PID %u", __FUNCTION__, len, sequenceMagic);
 
     memset(&dest_addr, 0, sizeof(dest_addr));
     dest_addr.nl_family = AF_NETLINK;
@@ -272,7 +271,7 @@ size_t NetlinkConnection::writeData(
     if (ret != NLMSG_SPACE(len))
     {
         LOG_E( "%s: could no send all data, ret=%d, errno: %d(%s)", 
-               __func__, ret, errno, strerror(errno));
+               __FUNCTION__, ret, errno, strerror(errno));
         ret = -1;
     }
     else{

@@ -1,4 +1,4 @@
-/** @addtogroup CMP
+/** @addtmt=unixgroup CMP
  * @{
  * @file
  * Content management trustlet UUID definitions.
