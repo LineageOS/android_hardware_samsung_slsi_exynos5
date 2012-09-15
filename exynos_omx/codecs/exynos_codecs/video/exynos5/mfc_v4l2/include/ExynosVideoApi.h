@@ -287,6 +287,8 @@ typedef struct _ExynosVideoEncBufferOps {
     ExynosVideoErrorType  (*Register)(void *pHandle, ExynosVideoPlane *planes, int nPlanes);
     ExynosVideoErrorType  (*Clear_RegisteredBuffer)(void *pHandle);
     ExynosVideoErrorType  (*Clear_Queue)(void *pHandle);
+    ExynosVideoErrorType  (*ExtensionEnqueue)(void *pHandle, unsigned char *pBuffer[], unsigned int *pFd[], unsigned int allocLen[], unsigned int dataSize[], int nPlanes, void *pPrivate);
+    ExynosVideoErrorType  (*ExtensionDequeue)(void *pHandle, ExynosVideoBuffer *pVideoBuffer);
 } ExynosVideoEncBufferOps;
 
 int Exynos_Video_Register_Decoder(

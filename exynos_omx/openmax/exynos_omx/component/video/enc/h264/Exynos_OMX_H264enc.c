@@ -795,7 +795,7 @@ OMX_ERRORTYPE H264CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DAT
     bufferConf.nFrameHeight = pExynosInputPort->portDefinition.format.video.nFrameHeight;
     pInbufOps->Set_Shareable(hMFCHandle);
     if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
-        inputBufferNumber = MAX_CAMERA_INPUTBUFFER_NUM; /* Need change to number of camera buffer */
+        inputBufferNumber = MAX_INPUTBUFFER_NUM_DYNAMIC;
     } else if ((pExynosInputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
         inputBufferNumber = MFC_INPUT_BUFFER_NUM_MAX;
     }
@@ -907,7 +907,7 @@ OMX_ERRORTYPE H264CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
         SetupBufferNumber = MFC_OUTPUT_BUFFER_NUM_MAX;
     else
         SetupBufferNumber = pExynosOutputPort->portDefinition.nBufferCountActual;
-    Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "SetupBufferNumber:%d", SetupBufferNumber);
+    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "SetupBufferNumber:%d", SetupBufferNumber);
 
     if (pOutbufOps->Setup(pH264Enc->hMFCH264Handle.hMFCHandle, SetupBufferNumber) != VIDEO_ERROR_NONE) {
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to setup output buffer");
@@ -1747,6 +1747,7 @@ OMX_ERRORTYPE Exynos_H264Enc_SrcIn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_
 
     if ((pSrcInputData->dataLen >= 0) ||
         ((pSrcInputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS)) {
+        OMX_U32 nAllocLen[MFC_INPUT_BUFFER_PLANE] = {0, 0};
         OMX_U32 pMFCYUVDataSize[MFC_INPUT_BUFFER_PLANE]  = {NULL, NULL};
         ExynosVideoPlane planes[MFC_INPUT_BUFFER_PLANE];
         int plane;
@@ -1763,33 +1764,25 @@ OMX_ERRORTYPE Exynos_H264Enc_SrcIn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_
         pMFCYUVDataSize[0] = pExynosInputPort->portDefinition.format.video.nFrameWidth * pExynosInputPort->portDefinition.format.video.nFrameHeight;
         pMFCYUVDataSize[1] = pMFCYUVDataSize[0] / 2;
 
-        codecReturn = pInbufOps->Enqueue(hMFCHandle, (unsigned char **)pSrcInputData->buffer.multiPlaneBuffer.dataBuffer,
-                                    (unsigned int *)pMFCYUVDataSize, MFC_INPUT_BUFFER_PLANE, pSrcInputData->bufferHeader);
 #ifdef USE_METADATABUFFERTYPE
-        if ((codecReturn == VIDEO_ERROR_NOBUFFERS) &&
-            (pExynosInputPort->bStoreMetaData == OMX_TRUE) &&
-            (pExynosInputPort->bufferProcessType == BUFFER_SHARE)) {
-            OMX_U32 nAllocLen[MFC_INPUT_BUFFER_PLANE] = {0, 0};
-            nAllocLen[0] = ALIGN_TO_16B(pExynosInputPort->portDefinition.format.video.nFrameWidth) *
-                                ALIGN_TO_16B(pExynosInputPort->portDefinition.format.video.nFrameHeight);
-            nAllocLen[1] = ALIGN(nAllocLen[0]/2,256);
-            for (plane = 0; plane < MFC_INPUT_BUFFER_PLANE; plane++) {
-                planes[plane].addr = pSrcInputData->buffer.multiPlaneBuffer.dataBuffer[plane];
-                planes[plane].allocSize = nAllocLen[plane];
-                planes[plane].fd = pSrcInputData->buffer.multiPlaneBuffer.fd[plane];
-            }
+        nAllocLen[0] = ALIGN_TO_16B(pExynosInputPort->portDefinition.format.video.nFrameWidth) *
+                            ALIGN_TO_16B(pExynosInputPort->portDefinition.format.video.nFrameHeight);
+        nAllocLen[1] = ALIGN(nAllocLen[0]/2,256);
 
-            /* Register input buffer */
-            if (pInbufOps->Register(pH264Enc->hMFCH264Handle.hMFCHandle,
-                        planes, MFC_INPUT_BUFFER_PLANE) != VIDEO_ERROR_NONE) {
-                Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to Register input buffer");
-                ret = OMX_ErrorInsufficientResources;
-                goto EXIT;
-            }
+        if ((pExynosInputPort->bStoreMetaData == OMX_TRUE) &&
+            (pExynosInputPort->bufferProcessType == BUFFER_SHARE)) {
+            codecReturn = pInbufOps->ExtensionEnqueue(hMFCHandle,
+                                        (unsigned char **)pSrcInputData->buffer.multiPlaneBuffer.dataBuffer,
+                                        (unsigned char **)pSrcInputData->buffer.multiPlaneBuffer.fd,
+                                        (unsigned int *)nAllocLen, (unsigned int *)pMFCYUVDataSize,
+                                        MFC_INPUT_BUFFER_PLANE, pSrcInputData->bufferHeader);
+        } else {
             codecReturn = pInbufOps->Enqueue(hMFCHandle, (unsigned char **)pSrcInputData->buffer.multiPlaneBuffer.dataBuffer,
                                         (unsigned int *)pMFCYUVDataSize, MFC_INPUT_BUFFER_PLANE, pSrcInputData->bufferHeader);
-
         }
+#else
+        codecReturn = pInbufOps->Enqueue(hMFCHandle, (unsigned char **)pSrcInputData->buffer.multiPlaneBuffer.dataBuffer,
+                                    (unsigned int *)pMFCYUVDataSize, MFC_INPUT_BUFFER_PLANE, pSrcInputData->bufferHeader);
 #endif
         if (codecReturn != VIDEO_ERROR_NONE) {
             Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "%s: %d: Failed - pInbufOps->Enqueue", __FUNCTION__, __LINE__);
@@ -1828,10 +1821,19 @@ OMX_ERRORTYPE Exynos_H264Enc_SrcOut(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX
     ExynosVideoEncOps       *pEncOps    = pH264Enc->hMFCH264Handle.pEncOps;
     ExynosVideoEncBufferOps *pInbufOps  = pH264Enc->hMFCH264Handle.pInbufOps;
     ExynosVideoBuffer       *pVideoBuffer;
+    ExynosVideoBuffer        videoBuffer;
 
     FunctionIn();
 
-    pVideoBuffer = pInbufOps->Dequeue(hMFCHandle);
+    if ((pExynosInputPort->bStoreMetaData == OMX_TRUE) &&
+        (pExynosInputPort->bufferProcessType == BUFFER_SHARE)) {
+        if (pInbufOps->ExtensionDequeue(hMFCHandle, &videoBuffer) == VIDEO_ERROR_NONE)
+            pVideoBuffer = &videoBuffer;
+        else
+            pVideoBuffer = NULL;
+    } else {
+        pVideoBuffer = pInbufOps->Dequeue(hMFCHandle);
+    }
 
     pSrcOutputData->dataLen       = 0;
     pSrcOutputData->usedDataLen   = 0;
