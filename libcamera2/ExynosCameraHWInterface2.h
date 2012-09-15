@@ -248,23 +248,17 @@ typedef struct flash_control_info {
     // for precapture metering
     int        m_precaptureState;
     int        m_precaptureTriggerId;
+    bool        m_precapturePrevDone;
 } ctl_flash_info_t;
 
 typedef struct awb_control_info {
      // UI awb mode indicator
     enum aa_awbmode    i_awbMode;
-    enum is_set_command_state        m_awbCnt;
 } ctl_awb_info_t;
-
-typedef struct ae_control_info {
-    // ae mode indicator
-    enum is_set_command_state        m_aeCnt;
-} ctl_ae_info_t;
 
 typedef struct request_control_info {
     ctl_flash_info_t flash;
     ctl_awb_info_t awb;
-    ctl_ae_info_t ae;
 } ctl_request_info_t;
 
 class RequestManager {
