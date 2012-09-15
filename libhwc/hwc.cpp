@@ -223,7 +223,8 @@ static enum s3c_fb_pixel_format exynos5_format_to_s3c_format(int format)
         return S3C_FB_PIXEL_FORMAT_RGBX_8888;
     case HAL_PIXEL_FORMAT_RGBA_5551:
         return S3C_FB_PIXEL_FORMAT_RGBA_5551;
-
+    case HAL_PIXEL_FORMAT_RGB_565:
+        return S3C_FB_PIXEL_FORMAT_RGB_565;
     default:
         return S3C_FB_PIXEL_FORMAT_MAX;
     }
@@ -273,8 +274,8 @@ static bool exynos5_format_is_ycrcb(int format)
 
 static bool exynos5_format_requires_gscaler(int format)
 {
-    return exynos5_format_is_supported_by_gscaler(format) &&
-            format != HAL_PIXEL_FORMAT_RGBX_8888;
+    return (exynos5_format_is_supported_by_gscaler(format) &&
+           (format != HAL_PIXEL_FORMAT_RGBX_8888) && (format != HAL_PIXEL_FORMAT_RGB_565));
 }
 
 static uint8_t exynos5_format_to_bpp(int format)
@@ -286,6 +287,7 @@ static uint8_t exynos5_format_to_bpp(int format)
 
     case HAL_PIXEL_FORMAT_RGBA_5551:
     case HAL_PIXEL_FORMAT_RGBA_4444:
+    case HAL_PIXEL_FORMAT_RGB_565:
         return 16;
 
     default:
