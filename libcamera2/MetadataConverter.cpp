@@ -552,6 +552,10 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
                 &metadata->dm.stats.faceScores, maxFacecount))
         return NO_MEMORY;
 
+    if (0 != add_camera_metadata_entry(dst, ANDROID_SCALER_CROP_REGION,
+                &metadata->ctl.scaler.cropRegion, 3))
+        return NO_MEMORY;
+
 
     ALOGV("(%s): AWB(%d) AE(%d) SCENE(%d)  AEComp(%d)", __FUNCTION__,
        metadata->dm.aa.awbMode - 1, metadata->dm.aa.aeMode - 1, metadata->ctl.aa.sceneMode - 1,
