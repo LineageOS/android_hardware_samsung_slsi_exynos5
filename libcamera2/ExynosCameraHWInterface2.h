@@ -286,6 +286,8 @@ public:
     void    RegisterTimestamp(int frameCnt, nsecs_t *frameTime);
     nsecs_t  GetTimestampByFrameCnt(int frameCnt);
     nsecs_t  GetTimestamp(int index);
+    uint8_t  GetOutputStreamByFrameCnt(int frameCnt);
+    uint8_t  GetOutputStream(int index);
     int     FindFrameCnt(struct camera2_shot_ext * shot_ext);
 #ifdef VDIS_ENABLE
     bool    IsVdisEnable(void);
@@ -631,7 +633,9 @@ class MainThread : public SignalDrivenThread {
     bool                                m_scp_flushing;
     bool                                m_closing;
     ExynosBuffer                        m_resizeBuf;
+#ifndef ENABLE_FRAME_SYNC
     int                                 m_currentOutputStreams;
+#endif
     int                                 m_currentReprocessOutStreams;
     ExynosBuffer                        m_previewCbBuf;
     int             				    m_cameraId;
