@@ -235,10 +235,18 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
             case ANDROID_CONTROL_AE_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.aeMode = (enum aa_aemode)(curr_entry.data.u8[0] + 1);
+                dst->ctl.aa.aeMode = (enum aa_aemode)(curr_entry.data.u8[0] + 2);
+                // skip locked mode
+                if (dst->ctl.aa.aeMode == AA_AEMODE_LOCKED)
+                    dst->ctl.aa.aeMode = AA_AEMODE_OFF;
                 ALOGV("DEBUG(%s): ANDROID_CONTROL_AE_MODE (%d)",  __FUNCTION__, dst->ctl.aa.aeMode);
                 break;
 
+            case ANDROID_CONTROL_AE_LOCK:
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
+                    break;
+                dst_ext->ae_lock = (enum ae_lockmode)(curr_entry.data.u8[0]);
+                break;
 
             case ANDROID_CONTROL_AE_EXP_COMPENSATION:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 1))
@@ -249,7 +257,16 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
             case ANDROID_CONTROL_AWB_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.awbMode = (enum aa_awbmode)(curr_entry.data.u8[0] + 1);
+                dst->ctl.aa.awbMode = (enum aa_awbmode)(curr_entry.data.u8[0] + 2);
+                // skip locked mode
+                if (dst->ctl.aa.awbMode == AA_AWBMODE_LOCKED)
+                    dst->ctl.aa.awbMode = AA_AWBMODE_OFF;
+                break;
+
+            case ANDROID_CONTROL_AWB_LOCK:
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
+                    break;
+                dst_ext->awb_lock = (enum awb_lockmode)(curr_entry.data.u8[0]);
                 break;
 
             case ANDROID_CONTROL_AWB_REGIONS:

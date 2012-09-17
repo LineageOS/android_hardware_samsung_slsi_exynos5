@@ -618,7 +618,7 @@ void RequestManager::ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext)
     CheckCompleted(i);
 }
 
-void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, int frameCnt)
+void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, int frameCnt, ctl_request_info_t *ctl_info)
 {
     int index, targetStreamIndex;
     struct camera2_shot_ext * request_shot;
@@ -653,6 +653,23 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
     shot_ext->shot.ctl.scaler.cropRegion[0] = request_shot->shot.ctl.scaler.cropRegion[0];
     shot_ext->shot.ctl.scaler.cropRegion[1] = request_shot->shot.ctl.scaler.cropRegion[1];
     shot_ext->shot.ctl.scaler.cropRegion[2] = request_shot->shot.ctl.scaler.cropRegion[2];
+
+    // mapping flash UI mode from aeMode
+    if (request_shot->shot.ctl.aa.aeMode >= AA_AEMODE_ON) {
+        ctl_info->flash.i_flashMode = request_shot->shot.ctl.aa.aeMode;
+        request_shot->shot.ctl.aa.aeMode = AA_AEMODE_ON;
+    }
+    // mapping awb UI mode form awbMode
+    ctl_info->awb.i_awbMode = request_shot->shot.ctl.aa.awbMode;
+
+    // Apply ae/awb lock or unlock
+    if ((request_shot->ae_lock == AEMODE_LOCK_ON)) {
+        request_shot->shot.ctl.aa.aeMode = AA_AEMODE_LOCKED;
+    }
+
+    if ((request_shot->awb_lock == AWBMODE_LOCK_ON)) {
+        request_shot->shot.ctl.aa.awbMode = AA_AWBMODE_LOCKED;
+    }
 
     if (m_lastAaMode == request_shot->shot.ctl.aa.mode) {
         shot_ext->shot.ctl.aa.mode = (enum aa_mode)(0);
@@ -2833,7 +2850,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
         if (matchedFrameCnt != -1) {
             frameTime = systemTime();
             m_requestManager->RegisterTimestamp(matchedFrameCnt, &frameTime);
-            m_requestManager->UpdateIspParameters(shot_ext, matchedFrameCnt);
+            m_requestManager->UpdateIspParameters(shot_ext, matchedFrameCnt, &m_ctlInfo);
 
             // Mapping Flash UI mode from aeMode
             if (shot_ext->shot.ctl.aa.aeMode >= AA_AEMODE_ON) {
@@ -5275,7 +5292,7 @@ void ExynosCameraHWInterface2::m_setExifChangedAttribute(exif_attribute_t *exifI
         exifInfo->flash = EXIF_DEF_FLASH;
 
     //3 White Balance
-    if (dm->aa.awbMode == AA_AWBMODE_WB_AUTO)
+    if (m_ctlInfo.awb.i_awbMode == AA_AWBMODE_WB_AUTO)
         exifInfo->white_balance = EXIF_WB_AUTO;
     else
         exifInfo->white_balance = EXIF_WB_MANUAL;
