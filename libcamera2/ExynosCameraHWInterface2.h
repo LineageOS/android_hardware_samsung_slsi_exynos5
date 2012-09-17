@@ -64,6 +64,8 @@ namespace android {
 #define NUM_MAX_REQUEST_MGR_ENTRY   (4)
 #define NUM_MAX_CAMERA_BUFFERS      (16)
 #define NUM_BAYER_BUFFERS           (8)
+#define NUM_SCC_BUFFERS             (8)
+#define NUM_SCP_BUFFERS             (8)
 #define NUM_MIN_SENSOR_QBUF         (3)
 #define NUM_MAX_SUBSTREAM           (4)
 
