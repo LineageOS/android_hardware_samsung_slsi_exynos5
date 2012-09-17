@@ -671,23 +671,6 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
     if (request_shot->awb_lock == AWBMODE_LOCK_ON)
             request_shot->shot.ctl.aa.awbMode = AA_AWBMODE_LOCKED;
 
-    // This is for pre-capture metering
-    if (ctl_info->ae.m_aeCnt >= IS_COMMAND_EXECUTION) {
-        if (ctl_info->ae.m_aeCnt == IS_COMMAND_CLEAR) {
-            ALOGV("(%s) [Capture] m_aeCnt :  CLEAR -> NONE", __FUNCTION__);
-            ctl_info->ae.m_aeCnt = IS_COMMAND_NONE;
-        } else {
-            ctl_info->ae.m_aeCnt = IS_COMMAND_CLEAR;
-            ALOGV("(%s) [Capture] m_aeCnt :  EXECUTION -> CLEAR", __FUNCTION__);
-        }
-    }
-    if (ctl_info->awb.m_awbCnt >= IS_COMMAND_EXECUTION) {
-        if (ctl_info->awb.m_awbCnt == IS_COMMAND_CLEAR)
-            ctl_info->awb.m_awbCnt = IS_COMMAND_NONE;
-        else
-            ctl_info->awb.m_awbCnt = IS_COMMAND_CLEAR;
-    }
-
     if (m_lastAaMode == request_shot->shot.ctl.aa.mode) {
         shot_ext->shot.ctl.aa.mode = (enum aa_mode)(0);
     }
@@ -990,11 +973,9 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
         m_ctlInfo.flash.m_flashTorchMode = false;
         m_ctlInfo.flash.m_precaptureState = 0;
         m_ctlInfo.flash.m_precaptureTriggerId = 0;
-        //ae
-        m_ctlInfo.ae.m_aeCnt = IS_COMMAND_NONE;
+        m_ctlInfo.flash.m_precapturePrevDone = false;
         // awb
         m_ctlInfo.awb.i_awbMode = AA_AWBMODE_OFF;
-        m_ctlInfo.awb.m_awbCnt = IS_COMMAND_NONE;
     }
     ALOGD("(%s): EXIT", __FUNCTION__);
 }
@@ -2699,6 +2680,7 @@ void ExynosCameraHWInterface2::m_preCaptureSetter(struct camera2_shot_ext * shot
         break;
     case IS_FLASH_STATE_AUTO_DONE:
         CAM_LOGV("(%s): [Flash] IS_FLASH_AF_AUTO DONE", __FUNCTION__);
+        shot_ext->shot.ctl.aa.aeflashMode = AA_FLASHMODE_OFF;
         break;
     case IS_FLASH_STATE_AUTO_OFF:
         CAM_LOGV("(%s): [Flash] IS_FLASH_AF_AUTO Clear", __FUNCTION__);
@@ -4359,7 +4341,9 @@ void ExynosCameraHWInterface2::OnPrecaptureMeteringTriggerStart(int id)
         // flash is required
         switch (m_ctlInfo.flash.m_flashCnt) {
         case IS_FLASH_STATE_AUTO_DONE:
+        case IS_FLASH_STATE_AUTO_OFF:
             // Flash capture sequence, AF flash was executed before
+            m_ctlInfo.flash.m_precapturePrevDone = true;
             break;
         default:
             // Full flash sequence
@@ -4368,13 +4352,12 @@ void ExynosCameraHWInterface2::OnPrecaptureMeteringTriggerStart(int id)
         }
     } else {
         // Apply AE & AWB lock
-        ALOGV("[PreCap] Flash OFF mode ");
+        CAM_LOGV("[PreCap] Flash OFF mode ");
         m_ctlInfo.flash.m_flashEnableFlg = false;
         m_ctlInfo.flash.m_flashCnt = IS_FLASH_STATE_NONE;
-        m_ctlInfo.ae.m_aeCnt = IS_COMMAND_EXECUTION;
-        m_ctlInfo.awb.m_awbCnt = IS_COMMAND_EXECUTION;
+        m_ctlInfo.flash.m_precapturePrevDone = true;
     }
-    ALOGV("[PreCap] OnPrecaptureMeteringTriggerStart (ID %d) (flag : %d) (cnt : %d)", id, m_ctlInfo.flash.m_flashEnableFlg, m_ctlInfo.flash.m_flashCnt);
+    CAM_LOGV("[PreCap] OnPrecaptureMeteringTriggerStart (ID %d) (flag : %d) (cnt : %d)", id, m_ctlInfo.flash.m_flashEnableFlg, m_ctlInfo.flash.m_flashCnt);
 }
 void ExynosCameraHWInterface2::OnAfTriggerStart(int id)
 {
@@ -4574,17 +4557,30 @@ void ExynosCameraHWInterface2::OnPrecaptureMeteringNotification()
             // flash case
             switch (m_ctlInfo.flash.m_flashCnt) {
             case IS_FLASH_STATE_AUTO_DONE:
-                m_notifyCb(CAMERA2_MSG_AUTOEXPOSURE,
-                                ANDROID_CONTROL_AE_STATE_LOCKED,
-                                m_ctlInfo.flash.m_precaptureTriggerId, 0, m_callbackCookie);
-                m_notifyCb(CAMERA2_MSG_AUTOWB,
-                                ANDROID_CONTROL_AWB_STATE_LOCKED,
-                                m_ctlInfo.flash.m_precaptureTriggerId, 0, m_callbackCookie);
-                m_ctlInfo.flash.m_precaptureTriggerId = 0;
+            case IS_FLASH_STATE_AUTO_OFF:
+                if (m_ctlInfo.flash.m_precapturePrevDone) {
+                    m_notifyCb(CAMERA2_MSG_AUTOEXPOSURE,
+                                    ANDROID_CONTROL_AE_STATE_PRECAPTURE,
+                                    m_ctlInfo.flash.m_precaptureTriggerId, 0, m_callbackCookie);
+                    CAM_LOGV("(%s) ANDROID_CONTROL_AE_STATE_PRECAPTURE", __FUNCTION__);
+                    m_notifyCb(CAMERA2_MSG_AUTOWB,
+                                    ANDROID_CONTROL_AWB_STATE_CONVERGED,
+                                    m_ctlInfo.flash.m_precaptureTriggerId, 0, m_callbackCookie);
+                    m_ctlInfo.flash.m_precapturePrevDone = false;
+                } else {
+                    m_notifyCb(CAMERA2_MSG_AUTOEXPOSURE,
+                                    ANDROID_CONTROL_AE_STATE_LOCKED,
+                                    m_ctlInfo.flash.m_precaptureTriggerId, 0, m_callbackCookie);
+                    CAM_LOGV("(%s) ANDROID_CONTROL_AE_STATE_LOCKED", __FUNCTION__);
+                    m_notifyCb(CAMERA2_MSG_AUTOWB,
+                                    ANDROID_CONTROL_AWB_STATE_LOCKED,
+                                    m_ctlInfo.flash.m_precaptureTriggerId, 0, m_callbackCookie);
+                    m_ctlInfo.flash.m_precaptureTriggerId = 0;
+                }
                 break;
             default:
                 if (m_ctlInfo.flash.m_flashCnt >= IS_FLASH_STATE_CAPTURE) {
-                    ALOGE("(%s) INVALID flash state count. (%d)", (int)m_ctlInfo.flash.m_flashCnt);
+                    ALOGE("(%s) INVALID flash state count. (%d)", __FUNCTION__, (int)m_ctlInfo.flash.m_flashCnt);
                     m_ctlInfo.flash.m_flashCnt = IS_FLASH_STATE_AUTO_DONE;
                     m_notifyCb(CAMERA2_MSG_AUTOEXPOSURE,
                                     ANDROID_CONTROL_AE_STATE_LOCKED,
@@ -4597,6 +4593,7 @@ void ExynosCameraHWInterface2::OnPrecaptureMeteringNotification()
                     m_notifyCb(CAMERA2_MSG_AUTOEXPOSURE,
                                     ANDROID_CONTROL_AE_STATE_PRECAPTURE,
                                     m_ctlInfo.flash.m_precaptureTriggerId, 0, m_callbackCookie);
+                    CAM_LOGV("(%s) ANDROID_CONTROL_AE_STATE_PRECAPTURE", __FUNCTION__);
                     m_notifyCb(CAMERA2_MSG_AUTOWB,
                                     ANDROID_CONTROL_AWB_STATE_CONVERGED,
                                     m_ctlInfo.flash.m_precaptureTriggerId, 0, m_callbackCookie);
@@ -4604,36 +4601,24 @@ void ExynosCameraHWInterface2::OnPrecaptureMeteringNotification()
             }
         } else {
             // non-flash case
-            // AE
-            switch (m_ctlInfo.ae.m_aeCnt) {
-            case IS_COMMAND_EXECUTION:
+            if (m_ctlInfo.flash.m_precapturePrevDone) {
                 m_notifyCb(CAMERA2_MSG_AUTOEXPOSURE,
                                 ANDROID_CONTROL_AE_STATE_PRECAPTURE,
                                 m_ctlInfo.flash.m_precaptureTriggerId, 0, m_callbackCookie);
-                ALOGE("[PreCap] OnPrecaptureMeteringNotification (ID %d) CAMERA2_MSG_AUTOEXPOSURE, ANDROID_CONTROL_AE_STATE_PRECAPTURE", m_ctlInfo.flash.m_precaptureTriggerId);
-                break;
-            case IS_COMMAND_NONE:
-            case IS_COMMAND_CLEAR:
-                m_notifyCb(CAMERA2_MSG_AUTOEXPOSURE,
-                                ANDROID_CONTROL_AE_STATE_LOCKED,
-                                m_ctlInfo.flash.m_precaptureTriggerId, 0, m_callbackCookie);
-                ALOGE("[PreCap] OnPrecaptureMeteringNotification (ID %d) CAMERA2_MSG_AUTOEXPOSURE, ANDROID_CONTROL_AE_STATE_LOCKED", m_ctlInfo.flash.m_precaptureTriggerId);
-                m_ctlInfo.flash.m_precaptureTriggerId = 0;
-                break;
-            }
-            // AWB
-            switch (m_ctlInfo.awb.m_awbCnt) {
-            case IS_COMMAND_EXECUTION:
+                CAM_LOGV("(%s) ANDROID_CONTROL_AE_STATE_PRECAPTURE", __FUNCTION__);
                 m_notifyCb(CAMERA2_MSG_AUTOWB,
                                 ANDROID_CONTROL_AWB_STATE_CONVERGED,
                                 m_ctlInfo.flash.m_precaptureTriggerId, 0, m_callbackCookie);
-                break;
-            case IS_COMMAND_NONE:
-            case IS_COMMAND_CLEAR:
+                m_ctlInfo.flash.m_precapturePrevDone = false;
+            } else {
+                m_notifyCb(CAMERA2_MSG_AUTOEXPOSURE,
+                                ANDROID_CONTROL_AE_STATE_LOCKED,
+                                m_ctlInfo.flash.m_precaptureTriggerId, 0, m_callbackCookie);
+                CAM_LOGV("(%s) ANDROID_CONTROL_AE_STATE_LOCKED", __FUNCTION__);
                 m_notifyCb(CAMERA2_MSG_AUTOWB,
                                 ANDROID_CONTROL_AWB_STATE_LOCKED,
                                 m_ctlInfo.flash.m_precaptureTriggerId, 0, m_callbackCookie);
-                break;
+                m_ctlInfo.flash.m_precaptureTriggerId = 0;
             }
         }
     }
