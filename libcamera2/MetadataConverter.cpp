@@ -45,7 +45,7 @@ MetadataConverter::MetadataConverter()
 
 MetadataConverter::~MetadataConverter()
 {
-    ALOGE("DEBUG(%s)destroy!!:", __FUNCTION__);
+    ALOGV("DEBUG(%s)destroy!!:", __FUNCTION__);
     return;
 }
 
