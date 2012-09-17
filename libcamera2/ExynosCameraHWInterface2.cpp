@@ -3434,7 +3434,6 @@ void ExynosCameraHWInterface2::m_streamFunc_direct(SignalDrivenThread *self)
         camera2_stream *frame;
 #endif
         int numOfUndqbuf = 0;
-        bool again = false;
 
         ALOGV("(%s): streamthread[%d] START SIGNAL_STREAM_DATA_COMING", __FUNCTION__,selfThread->m_index);
 
@@ -3512,21 +3511,8 @@ void ExynosCameraHWInterface2::m_streamFunc_direct(SignalDrivenThread *self)
                 selfStreamParms->svcBufStatus[selfStreamParms->bufIndex] = ON_HAL;
             }
 
-            // HACK
-//            if (again == false && !(m_recordOutput && m_recordingEnabled)) {
-            if (again == false) {
-                if (exynos_v4l2_g_ctrl(currentNode->fd, V4L2_CID_IS_G_COMPLETES, &numOfUndqbuf)) {
-                    CAM_LOGW("WARN(%s): Fail to get Scaler completes, val = %d, fd=%d", __FUNCTION__, numOfUndqbuf, currentNode->fd);
-                } else {
-                    again = (numOfUndqbuf > 0)?true:false;
-                    if (again)
-                        CAM_LOGW("WARN(%s): Drain Scaler buf, num of undqbuf = %d", __FUNCTION__, numOfUndqbuf);
-                }
-            } else {
-                again = false;
-            }
         }
-        while(again);
+        while(0);
 
         while (selfStreamParms->numSvcBufsInHal < selfStreamParms->numOwnSvcBuffers - 1) {
             res = selfStreamParms->streamOps->dequeue_buffer(selfStreamParms->streamOps, &buf);
