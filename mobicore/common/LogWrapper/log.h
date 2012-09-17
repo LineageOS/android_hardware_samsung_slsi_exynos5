@@ -38,27 +38,49 @@
 #include <stdio.h>
 #include <android/log.h>
 
+/** LOG_I(fmt, args...)
+ * Informative logging, only shown in debug version
+ */
+
+/** LOG_W(fmt, args...)
+ * Warnings logging, only shown in debug version
+ */
+
+/** LOG_E(fmt, args...)
+ * Error logging, shown in debug and release version
+ */
+
+/** LOG_V(fmt, args...)
+ * Verbose logging, shown in debug version if the including file defines LOG_VERBOSE
+ */
+
+/** LOG_I_BUF(szDescriptor, blob, sizeOfBlob)
+ * Binary logging, line-wise output to LOG_I
+ */
 
 #define EOL "\n"
 #define DUMMY_FUNCTION()    do{}while(0)
 
-
 #ifdef LOG_ANDROID
-
-#ifdef NDEBUG
+// log to adb logcat
+#ifdef NDEBUG // no logging in debug version
     #define LOG_I(fmt, args...) DUMMY_FUNCTION()
     #define LOG_W(fmt, args...) DUMMY_FUNCTION()
 #else
-    #define LOG_I(fmt, args...) LOG_i("%d : "fmt , __LINE__ , ## args)
-    #define LOG_W(fmt, args...) LOG_w("%d : "fmt , __LINE__ , ## args)
+    // add LINE
+    #define LOG_I(fmt, args...) LOG_i(fmt";%d", ## args, __LINE__)
+    #define LOG_W(fmt, args...) LOG_w(fmt";%d", ## args, __LINE__)
 #endif
-    #define _LOG_E(fmt, args...) LOG_e("%d : "fmt , __LINE__ , ## args)
+    // LOG_E is always defined
+    #define _LOG_E(fmt, args...) LOG_e(fmt, ## args)
 
+    // actually mapping to log system, adding level and tag.
     #define LOG_i(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
     #define LOG_w(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
     #define LOG_e(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 #else //!defined(LOG_ANDROID)
+// log to std.out using printf
 
     // #level / #LOG_TAG ( process_id): __VA_ARGS__
     // Example:
@@ -72,7 +94,7 @@
                 } while(1!=1)
 
 
-#ifdef NDEBUG
+#ifdef NDEBUG // no logging in debug version
     #define LOG_I(fmt, args...) DUMMY_FUNCTION()
     #define LOG_W(fmt, args...) DUMMY_FUNCTION()
 #else
@@ -83,6 +105,11 @@
 
 #endif //defined(LOG_ANDROID)
 
+#if defined(LOG_VERBOSE)
+#define LOG_V LOG_I
+#else
+#define LOG_V(...) DUMMY_FUNCTION()
+#endif
 
 /** LOG_E() needs to be more prominent:
  * Display "*********** ERROR ***********" before actual error message.
@@ -90,11 +117,14 @@
 #define LOG_E(...) \
             do \
             { \
-                _LOG_E("*****************************"); \
-                _LOG_E("*********   ERROR   *********"); \
-                _LOG_E(__VA_ARGS__); \
+                _LOG_E("  *****************************"); \
+                _LOG_E("  *** ERROR: "__VA_ARGS__); \
+                _LOG_E("  *** Detected in %s:%i/%s()", __FILE__, __LINE__, __FUNCTION__); \
+                _LOG_E("  *****************************"); \
             } while(1!=1)
 
+#define LOG_ERRNO(MESSAGE) \
+    LOG_E("%s failed with \"%s\"(errno %i)", MESSAGE, strerror(errno), errno);
 
 #define LOG_I_BUF   LOG_I_Buf
 

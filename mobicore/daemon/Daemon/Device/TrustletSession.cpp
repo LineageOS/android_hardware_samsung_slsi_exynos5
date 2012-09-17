@@ -32,7 +32,6 @@
 #include "TrustletSession.h"
 #include <cstdlib>
 
-#define LOG_TAG	"McDaemon"
 #include "log.h"
 
 

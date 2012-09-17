@@ -5,7 +5,7 @@
  * Entry of the MobiCore Driver.
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -34,13 +34,12 @@
 #include <cstdlib>
 #include <signal.h>
 #include <fcntl.h>
-#include <fstream>
-#include <cassert>
+#include <stdio.h>
 
 #include "MobiCoreDriverCmd.h"
 #include "mcVersion.h"
 #include "mcVersionHelper.h"
-#include "mc_drv_module_api.h"
+#include "mc_linux.h"
 
 #include "MobiCoreDriverDaemon.h"
 #include "MobiCoreRegistry.h"
@@ -48,7 +47,6 @@
 
 #include "NetlinkServer.h"
 
-#define LOG_TAG	"McDaemon"
 #include "log.h"
 
 #define DRIVER_TCI_LEN 100
@@ -58,7 +56,7 @@
 MC_CHECK_VERSION(MCI, 0, 2);
 MC_CHECK_VERSION(SO, 2, 0);
 MC_CHECK_VERSION(MCLF, 2, 0);
-MC_CHECK_VERSION(CONTAINER, 2, 0); 
+MC_CHECK_VERSION(CONTAINER, 2, 0);
 
 static void checkMobiCoreVersion(MobiCoreDevice* mobiCoreDevice);
 
@@ -122,16 +120,18 @@ void MobiCoreDriverDaemon::run(
 	mobiCoreDevice = getDeviceInstance();
 
 	LOG_I("Daemon scheduler is %s", enableScheduler? "enabled" : "disabled");
+    LOG_I("Initializing MobiCore Device");
 	if(!mobiCoreDevice->initDevice(
-		MC_DRV_MOD_DEVNODE_FULLPATH,
+		"/dev/" MC_ADMIN_DEVNODE,
 		loadMobicore,
 		mobicoreImage.c_str(),
 		enableScheduler)) {
-		LOG_E("%s: Failed to initialize MobiCore!", __FUNCTION__);
+		LOG_E("Could not initialize MobiCore!");
 		return;
 	}
 	mobiCoreDevice->start();
 
+    LOG_I("Checking version of MobiCore");
 	checkMobiCoreVersion(mobiCoreDevice);
 
 	if (donateRamSize > 0) {
@@ -145,11 +145,11 @@ void MobiCoreDriverDaemon::run(
 		loadDeviceDriver(driverPath);
 	}
 
-	LOG_I("Servers will be created!");
+	LOG_I("Creating socket servers");
 	// Start listening for incoming TLC connections
 	servers[0] = new NetlinkServer(this);
 	servers[1] = new Server(this, SOCK_PATH);
-	LOG_I("Servers created!");
+	LOG_I("Successfully created servers");
 
 	// Start all the servers
 	for (i = 0; i < MAX_SERVERS; i++) {
@@ -195,7 +195,7 @@ size_t MobiCoreDriverDaemon::writeResult(
     mcDrvRsp_t  code
 ) {
 	if (0 != code) {
-		LOG_E("writeResult(): set error code %d",code);
+		LOG_V(" sending error code %d",code);
 	}
 	return connection->writeData(&code, sizeof(mcDrvRsp_t));
 }
@@ -210,18 +210,19 @@ bool MobiCoreDriverDaemon::loadDeviceDriver(
 	Connection *conn = NULL;
 	uint8_t *tci = NULL;
 	mcDrvRspOpenSession_t rspOpenSession;
-	
+
 	do
 	{
 		//mobiCoreDevice
-		ifstream fs(driverPath.c_str(), ios_base::binary);
+		FILE *fs = fopen (driverPath.c_str(), "rb");
 		if (!fs) {
-			LOG_E("%s: failed: cannot open %s", __func__, driverPath.c_str());
+			LOG_E("%s: failed: cannot open %s", __FUNCTION__, driverPath.c_str());
 			break;
 		}
-		
-		LOG_I("%s: loading %s", __func__, driverPath.c_str());
-		
+		fclose(fs);
+
+		LOG_I("%s: loading %s", __FUNCTION__, driverPath.c_str());
+
 		regObj = mcRegistryGetDriverBlob(driverPath.c_str());
 		if (regObj == NULL) {
 			break;;
@@ -229,7 +230,7 @@ bool MobiCoreDriverDaemon::loadDeviceDriver(
 
 		LOG_I("registering L2 in kmod, p=%p, len=%i",
 				regObj->value, regObj->len);
-		
+
 		// Prepare the interface structure for memory registration, then
 		// register virtual memory in kernel module, create L2 table
 		// TODO xgal: refactor naming of datatypes and WSM handling
@@ -246,7 +247,7 @@ bool MobiCoreDriverDaemon::loadDeviceDriver(
 		loadDataOpenSession.offs = ((uint32_t) regObj->value) & 0xFFF;
 		loadDataOpenSession.len = regObj->len;
 		loadDataOpenSession.tlHeader = (mclfHeader_ptr) regObj->value;
-		
+
 		mcDrvCmdOpenSessionPayload_t  openSessionPayload;
 		tci = (uint8_t*)malloc(DRIVER_TCI_LEN);
 		pTciWsm = mobiCoreDevice->registerWsmL2(
@@ -266,28 +267,28 @@ bool MobiCoreDriverDaemon::loadDeviceDriver(
 			&loadDataOpenSession,
 			&openSessionPayload,
 			&(rspOpenSession.payload));
-		
+
 		// Unregister physical memory from kernel module.
 		// This will also destroy the WSM object.
 		mobiCoreDevice->unregisterWsmL2(pWsm);
 		pWsm = NULL;
-		
+
 		// Free memory occupied by Trustlet data
 		free(regObj);
 		regObj = NULL;
-		
+
 		if (rspOpenSession.payload.mcResult != MC_MCP_RET_OK)
 		{
-			LOG_E("%s: rspOpenSession mcResult %d", __func__, 
+			LOG_E("%s: rspOpenSession mcResult %d", __FUNCTION__,
 				  rspOpenSession.payload.mcResult);
 			break;
 		}
-		
+
 		ret = true;
 	} while (false);
 	// Free all allocated resources
 	if (ret == false) {
-		LOG_I("%s: Freeing previously allocated resources!", __func__);
+		LOG_I("%s: Freeing previously allocated resources!", __FUNCTION__);
 		if (pWsm != NULL) {
 			if(!mobiCoreDevice->unregisterWsmL2(pWsm)) {
 				// At least make sure we don't leak the WSM object
@@ -296,7 +297,7 @@ bool MobiCoreDriverDaemon::loadDeviceDriver(
 		}
 		// No matter if we free NULL objects
 		free(regObj);
-		
+
 		if (conn != NULL) {
 			delete conn;
 		}
@@ -304,7 +305,7 @@ bool MobiCoreDriverDaemon::loadDeviceDriver(
 		driverResources.push_back(new MobicoreDriverResources(
 			conn, tci, pTciWsm, rspOpenSession.payload.sessionId));
 	}
-	
+
 	return ret;
 }
 
@@ -335,7 +336,7 @@ void MobiCoreDriverDaemon::processOpenDevice(
 			break;
 		}
 
-		LOG_I("processOpenDevice(): deviceId is %d",
+		LOG_I(" Opening deviceId %d ",
 				cmdOpenDevicePayload.deviceId);
 
 		// Get device for device ID
@@ -439,9 +440,7 @@ void MobiCoreDriverDaemon::processOpenSession(
 		{
 			// Trustlet retrieved from registry
 
-			LOG_I("registering L2 in kmod, p=%p, len=%i",
-					regObj->value,
-					regObj->len);
+			LOG_I(" Sharing Service loaded at %p with Secure World", (addr_t)(regObj->value));
 
 			// Prepare the interface structure for memory registration, then
 			// register virtual memory in kernel module, create L2 table
@@ -462,7 +461,7 @@ void MobiCoreDriverDaemon::processOpenSession(
 			loadDataOpenSession.offs = ((uint32_t) regObj->value) & 0xFFF;
 			loadDataOpenSession.len = regObj->len;
 			loadDataOpenSession.tlHeader = (mclfHeader_ptr) regObj->value;
-			
+
 			device->openSession(
 						connection,
 						&loadDataOpenSession,
@@ -470,8 +469,11 @@ void MobiCoreDriverDaemon::processOpenSession(
 						&(rspOpenSession.payload));
 
 			// Unregister physical memory from kernel module.
-			// This will also destroy the WSM object.
+            LOG_I(" Service buffer was copied to Secure world and processed. Stop sharing of buffer.");
+
+            // This will also destroy the WSM object.
 			if(!device->unregisterWsmL2(pWsm)) {
+			    // TODO-2012-07-02-haenellu: Can this ever happen? And if so, we should assert(), also TL would still be running.
 				writeResult(connection, MC_DRV_RSP_FAILED);
 				break;
 			}
@@ -484,7 +486,7 @@ void MobiCoreDriverDaemon::processOpenSession(
 
         mcDrvRsp_t responseId = MC_DRV_RSP_FAILED;
 
-        switch (mcResult) 
+        switch (mcResult)
         {
         case MC_MCP_RET_OK:
             responseId = MC_DRV_RSP_OK;
@@ -517,7 +519,7 @@ void MobiCoreDriverDaemon::processOpenSession(
 
 		if (MC_MCP_RET_OK != mcResult)
 		{
-			LOG_E("rspOpenSession mcResult %d", mcResult);
+            LOG_V("MCP OPEN returned code %d", mcResult);
 			writeResult(connection, responseId);
 			break;
 		}
@@ -626,7 +628,7 @@ void MobiCoreDriverDaemon::processNqConnect(
 
 		writeResult(connection, MC_DRV_RSP_OK);
 		ts->processQueuedNotifications();
-		
+
 
 	} while (false);
 }
@@ -757,7 +759,8 @@ void MobiCoreDriverDaemon::processUnmapBulkBuf(
 		uint32_t mcResult = rspUnmpaBulk.payload.mcResult;
 		if (MC_MCP_RET_OK != mcResult)
 		{
-			LOG_E("processUnmapBulkBuf(): rspUnmpaBulk mcResult %d", mcResult);
+            LOG_V("MCP UNMAP returned code %d", mcResult);
+            // TODO-2012-08-03-haenellu: Think about better error codes here.
 			writeResult(connection, MC_DRV_RSP_FAILED);
 			break;
 		}
@@ -821,7 +824,7 @@ bool MobiCoreDriverDaemon::handleConnection(
 ) {
     bool ret = false;
 	static CMutex mutex;
-	
+
 	/* In case of RTM fault do not try to signal anything to MobiCore
 	 * just answer NO to all incoming connections! */
 	if (mobiCoreDevice->getMcFault()) {
@@ -839,11 +842,12 @@ bool MobiCoreDriverDaemon::handleConnection(
 
 		if (0 == rlen)
 		{
-			LOG_I("handleConnection(): Connection closed.");
+			LOG_V(" handleConnection(): Connection closed.");
 			break;
 		}
 		if (sizeof(mcDrvCommandHeader) != rlen)
 		{
+	        //TODO-2012-07-30-haenellu: wrong log message, on error, rlen will more likely be -1 or -2
 			LOG_E("handleConnection(): Header length error: %d", rlen);
 			break;
 		}
@@ -949,7 +953,7 @@ int main(
     MobiCoreDriverDaemon *mobiCoreDriverDaemon = NULL;
 	// Process signal action
     struct sigaction action;
-	
+
 	// Read the Command line options
 	extern char *optarg;
 	extern int optopt;
@@ -1012,7 +1016,7 @@ int main(
 		else if (i > 0) {
 			exit(0);
 		}
-	
+
 		// obtain a new process group */
 		setsid();
 		/* close all descriptors */
@@ -1020,7 +1024,7 @@ int main(
 			close(i);
 		}
 		// STDIN, STDOUT and STDERR should all point to /dev/null */
-		i = open("/dev/null",O_RDWR); 
+		i = open("/dev/null",O_RDWR);
 		dup(i);
 		dup(i);
 		/* ignore tty signals */
@@ -1037,7 +1041,7 @@ int main(
 	sigaction (SIGHUP, &action, NULL);
 	sigaction (SIGTERM, &action, NULL);
 	signal(SIGPIPE, SIG_IGN);
-	
+
 	mobiCoreDriverDaemon = new MobiCoreDriverDaemon(
 		/* Scheduler status */
 		schedulerFlag,

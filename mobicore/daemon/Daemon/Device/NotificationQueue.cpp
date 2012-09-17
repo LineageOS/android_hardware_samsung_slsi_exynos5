@@ -32,7 +32,6 @@
 #include "NotificationQueue.h"
 #include <stddef.h>
 
-#define LOG_TAG	"McDaemon"
 #include "log.h"
 
 //------------------------------------------------------------------------------

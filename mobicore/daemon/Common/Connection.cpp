@@ -37,7 +37,7 @@
 
 #include "Connection.h"
 
-#define LOG_TAG	"McClient"
+//#define LOG_VERBOSE
 #include "log.h"
 
 
@@ -69,9 +69,10 @@ Connection::Connection(
 Connection::~Connection(
     void
 ) {
-	LOG_I("%s: Connection closed!", __func__);
+	LOG_V(" closing Connection...");
     if (socketDescriptor != -1)
         close(socketDescriptor);
+    LOG_I(" Socket connection closed.");
 }
 
 
@@ -84,19 +85,19 @@ bool Connection::connect(
 
 	assert(NULL != dest);
 
-	LOG_I("connect(): Connecting to %s", dest);
+	LOG_I(" Connecting to %s socket", dest);
 	do {
 		remote.sun_family = AF_UNIX;
 		strncpy(remote.sun_path, dest, sizeof(remote.sun_path) - 1);
 		if ((socketDescriptor = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-			LOG_E("Can't open stream socket - errno: %d", errno);
+            LOG_ERRNO("Can't open stream socket.");
 			break;
 		}
 		len = strlen(remote.sun_path) + sizeof(remote.sun_family);
 		// The Daemon socket is in the Abstract Domain(LINUX ONLY!)
 		remote.sun_path[0] = 0;
 		if (::connect(socketDescriptor, (struct sockaddr *) &remote, len) < 0) {
-			LOG_E("connect() failed - errno: %d", errno);
+		    LOG_ERRNO("connect()");
 			break;
 		}
 		ret = true;
@@ -144,13 +145,13 @@ size_t Connection::readData(
 
         // check for read error
         if (-1 == (int)ret) {
-            LOG_E("readData(): select() failed, ret=%d, errno=%d", ret,errno);
+            LOG_ERRNO("select");
             break;
         }
 
         // Handle case of no descriptor ready
         if (0 == ret) {
-            LOG_W("readData(): select() timed out");
+            LOG_W(" Timeout during select() / No more notifications.");
             ret = -2;
             break;
         }
@@ -160,16 +161,22 @@ size_t Connection::readData(
         // finally check if fd has been selected -> must socketDescriptor
         if (!FD_ISSET(socketDescriptor, &readfds))
         {
-            LOG_E("readData(): failure, errno=%d", errno);
+            LOG_ERRNO("no fd is set, select");
             break;
         }
 
         ret = recv(socketDescriptor, buffer, len, MSG_WAITALL);
         if(0 == ret)
         {
-            LOG_I("readData(): peer orderly closed connection.");
+            LOG_V(" readData(): peer orderly closed connection.");
             break;
         }
+//        if (ret != len)
+//        {
+//            LOG_ERRNO("could not receive all requested data because read");
+//            LOG_E("ret = %d", ret);
+//            ret = -1;
+//        }
 
     }while(false);
 
@@ -190,7 +197,8 @@ size_t Connection::writeData(
     ret = send(socketDescriptor, buffer, len, 0);
     if (ret != len)
     {
-        LOG_E( "writeData(): could no send all data, ret=%d, errno: %d", ret,errno);
+        LOG_ERRNO("could not send all data, because send");
+        LOG_E("ret = %d", ret);
         ret = -1;
     }
 
