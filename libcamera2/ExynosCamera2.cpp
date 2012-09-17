@@ -556,6 +556,9 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
 
     static const uint8_t availableVstabModes[] = {
             ANDROID_CONTROL_VIDEO_STABILIZATION_OFF
+#ifdef VDIS_ENABLE
+            ,ANDROID_CONTROL_VIDEO_STABILIZATION_ON
+#endif
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES,
             availableVstabModes, sizeof(availableVstabModes));

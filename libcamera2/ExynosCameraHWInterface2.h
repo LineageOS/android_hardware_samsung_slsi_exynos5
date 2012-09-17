@@ -288,6 +288,9 @@ public:
     nsecs_t  GetTimestampByFrameCnt(int frameCnt);
     nsecs_t  GetTimestamp(int index);
     int     FindFrameCnt(struct camera2_shot_ext * shot_ext);
+#ifdef VDIS_ENABLE
+    bool    IsVdisEnable(void);
+#endif
     int     FindEntryIndexByFrameCnt(int frameCnt);
     void    Dump(void);
     int     GetNextIndex(int index);
@@ -323,6 +326,9 @@ private:
     int                             m_lastAaMode;
     int                             m_lastAwbMode;
     int                             m_lastAeComp;
+#ifdef VDIS_ENABLE
+    bool                            m_vdisBubbleEn;
+#endif
     nsecs_t                         m_lastTimeStamp;
     List<int>                   m_sensorQ;
 };
@@ -648,6 +654,11 @@ class MainThread : public SignalDrivenThread {
     bool                                m_wideAspect;
     uint32_t                            lastAfRegion[4];
     float                               m_zoomRatio;
+
+#ifdef VDIS_ENABLE
+    int                                 m_vdisBubbleCnt;
+    int                                 m_vdisDupFrame;
+#endif
 
     mutable Mutex                       m_qbufLock;
 
