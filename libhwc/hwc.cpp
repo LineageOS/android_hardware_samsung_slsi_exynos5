@@ -1607,8 +1607,8 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
         refreshRate = 60;
     }
 
-    dev->xres = info.xres;
-    dev->yres = info.yres;
+    dev->xres = 2560;
+    dev->yres = 1600;
     dev->xdpi = 1000 * (info.xres * 25.4f) / info.width;
     dev->ydpi = 1000 * (info.yres * 25.4f) / info.height;
     dev->vsync_period  = 1000000000 / refreshRate;
