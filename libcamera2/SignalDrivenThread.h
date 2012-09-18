@@ -71,6 +71,7 @@ private:
 
             uint32_t    m_receivedSignal;
             uint32_t    m_processingSignal;
+            uint32_t    m_pendingSignal;
 
             Mutex       m_signalMutex;
             Condition   m_threadCondition;
