@@ -5375,6 +5375,10 @@ void ExynosCameraHWInterface2::m_setExifChangedAttribute(exif_attribute_t *exifI
     //3 Exposure Time
     int shutterSpeed = (dm->sensor.exposureTime/1000);
 
+    // To display exposure time just above 500ms as 1/2sec, not 1 sec.
+    if (shutterSpeed > 500000)
+        shutterSpeed -=  100000;
+
     if (shutterSpeed < 0) {
         shutterSpeed = 100;
     }
