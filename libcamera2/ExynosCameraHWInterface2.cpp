@@ -2932,7 +2932,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 }
                 m_IsAfModeUpdateRequired = false;
                 // support inifinity focus mode
-                if ((m_afMode == AA_AFMODE_OFF) && ( shot_ext->shot.ctl.lens.focusDistance == 0)) {
+                if ((m_afMode == AA_AFMODE_MANUAL) && ( shot_ext->shot.ctl.lens.focusDistance == 0)) {
                     shot_ext->shot.ctl.aa.afMode = AA_AFMODE_INFINITY;
                     shot_ext->shot.ctl.aa.afTrigger = 1;
                     triggered = true;
@@ -3120,6 +3120,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 memcpy(&m_jpegMetadata, &shot_ext->shot, sizeof(struct camera2_shot));
                 m_streamThreads[1]->SetSignal(SIGNAL_STREAM_REPROCESSING_START);
             }
+
             ALOGV("(%s): queued  aa(%d) aemode(%d) awb(%d) afmode(%d) trigger(%d)", __FUNCTION__,
             (int)(shot_ext->shot.ctl.aa.mode), (int)(shot_ext->shot.ctl.aa.aeMode),
             (int)(shot_ext->shot.ctl.aa.awbMode), (int)(shot_ext->shot.ctl.aa.afMode),
@@ -3161,6 +3162,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 shot_ext->request_scp,
                 shot_ext->request_scc,
                 shot_ext->dis_bypass, sizeof(camera2_shot));
+
             ALOGV("(%s): DM aa(%d) aemode(%d) awb(%d) afmode(%d)", __FUNCTION__,
                 (int)(shot_ext->shot.dm.aa.mode), (int)(shot_ext->shot.dm.aa.aeMode),
                 (int)(shot_ext->shot.dm.aa.awbMode),
