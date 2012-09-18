@@ -46,6 +46,7 @@ SignalDrivenThread::SignalDrivenThread()
     ALOGV("(SignalDrivenThread() ):");
     m_processingSignal = 0;
     m_receivedSignal = 0;
+    m_pendingSignal = 0;
     m_isTerminated = false;    
 }
 
@@ -62,6 +63,7 @@ SignalDrivenThread::SignalDrivenThread(const char* name,
     ALOGV("DEBUG(SignalDrivenThread( , , )):");
     m_processingSignal = 0;
     m_receivedSignal = 0;
+    m_pendingSignal = 0;
     m_isTerminated = false;
     run(name, priority, stack);
     return;
@@ -79,7 +81,11 @@ status_t SignalDrivenThread::SetSignal(uint32_t signal)
 
     Mutex::Autolock lock(m_signalMutex);
     ALOGV("DEBUG(%s):Signal Set     (%x) - prev(%x)", __FUNCTION__, signal, m_receivedSignal);
-    m_receivedSignal |= signal;
+    if (m_receivedSignal & signal) {
+        m_pendingSignal |= signal;
+    } else {
+        m_receivedSignal |= signal;
+    }
     m_threadCondition.signal();
     return NO_ERROR;
 }
@@ -120,7 +126,8 @@ bool SignalDrivenThread::threadLoop()
             m_threadCondition.wait(m_signalMutex);
         }
         m_processingSignal = m_receivedSignal;
-        m_receivedSignal = 0;
+        m_receivedSignal = m_pendingSignal;
+        m_pendingSignal = 0;
     }
     ALOGV("DEBUG(%s):Got Signal (%x)", __FUNCTION__, m_processingSignal);
 
