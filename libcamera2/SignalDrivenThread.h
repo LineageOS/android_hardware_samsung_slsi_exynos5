@@ -62,7 +62,7 @@ public:
 
 private:
             status_t    readyToRun();
-    virtual status_t    readyToRunInternal() = 0;
+            status_t    readyToRunInternal();
 
             bool        threadLoop();
     virtual void        threadFunctionInternal() = 0;

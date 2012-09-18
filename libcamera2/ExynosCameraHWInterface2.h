@@ -467,16 +467,10 @@ class MainThread : public SignalDrivenThread {
     public:
         MainThread(ExynosCameraHWInterface2 *hw):
             SignalDrivenThread(),
-            mHardware(hw) {
-//            Start("MainThread", PRIORITY_DEFAULT, 0);
-        }
+            mHardware(hw) { }
         ~MainThread();
-        status_t readyToRunInternal()
-	{
-            return NO_ERROR;
-        }
         void threadFunctionInternal()
-	{
+	    {
             mHardware->m_mainThreadFunc(this);
             return;
         }
@@ -488,13 +482,9 @@ class MainThread : public SignalDrivenThread {
         ExynosCameraHWInterface2 *mHardware;
     public:
         SensorThread(ExynosCameraHWInterface2 *hw):
-            SignalDrivenThread("SensorThread", PRIORITY_DEFAULT, 0),
+            SignalDrivenThread(),
             mHardware(hw) { }
         ~SensorThread();
-        status_t readyToRunInternal() {
-            mHardware->m_sensorThreadInitialize(this);
-            return NO_ERROR;
-        }
         void threadFunctionInternal() {
             mHardware->m_sensorThreadFunc(this);
             return;
@@ -508,13 +498,10 @@ class MainThread : public SignalDrivenThread {
         ExynosCameraHWInterface2 *mHardware;
     public:
         StreamThread(ExynosCameraHWInterface2 *hw, uint8_t new_index):
-            SignalDrivenThread("StreamThread", PRIORITY_DEFAULT, 0),
+            SignalDrivenThread(),
             mHardware(hw),
             m_index(new_index) { }
         ~StreamThread();
-        status_t readyToRunInternal() {
-            return NO_ERROR;
-        }
         void threadFunctionInternal() {
             mHardware->m_streamThreadFunc(this);
             return;
@@ -551,7 +538,6 @@ class MainThread : public SignalDrivenThread {
 
     void                m_mainThreadFunc(SignalDrivenThread * self);
     void                m_sensorThreadFunc(SignalDrivenThread * self);
-    void                m_sensorThreadInitialize(SignalDrivenThread * self);
     void                m_streamThreadFunc(SignalDrivenThread * self);
     void                m_streamThreadInitialize(SignalDrivenThread * self);
 

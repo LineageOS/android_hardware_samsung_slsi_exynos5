@@ -104,6 +104,11 @@ status_t SignalDrivenThread::readyToRun()
     return readyToRunInternal();
 }
 
+status_t SignalDrivenThread::readyToRunInternal()
+{
+    ALOGV("DEBUG(%s):", __func__);
+    return NO_ERROR;
+}
 
 bool SignalDrivenThread::threadLoop()
 {
