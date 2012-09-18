@@ -45,7 +45,10 @@
 #include "gr.h"
 
 #define ION_HEAP_EXYNOS_CONTIG_MASK     (1 << 4)
-#define ION_EXYNOS_VIDEO_MASK           (1 << 29)
+#define ION_EXYNOS_FIMD_VIDEO_MASK  (1 << 28)
+#define ION_EXYNOS_MFC_OUTPUT_MASK  (1 << 26)
+#define ION_EXYNOS_MFC_INPUT_MASK   (1 << 25)
+
 
 /*****************************************************************************/
 
@@ -161,6 +164,9 @@ static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int usage,
     *stride = bpr / bpp;
     size = ALIGN(size, PAGE_SIZE);
 
+    if (usage & GRALLOC_USAGE_PROTECTED)
+        ion_flags |= ION_EXYNOS_FIMD_VIDEO_MASK;
+
     err = ion_alloc_fd(ionfd, size, 0, heap_mask, ion_flags,
                        &fd);
     *hnd = new private_handle_t(fd, size, usage, w, h, format, *stride,
@@ -256,6 +262,9 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format,
             return -EINVAL;
     }
 
+    if (usage & GRALLOC_USAGE_PROTECTED)
+	ion_flags |= ION_EXYNOS_MFC_OUTPUT_MASK;
+
     err = ion_alloc_fd(ionfd, luma_size, 0, heap_mask, ion_flags, &fd);
     if (err)
         return err;
@@ -301,8 +310,6 @@ static int gralloc_alloc(alloc_device_t* dev,
 
     if( (usage & GRALLOC_USAGE_SW_READ_MASK) == GRALLOC_USAGE_SW_READ_OFTEN )
         ion_flags = ION_FLAG_CACHED;
-    if (usage & GRALLOC_USAGE_PROTECTED)
-        ion_flags |= ION_EXYNOS_VIDEO_MASK;
 
     private_module_t* m = reinterpret_cast<private_module_t*>
         (dev->common.module);
