@@ -33,6 +33,7 @@
 
 #include <cutils/compiler.h>
 #include <cutils/log.h>
+#include <cutils/properties.h>
 #include <hardware/gralloc.h>
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer.h>
@@ -95,6 +96,7 @@ struct exynos5_hwc_composer_device_1_t {
     alloc_device_t          *alloc_device;
     const hwc_procs_t       *procs;
     pthread_t               vsync_thread;
+    int                     force_gpu;
 
     int32_t                 xres;
     int32_t                 yres;
@@ -742,6 +744,7 @@ static int exynos5_prepare_fimd(exynos5_hwc_composer_device_1_t *pdev,
 
     memset(pdev->bufs.gsc_map, 0, sizeof(pdev->bufs.gsc_map));
 
+    force_fb = force_fb || pdev->force_gpu;
     for (size_t i = 0; i < NUM_HW_WINDOWS; i++)
         pdev->bufs.overlay_map[i] = -1;
 
@@ -1780,6 +1783,10 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
         ret = -ret;
         goto err_vsync;
     }
+
+    char value[PROPERTY_VALUE_MAX];
+    property_get("debug.hwc.force_gpu", value, "0");
+    dev->force_gpu = atoi(value);
 
     return 0;
 
