@@ -945,6 +945,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
     } else {
         m_sensorThread  = new SensorThread(this);
         m_mainThread->Start("MainThread", PRIORITY_DEFAULT, 0);
+        m_sensorThread->Start("SensorThread", PRIORITY_DEFAULT, 0);
         ALOGV("DEBUG(%s): created sensorthread ", __FUNCTION__);
 
         for (int i = 0 ; i < STREAM_ID_LAST+1 ; i++)
@@ -1289,6 +1290,7 @@ void ExynosCameraHWInterface2::StartSCCThread(bool threadExists)
     }
     AllocatedStream = (StreamThread*)(m_streamThreads[1].get());
     if (!threadExists) {
+        AllocatedStream->Start("StreamThread", PRIORITY_DEFAULT, 0);
         m_streamThreadInitialize((SignalDrivenThread*)AllocatedStream);
         AllocatedStream->m_numRegisteredStream = 1;
     }
@@ -1599,6 +1601,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             m_streamThreads[0]  = new StreamThread(this, *stream_id);
 
             AllocatedStream = (StreamThread*)(m_streamThreads[0].get());
+            AllocatedStream->Start("StreamThread", PRIORITY_DEFAULT, 0);
             m_streamThreadInitialize((SignalDrivenThread*)AllocatedStream);
 
             *format_actual                      = HAL_PIXEL_FORMAT_EXYNOS_YV12;
@@ -1687,10 +1690,9 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
         if (useDirectOutput) {
             *stream_id = STREAM_ID_ZSL;
 
-            /*if (createThread)*/ {
-                m_streamThreads[1]  = new StreamThread(this, *stream_id);
-            }
+            m_streamThreads[1]  = new StreamThread(this, *stream_id);
             AllocatedStream = (StreamThread*)(m_streamThreads[1].get());
+            AllocatedStream->Start("StreamThread", PRIORITY_DEFAULT, 0);
             m_streamThreadInitialize((SignalDrivenThread*)AllocatedStream);
 
             *format_actual                      = HAL_PIXEL_FORMAT_EXYNOS_YV12;
@@ -2609,14 +2611,6 @@ void ExynosCameraHWInterface2::m_mainThreadFunc(SignalDrivenThread * self)
     ALOGV("DEBUG(%s): MainThread Exit", __FUNCTION__);
     return;
 }
-
-void ExynosCameraHWInterface2::m_sensorThreadInitialize(SignalDrivenThread * self)
-{
-    ALOGV("DEBUG(%s): ", __FUNCTION__ );
-    /* will add */
-    return;
-}
-
 
 void ExynosCameraHWInterface2::DumpInfoWithShot(struct camera2_shot_ext * shot_ext)
 {
@@ -5743,9 +5737,9 @@ static int HAL2_camera_device_close(struct hw_device_t* device)
         ALOGV("cam_device(0x%08x):", (unsigned int)cam_device);
         ALOGV("g_cam2_device(0x%08x):", (unsigned int)g_cam2_device);
         delete static_cast<ExynosCameraHWInterface2 *>(cam_device->priv);
-        g_cam2_device = NULL;
         free(cam_device);
         g_camera_vaild = false;
+        g_cam2_device = NULL;
     }
 
     ALOGD("(%s): EXIT", __FUNCTION__);
