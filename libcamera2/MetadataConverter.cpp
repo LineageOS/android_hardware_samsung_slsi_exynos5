@@ -280,6 +280,8 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
                 dst->ctl.aa.afMode = (enum aa_afmode)(curr_entry.data.u8[0] + 1);
+                if (dst->ctl.aa.afMode == AA_AFMODE_OFF)
+                    dst->ctl.aa.afMode = AA_AFMODE_MANUAL;
                 break;
 
             case ANDROID_CONTROL_AF_REGIONS:
