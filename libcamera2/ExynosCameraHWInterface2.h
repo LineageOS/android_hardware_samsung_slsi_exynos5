@@ -248,7 +248,6 @@ typedef struct flash_control_info {
     // for precapture metering
     int        m_precaptureState;
     int        m_precaptureTriggerId;
-    bool        m_precapturePrevDone;
 } ctl_flash_info_t;
 
 typedef struct awb_control_info {
@@ -256,9 +255,15 @@ typedef struct awb_control_info {
     enum aa_awbmode    i_awbMode;
 } ctl_awb_info_t;
 
+typedef struct ae_control_info {
+    // pre-capture notification state
+    enum ae_state    aeStateNoti;
+} ctl_ae_info_t;
+
 typedef struct request_control_info {
     ctl_flash_info_t flash;
     ctl_awb_info_t awb;
+    ctl_ae_info_t ae;
 } ctl_request_info_t;
 
 class RequestManager {
@@ -595,7 +600,8 @@ class MainThread : public SignalDrivenThread {
     void            OnAfCancelAutoMacro(int id);
     void            OnAfCancelCAFPicture(int id);
     void            OnAfCancelCAFVideo(int id);
-    void            OnPrecaptureMeteringNotification();
+    void            OnPrecaptureMeteringNotificationISP();
+    void            OnPrecaptureMeteringNotificationSensor();
     void            OnAfNotification(enum aa_afstate noti);
     void            OnAfNotificationAutoMacro(enum aa_afstate noti);
     void            OnAfNotificationCAFPicture(enum aa_afstate noti);
