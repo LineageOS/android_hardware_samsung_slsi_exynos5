@@ -86,7 +86,7 @@ struct exynos5_hwc_post_data_t {
     pthread_cond_t                  completion;
 };
 
-const size_t NUM_GSC_DST_BUFS = 2;
+const size_t NUM_GSC_DST_BUFS = 3;
 struct exynos5_gsc_data_t {
     void            *gsc;
     exynos_gsc_img  src_cfg;
