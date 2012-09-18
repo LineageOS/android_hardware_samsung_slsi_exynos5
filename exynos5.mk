@@ -34,3 +34,7 @@ PRODUCT_PACKAGES += \
 # MobiCore
 PRODUCT_PACKAGES += \
 	mcDriverDaemon
+
+# Keystore
+PRODUCT_PACKAGES += \
+	keystore.exynos5
