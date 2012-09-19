@@ -130,6 +130,12 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 break;
 
 
+            case ANDROID_SENSOR_TIMESTAMP:
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT64, 1))
+                    break;
+                dst->dm.sensor.timeStamp = curr_entry.data.i64[0];
+                ALOGE("DEBUG(%s): ANDROID_SENSOR_TIMESTAMP (%lld)",  __FUNCTION__, dst->dm.sensor.timeStamp);
+                break;
 
 
             case ANDROID_FLASH_MODE:
