@@ -309,7 +309,7 @@ static int gralloc_alloc(alloc_device_t* dev,
         return -EINVAL;
 
     if( (usage & GRALLOC_USAGE_SW_READ_MASK) == GRALLOC_USAGE_SW_READ_OFTEN )
-        ion_flags = ION_FLAG_CACHED;
+        ion_flags = ION_FLAG_CACHED | ION_FLAG_CACHED_NEEDS_SYNC;
 
     private_module_t* m = reinterpret_cast<private_module_t*>
         (dev->common.module);
