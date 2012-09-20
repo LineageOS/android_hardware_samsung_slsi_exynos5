@@ -629,7 +629,8 @@ class MainThread : public SignalDrivenThread {
     bool                                m_isIspStarted;
 
     int                                 m_need_streamoff;
-
+    ExynosBuffer                        m_sccLocalBuffer[NUM_MAX_CAMERA_BUFFERS];
+    bool                                m_sccLocalBufferValid;
 
     int                                 indexToQueue[3+1];
 
