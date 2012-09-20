@@ -673,7 +673,17 @@ static int hdmi_output(struct exynos5_hwc_composer_device_1_t *dev, private_hand
     return 0;
 }
 
-bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i)
+bool exynos5_is_offscreen(hwc_layer_1_t &layer,
+        struct exynos5_hwc_composer_device_1_t *pdev)
+{
+    return layer.sourceCrop.left > pdev->xres ||
+            layer.sourceCrop.right < 0 ||
+            layer.sourceCrop.top > pdev->yres ||
+            layer.sourceCrop.bottom < 0;
+}
+
+bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i,
+        struct exynos5_hwc_composer_device_1_t *pdev)
 {
     if (layer.flags & HWC_SKIP_LAYER) {
         ALOGV("\tlayer %u: skipping", i);
@@ -713,6 +723,10 @@ bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i)
     }
     if (!exynos5_blending_is_supported(layer.blending)) {
         ALOGV("\tlayer %u: blending %d not supported", i, layer.blending);
+        return false;
+    }
+    if (CC_UNLIKELY(exynos5_is_offscreen(layer, pdev))) {
+        ALOGW("\tlayer %u: off-screen", i);
         return false;
     }
 
@@ -766,7 +780,8 @@ static int exynos5_prepare_fimd(exynos5_hwc_composer_device_1_t *pdev,
             continue;
         }
 
-        if (exynos5_supports_overlay(contents->hwLayers[i], i) && !force_fb) {
+        if (exynos5_supports_overlay(contents->hwLayers[i], i, pdev) &&
+                !force_fb) {
             ALOGV("\tlayer %u: overlay supported", i);
             layer.compositionType = HWC_OVERLAY;
             dump_layer(&contents->hwLayers[i]);
@@ -1104,17 +1119,59 @@ err_alloc:
 
 static void exynos5_config_handle(private_handle_t *handle,
         hwc_rect_t &sourceCrop, hwc_rect_t &displayFrame,
-        int32_t blending, s3c_fb_win_config &cfg)
+        int32_t blending, s3c_fb_win_config &cfg,
+        exynos5_hwc_composer_device_1_t *pdev)
 {
+    uint32_t x, y;
+    uint32_t w = WIDTH(displayFrame);
+    uint32_t h = HEIGHT(displayFrame);
+    uint8_t bpp = exynos5_format_to_bpp(handle->format);
+    uint32_t offset = (sourceCrop.top * handle->stride + sourceCrop.left) * bpp / 8;
+
+    if (displayFrame.left < 0) {
+        unsigned int crop = -displayFrame.left;
+        ALOGV("layer off left side of screen; cropping %u pixels from left edge",
+                crop);
+        x = 0;
+        w -= crop;
+        offset += crop * bpp / 8;
+    } else {
+        x = displayFrame.left;
+    }
+
+    if (displayFrame.right > pdev->xres) {
+        unsigned int crop = displayFrame.right - pdev->xres;
+        ALOGV("layer off right side of screen; cropping %u pixels from right edge",
+                crop);
+        w -= crop;
+    }
+
+    if (displayFrame.top < 0) {
+        unsigned int crop = -displayFrame.top;
+        ALOGV("layer off top side of screen; cropping %u pixels from top edge",
+                crop);
+        y = 0;
+        h -= crop;
+        offset += handle->stride * crop * bpp / 8;
+    } else {
+        y = displayFrame.top;
+    }
+
+    if (displayFrame.bottom > pdev->yres) {
+        int crop = displayFrame.bottom - pdev->yres;
+        ALOGV("layer off bottom side of screen; cropping %u pixels from bottom edge",
+                crop);
+        h -= crop;
+    }
+
     cfg.state = cfg.S3C_FB_WIN_STATE_BUFFER;
     cfg.fd = handle->fd;
-    cfg.x = displayFrame.left;
-    cfg.y = displayFrame.top;
-    cfg.w = WIDTH(displayFrame);
-    cfg.h = HEIGHT(displayFrame);
+    cfg.x = x;
+    cfg.y = y;
+    cfg.w = w;
+    cfg.h = h;
     cfg.format = exynos5_format_to_s3c_format(handle->format);
-    uint8_t bpp = exynos5_format_to_bpp(handle->format);
-    cfg.offset = (sourceCrop.top * handle->stride + sourceCrop.left) * bpp / 8;
+    cfg.offset = offset;
     cfg.stride = handle->stride * bpp / 8;
     cfg.blending = exynos5_blending_to_s3c_blending(blending);
 }
@@ -1135,7 +1192,7 @@ static void exynos5_config_overlay(hwc_layer_1_t *layer, s3c_fb_win_config &cfg,
 
     private_handle_t *handle = private_handle_t::dynamicCast(layer->handle);
     exynos5_config_handle(handle, layer->sourceCrop, layer->displayFrame,
-            layer->blending, cfg);
+            layer->blending, cfg, pdev);
 }
 
 static int exynos5_post_fimd(exynos5_hwc_composer_device_1_t *pdev,
@@ -1200,7 +1257,7 @@ static int exynos5_post_fimd(exynos5_hwc_composer_device_1_t *pdev,
                 hwc_rect_t sourceCrop = { 0, 0,
                         WIDTH(layer.displayFrame), HEIGHT(layer.displayFrame) };
                 exynos5_config_handle(dst_handle, sourceCrop,
-                        layer.displayFrame, layer.blending, config[i]);
+                        layer.displayFrame, layer.blending, config[i], pdev);
             } else {
                 exynos5_config_overlay(&layer, config[i], pdev);
             }
