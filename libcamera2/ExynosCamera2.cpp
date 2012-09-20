@@ -657,6 +657,8 @@ status_t ExynosCamera2::constructDefaultRequest(
     uint8_t colorMode = 0;
     uint8_t tonemapMode = 0;
     uint8_t edgeMode = 0;
+    uint8_t vstabMode = 0;
+
     switch (request_template) {
       case CAMERA2_TEMPLATE_PREVIEW:
         hotPixelMode = ANDROID_PROCESSING_FAST;
@@ -667,6 +669,7 @@ status_t ExynosCamera2::constructDefaultRequest(
         colorMode = ANDROID_PROCESSING_FAST;
         tonemapMode = ANDROID_PROCESSING_FAST;
         edgeMode = ANDROID_PROCESSING_FAST;
+        vstabMode = ANDROID_CONTROL_VIDEO_STABILIZATION_OFF;
         break;
       case CAMERA2_TEMPLATE_STILL_CAPTURE:
         hotPixelMode = ANDROID_PROCESSING_HIGH_QUALITY;
@@ -677,6 +680,7 @@ status_t ExynosCamera2::constructDefaultRequest(
         colorMode = ANDROID_PROCESSING_HIGH_QUALITY;
         tonemapMode = ANDROID_PROCESSING_HIGH_QUALITY;
         edgeMode = ANDROID_PROCESSING_HIGH_QUALITY;
+        vstabMode = ANDROID_CONTROL_VIDEO_STABILIZATION_OFF;
         break;
       case CAMERA2_TEMPLATE_VIDEO_RECORD:
         hotPixelMode = ANDROID_PROCESSING_FAST;
@@ -687,6 +691,7 @@ status_t ExynosCamera2::constructDefaultRequest(
         colorMode = ANDROID_PROCESSING_FAST;
         tonemapMode = ANDROID_PROCESSING_FAST;
         edgeMode = ANDROID_PROCESSING_FAST;
+        vstabMode = ANDROID_CONTROL_VIDEO_STABILIZATION_ON;
         break;
       case CAMERA2_TEMPLATE_VIDEO_SNAPSHOT:
         hotPixelMode = ANDROID_PROCESSING_HIGH_QUALITY;
@@ -697,6 +702,7 @@ status_t ExynosCamera2::constructDefaultRequest(
         colorMode = ANDROID_PROCESSING_HIGH_QUALITY;
         tonemapMode = ANDROID_PROCESSING_HIGH_QUALITY;
         edgeMode = ANDROID_PROCESSING_HIGH_QUALITY;
+        vstabMode = ANDROID_CONTROL_VIDEO_STABILIZATION_ON;
         break;
       case CAMERA2_TEMPLATE_ZERO_SHUTTER_LAG:
         hotPixelMode = ANDROID_PROCESSING_HIGH_QUALITY;
@@ -707,6 +713,7 @@ status_t ExynosCamera2::constructDefaultRequest(
         colorMode = ANDROID_PROCESSING_HIGH_QUALITY;
         tonemapMode = ANDROID_PROCESSING_HIGH_QUALITY;
         edgeMode = ANDROID_PROCESSING_HIGH_QUALITY;
+        vstabMode = ANDROID_CONTROL_VIDEO_STABILIZATION_OFF;
         break;
       default:
         hotPixelMode = ANDROID_PROCESSING_FAST;
@@ -717,6 +724,7 @@ status_t ExynosCamera2::constructDefaultRequest(
         colorMode = ANDROID_PROCESSING_FAST;
         tonemapMode = ANDROID_PROCESSING_FAST;
         edgeMode = ANDROID_PROCESSING_FAST;
+        vstabMode = ANDROID_CONTROL_VIDEO_STABILIZATION_OFF;
         break;
     }
     ADD_OR_SIZE(ANDROID_HOT_PIXEL_MODE, &hotPixelMode, 1);
@@ -727,6 +735,10 @@ status_t ExynosCamera2::constructDefaultRequest(
     ADD_OR_SIZE(ANDROID_COLOR_MODE, &colorMode, 1);
     ADD_OR_SIZE(ANDROID_TONEMAP_MODE, &tonemapMode, 1);
     ADD_OR_SIZE(ANDROID_EDGE_MODE, &edgeMode, 1);
+#ifndef VDIS_ENABLE
+    vstabMode = ANDROID_CONTROL_VIDEO_STABILIZATION_OFF;
+#endif
+    ADD_OR_SIZE(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstabMode, 1);
 
     /** android.noise */
     static const uint8_t noiseStrength = 5;
@@ -881,9 +893,6 @@ status_t ExynosCamera2::constructDefaultRequest(
     ADD_OR_SIZE(ANDROID_CONTROL_AF_MODE, &afMode, 1);
 
     ADD_OR_SIZE(ANDROID_CONTROL_AF_REGIONS, controlRegions, 5);
-
-    static const uint8_t vstabMode = ANDROID_CONTROL_VIDEO_STABILIZATION_OFF;
-    ADD_OR_SIZE(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstabMode, 1);
 
     if (sizeRequest) {
         ALOGV("Allocating %d entries, %d extra bytes for "
