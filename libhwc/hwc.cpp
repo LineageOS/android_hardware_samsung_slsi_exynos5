@@ -335,6 +335,12 @@ static bool exynos5_supports_gscaler(hwc_layer_1_t &layer, int format,
             // per 46.3.1.6
 }
 
+static bool exynos5_requires_gscaler(hwc_layer_1_t &layer, int format)
+{
+    return exynos5_format_requires_gscaler(format) || is_scaled(layer)
+            || is_transformed(layer);
+}
+
 int hdmi_get_config(struct exynos5_hwc_composer_device_1_t *dev)
 {
     struct v4l2_dv_preset preset;
@@ -653,7 +659,7 @@ bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i,
         return false;
     }
 
-    if (exynos5_format_requires_gscaler(handle->format)) {
+    if (exynos5_requires_gscaler(layer, handle->format)) {
         if (!exynos5_supports_gscaler(layer, handle->format, false)) {
             ALOGV("\tlayer %u: gscaler required but not supported", i);
             return false;
@@ -661,14 +667,6 @@ bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i,
     } else {
         if (!exynos5_format_is_supported(handle->format)) {
             ALOGV("\tlayer %u: pixel format %u not supported", i, handle->format);
-            return false;
-        }
-        if (is_scaled(layer)) {
-            ALOGV("\tlayer %u: scaling not supported", i);
-            return false;
-        }
-        if (is_transformed(layer)) {
-            ALOGV("\tlayer %u: transformations not supported", i);
             return false;
         }
     }
@@ -806,7 +804,7 @@ static int exynos5_prepare_fimd(exynos5_hwc_composer_device_1_t *pdev,
             size_t pixels_needed = WIDTH(layer.displayFrame) *
                     HEIGHT(layer.displayFrame);
             bool can_compose = windows_left && pixels_needed <= pixels_left;
-            bool gsc_required = exynos5_format_requires_gscaler(handle->format);
+            bool gsc_required = exynos5_requires_gscaler(layer, handle->format);
             if (gsc_required)
                 can_compose = can_compose && gsc_left;
 
@@ -872,7 +870,7 @@ static int exynos5_prepare_fimd(exynos5_hwc_composer_device_1_t *pdev,
             if (layer.compositionType == HWC_OVERLAY) {
                 private_handle_t *handle =
                         private_handle_t::dynamicCast(layer.handle);
-                if (exynos5_format_requires_gscaler(handle->format)) {
+                if (exynos5_requires_gscaler(layer, handle->format)) {
                     ALOGV("\tusing gscaler %u", AVAILABLE_GSC_UNITS[nextGsc]);
                     pdev->bufs.gsc_map[nextWindow].mode =
                             exynos5_gsc_map_t::GSC_M2M;
@@ -999,9 +997,14 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     dst_cfg.y = 0;
     dst_cfg.w = WIDTH(layer.displayFrame);
     dst_cfg.h = HEIGHT(layer.displayFrame);
-    dst_cfg.format = HAL_PIXEL_FORMAT_BGRA_8888;
     dst_cfg.rot = layer.transform;
     dst_cfg.drmMode = src_cfg.drmMode;
+    if (exynos5_format_is_rgb(src_handle->format))
+        dst_cfg.format = HAL_PIXEL_FORMAT_RGBX_8888;
+    else
+        dst_cfg.format = HAL_PIXEL_FORMAT_BGRA_8888;
+    // RGB surfaces are already in the right color order from the GPU,
+    // YUV surfaces need the Gscaler to swap R & B
 
     ALOGV("source configuration:");
     dump_gsc_img(src_cfg);
