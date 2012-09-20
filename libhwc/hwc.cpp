@@ -1689,7 +1689,7 @@ static int32_t exynos5_hdmi_attribute(struct exynos5_hwc_composer_device_1_t *pd
     }
 }
 
-static void exynos5_getDisplayAttributes(struct hwc_composer_device_1 *dev,
+static int exynos5_getDisplayAttributes(struct hwc_composer_device_1 *dev,
         int disp, uint32_t config, const uint32_t *attributes, int32_t *values)
 {
     struct exynos5_hwc_composer_device_1_t *pdev =
@@ -1700,9 +1700,13 @@ static void exynos5_getDisplayAttributes(struct hwc_composer_device_1 *dev,
             values[i] = exynos5_fimd_attribute(pdev, attributes[i]);
         else if (disp == HWC_DISPLAY_EXTERNAL)
             values[i] = exynos5_hdmi_attribute(pdev, attributes[i]);
-        else
+        else {
             ALOGE("unknown display type %u", disp);
+            return -EINVAL;
+        }
     }
+
+    return 0;
 }
 
 static int exynos5_close(hw_device_t* device);
