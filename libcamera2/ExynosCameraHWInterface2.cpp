@@ -416,7 +416,7 @@ bool RequestManager::PrepareFrame(size_t* num_entries, size_t* frame_size,
         return false;
     }
     m_entryFrameOutputIndex = tempFrameOutputIndex;
-    m_tempFrameMetadata = place_camera_metadata(m_tempFrameMetadataBuf, 2000, 20, 500); //estimated
+    m_tempFrameMetadata = place_camera_metadata(m_tempFrameMetadataBuf, 2000, 25, 500); //estimated
     add_camera_metadata_entry(m_tempFrameMetadata, ANDROID_CONTROL_AF_STATE, &afState, 1);
     res = m_metadataConverter->ToDynamicMetadata(&(currentEntry->internal_shot),
                 m_tempFrameMetadata);
@@ -760,9 +760,14 @@ void    RequestManager::RegisterTimestamp(int frameCnt, nsecs_t * frameTime)
     }
 
     request_manager_entry * currentEntry = &(entries[index]);
-    currentEntry->internal_shot.shot.dm.sensor.timeStamp = *((uint64_t*)frameTime);
-    ALOGV("DEBUG(%s): applied timestamp for reqIndex(%d) frameCnt(%d) (%lld)", __FUNCTION__,
+    if (currentEntry->internal_shot.isReprocessing == 1) {
+        ALOGV("DEBUG(%s): REPROCESSING : preserving timestamp for reqIndex(%d) frameCnt(%d) (%lld)", __FUNCTION__,
         index, frameCnt, currentEntry->internal_shot.shot.dm.sensor.timeStamp);
+    } else {
+        currentEntry->internal_shot.shot.dm.sensor.timeStamp = *((uint64_t*)frameTime);
+        ALOGV("DEBUG(%s): applied timestamp for reqIndex(%d) frameCnt(%d) (%lld)", __FUNCTION__,
+            index, frameCnt, currentEntry->internal_shot.shot.dm.sensor.timeStamp);
+    }
 }
 
 
@@ -2068,10 +2073,11 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
             targetStream->release();
             usleep(33000);
         } while (targetStream->m_releasing);
+        m_camera_info.capture.status = false;
         ALOGD("END   stream thread release %d", __LINE__);
     }
 
-    if (releasingScpMain || (m_streamThreads[0]->m_numRegisteredStream == 0 && m_streamThreads[0]->m_activated)) {
+    if (releasingScpMain || (m_streamThreads[0].get() != NULL && m_streamThreads[0]->m_numRegisteredStream == 0 && m_streamThreads[0]->m_activated)) {
         ALOGV("(%s): deactivating stream thread 0", __FUNCTION__);
         targetStream = (StreamThread*)(m_streamThreads[0].get());
         targetStream->m_releasing = true;
@@ -2109,10 +2115,10 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
                 m_camera_info.capture.status = false;
             }
             ALOGV("(%s): calling capture streamoff done", __FUNCTION__);
-                m_camera_info.capture.buffers = 0;
-                ALOGV("DEBUG(%s): capture calling reqbuf 0 ", __FUNCTION__);
-                cam_int_reqbufs(&(m_camera_info.capture));
-                ALOGV("DEBUG(%s): capture calling reqbuf 0 done", __FUNCTION__);
+            m_camera_info.capture.buffers = 0;
+            ALOGV("DEBUG(%s): capture calling reqbuf 0 ", __FUNCTION__);
+            cam_int_reqbufs(&(m_camera_info.capture));
+            ALOGV("DEBUG(%s): capture calling reqbuf 0 done", __FUNCTION__);
         }
         m_isIspStarted = false;
     }
@@ -3430,17 +3436,19 @@ void ExynosCameraHWInterface2::m_streamFunc_direct(SignalDrivenThread *self)
         CAM_LOGD("(%s): [%d] START SIGNAL_THREAD_RELEASE", __FUNCTION__, selfThread->m_index);
 
         if (selfThread->m_isBufferInit) {
-            ALOGV("(%s): [%d] calling streamoff (fd:%d)", __FUNCTION__,
-                selfThread->m_index, currentNode->fd);
-            if (cam_int_streamoff(currentNode) < 0 ) {
-                ALOGE("ERR(%s): stream off fail", __FUNCTION__);
+            if (!(currentNode->fd == m_camera_info.capture.fd && m_camera_info.capture.status == false)) {
+                ALOGV("(%s): [%d] calling streamoff (fd:%d)", __FUNCTION__,
+                    selfThread->m_index, currentNode->fd);
+                if (cam_int_streamoff(currentNode) < 0 ) {
+                    ALOGE("ERR(%s): stream off fail", __FUNCTION__);
+                }
+                ALOGV("(%s): [%d] streamoff done and calling reqbuf 0 (fd:%d)", __FUNCTION__,
+                        selfThread->m_index, currentNode->fd);
+                currentNode->buffers = 0;
+                cam_int_reqbufs(currentNode);
+                ALOGV("(%s): [%d] reqbuf 0 DONE (fd:%d)", __FUNCTION__,
+                        selfThread->m_index, currentNode->fd);
             }
-            ALOGV("(%s): [%d] streamoff done and calling reqbuf 0 (fd:%d)", __FUNCTION__,
-                    selfThread->m_index, currentNode->fd);
-            currentNode->buffers = 0;
-            cam_int_reqbufs(currentNode);
-            ALOGV("(%s): [%d] reqbuf 0 DONE (fd:%d)", __FUNCTION__,
-                    selfThread->m_index, currentNode->fd);
         }
 #ifdef ENABLE_FRAME_SYNC
         // free metabuffers
@@ -3486,8 +3494,7 @@ void ExynosCameraHWInterface2::m_streamFunc_direct(SignalDrivenThread *self)
                 continue;
 
 #ifdef ENABLE_FRAME_SYNC
-            // TODO: check real timestamp
-            frameTimeStamp = m_requestManager->GetTimestamp(m_requestManager->GetFrameIndex());
+            frameTimeStamp = m_requestManager->GetTimestampByFrameCnt(m_reprocessingFrameCnt);
             m_requestManager->NotifyStreamOutput(m_reprocessingFrameCnt);
 #else
             frameTimeStamp = m_requestManager->GetTimestamp(m_requestManager->GetFrameIndex());
