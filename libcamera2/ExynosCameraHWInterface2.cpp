@@ -800,6 +800,29 @@ nsecs_t  RequestManager::GetTimestamp(int index)
     return frameTime;
 }
 
+uint8_t  RequestManager::GetOutputStreamByFrameCnt(int frameCnt)
+{
+    int index = FindEntryIndexByFrameCnt(frameCnt);
+    if (index == -1) {
+        ALOGE("ERR(%s): Cannot find entry for frameCnt(%d)", __FUNCTION__, frameCnt);
+        return 0;
+    }
+    else
+        return GetOutputStream(index);
+}
+
+uint8_t  RequestManager::GetOutputStream(int index)
+{
+    Mutex::Autolock lock(m_requestMutex);
+    if (index < 0 || index >= NUM_MAX_REQUEST_MGR_ENTRY) {
+        ALOGE("ERR(%s): Request entry outside of bounds (%d)", __FUNCTION__, index);
+        return 0;
+    }
+
+    request_manager_entry * currentEntry = &(entries[index]);
+    return currentEntry->internal_shot.shot.ctl.request.outputStreams[0];
+}
+
 int     RequestManager::FindFrameCnt(struct camera2_shot_ext * shot_ext)
 {
     int i;
@@ -896,6 +919,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
             m_afModeWaitingCnt(0),
             m_halDevice(dev),
             m_nightCaptureCnt(0),
+            m_nightCaptureFrameCnt(0),
             m_cameraId(cameraId),
             m_thumbNailW(160),
             m_thumbNailH(120)
@@ -3057,6 +3081,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                     shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 8;
                     shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
                 m_nightCaptureCnt--;
+                m_nightCaptureFrameCnt = 0;
                 shot_ext->request_scc = 1;
             }
             else if (m_nightCaptureCnt == 2) {
@@ -3177,7 +3202,9 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 (int)(shot_ext->shot.dm.aa.awbMode),
                 (int)(shot_ext->shot.dm.aa.afMode));
 
+#ifndef ENABLE_FRAME_SYNC
             m_currentOutputStreams = shot_ext->shot.ctl.request.outputStreams[0];
+#endif
 
             if (current_scp) {
                 ALOGV("send SIGNAL_STREAM_DATA_COMING(return scp : %d)", shot_ext->request_scp);
@@ -3522,6 +3549,7 @@ void ExynosCameraHWInterface2::m_streamFunc_direct(SignalDrivenThread *self)
         nsecs_t timestamp;
 #ifdef ENABLE_FRAME_SYNC
         camera2_stream *frame;
+        uint8_t currentOutputStreams;
 #endif
         int numOfUndqbuf = 0;
 
@@ -3536,8 +3564,9 @@ void ExynosCameraHWInterface2::m_streamFunc_direct(SignalDrivenThread *self)
 #ifdef ENABLE_FRAME_SYNC
             selfStreamParms->bufIndex = cam_int_dqbuf(currentNode, selfStreamParms->planes + selfStreamParms->metaPlanes);
             frame = (struct camera2_stream *)(selfStreamParms->metaBuffers[selfStreamParms->bufIndex].virt.extP[0]);
-            ALOGV("frame count streamthread[%d] : %d", selfThread->m_index, frame->rcount);
             frameTimeStamp = m_requestManager->GetTimestampByFrameCnt(frame->rcount);
+            currentOutputStreams = m_requestManager->GetOutputStreamByFrameCnt(frame->rcount);
+            ALOGV("frame count streamthread[%d] : %d, outputStream(%x)", selfThread->m_index, frame->rcount, currentOutputStreams);
 #else
             selfStreamParms->bufIndex = cam_int_dqbuf(currentNode);
             frameTimeStamp = m_requestManager->GetTimestamp(m_requestManager->GetFrameIndex())
@@ -3553,39 +3582,48 @@ void ExynosCameraHWInterface2::m_streamFunc_direct(SignalDrivenThread *self)
             for (int i = 0 ; i < NUM_MAX_SUBSTREAM ; i++) {
                 if (selfThread->m_attachedSubStreams[i].streamId == -1)
                     continue;
-                if (m_currentOutputStreams & (1<<selfThread->m_attachedSubStreams[i].streamId)) {
 #ifdef ENABLE_FRAME_SYNC
+                if (currentOutputStreams & (1<<selfThread->m_attachedSubStreams[i].streamId)) {
                     m_requestManager->NotifyStreamOutput(frame->rcount);
-#endif
                     m_runSubStreamFunc(selfThread, &(selfStreamParms->svcBuffers[selfStreamParms->bufIndex]),
                         selfThread->m_attachedSubStreams[i].streamId, frameTimeStamp);
                 }
+#else
+                if (m_currentOutputStreams & (1<<selfThread->m_attachedSubStreams[i].streamId)) {
+                    m_runSubStreamFunc(selfThread, &(selfStreamParms->svcBuffers[selfStreamParms->bufIndex]),
+                        selfThread->m_attachedSubStreams[i].streamId, frameTimeStamp);
+                }
+#endif
             }
 
-#ifdef ENABLE_FRAME_SYNC
-            m_requestManager->NotifyStreamOutput(frame->rcount);
-#endif
             if (m_requestManager->GetSkipCnt() <= 0) {
-                if ((m_currentOutputStreams & STREAM_MASK_PREVIEW) && selfThread->m_index == 0) {
 #ifdef ENABLE_FRAME_SYNC
+                if ((currentOutputStreams & STREAM_MASK_PREVIEW) && selfThread->m_index == 0) {
                     ALOGV("** Display Preview(frameCnt:%d)", frame->rcount);
+                    res = selfStreamParms->streamOps->enqueue_buffer(selfStreamParms->streamOps,
+                            frameTimeStamp,
+                            &(selfStreamParms->svcBufHandle[selfStreamParms->bufIndex]));
+                }
+                else if ((currentOutputStreams & STREAM_MASK_ZSL) && selfThread->m_index == 1) {
+                    ALOGV("** SCC output (frameCnt:%d), last(%d)", frame->rcount);
+                    res = selfStreamParms->streamOps->enqueue_buffer(selfStreamParms->streamOps,
+                                frameTimeStamp,
+                                &(selfStreamParms->svcBufHandle[selfStreamParms->bufIndex]));
+                }
 #else
+                if ((m_currentOutputStreams & STREAM_MASK_PREVIEW) && selfThread->m_index == 0) {
                     ALOGV("** Display Preview(frameCnt:%d)", m_requestManager->GetFrameIndex());
-#endif
                     res = selfStreamParms->streamOps->enqueue_buffer(selfStreamParms->streamOps,
                             frameTimeStamp,
                             &(selfStreamParms->svcBufHandle[selfStreamParms->bufIndex]));
                 }
                 else if ((m_currentOutputStreams & STREAM_MASK_ZSL) && selfThread->m_index == 1) {
-#ifdef ENABLE_FRAME_SYNC
-                    ALOGV("** SCC output (frameCnt:%d), last(%d)", frame->rcount);
-#else
                     ALOGV("** SCC output (frameCnt:%d), last(%d)", m_requestManager->GetFrameIndex());
-#endif
                     res = selfStreamParms->streamOps->enqueue_buffer(selfStreamParms->streamOps,
                                 frameTimeStamp,
                                 &(selfStreamParms->svcBufHandle[selfStreamParms->bufIndex]));
                 }
+#endif
                 ALOGV("DEBUG(%s): streamthread[%d] enqueue_buffer to svc done res(%d)", __FUNCTION__, selfThread->m_index, res);
             }
             else {
@@ -3593,6 +3631,10 @@ void ExynosCameraHWInterface2::m_streamFunc_direct(SignalDrivenThread *self)
                         &(selfStreamParms->svcBufHandle[selfStreamParms->bufIndex]));
                 ALOGV("DEBUG(%s): streamthread[%d] cancel_buffer to svc done res(%d)", __FUNCTION__, selfThread->m_index, res);
             }
+#ifdef ENABLE_FRAME_SYNC
+            if (!m_nightCaptureFrameCnt)
+                m_requestManager->NotifyStreamOutput(frame->rcount);
+#endif
             if (res == 0) {
                 selfStreamParms->svcBufStatus[selfStreamParms->bufIndex] = ON_SERVICE;
                 selfStreamParms->numSvcBufsInHal--;
@@ -3714,6 +3756,7 @@ void ExynosCameraHWInterface2::m_streamFunc_indirect(SignalDrivenThread *self)
     if (currentSignal & SIGNAL_STREAM_DATA_COMING) {
 #ifdef ENABLE_FRAME_SYNC
         camera2_stream *frame;
+        uint8_t currentOutputStreams;
 #endif
         nsecs_t frameTimeStamp;
 
@@ -3729,8 +3772,9 @@ void ExynosCameraHWInterface2::m_streamFunc_indirect(SignalDrivenThread *self)
 
 #ifdef ENABLE_FRAME_SYNC
         frame = (struct camera2_stream *)(currentNode->buffer[selfStreamParms->bufIndex].virt.extP[selfStreamParms->planes -1]);
-        ALOGV("frame count(SCC) : %d",  frame->rcount);
         frameTimeStamp = m_requestManager->GetTimestampByFrameCnt(frame->rcount);
+        currentOutputStreams = m_requestManager->GetOutputStreamByFrameCnt(frame->rcount);
+        ALOGV("frame count(SCC) : %d outputStream(%x)",  frame->rcount, currentOutputStreams);
 #else
         frameTimeStamp = m_requestManager->GetTimestamp(m_requestManager->GetFrameIndex());
 #endif
@@ -3738,13 +3782,18 @@ void ExynosCameraHWInterface2::m_streamFunc_indirect(SignalDrivenThread *self)
         for (int i = 0 ; i < NUM_MAX_SUBSTREAM ; i++) {
             if (selfThread->m_attachedSubStreams[i].streamId == -1)
                 continue;
-            if (m_currentOutputStreams & (1<<selfThread->m_attachedSubStreams[i].streamId)) {
 #ifdef ENABLE_FRAME_SYNC
+            if (currentOutputStreams & (1<<selfThread->m_attachedSubStreams[i].streamId)) {
                 m_requestManager->NotifyStreamOutput(frame->rcount);
-#endif
                 m_runSubStreamFunc(selfThread, &(currentNode->buffer[selfStreamParms->bufIndex]),
                     selfThread->m_attachedSubStreams[i].streamId, frameTimeStamp);
             }
+#else
+            if (m_currentOutputStreams & (1<<selfThread->m_attachedSubStreams[i].streamId)) {
+                m_runSubStreamFunc(selfThread, &(currentNode->buffer[selfStreamParms->bufIndex]),
+                    selfThread->m_attachedSubStreams[i].streamId, frameTimeStamp);
+            }
+#endif
         }
         cam_int_qbuf(currentNode, selfStreamParms->bufIndex);
         ALOGV("DEBUG(%s): streamthread[%d] QBUF DONE", __FUNCTION__, selfThread->m_index);
