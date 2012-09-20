@@ -1119,7 +1119,7 @@ err_alloc:
 
 static void exynos5_config_handle(private_handle_t *handle,
         hwc_rect_t &sourceCrop, hwc_rect_t &displayFrame,
-        int32_t blending, s3c_fb_win_config &cfg,
+        int32_t blending, int fence_fd, s3c_fb_win_config &cfg,
         exynos5_hwc_composer_device_1_t *pdev)
 {
     uint32_t x, y;
@@ -1174,6 +1174,7 @@ static void exynos5_config_handle(private_handle_t *handle,
     cfg.offset = offset;
     cfg.stride = handle->stride * bpp / 8;
     cfg.blending = exynos5_blending_to_s3c_blending(blending);
+    cfg.fence_fd = fence_fd;
 }
 
 static void exynos5_config_overlay(hwc_layer_1_t *layer, s3c_fb_win_config &cfg,
@@ -1192,7 +1193,7 @@ static void exynos5_config_overlay(hwc_layer_1_t *layer, s3c_fb_win_config &cfg,
 
     private_handle_t *handle = private_handle_t::dynamicCast(layer->handle);
     exynos5_config_handle(handle, layer->sourceCrop, layer->displayFrame,
-            layer->blending, cfg, pdev);
+            layer->blending, layer->acquireFenceFd, cfg, pdev);
 }
 
 static int exynos5_post_fimd(exynos5_hwc_composer_device_1_t *pdev,
@@ -1202,28 +1203,10 @@ static int exynos5_post_fimd(exynos5_hwc_composer_device_1_t *pdev,
     exynos5_hwc_post_data_t *pdata = &pdev->bufs;
     struct s3c_fb_win_config_data win_data;
     struct s3c_fb_win_config *config = win_data.config;
+
     memset(config, 0, sizeof(win_data.config));
-
-    for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
-        int layer_idx = pdata->overlay_map[i];
-        if (layer_idx != -1) {
-            hwc_layer_1_t &layer = contents->hwLayers[layer_idx];
-
-            if (layer.acquireFenceFd != -1) {
-                int err = sync_wait(layer.acquireFenceFd, 100);
-                if (err != 0)
-                    ALOGW("fence for layer %zu didn't signal in 100 ms: %s",
-                          i, strerror(errno));
-                close(layer.acquireFenceFd);
-            }
-
-            if (pdata->gsc_map[i].mode == exynos5_gsc_map_t::GSC_M2M) {
-                int gsc_idx = pdata->gsc_map[i].idx;
-                exynos5_config_gsc_m2m(layer, pdev->alloc_device,
-                        &pdev->gsc[gsc_idx], gsc_idx);
-            }
-        }
-    }
+    for (size_t i = 0; i < NUM_HW_WINDOWS; i++)
+        config[i].fence_fd = -1;
 
     for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
         int layer_idx = pdata->overlay_map[i];
@@ -1236,13 +1219,23 @@ static int exynos5_post_fimd(exynos5_hwc_composer_device_1_t *pdev,
                 int gsc_idx = pdata->gsc_map[i].idx;
                 exynos5_gsc_data_t &gsc = pdev->gsc[gsc_idx];
 
-                if (!gsc.gsc) {
+                if (layer.acquireFenceFd != -1) {
+                    int err = sync_wait(layer.acquireFenceFd, 100);
+                    if (err != 0)
+                        ALOGW("fence for layer %zu didn't signal in 100 ms: %s",
+                              i, strerror(errno));
+                    close(layer.acquireFenceFd);
+                }
+
+                int err = exynos5_config_gsc_m2m(layer, pdev->alloc_device, &gsc,
+                        gsc_idx);
+                if (err < 0) {
                     ALOGE("failed to queue gscaler %u input for layer %u",
                             gsc_idx, i);
                     continue;
                 }
 
-                int err = exynos_gsc_stop_exclusive(gsc.gsc);
+                err = exynos_gsc_stop_exclusive(gsc.gsc);
                 exynos_gsc_destroy(gsc.gsc);
                 gsc.gsc = NULL;
                 if (err < 0) {
@@ -1257,7 +1250,8 @@ static int exynos5_post_fimd(exynos5_hwc_composer_device_1_t *pdev,
                 hwc_rect_t sourceCrop = { 0, 0,
                         WIDTH(layer.displayFrame), HEIGHT(layer.displayFrame) };
                 exynos5_config_handle(dst_handle, sourceCrop,
-                        layer.displayFrame, layer.blending, config[i], pdev);
+                        layer.displayFrame, layer.blending, -1, config[i],
+                        pdev);
             } else {
                 exynos5_config_overlay(&layer, config[i], pdev);
             }
@@ -1272,6 +1266,9 @@ static int exynos5_post_fimd(exynos5_hwc_composer_device_1_t *pdev,
     }
 
     int ret = ioctl(pdev->fd, S3CFB_WIN_CONFIG, &win_data);
+    for (size_t i = 0; i < NUM_HW_WINDOWS; i++)
+        if (config[i].fence_fd != -1)
+            close(config[i].fence_fd);
     if (ret < 0) {
         ALOGE("ioctl S3CFB_WIN_CONFIG failed: %s", strerror(errno));
         return ret;
