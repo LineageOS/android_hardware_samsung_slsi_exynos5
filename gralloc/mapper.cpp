@@ -173,6 +173,12 @@ int gralloc_unlock(gralloc_module_t const* module,
 {
     // we're done with a software buffer. nothing to do in this
     // implementation. typically this is used to flush the data cache.
+    private_handle_t* hnd = (private_handle_t*)handle;
+    ion_sync_fd(getIonFd(module), hnd->fd);
+    if (hnd->fd1 >= 0)
+        ion_sync_fd(getIonFd(module), hnd->fd1);
+    if (hnd->fd2 >= 0)
+        ion_sync_fd(getIonFd(module), hnd->fd2);
 
     if (private_handle_t::validate(handle) < 0)
         return -EINVAL;
