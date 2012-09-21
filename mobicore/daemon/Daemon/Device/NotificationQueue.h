@@ -5,7 +5,7 @@
  * MobiCore Notification Queue handling.
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -38,46 +38,47 @@
 #include "CMutex.h"
 
 
-class NotificationQueue {
+class NotificationQueue
+{
 
 public:
 
-	/** NQ Constructor, initializes the NQ component.
-	 *
-	 * makes the given queue object usable with the queue<Command> type of functions
-	 *
-	 * @param in queue to initialize
-	 * @param out beginning of queue header
-	 * @param queueSize Size of the queue
-	 */
-	NotificationQueue(
-		notificationQueue_t *in,
-		notificationQueue_t *out,
-		uint32_t size
-	);
+    /** NQ Constructor, initializes the NQ component.
+     *
+     * makes the given queue object usable with the queue<Command> type of functions
+     *
+     * @param in queue to initialize
+     * @param out beginning of queue header
+     * @param queueSize Size of the queue
+     */
+    NotificationQueue(
+        notificationQueue_t *in,
+        notificationQueue_t *out,
+        uint32_t size
+    );
 
-	/** Places an element to the outgoing queue.
-	 *
-	 * @param notification Data to be placed in queue.
-	 */
-	void putNotification(
-		notification_t *notification
-	);
+    /** Places an element to the outgoing queue.
+     *
+     * @param notification Data to be placed in queue.
+     */
+    void putNotification(
+        notification_t *notification
+    );
 
-	/** Retrieves the first element from the queue.
-	 *
-	 * @return first notification Queue element.
-	 * @return NULL if the queue is empty.
-	 */
-	notification_t *getNotification(
-		void
-	);
+    /** Retrieves the first element from the queue.
+     *
+     * @return first notification Queue element.
+     * @return NULL if the queue is empty.
+     */
+    notification_t *getNotification(
+        void
+    );
 
 private:
 
-	notificationQueue_t *in;
-	notificationQueue_t *out;
-	CMutex mutex;
+    notificationQueue_t *in;
+    notificationQueue_t *out;
+    CMutex mutex;
 
 };
 

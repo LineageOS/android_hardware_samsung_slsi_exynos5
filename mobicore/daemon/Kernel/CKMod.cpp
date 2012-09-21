@@ -40,68 +40,65 @@
 
 #include "log.h"
 
+#define INVALID_FILE_DESCRIPTOR          ((int)(-1))
 
 //------------------------------------------------------------------------------
 CKMod::CKMod(void)
 {
-	fdKMod = ERROR_KMOD_NOT_OPEN;
+    fdKMod = INVALID_FILE_DESCRIPTOR;
 }
 
 
 //------------------------------------------------------------------------------
 CKMod::~CKMod(void)
 {
-	close();
+    close();
 }
 
 
 //------------------------------------------------------------------------------
 bool CKMod::isOpen(void)
 {
-	return (ERROR_KMOD_NOT_OPEN == fdKMod) ? false : true;
+    return (INVALID_FILE_DESCRIPTOR == fdKMod) ? false : true;
 }
 
 
 //------------------------------------------------------------------------------
-bool CKMod::open(const char *deviceName)
+mcResult_t CKMod::open(const char *deviceName)
 {
-	bool ret = true;
-	int openRet;
+    if (isOpen()) {
+        LOG_W("already open");
+        return MC_DRV_ERR_DEVICE_ALREADY_OPEN;
+    }
 
-	if (isOpen()) {
-		LOG_W("already open");
-		return false;
-	}
+    LOG_I(" Opening kernel module at %s.", deviceName);
 
-	LOG_I(" Opening kernel module at %s.", deviceName);
+    // open return -1 on error, "errno" is set with details
+    int openRet = ::open(deviceName, O_RDWR);
+    if (openRet == -1) {
+        LOG_ERRNO("open");
+        return MAKE_MC_DRV_KMOD_WITH_ERRNO(errno);
+    }
 
-	// open return -1 on error, "errno" is set with details
-	openRet = ::open(deviceName, O_RDWR);
-	if (openRet ==-1) {
-	    LOG_ERRNO("open");
-		return false;
-	}
-
-	fdKMod = openRet;
-	return ret;
+    fdKMod = openRet;
+    return MC_DRV_OK;
 }
 
 
 //------------------------------------------------------------------------------
 void CKMod::close(
     void
-) {
-	if (isOpen()) {
-		if (::close(fdKMod) != 0) {
-		    LOG_ERRNO("close");
-		}
-		else {
-			fdKMod = ERROR_KMOD_NOT_OPEN;
-		}
-	}
-	else {
-		LOG_W(" Kernel module device not open");
-	}
+)
+{
+    if (isOpen()) {
+        if (::close(fdKMod) != 0) {
+            LOG_ERRNO("close");
+        } else {
+            fdKMod = INVALID_FILE_DESCRIPTOR;
+        }
+    } else {
+        LOG_W(" Kernel module device not open");
+    }
 }
 
 /** @} */

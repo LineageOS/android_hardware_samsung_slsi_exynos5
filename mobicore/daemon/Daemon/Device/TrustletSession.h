@@ -3,7 +3,7 @@
  * @file
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -32,41 +32,41 @@
 #define TRUSTLETSESSION_H_
 
 #include "NotificationQueue.h"
-
+#include "CWsm.h"
 #include "Connection.h"
 #include <queue>
+#include <map>
 
 
-class TrustletSession {
+class TrustletSession
+{
+private:
+    std::queue<notification_t> notifications;
+    std::map<uint32_t, CWsm_ptr> buffers;
 
 public:
+    uint32_t sessionId;
+    uint32_t sessionMagic; // Random data
+    Connection *deviceConnection;
+    Connection *notificationConnection;
 
-	TrustletSession(
-		Connection *deviceConnection,
-		uint32_t sessionId
-	);
+    TrustletSession(Connection *deviceConnection, uint32_t sessionId);
 
-	~TrustletSession(
-		void
-	);
-	
-	void queueNotification(
-		notification_t *notification
-	);
-	
-	void processQueuedNotifications(
-		void
-	);
+    ~TrustletSession(void);
 
-	uint32_t sessionId;
-	uint32_t sessionMagic; // Random data
-	Connection *deviceConnection;
-	Connection *notificationConnection;
-private:
-	std::queue<notification_t> notifications;
+    void queueNotification(notification_t *notification);
+
+    void processQueuedNotifications(void);
+
+    bool addBulkBuff(CWsm_ptr pWsm);
+
+    bool removeBulkBuff(uint32_t handle);
+
+    CWsm_ptr popBulkBuff();
+
 };
 
-typedef std::list<TrustletSession*> trustletSessionList_t;
+typedef std::list<TrustletSession *> trustletSessionList_t;
 typedef trustletSessionList_t::iterator trustletSessionIterator_t;
 
 #endif /* TRUSTLETSESSION_H_ */

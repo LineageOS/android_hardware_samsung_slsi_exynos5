@@ -15,7 +15,7 @@
  * @image latex DoxyOverviewDrvApi500x.png "MobiCore Overview" width=12cm
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -44,9 +44,9 @@
 #define MCDRIVER_H_
 
 #if (!defined(__MC_CLIENT_LIB_API)) && __cplusplus
-  #define __MC_CLIENT_LIB_API       extern "C"
+#define __MC_CLIENT_LIB_API       extern "C"
 #else
-  #define __MC_CLIENT_LIB_API
+#define __MC_CLIENT_LIB_API
 #endif // __cplusplus
 
 
@@ -56,46 +56,87 @@
 #include "mcUuid.h"
 #include "mcVersionInfo.h"
 
+/*
+ *  MobiCore driver API error codes.
+ *  MAJOR part of error code is stable.
+ *  MCP part contains MCP result code. See MCI/mcimcp.h
+ *  DETAIL part may be used in testing for specific error code.
+ *
+ *  Detail error codes may change in different releases
+ *  Please do not test DETAIL part when comparing error codes.
+ */
+#define MC_DRV_ERROR_MAJOR(ecode)    ((ecode)       & 0xFF)     /**< Get MAJOR part of error code. */
+#define MC_DRV_ERROR_MCP(ecode)     (((ecode)>>8)   & 0xFF)     /**< Get MCP part of error code. */
+#define MC_DRV_ERROR_DETAIL(ecode)  (((ecode)>>16)  & 0x0FFF)   /**< Get detail part of error code. */
+
+typedef uint32_t mcResult_t;
 /**
  * Return values of MobiCore driver functions.
  */
-typedef enum
-{
-    MC_DRV_OK                                   =  0, /**< Function call succeeded. */
-    MC_DRV_NO_NOTIFICATION                      =  1, /**< No notification available. */
-    MC_DRV_ERR_NOTIFICATION                     =  2, /**< Error during notification on communication level. */
-    MC_DRV_ERR_NOT_IMPLEMENTED                  =  3, /**< Function not implemented. */
-    MC_DRV_ERR_OUT_OF_RESOURCES                 =  4, /**< No more resources available. */
-    MC_DRV_ERR_INIT                             =  5, /**< Driver initialization failed. */
-    MC_DRV_ERR_UNKNOWN                          =  6, /**< Unknown error. */
-    MC_DRV_ERR_UNKNOWN_DEVICE                   =  7, /**< The specified device is unknown. */
-    MC_DRV_ERR_UNKNOWN_SESSION                  =  8, /**< The specified session is unknown. */
-    MC_DRV_ERR_INVALID_OPERATION                =  9, /**< The specified operation is not allowed. */
-    MC_DRV_ERR_INVALID_RESPONSE                 = 10, /**< The response header from the MC is invalid. */
-    MC_DRV_ERR_TIMEOUT                          = 11, /**< Function call timed out. */
-    MC_DRV_ERR_NO_FREE_MEMORY                   = 12, /**< Can not allocate additional memory. */
-    MC_DRV_ERR_FREE_MEMORY_FAILED               = 13, /**< Free memory failed. */
-    MC_DRV_ERR_SESSION_PENDING                  = 14, /**< Still some open sessions pending. */
-    MC_DRV_ERR_DAEMON_UNREACHABLE               = 15, /**< MC daemon not reachable */
-    MC_DRV_ERR_INVALID_DEVICE_FILE              = 16, /**< The device file of the kernel module could not be opened. */
-    MC_DRV_ERR_INVALID_PARAMETER                = 17, /**< Invalid parameter. */
-    MC_DRV_ERR_KERNEL_MODULE                    = 18, /**< Unspecified error from Kernel Module*/
-    MC_DRV_ERR_BULK_MAPPING                     = 19, /**< Error during mapping of additional bulk memory to session. */
-    MC_DRV_ERR_BULK_UNMAPPING                   = 20, /**< Error during unmapping of additional bulk memory to session. */
-    MC_DRV_INFO_NOTIFICATION                    = 21, /**< Notification received, exit code available. */
-    MC_DRV_ERR_NQ_FAILED                        = 22, /**< Set up of NWd connection failed. */
-    MC_DRV_ERR_DAEMON_VERSION                   = 23, /**< Wrong daemon version. */
-    MC_DRV_ERR_CONTAINER_VERSION                = 24, /**< Wrong container version. */
-    MC_DRV_ERR_WRONG_PUBLIC_KEY                 = 25, /**< System Trustlet public key is wrong. */
-    MC_DRV_ERR_CONTAINER_TYPE_MISMATCH          = 26, /**< Wrong containter type(s). */
-    MC_DRV_ERR_CONTAINER_LOCKED                 = 27, /**< Container is locked (or not activated). */
-    MC_DRV_ERR_SP_NO_CHILD                      = 28, /**< SPID is not registered with root container. */
-    MC_DRV_ERR_TL_NO_CHILD                      = 29, /**< UUID is not registered with sp container. */
-    MC_DRV_ERR_UNWRAP_ROOT_FAILED               = 30, /**< Unwrapping of root container failed. */
-    MC_DRV_ERR_UNWRAP_SP_FAILED                 = 31, /**< Unwrapping of service provider container failed. */
-    MC_DRV_ERR_UNWRAP_TRUSTLET_FAILED           = 32, /**< Unwrapping of Trustlet container failed. */
-} mcResult_t;
+#define MC_DRV_OK                                   0x00000000 /**< Function call succeeded. */
+#define MC_DRV_NO_NOTIFICATION                      0x00000001 /**< No notification available. */
+#define MC_DRV_ERR_NOTIFICATION                     0x00000002 /**< Error during notification on communication level. */
+#define MC_DRV_ERR_NOT_IMPLEMENTED                  0x00000003 /**< Function not implemented. */
+#define MC_DRV_ERR_OUT_OF_RESOURCES                 0x00000004 /**< No more resources available. */
+#define MC_DRV_ERR_INIT                             0x00000005 /**< Driver initialization failed. */
+#define MC_DRV_ERR_UNKNOWN                          0x00000006 /**< Unknown error. */
+#define MC_DRV_ERR_UNKNOWN_DEVICE                   0x00000007 /**< The specified device is unknown. */
+#define MC_DRV_ERR_UNKNOWN_SESSION                  0x00000008 /**< The specified session is unknown. */
+#define MC_DRV_ERR_INVALID_OPERATION                0x00000009 /**< The specified operation is not allowed. */
+#define MC_DRV_ERR_INVALID_RESPONSE                 0x0000000a /**< The response header from the MC is invalid. */
+#define MC_DRV_ERR_TIMEOUT                          0x0000000b /**< Function call timed out. */
+#define MC_DRV_ERR_NO_FREE_MEMORY                   0x0000000c /**< Can not allocate additional memory. */
+#define MC_DRV_ERR_FREE_MEMORY_FAILED               0x0000000d /**< Free memory failed. */
+#define MC_DRV_ERR_SESSION_PENDING                  0x0000000e /**< Still some open sessions pending. */
+#define MC_DRV_ERR_DAEMON_UNREACHABLE               0x0000000f /**< MC daemon not reachable */
+#define MC_DRV_ERR_INVALID_DEVICE_FILE              0x00000010 /**< The device file of the kernel module could not be opened. */
+#define MC_DRV_ERR_INVALID_PARAMETER                0x00000011 /**< Invalid parameter. */
+#define MC_DRV_ERR_KERNEL_MODULE                    0x00000012 /**< Error from Kernel Module, see DETAIL for errno. */
+#define MC_DRV_ERR_BULK_MAPPING                     0x00000013 /**< Error during mapping of additional bulk memory to session. */
+#define MC_DRV_ERR_BULK_UNMAPPING                   0x00000014 /**< Error during unmapping of additional bulk memory to session. */
+#define MC_DRV_INFO_NOTIFICATION                    0x00000015 /**< Notification received, exit code available. */
+#define MC_DRV_ERR_NQ_FAILED                        0x00000016 /**< Set up of NWd connection failed. */
 
+#define MC_DRV_ERR_DAEMON_VERSION                   0x00000017 /**< Wrong daemon version. */
+#define MC_DRV_ERR_CONTAINER_VERSION                0x00000018 /**< Wrong container version. */
+
+// those should become MCP or even detail codes on top of MC_DRV_ERR_MCP_ERROR
+#define MC_DRV_ERR_WRONG_PUBLIC_KEY                 0x00000019 /**< System Trustlet public key is wrong. */
+#define MC_DRV_ERR_CONTAINER_TYPE_MISMATCH          0x0000001a /**< Wrong containter type(s). */
+#define MC_DRV_ERR_CONTAINER_LOCKED                 0x0000001b /**< Container is locked (or not activated). */
+#define MC_DRV_ERR_SP_NO_CHILD                      0x0000001c /**< SPID is not registered with root container. */
+#define MC_DRV_ERR_TL_NO_CHILD                      0x0000001d /**< UUID is not registered with sp container. */
+#define MC_DRV_ERR_UNWRAP_ROOT_FAILED               0x0000001e /**< Unwrapping of root container failed. */
+#define MC_DRV_ERR_UNWRAP_SP_FAILED                 0x0000001f /**< Unwrapping of service provider container failed. */
+#define MC_DRV_ERR_UNWRAP_TRUSTLET_FAILED           0x00000020 /**< Unwrapping of Trustlet container failed. */
+
+// use separate numbers for those in the future
+#define MC_DRV_ERR_DEVICE_ALREADY_OPEN              MC_DRV_ERR_INVALID_OPERATION /** < Device is already open. */
+#define MC_DRV_ERR_SOCKET_CONNECT                   MC_DRV_ERR_DAEMON_UNREACHABLE /**< MC daemon socket not reachable. */
+#define MC_DRV_ERR_SOCKET_WRITE                     MC_DRV_ERR_DAEMON_UNREACHABLE /**< MC daemon socket write error. */
+#define MC_DRV_ERR_SOCKET_READ                      MC_DRV_ERR_DAEMON_UNREACHABLE /**< MC daemon socket read error. */
+#define MC_DRV_ERR_SOCKET_LENGTH                    MC_DRV_ERR_DAEMON_UNREACHABLE /**< MC daemon socket read error. */
+#define MC_DRV_ERR_DAEMON_SOCKET                    MC_DRV_ERR_DAEMON_UNREACHABLE /**< MC daemon had problems with socket. */
+#define MC_DRV_ERR_DEVICE_FILE_OPEN                 MC_DRV_ERR_INVALID_DEVICE_FILE /**< The device file of the kernel module could not be opened. */
+#define MC_DRV_ERR_NULL_POINTER                     MC_DRV_ERR_INVALID_PARAMETER /**< Null pointer passed as parameter. */
+#define MC_DRV_ERR_TCI_TOO_BIG                      MC_DRV_ERR_INVALID_PARAMETER /**< Requested TCI length is too high. */
+#define MC_DRV_ERR_WSM_NOT_FOUND                    MC_DRV_ERR_INVALID_PARAMETER /**< Requested TCI was not allocated with mallocWsm(). */
+#define MC_DRV_ERR_TCI_GREATER_THAN_WSM             MC_DRV_ERR_INVALID_PARAMETER /**< Requested TCI length is bigger than allocated WSM. */
+#define MC_DRV_ERR_TRUSTLET_NOT_FOUND               MC_DRV_ERR_INVALID_DEVICE_FILE /** < Trustlet could not be found in mcRegistry. */
+#define MC_DRV_ERR_DAEMON_KMOD_ERROR                MC_DRV_ERR_DAEMON_UNREACHABLE /**< Daemon cannot use Kernel module as expected. */
+#define MC_DRV_ERR_DAEMON_MCI_ERROR                 MC_DRV_ERR_DAEMON_UNREACHABLE /**< Daemon cannot use MCI as expected. */
+#define MC_DRV_ERR_MCP_ERROR                        MC_DRV_ERR_DAEMON_UNREACHABLE /**< MobiCore Control Protocol error. See MC_DRV_ERROR_MCP(). */
+#define MC_DRV_ERR_INVALID_LENGTH                   MC_DRV_ERR_NO_FREE_MEMORY /**< Invalid length. */
+#define MC_DRV_ERR_KMOD_NOT_OPEN                    MC_DRV_ERR_NO_FREE_MEMORY /**< Device not open. */
+#define MC_DRV_ERR_BUFFER_ALREADY_MAPPED            MC_DRV_ERR_BULK_MAPPING /**< Buffer is already mapped to this Trustlet. */
+#define MC_DRV_ERR_BLK_BUFF_NOT_FOUND               MC_DRV_ERR_BULK_UNMAPPING /**< Unable to find internal handle for buffer. */
+
+#define MC_DRV_ERR_DAEMON_DEVICE_NOT_OPEN           0x00000021 /**< No device associated with connection. */
+#define MC_DRV_ERR_DAEMON_WSM_HANDLE_NOT_FOUND      MC_DRV_ERR_WSM_NOT_FOUND /**< Daemon could not find WSM handle. */
+#define MC_DRV_ERR_DAEMON_UNKNOWN_SESSION           MC_DRV_ERR_UNKNOWN_SESSION /**< The specified session is unknown to Daemon. */
+
+#define MAKE_MC_DRV_MCP_ERROR(mcpCode)              (MC_DRV_ERR_MCP_ERROR | ((mcpCode&0x000FFFFF)<<8))
+#define MAKE_MC_DRV_KMOD_WITH_ERRNO(theErrno)       (MC_DRV_ERR_KERNEL_MODULE| (((theErrno)&0x0000FFFF)<<16))
 
 /**
  * Driver control command.
@@ -110,8 +151,8 @@ typedef enum {
  * It will be passed to calls which address a communication end point in the MobiCore environment.
  */
 typedef struct {
-	uint32_t sessionId; /**< MobiCore session ID */
-	uint32_t deviceId; /**< Device ID the session belongs to */
+    uint32_t sessionId; /**< MobiCore session ID */
+    uint32_t deviceId; /**< Device ID the session belongs to */
 } mcSessionHandle_t;
 
 /** Information structure about additional mapped Bulk buffer between the Trustlet Connector (Nwd) and
@@ -120,8 +161,8 @@ typedef struct {
  * the content of this structure via the TCI.
  */
 typedef struct {
-	void *sVirtualAddr;       	/**< The virtual address of the Bulk buffer regarding the address space of the Trustlet, already includes a possible offset! */
-	uint32_t sVirtualLen;     	/**< Length of the mapped Bulk buffer */
+    void *sVirtualAddr;         /**< The virtual address of the Bulk buffer regarding the address space of the Trustlet, already includes a possible offset! */
+    uint32_t sVirtualLen;       /**< Length of the mapped Bulk buffer */
 } mcBulkMap_t;
 
 
@@ -268,7 +309,7 @@ __MC_CLIENT_LIB_API mcResult_t mcWaitNotification(
  *
  * @param [in]  deviceId The ID of an opened device to retrieve the WSM from.
  * @param [in]  align The alignment (number of pages) of the memory block (e.g. 0x00000001 for 4kb).
- * @param [in]  len	Length of the block in bytes.
+ * @param [in]  len Length of the block in bytes.
  * @param [out] wsm Virtual address of the world shared memory block.
  * @param [in]  wsmFlags Platform specific flags describing the memory to be allocated.
  *
@@ -395,7 +436,7 @@ __MC_CLIENT_LIB_API mcResult_t mcDriverCtrl(
  *
  * @param [in] session Session handle with information of the deviceId and the sessionId.
  * @param [out] lastErr >0 Trustlet has terminated itself with this value, <0 Trustlet is dead because of an error within the MobiCore (e.g. Kernel exception).
- * See also MCI definition.
+ * See also notificationPayload_t enum in MCI definition at "mcinq.h".
  *
  * @return MC_DRV_OK if operation has been successfully completed.
  * @return MC_DRV_INVALID_PARAMETER if a parameter is invalid.
@@ -420,7 +461,7 @@ __MC_CLIENT_LIB_API mcResult_t mcGetSessionErrorCode(
  */
 __MC_CLIENT_LIB_API mcResult_t mcGetMobiCoreVersion(
     uint32_t  deviceId,
-    mcVersionInfo_t* versionInfo
+    mcVersionInfo_t *versionInfo
 );
 #pragma GCC visibility pop
 #endif /** MCDRIVER_H_ */

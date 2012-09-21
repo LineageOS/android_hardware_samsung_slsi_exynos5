@@ -42,6 +42,8 @@
 #define CONTAINER_VERSION_MAJOR   2
 #define CONTAINER_VERSION_MINOR   0
 
+#define CONTAINER_FORMAT_SO21 1
+
 #define MC_CONT_SYMMETRIC_KEY_SIZE      32 
 #define MC_CONT_PUBLIC_KEY_SIZE         320
 #define MC_CONT_CHILDREN_COUNT          16
@@ -217,10 +219,17 @@ typedef struct {
  * object").
  * @return Total size of hash and padding for given container.
  */
-#define SO_CONT_HASH_AND_PAD_SIZE(contTotalSize, contCoSize) ( \
-    MC_SO_SIZE((contTotalSize) - (contCoSize), (contCoSize)) \
-        - sizeof(mcSoHeader_t) \
-        - (contTotalSize) )
+#if CONTAINER_FORMAT_SO21
+    #define SO_CONT_HASH_AND_PAD_SIZE(contTotalSize, contCoSize) ( \
+            MC_SO_SIZE_F21((contTotalSize) - (contCoSize), (contCoSize)) \
+            - sizeof(mcSoHeader_t) \
+            - (contTotalSize) )
+#else
+    #define SO_CONT_HASH_AND_PAD_SIZE(contTotalSize, contCoSize) ( \
+            MC_SO_SIZE((contTotalSize) - (contCoSize), (contCoSize)) \
+            - sizeof(mcSoHeader_t) \
+            - (contTotalSize) )
+#endif
 
 /** @defgroup MC_CONTAINER_SECURE_OBJECTS Containers in secure objects.
  * Secure objects wrapping different containers.

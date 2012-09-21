@@ -9,7 +9,7 @@
  * Iterative socket server using UNIX domain stream protocol.
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -48,57 +48,58 @@
 
 /** Number of incoming connections that can be queued.
  * Additional clients will generate the error ECONNREFUSED. */
-#define LISTEN_QUEUE_LEN	(16)
+#define LISTEN_QUEUE_LEN    (16)
 
 
-class Server: public CThread {
+class Server: public CThread
+{
 
 public:
-	/**
-	 * Server contructor.
-	 *
-	 * @param connectionHanler Connection handler to pass incoming connections to.
-	 * @param localAdrerss Pointer to a zero terminated string containing the file to listen to.
-	 */
-	Server(
-		ConnectionHandler * connectionHandler,
-		const char *localAddr
-	);
+    /**
+     * Server contructor.
+     *
+     * @param connectionHanler Connection handler to pass incoming connections to.
+     * @param localAdrerss Pointer to a zero terminated string containing the file to listen to.
+     */
+    Server(
+        ConnectionHandler *connectionHandler,
+        const char *localAddr
+    );
 
-	/**
-	 * Server destructor.
-	 * All available connections will be terminated. Resources will be freed.
-	 */
+    /**
+     * Server destructor.
+     * All available connections will be terminated. Resources will be freed.
+     */
     virtual ~Server(
-		void
-	);
+        void
+    );
 
-	/**
-	 * Start server and listen for incoming connections.
-	 * Implements the central socket server loop. Incoming connections will be stored.
-	 */
-	virtual void run(
-	);
+    /**
+     * Start server and listen for incoming connections.
+     * Implements the central socket server loop. Incoming connections will be stored.
+     */
+    virtual void run(
+    );
 
-	/**
-	 * Remove a connection object from the list of available connections.
-	 * Detaching is required for notification connections wich are never used to transfer command
-	 * data from TLCs to the driver. If the function succeeds, the connection object will no longer
-	 * be handled by the server.
-	 *
-	 * @param connection The connection object to remove.
-	 */
+    /**
+     * Remove a connection object from the list of available connections.
+     * Detaching is required for notification connections wich are never used to transfer command
+     * data from TLCs to the driver. If the function succeeds, the connection object will no longer
+     * be handled by the server.
+     *
+     * @param connection The connection object to remove.
+     */
     virtual void detachConnection(
-		Connection *connection
-	);
+        Connection *connection
+    );
 
 protected:
-	int serverSock;
-	string socketAddr;
-	ConnectionHandler   *connectionHandler;	/**< Connection handler registered to the server */
-	
+    int serverSock;
+    string socketAddr;
+    ConnectionHandler   *connectionHandler; /**< Connection handler registered to the server */
+
 private:
-	connectionList_t    peerConnections; /**< Connections to devices */
+    connectionList_t    peerConnections; /**< Connections to devices */
 
 };
 
