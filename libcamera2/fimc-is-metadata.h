@@ -29,6 +29,8 @@ struct rational {
 #define CAMERA2_MAX_AVAILABLE_MODE	21
 #define CAMERA2_MAX_FACES		16
 
+#define CAMERA2_FACE_DETECTION_THRESHOLD    100
+
 /*
  *controls/dynamic metadata
 */
