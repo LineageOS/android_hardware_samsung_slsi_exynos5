@@ -13,7 +13,6 @@ LOCAL_MODULE := libMcClient
 LOCAL_MODULE_TAGS := optional
 LOCAL_C_INCLUDES += $(GLOBAL_INCLUDES)
 LOCAL_SHARED_LIBRARIES += $(GLOBAL_LIBRARIES)
-#LOCAL_PRELINK_MODULE := false
 
 LOCAL_CFLAGS := -fvisibility=hidden -fvisibility-inlines-hidden
 LOCAL_CFLAGS += -DLOG_TAG=\"McClient\"
@@ -69,48 +68,3 @@ include $(LOCAL_PATH)/Registry/Android.mk
 include $(LOG_WRAPPER)/Android.mk
 
 include $(BUILD_EXECUTABLE)
-
-# Registry Shared Library
-# =============================================================================
-include $(CLEAR_VARS)
-
-LOCAL_MODULE := libMcRegistry
-LOCAL_MODULE_TAGS := optional
-LOCAL_CFLAGS += -DLOG_TAG=\"McRegistry\"
-LOCAL_C_INCLUDES += $(GLOBAL_INCLUDES)
-LOCAL_SHARED_LIBRARIES += $(GLOBAL_LIBRARIES)
-#LOCAL_PRELINK_MODULE := false
-
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/ClientLib/public
-
-include $(LOCAL_PATH)/Registry/Android.mk
-
-# Import logwrapper
-include $(LOG_WRAPPER)/Android.mk
-
-include $(BUILD_SHARED_LIBRARY)
-
-
-# Provisioning Agent Shared Library
-# =============================================================================
-include $(CLEAR_VARS)
-
-LOCAL_MODULE := libPaApi
-LOCAL_MODULE_TAGS := optional
-LOCAL_CFLAGS += -DLOG_TAG=\"PaApi\"
-LOCAL_C_INCLUDES += $(GLOBAL_INCLUDES)
-LOCAL_SHARED_LIBRARIES += $(GLOBAL_LIBRARIES)
-#LOCAL_PRELINK_MODULE := false
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/ClientLib/public
-include $(LOCAL_PATH)/PaApi/Android.mk
-
-# Import logwrapper
-include $(LOG_WRAPPER)/Android.mk
-
-LOCAL_SHARED_LIBRARIES += libMcClient
-include $(BUILD_SHARED_LIBRARY)
-
-# =============================================================================
-ifneq ($(filter-out Generic,$(PLATFORM)),)
-  $(call import-module,$(COMP_PATH_QualcommQSEEComAPI))
-endif

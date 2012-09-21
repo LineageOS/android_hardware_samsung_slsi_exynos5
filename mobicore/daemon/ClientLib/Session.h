@@ -39,37 +39,39 @@
 #include "CMutex.h"
 
 
-class BulkBufferDescriptor{
-
+class BulkBufferDescriptor
+{
 public:
     addr_t    virtAddr; /**< The virtual address of the Bulk buffer*/
+    addr_t    sVirtualAddr; /**< The secure virtual address of the Bulk buffer*/
     uint32_t  len; /**< Length of the Bulk buffer*/
     uint32_t  handle;
     addr_t    physAddrWsmL2; /**< The physical address of the L2 table of the Bulk buffer*/
 
     BulkBufferDescriptor(
         addr_t    virtAddr,
+        addr_t    sVirtAddr,
         uint32_t  len,
         uint32_t  handle,
         addr_t    physAddrWsmL2
     ) :
         virtAddr(virtAddr),
+        sVirtualAddr(sVirtAddr),
         len(len),
         handle(handle),
-    physAddrWsmL2(physAddrWsmL2)
+        physAddrWsmL2(physAddrWsmL2)
     {};
 
 };
 
-typedef std::list<BulkBufferDescriptor*>  bulkBufferDescrList_t;
+typedef std::list<BulkBufferDescriptor *>  bulkBufferDescrList_t;
 typedef bulkBufferDescrList_t::iterator   bulkBufferDescrIterator_t;
 
 
 /** Session states.
  * At the moment not used !!.
  */
-typedef enum
-{
+typedef enum {
     SESSION_STATE_INITIAL,
     SESSION_STATE_OPEN,
     SESSION_STATE_TRUSTLET_DEAD
@@ -87,7 +89,8 @@ typedef struct {
 } sessionInformation_t;
 
 
-class Session {
+class Session
+{
 private:
     CMcKMod *mcKMod;
     CMutex workLock;
@@ -105,14 +108,16 @@ public:
      * Add address information of additional bulk buffer memory to session and
      * register virtual memory in kernel module.
      *
-     * @attention The virtual address can only be added one time. If the virtual address already exist, NULL is returned.
+     * @attention The virtual address can only be added one time. If the virtual address already exist, MC_DRV_ERR_BUFFER_ALREADY_MAPPED is returned.
      *
      * @param buf The virtual address of bulk buffer.
      * @param len Length of bulk buffer.
+     * @param blkBuf pointer of the actual Bulk buffer descriptor with all address information.
      *
-     * @return On success the actual Bulk buffer descriptor with all address information is retured, NULL if an error occurs.
+     * @return MC_DRV_OK on success
+     * @return MC_DRV_ERR_BUFFER_ALREADY_MAPPED
      */
-    BulkBufferDescriptor * addBulkBuf(addr_t buf, uint32_t len);
+    mcResult_t addBulkBuf(addr_t buf, uint32_t len, BulkBufferDescriptor **blkBuf);
 
     /**
      * Remove address information of additional bulk buffer memory from session and
@@ -122,7 +127,16 @@ public:
      *
      * @return true on success.
      */
-    bool removeBulkBuf(addr_t buf);
+    mcResult_t removeBulkBuf(addr_t buf);
+
+    /**
+     * Return the Kmod handle of the bulk buff
+     *
+     * @param buf The secure virtual address of the bulk buffer.
+     *
+     * @return the Handle or 0 for failure
+     */
+    uint32_t getBufHandle(addr_t sVirtualAddr);
 
     /**
      * Set additional error information of the last error that occured.
@@ -143,15 +157,19 @@ public:
     /**
      * Lock session for operation
      */
-    void lock() { workLock.lock(); }
+    void lock() {
+        workLock.lock();
+    }
 
     /**
      * Unlock session for operation
      */
-    void unlock()  { workLock.unlock(); }
+    void unlock()  {
+        workLock.unlock();
+    }
 };
 
-typedef std::list<Session*>            sessionList_t;
+typedef std::list<Session *>            sessionList_t;
 typedef sessionList_t::iterator        sessionIterator_t;
 
 #endif /* SESSION_H_ */

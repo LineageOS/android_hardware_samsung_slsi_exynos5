@@ -5,7 +5,7 @@
  * Semaphore implementation (pthread wrapper).
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -41,27 +41,28 @@
  * code is the same.
  */
 
-class CSemaphore {
+class CSemaphore
+{
 
 public:
 
-	CSemaphore(int size = 0);
+    CSemaphore(int size = 0);
 
-	~CSemaphore(void);
+    ~CSemaphore(void);
 
-	void wait(void);
-	bool wait(int sec);
+    void wait(void);
+    bool wait(int sec);
 
-	bool wouldWait(void);
+    bool wouldWait(void);
 
-	void signal(void);
+    void signal(void);
 
 private:
 
-	pthread_mutex_t m_mutex;
-	pthread_cond_t m_cond;
-	int m_waiters_count;
-	int m_count;
+    pthread_mutex_t m_mutex;
+    pthread_cond_t m_cond;
+    int m_waiters_count;
+    int m_count;
 
 };
 

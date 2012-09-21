@@ -5,7 +5,7 @@
  * Semaphore implementation (pthread wrapper).
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -36,78 +36,78 @@
 #include <stdio.h>
 
 //------------------------------------------------------------------------------
-CSemaphore::CSemaphore(int size) : m_waiters_count(0), m_count(size)  
+CSemaphore::CSemaphore(int size) : m_waiters_count(0), m_count(size)
 {
-	pthread_mutex_init(&m_mutex, NULL);
-	pthread_cond_init(&m_cond, NULL);
+    pthread_mutex_init(&m_mutex, NULL);
+    pthread_cond_init(&m_cond, NULL);
 }
 
 
 //------------------------------------------------------------------------------
 CSemaphore::~CSemaphore()
 {
-	pthread_mutex_destroy(&m_mutex);
-	pthread_cond_destroy(&m_cond);
+    pthread_mutex_destroy(&m_mutex);
+    pthread_cond_destroy(&m_cond);
 }
 
 
 //------------------------------------------------------------------------------
 void CSemaphore::wait()
 {
-	pthread_mutex_lock(&m_mutex);
-	m_waiters_count ++;
-	while( m_count == 0 )
-		pthread_cond_wait(&m_cond, &m_mutex);
-	m_waiters_count --;
-	m_count --;
-	pthread_mutex_unlock(&m_mutex);
+    pthread_mutex_lock(&m_mutex);
+    m_waiters_count ++;
+    while ( m_count == 0 )
+        pthread_cond_wait(&m_cond, &m_mutex);
+    m_waiters_count --;
+    m_count --;
+    pthread_mutex_unlock(&m_mutex);
 }
 
 //------------------------------------------------------------------------------
 bool CSemaphore::wait(int sec)
 {
-	int rc = 0;
-	struct timespec tm;
-	if(sec < 0)
-		sec = LONG_MAX;
-	clock_gettime(CLOCK_REALTIME, &tm);
-	tm.tv_sec += sec;
-	
-	pthread_mutex_lock(&m_mutex);
-	m_waiters_count ++;
-	if( m_count == 0 ) {
-		rc = pthread_cond_timedwait(&m_cond, &m_mutex, &tm);
-	}
-	m_waiters_count --;
-	// Decrement only if waiting actually succeeded, otherwise we
-	// just timed out
-	if (!rc)
-		m_count --;
-	pthread_mutex_unlock(&m_mutex);
-	return (rc == 0);
+    int rc = 0;
+    struct timespec tm;
+    if (sec < 0)
+        sec = LONG_MAX;
+    clock_gettime(CLOCK_REALTIME, &tm);
+    tm.tv_sec += sec;
+
+    pthread_mutex_lock(&m_mutex);
+    m_waiters_count ++;
+    if ( m_count == 0 ) {
+        rc = pthread_cond_timedwait(&m_cond, &m_mutex, &tm);
+    }
+    m_waiters_count --;
+    // Decrement only if waiting actually succeeded, otherwise we
+    // just timed out
+    if (!rc)
+        m_count --;
+    pthread_mutex_unlock(&m_mutex);
+    return (rc == 0);
 }
 
 
 //------------------------------------------------------------------------------
 bool CSemaphore::wouldWait()
 {
-	bool ret = false;
-	pthread_mutex_lock(&m_mutex);
-	if( m_count == 0 )
-		ret = true;
-	pthread_mutex_unlock(&m_mutex);
-	return ret;
+    bool ret = false;
+    pthread_mutex_lock(&m_mutex);
+    if ( m_count == 0 )
+        ret = true;
+    pthread_mutex_unlock(&m_mutex);
+    return ret;
 }
 
 
 //------------------------------------------------------------------------------
 void CSemaphore::signal()
 {
-	pthread_mutex_lock(&m_mutex);
-	if( m_waiters_count > 0 )
-		pthread_cond_signal(&m_cond);
-	m_count ++;
-	pthread_mutex_unlock(&m_mutex);
+    pthread_mutex_lock(&m_mutex);
+    if ( m_waiters_count > 0 )
+        pthread_cond_signal(&m_cond);
+    m_count ++;
+    pthread_mutex_unlock(&m_mutex);
 }
 
 /** @} */
