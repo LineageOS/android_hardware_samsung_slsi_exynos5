@@ -32,6 +32,7 @@
 #include <camera/Camera.h>
 #include <camera/CameraParameters.h>
 #include "exynos_format.h"
+#include "fimc-is-metadata.h"
 
 //#define VDIS_ENABLE
 
