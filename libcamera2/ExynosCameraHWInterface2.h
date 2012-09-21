@@ -230,6 +230,10 @@ typedef struct request_manager_entry {
 } request_manager_entry_t;
 
 // structure related to a specific function of camera
+typedef struct af_control_info {
+    int    m_afTriggerTimeOut;
+} ctl_af_info_t;
+
 typedef struct flash_control_info {
     // UI flash mode indicator
     enum aa_aemode    i_flashMode;
@@ -264,6 +268,7 @@ typedef struct request_control_info {
     ctl_flash_info_t flash;
     ctl_awb_info_t awb;
     ctl_ae_info_t ae;
+    ctl_af_info_t af;
 } ctl_request_info_t;
 
 class RequestManager {
@@ -603,6 +608,8 @@ class MainThread : public SignalDrivenThread {
     void            m_preCaptureSetter(struct camera2_shot_ext * shot_ext);
     void            m_preCaptureListenerSensor(struct camera2_shot_ext * shot_ext);
     void            m_preCaptureListenerISP(struct camera2_shot_ext * shot_ext);
+    void            m_updateAfRegion(struct camera2_shot_ext * shot_ext);
+    void            m_afTrigger(struct camera2_shot_ext * shot_ext);
     void               *m_exynosPictureCSC;
     void               *m_exynosVideoCSC;
 
