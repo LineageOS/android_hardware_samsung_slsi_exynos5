@@ -555,10 +555,8 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
             availableAfModes, sizeof(availableAfModes));
 
     static const uint8_t availableVstabModes[] = {
-            ANDROID_CONTROL_VIDEO_STABILIZATION_OFF
-#ifdef VDIS_ENABLE
-            ,ANDROID_CONTROL_VIDEO_STABILIZATION_ON
-#endif
+            ANDROID_CONTROL_VIDEO_STABILIZATION_OFF,
+            ANDROID_CONTROL_VIDEO_STABILIZATION_ON
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES,
             availableVstabModes, sizeof(availableVstabModes));
@@ -735,9 +733,6 @@ status_t ExynosCamera2::constructDefaultRequest(
     ADD_OR_SIZE(ANDROID_COLOR_MODE, &colorMode, 1);
     ADD_OR_SIZE(ANDROID_TONEMAP_MODE, &tonemapMode, 1);
     ADD_OR_SIZE(ANDROID_EDGE_MODE, &edgeMode, 1);
-#ifndef VDIS_ENABLE
-    vstabMode = ANDROID_CONTROL_VIDEO_STABILIZATION_OFF;
-#endif
     ADD_OR_SIZE(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstabMode, 1);
 
     /** android.noise */
