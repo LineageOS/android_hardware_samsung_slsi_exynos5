@@ -539,26 +539,40 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
                 &byteData, 1))
         return NO_MEMORY;
 
-    int maxFacecount = 16;
+    int maxFacecount = CAMERA2_MAX_FACES;
     if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_MAX_FACE_COUNT,
                 &maxFacecount, 1))
         return NO_MEMORY;
 
-    if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_RECTANGLES,
-                &metadata->dm.stats.faceRectangles, 4 * maxFacecount))
-        return NO_MEMORY;
+    int tempFaceCount = 0;
+    for (int i = 0; i < CAMERA2_MAX_FACES; i++) {
+        if (metadata->dm.stats.faceScores[i] >= CAMERA2_FACE_DETECTION_THRESHOLD) {
+            mataFaceIds[tempFaceCount] = metadata->dm.stats.faceIds[i];
+            metaFaceScores[tempFaceCount] = metadata->dm.stats.faceScores[i];
 
-    if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_LANDMARKS,
-                &metadata->dm.stats.faceLandmarks, 6 * maxFacecount))
-        return NO_MEMORY;
+            memcpy(&mataFaceLandmarks[tempFaceCount][0], &metadata->dm.stats.faceLandmarks[i][0], 6*sizeof(uint32_t));
+            memcpy(&metaFaceRectangles[tempFaceCount][0], &metadata->dm.stats.faceRectangles[i][0], 4*sizeof(uint32_t));
+            tempFaceCount++;
+        }
+    }
 
-    if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_IDS,
-                &metadata->dm.stats.faceIds, maxFacecount))
-        return NO_MEMORY;
+    if (tempFaceCount > 0) {
+        if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_RECTANGLES,
+                    &metaFaceRectangles, 4 * tempFaceCount))
+            return NO_MEMORY;
 
-    if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_SCORES,
-                &metadata->dm.stats.faceScores, maxFacecount))
-        return NO_MEMORY;
+        if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_LANDMARKS,
+                    &mataFaceLandmarks, 6 * tempFaceCount))
+            return NO_MEMORY;
+
+        if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_IDS,
+                    &mataFaceIds, tempFaceCount))
+            return NO_MEMORY;
+
+        if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_SCORES,
+                    &metaFaceScores, tempFaceCount))
+            return NO_MEMORY;
+    }
 
     if (0 != add_camera_metadata_entry(dst, ANDROID_SCALER_CROP_REGION,
                 &metadata->ctl.scaler.cropRegion, 3))
