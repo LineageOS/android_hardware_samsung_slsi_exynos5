@@ -3353,6 +3353,10 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                                                                                                 / m_streamThreads[0].get()->m_parameters.height;
                 }
             }
+            // At flash on mode, capture can be done as zsl capture
+            if (m_ctlInfo.flash.i_flashMode == AA_AEMODE_ON)
+                shot_ext->shot.dm.aa.aeState = AE_STATE_CONVERGED;
+
             if (m_nightCaptureCnt == 0 && (m_ctlInfo.flash.m_flashCnt < IS_FLASH_STATE_CAPTURE)) {
                 m_requestManager->ApplyDynamicMetadata(shot_ext);
             }
