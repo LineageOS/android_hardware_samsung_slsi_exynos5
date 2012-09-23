@@ -358,7 +358,12 @@ void RequestManager::RegisterRequest(camera_metadata_t * new_request)
     newEntry->original_request = new_request;
     memset(&(newEntry->internal_shot), 0, sizeof(struct camera2_shot_ext));
     m_metadataConverter->ToInternalShot(new_request, &(newEntry->internal_shot));
-    newEntry->output_stream_count = newEntry->internal_shot.shot.ctl.request.outputStreams[15];
+    newEntry->output_stream_count = 0;
+    if (newEntry->internal_shot.shot.ctl.request.outputStreams[0] & MASK_OUTPUT_SCP)
+        newEntry->output_stream_count++;
+
+    if (newEntry->internal_shot.shot.ctl.request.outputStreams[0] & MASK_OUTPUT_SCC)
+        newEntry->output_stream_count++;
 
     m_numOfEntries++;
     m_entryInsertionIndex = newInsertionIndex;
@@ -1660,7 +1665,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             newParameters.planes                = NUM_PLANES(*format_actual);
             newParameters.metaPlanes            = 1;
             newParameters.numSvcBufsInHal       = 0;
-            newParameters.minUndequedBuffer     = 4;
+            newParameters.minUndequedBuffer     = 3;
 
             newParameters.node                  = &m_camera_info.scp;
             newParameters.node->type            = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
@@ -1753,7 +1758,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             newParameters.metaPlanes            = 1;
 
             newParameters.numSvcBufsInHal       = 0;
-            newParameters.minUndequedBuffer     = 4;
+            newParameters.minUndequedBuffer     = 2;
 
             newParameters.node                  = &m_camera_info.capture;
             newParameters.node->type            = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
@@ -3264,6 +3269,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             }
 
             uint32_t current_scp = shot_ext->request_scp;
+            uint32_t current_scc = shot_ext->request_scc;
 
             if (shot_ext->shot.dm.request.frameCount == 0) {
                 CAM_LOGE("ERR(%s): dm.request.frameCount = %d", __FUNCTION__, shot_ext->shot.dm.request.frameCount);
@@ -3297,19 +3303,24 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             m_currentOutputStreams = shot_ext->shot.ctl.request.outputStreams[0];
 #endif
 
+            if (current_scc != shot_ext->request_scc) {
+                ALOGD("(%s): scc frame drop1 request_scc(%d to %d)",
+                                __FUNCTION__, current_scc, shot_ext->request_scc);
+                m_requestManager->NotifyStreamOutput(shot_ext->shot.ctl.request.frameCount);
+            }
             if (shot_ext->request_scc) {
                 ALOGV("send SIGNAL_STREAM_DATA_COMING (SCC)");
                 memcpy(&m_jpegMetadata, &shot_ext->shot, sizeof(struct camera2_shot));
                 m_streamThreads[1]->SetSignal(SIGNAL_STREAM_DATA_COMING);
             }
-            if (current_scp) {
-                ALOGV("send SIGNAL_STREAM_DATA_COMING(return scp : %d)", shot_ext->request_scp);
-                m_scpOutputSignalCnt++;
-                m_streamThreads[0]->SetSignal(SIGNAL_STREAM_DATA_COMING);
-            }
             if (current_scp != shot_ext->request_scp) {
-                ALOGW("WARN(%s): scp frame drop1 request_scp(%d to %d)",
+                ALOGD("(%s): scp frame drop1 request_scp(%d to %d)",
                                 __FUNCTION__, current_scp, shot_ext->request_scp);
+                m_requestManager->NotifyStreamOutput(shot_ext->shot.ctl.request.frameCount);
+            }
+            if (shot_ext->request_scp) {
+                ALOGV("send SIGNAL_STREAM_DATA_COMING (SCP)");
+                m_streamThreads[0]->SetSignal(SIGNAL_STREAM_DATA_COMING);
             }
 
             ALOGV("(%s): SCP_CLOSING check sensor(%d) scc(%d) scp(%d) ", __FUNCTION__,
@@ -3641,6 +3652,7 @@ void ExynosCameraHWInterface2::m_streamFunc_direct(SignalDrivenThread *self)
 #ifdef ENABLE_FRAME_SYNC
         camera2_stream *frame;
         uint8_t currentOutputStreams;
+        bool directOutputEnabled = false;
 #endif
         int numOfUndqbuf = 0;
 
@@ -3658,6 +3670,14 @@ void ExynosCameraHWInterface2::m_streamFunc_direct(SignalDrivenThread *self)
             frameTimeStamp = m_requestManager->GetTimestampByFrameCnt(frame->rcount);
             currentOutputStreams = m_requestManager->GetOutputStreamByFrameCnt(frame->rcount);
             ALOGV("frame count streamthread[%d] : %d, outputStream(%x)", selfThread->m_index, frame->rcount, currentOutputStreams);
+            if (((currentOutputStreams & STREAM_MASK_PREVIEW) && selfThread->m_index == 0)||
+                 ((currentOutputStreams & STREAM_MASK_ZSL) && selfThread->m_index == 1)) {
+                directOutputEnabled = true;
+            }
+            if (!directOutputEnabled) {
+                if (!m_nightCaptureFrameCnt)
+                    m_requestManager->NotifyStreamOutput(frame->rcount);
+            }
 #else
             selfStreamParms->bufIndex = cam_int_dqbuf(currentNode);
             frameTimeStamp = m_requestManager->GetTimestamp(m_requestManager->GetFrameIndex())
@@ -3675,7 +3695,6 @@ void ExynosCameraHWInterface2::m_streamFunc_direct(SignalDrivenThread *self)
                     continue;
 #ifdef ENABLE_FRAME_SYNC
                 if (currentOutputStreams & (1<<selfThread->m_attachedSubStreams[i].streamId)) {
-                    m_requestManager->NotifyStreamOutput(frame->rcount);
                     m_runSubStreamFunc(selfThread, &(selfStreamParms->svcBuffers[selfStreamParms->bufIndex]),
                         selfThread->m_attachedSubStreams[i].streamId, frameTimeStamp);
                 }
@@ -3701,6 +3720,11 @@ void ExynosCameraHWInterface2::m_streamFunc_direct(SignalDrivenThread *self)
                                 frameTimeStamp,
                                 &(selfStreamParms->svcBufHandle[selfStreamParms->bufIndex]));
                 }
+                else {
+                    res = selfStreamParms->streamOps->cancel_buffer(selfStreamParms->streamOps,
+                            &(selfStreamParms->svcBufHandle[selfStreamParms->bufIndex]));
+                    ALOGV("DEBUG(%s): streamthread[%d] cancel_buffer to svc done res(%d)", __FUNCTION__, selfThread->m_index, res);
+                }
 #else
                 if ((m_currentOutputStreams & STREAM_MASK_PREVIEW) && selfThread->m_index == 0) {
                     ALOGV("** Display Preview(frameCnt:%d)", m_requestManager->GetFrameIndex());
@@ -3723,8 +3747,10 @@ void ExynosCameraHWInterface2::m_streamFunc_direct(SignalDrivenThread *self)
                 ALOGV("DEBUG(%s): streamthread[%d] cancel_buffer to svc done res(%d)", __FUNCTION__, selfThread->m_index, res);
             }
 #ifdef ENABLE_FRAME_SYNC
-            if (!m_nightCaptureFrameCnt)
-                m_requestManager->NotifyStreamOutput(frame->rcount);
+            if (directOutputEnabled) {
+                if (!m_nightCaptureFrameCnt)
+                     m_requestManager->NotifyStreamOutput(frame->rcount);
+            }
 #endif
             if (res == 0) {
                 selfStreamParms->svcBufStatus[selfStreamParms->bufIndex] = ON_SERVICE;
@@ -3737,10 +3763,11 @@ void ExynosCameraHWInterface2::m_streamFunc_direct(SignalDrivenThread *self)
         }
         while(0);
 
-        while (selfStreamParms->numSvcBufsInHal < selfStreamParms->numOwnSvcBuffers - 1) {
+        while ((selfStreamParms->numSvcBufsInHal - (selfStreamParms->numSvcBuffers - NUM_SCP_BUFFERS)) 
+                    < selfStreamParms->minUndequedBuffer) {
             res = selfStreamParms->streamOps->dequeue_buffer(selfStreamParms->streamOps, &buf);
             if (res != NO_ERROR || buf == NULL) {
-                ALOGV("DEBUG(%s): streamthread[%d] dequeue_buffer fail res(%d)",__FUNCTION__ , selfThread->m_index,  res);
+                ALOGV("DEBUG(%s): streamthread[%d] dequeue_buffer fail res(%d) numInHal(%d)",__FUNCTION__ , selfThread->m_index,  res, selfStreamParms->numSvcBufsInHal);
                 break;
             }
             selfStreamParms->numSvcBufsInHal++;
