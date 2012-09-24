@@ -4027,6 +4027,7 @@ int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuff
     status_t    res;
     ExynosRect jpegRect;
     bool found = false;
+    int srcW, srcH, srcCropX, srcCropY;
     int pictureW, pictureH, pictureFramesize = 0;
     int pictureFormat;
     int cropX, cropY, cropW, cropH = 0;
@@ -4050,6 +4051,12 @@ int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuff
         return 1;
     }
 
+    m_getRatioSize(selfStreamParms->width, selfStreamParms->height,
+                    m_streamThreads[0]->m_parameters.width, m_streamThreads[0]->m_parameters.height,
+                    &srcCropX, &srcCropY,
+                    &srcW, &srcH,
+                    0);
+
     m_jpegPictureRect.w = subParms->width;
     m_jpegPictureRect.h = subParms->height;
 
@@ -4057,7 +4064,7 @@ int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuff
               __FUNCTION__, selfStreamParms->width, selfStreamParms->height,
                    m_jpegPictureRect.w, m_jpegPictureRect.h);
 
-    m_getRatioSize(selfStreamParms->width, selfStreamParms->height,
+    m_getRatioSize(srcW, srcH,
                    m_jpegPictureRect.w, m_jpegPictureRect.h,
                    &cropX, &cropY,
                    &pictureW, &pictureH,
@@ -4077,8 +4084,8 @@ int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuff
             zoom_h = pictureH / m_zoomRatio;
             zoom_w = zoom_h * m_jpegPictureRect.w / m_jpegPictureRect.h;
         }
-        cropX = (pictureW - zoom_w) / 2;
-        cropY = (pictureH - zoom_h) / 2;
+        cropX = (srcW - zoom_w) / 2;
+        cropY = (srcH - zoom_h) / 2;
         cropW = zoom_w;
         cropH = zoom_h;
 
@@ -4086,7 +4093,7 @@ int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuff
               __FUNCTION__, cropX, cropY, cropW, cropH);
 
         csc_set_src_format(m_exynosPictureCSC,
-                           ALIGN(pictureW, 16), ALIGN(pictureH, 16),
+                           ALIGN(srcW, 16), ALIGN(srcH, 16),
                            cropX, cropY, cropW, cropH,
                            V4L2_PIX_2_HAL_PIXEL_FORMAT(pictureFormat),
                            0);
