@@ -58,7 +58,7 @@
 #define MFC_INPUT_BUFFER_PLANE              2
 #define MFC_OUTPUT_BUFFER_PLANE             1
 
-#define MAX_CAMERA_INPUTBUFFER_NUM          12 /* number of metadata buffer */
+#define MAX_INPUTBUFFER_NUM_DYNAMIC         0 /* Dynamic number of metadata buffer */
 
 // The largest metadata buffer size advertised
 // when metadata buffer mode is used for video encoding
