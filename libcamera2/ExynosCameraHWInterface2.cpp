@@ -2180,6 +2180,17 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         return 1;
     }
 
+    if (m_sensorThread != NULL) {
+        m_sensorThread->release();
+        ALOGD("(%s): START Waiting for (indirect) sensor thread termination", __FUNCTION__);
+        while (!m_sensorThread->IsTerminated())
+            usleep(10000);
+        ALOGD("(%s): END   Waiting for (indirect) sensor thread termination", __FUNCTION__);
+    }
+    else {
+        ALOGE("+++++++ sensor thread is NULL %d", __LINE__);
+    }
+
     if (m_streamThreads[1]->m_numRegisteredStream == 0 && m_streamThreads[1]->m_activated) {
         ALOGV("(%s): deactivating stream thread 1 ", __FUNCTION__);
         targetStream = (StreamThread*)(m_streamThreads[1].get());
@@ -2212,18 +2223,6 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
             ALOGD("(%s): END   Waiting for (indirect) stream thread termination", __FUNCTION__);
             m_streamThreads[0] = NULL;
         }
-
-        if (m_sensorThread != NULL) {
-            m_sensorThread->release();
-            ALOGD("(%s): START Waiting for (indirect) sensor thread termination", __FUNCTION__);
-            while (!m_sensorThread->IsTerminated())
-                usleep(10000);
-            ALOGD("(%s): END   Waiting for (indirect) sensor thread termination", __FUNCTION__);
-        }
-        else {
-            ALOGE("+++++++ sensor thread is NULL %d", __LINE__);
-        }
-
         if (m_camera_info.capture.status == true) {
             m_scpForceSuspended = true;
         }
