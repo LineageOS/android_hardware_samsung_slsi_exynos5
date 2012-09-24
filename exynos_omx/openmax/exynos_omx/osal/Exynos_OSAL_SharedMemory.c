@@ -414,7 +414,7 @@ int Exynos_OSAL_SharedMemory_VirtToION(OMX_HANDLETYPE handle, OMX_PTR pBuffer)
             pFindElement = pCurrentElement->pNextMemory;
         } else {
             Exynos_OSAL_MutexUnlock(pHandle->hSMMutex);
-            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Can not find SharedMemory");
+            Exynos_OSAL_Log(EXYNOS_LOG_WARNING, "Can not find SharedMemory");
             goto EXIT;
         }
     }
@@ -456,7 +456,7 @@ OMX_PTR Exynos_OSAL_SharedMemory_IONToVirt(OMX_HANDLETYPE handle, int ion_addr)
             pFindElement = pCurrentElement->pNextMemory;
         } else {
             Exynos_OSAL_MutexUnlock(pHandle->hSMMutex);
-            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Can not find SharedMemory");
+            Exynos_OSAL_Log(EXYNOS_LOG_WARNING, "Can not find SharedMemory");
             goto EXIT;
         }
     }
