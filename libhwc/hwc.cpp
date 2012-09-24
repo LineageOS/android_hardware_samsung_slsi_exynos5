@@ -1443,7 +1443,7 @@ static void handle_hdmi_uevent(struct exynos5_hwc_composer_device_1_t *pdev,
      * still a race condition where a hotplug event might occur after the open
      * but before the procs are registered. */
     if (pdev->procs)
-        pdev->procs->invalidate(pdev->procs);
+        pdev->procs->hotplug(pdev->procs, HWC_DISPLAY_EXTERNAL, pdev->hdmi_hpd);
 }
 
 static void handle_vsync_event(struct exynos5_hwc_composer_device_1_t *pdev)
