@@ -219,7 +219,8 @@ typedef enum request_entry_status {
     REGISTERED,
     REQUESTED,
     CAPTURED,
-    METADONE
+    METADONE,
+    COMPLETED
 } request_entry_status_t;
 
 typedef struct request_manager_entry {
@@ -304,11 +305,12 @@ public:
     int     FindEntryIndexByFrameCnt(int frameCnt);
     void    Dump(void);
     int     GetNextIndex(int index);
+    int     GetPrevIndex(int index);
     void    SetDefaultParameters(int cropX);
     void    SetInitialSkip(int count);
     int     GetSkipCnt();
-    void    SetFrameIndex(int index);
-    int    GetFrameIndex();
+    void    SetCompleted(int index);
+    int     GetCompletedIndex();
     void  pushSensorQ(int index);
     int popSensorQ();
     void releaseSensorQ();
@@ -661,6 +663,7 @@ class MainThread : public SignalDrivenThread {
 
     mutable Mutex                       m_qbufLock;
 
+    bool                                m_scpForceSuspended;
     int                                 m_afState;
     int                                 m_afTriggerId;
     enum aa_afmode                      m_afMode;

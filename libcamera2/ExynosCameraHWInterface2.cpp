@@ -381,9 +381,9 @@ void RequestManager::DeregisterRequest(camera_metadata_t ** deregistered_request
 
     Mutex::Autolock lock(m_requestMutex);
 
-    frame_index = GetFrameIndex();
+    frame_index = GetCompletedIndex();
     currentEntry =  &(entries[frame_index]);
-    if (currentEntry->status != METADONE) {
+    if (currentEntry->status != COMPLETED) {
         CAM_LOGD("DBG(%s): Circular buffer abnormal. processing(%d), frame(%d), status(%d) ", __FUNCTION__,
                        m_entryProcessingIndex, frame_index,(int)(currentEntry->status));
         return;
@@ -408,12 +408,12 @@ bool RequestManager::PrepareFrame(size_t* num_entries, size_t* frame_size,
     ALOGV("DEBUG(%s):", __FUNCTION__);
     Mutex::Autolock lock(m_requestMutex);
     status_t res = NO_ERROR;
-    int tempFrameOutputIndex = GetFrameIndex();
+    int tempFrameOutputIndex = GetCompletedIndex();
     request_manager_entry * currentEntry =  &(entries[tempFrameOutputIndex]);
     ALOGV("DEBUG(%s): processing(%d), frameOut(%d), insert(%d) recentlycompleted(%d)", __FUNCTION__,
         m_entryProcessingIndex, m_entryFrameOutputIndex, m_entryInsertionIndex, m_completedIndex);
 
-    if (currentEntry->status != METADONE) {
+    if (currentEntry->status != COMPLETED) {
         ALOGV("DBG(%s): Circular buffer abnormal status(%d)", __FUNCTION__, (int)(currentEntry->status));
 
         return false;
@@ -539,19 +539,23 @@ void RequestManager::CheckCompleted(int index)
     if((entries[index].status == METADONE) && (entries[index].output_stream_count <= 0)){
         ALOGV("send SIGNAL_MAIN_STREAM_OUTPUT_DONE(index:%d)(frameCnt:%d)",
                 index, entries[index].internal_shot.shot.ctl.request.frameCount );
-        SetFrameIndex(index);
+        SetCompleted(index);
         m_mainThread->SetSignal(SIGNAL_MAIN_STREAM_OUTPUT_DONE);
     }
 }
 
-void RequestManager::SetFrameIndex(int index)
+void RequestManager::SetCompleted(int index)
 {
     m_frameIndex = index;
+    entries[index].status = COMPLETED;
 }
 
-int RequestManager::GetFrameIndex()
+int RequestManager::GetCompletedIndex()
 {
-    return m_frameIndex;
+    if (entries[GetPrevIndex(m_frameIndex)].status == COMPLETED)
+        return GetPrevIndex(m_frameIndex);
+    else
+        return m_frameIndex;
 }
 
 void  RequestManager::pushSensorQ(int index)
@@ -604,7 +608,7 @@ void RequestManager::ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext)
     for (i = 0 ; i < NUM_MAX_REQUEST_MGR_ENTRY ; i++) {
         if((entries[i].internal_shot.shot.ctl.request.frameCount == shot_ext->shot.ctl.request.frameCount)
             && (entries[i].status == CAPTURED)){
-            entries[i].status =METADONE;
+            entries[i].status = METADONE;
             break;
         }
     }
@@ -889,6 +893,15 @@ int     RequestManager::GetNextIndex(int index)
     return index;
 }
 
+int     RequestManager::GetPrevIndex(int index)
+{
+    index--;
+    if (index < 0)
+        index = NUM_MAX_REQUEST_MGR_ENTRY-1;
+
+    return index;
+}
+
 ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_t *dev, ExynosCamera2 * camera, int *openInvalid):
             m_requestQueueOps(NULL),
             m_frameQueueOps(NULL),
@@ -916,6 +929,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
             m_afTriggerId(0),
             m_afPendingTriggerId(0),
             m_afModeWaitingCnt(0),
+            m_scpForceSuspended(false),
             m_halDevice(dev),
             m_nightCaptureCnt(0),
             m_nightCaptureFrameCnt(0),
@@ -1537,6 +1551,9 @@ int ExynosCameraHWInterface2::notifyRequestQueueNotEmpty()
                 } else {
                     m_camera_info.capture.status = true;
                 }
+            }
+            if (m_scpForceSuspended) {
+                m_scpForceSuspended = false;
             }
         }
     }
@@ -2211,16 +2228,7 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         }
 
         if (m_camera_info.capture.status == true) {
-            if (cam_int_streamoff(&(m_camera_info.capture)) < 0) {
-                ALOGE("ERR(%s): capture stream off fail", __FUNCTION__);
-            } else {
-                m_camera_info.capture.status = false;
-            }
-            ALOGV("(%s): calling capture streamoff done", __FUNCTION__);
-            m_camera_info.capture.buffers = 0;
-            ALOGV("DEBUG(%s): capture calling reqbuf 0 ", __FUNCTION__);
-            cam_int_reqbufs(&(m_camera_info.capture));
-            ALOGV("DEBUG(%s): capture calling reqbuf 0 done", __FUNCTION__);
+            m_scpForceSuspended = true;
         }
         m_isIspStarted = false;
     }
@@ -3326,6 +3334,8 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             } else {
                 m_vdisDupFrame = matchedFrameCnt;
             }
+            if (m_scpForceSuspended)
+                shot_ext->request_scc = 0;
 
             uint32_t current_scp = shot_ext->request_scp;
             uint32_t current_scc = shot_ext->request_scc;
