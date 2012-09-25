@@ -284,7 +284,7 @@ RequestManager::RequestManager(SignalDrivenThread* main_thread):
     m_lastAwbMode(0),
     m_vdisBubbleEn(false),
     m_lastAeComp(0),
-    m_frameIndex(-1)
+    m_lastCompletedFrameCnt(-1)
 {
     m_metadataConverter = new MetadataConverter;
     m_mainThread = main_thread;
@@ -390,6 +390,8 @@ void RequestManager::DeregisterRequest(camera_metadata_t ** deregistered_request
     }
     if (deregistered_request)  *deregistered_request = currentEntry->original_request;
 
+    m_lastCompletedFrameCnt = currentEntry->internal_shot.shot.ctl.request.frameCount;
+
     currentEntry->status = EMPTY;
     currentEntry->original_request = NULL;
     memset(&(currentEntry->internal_shot), 0, sizeof(struct camera2_shot_ext));
@@ -399,6 +401,7 @@ void RequestManager::DeregisterRequest(camera_metadata_t ** deregistered_request
     ALOGV("## DeRegistReq DONE num(%d), insert(%d), processing(%d), frame(%d)",
      m_numOfEntries,m_entryInsertionIndex,m_entryProcessingIndex, m_entryFrameOutputIndex);
 
+    CheckCompleted(GetNextIndex(frame_index));
     return;
 }
 
@@ -536,26 +539,19 @@ void RequestManager::NotifyStreamOutput(int frameCnt)
 
 void RequestManager::CheckCompleted(int index)
 {
-    if((entries[index].status == METADONE) && (entries[index].output_stream_count <= 0)){
-        ALOGV("send SIGNAL_MAIN_STREAM_OUTPUT_DONE(index:%d)(frameCnt:%d)",
+    if ((entries[index].status == METADONE || entries[index].status == COMPLETED)
+        && (entries[index].output_stream_count <= 0)){
+        ALOGV("(%s): Completed(index:%d)(frameCnt:%d)", __FUNCTION__,
                 index, entries[index].internal_shot.shot.ctl.request.frameCount );
-        SetCompleted(index);
-        m_mainThread->SetSignal(SIGNAL_MAIN_STREAM_OUTPUT_DONE);
+        entries[index].status = COMPLETED;
+        if (m_lastCompletedFrameCnt + 1 == entries[index].internal_shot.shot.ctl.request.frameCount)
+            m_mainThread->SetSignal(SIGNAL_MAIN_STREAM_OUTPUT_DONE);
     }
-}
-
-void RequestManager::SetCompleted(int index)
-{
-    m_frameIndex = index;
-    entries[index].status = COMPLETED;
 }
 
 int RequestManager::GetCompletedIndex()
 {
-    if (entries[GetPrevIndex(m_frameIndex)].status == COMPLETED)
-        return GetPrevIndex(m_frameIndex);
-    else
-        return m_frameIndex;
+    return FindEntryIndexByFrameCnt(m_lastCompletedFrameCnt + 1);
 }
 
 void  RequestManager::pushSensorQ(int index)
@@ -829,6 +825,7 @@ uint8_t  RequestManager::GetOutputStream(int index)
 
 int     RequestManager::FindFrameCnt(struct camera2_shot_ext * shot_ext)
 {
+    Mutex::Autolock lock(m_requestMutex);
     int i;
 
     if (m_numOfEntries == 0) {
@@ -1070,7 +1067,7 @@ void ExynosCameraHWInterface2::release()
     if (m_streamThreads[1] != NULL) {
         ALOGD("(HAL2::release): START Waiting for (indirect) stream thread 1 termination");
         while (!m_streamThreads[1]->IsTerminated())
-            usleep(100000);
+            usleep(SIG_WAITING_TICK);
         ALOGD("(HAL2::release): END   Waiting for (indirect) stream thread 1 termination");
         m_streamThreads[1] = NULL;
     }
@@ -1078,7 +1075,7 @@ void ExynosCameraHWInterface2::release()
     if (m_streamThreads[0] != NULL) {
         ALOGD("(HAL2::release): START Waiting for (indirect) stream thread 0 termination");
         while (!m_streamThreads[0]->IsTerminated())
-            usleep(100000);
+            usleep(SIG_WAITING_TICK);
         ALOGD("(HAL2::release): END   Waiting for (indirect) stream thread 0 termination");
         m_streamThreads[0] = NULL;
     }
@@ -1086,7 +1083,7 @@ void ExynosCameraHWInterface2::release()
     if (m_sensorThread != NULL) {
         ALOGD("(HAL2::release): START Waiting for (indirect) sensor thread termination");
         while (!m_sensorThread->IsTerminated())
-            usleep(100000);
+            usleep(SIG_WAITING_TICK);
         ALOGD("(HAL2::release): END   Waiting for (indirect) sensor thread termination");
         m_sensorThread = NULL;
     }
@@ -1094,7 +1091,7 @@ void ExynosCameraHWInterface2::release()
     if (m_mainThread != NULL) {
         ALOGD("(HAL2::release): START Waiting for (indirect) main thread termination");
         while (!m_mainThread->IsTerminated())
-            usleep(100000);
+            usleep(SIG_WAITING_TICK);
         ALOGD("(HAL2::release): END   Waiting for (indirect) main thread termination");
         m_mainThread = NULL;
     }
@@ -1803,7 +1800,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             ALOGD("START stream thread 1 release %d", __LINE__);
             do {
                 AllocatedStream->release();
-                usleep(33000);
+                usleep(SIG_WAITING_TICK);
             } while (AllocatedStream->m_releasing);
             ALOGD("END   stream thread 1 release %d", __LINE__);
 
@@ -2190,7 +2187,7 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         ALOGD("START stream thread release %d", __LINE__);
         do {
             targetStream->release();
-            usleep(33000);
+            usleep(SIG_WAITING_TICK);
         } while (targetStream->m_releasing);
         m_camera_info.capture.status = false;
         ALOGD("END   stream thread release %d", __LINE__);
@@ -2203,7 +2200,7 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         ALOGD("(%s): START Waiting for (indirect) stream thread release - line(%d)", __FUNCTION__, __LINE__);
         do {
             targetStream->release();
-            usleep(33000);
+            usleep(SIG_WAITING_TICK);
         } while (targetStream->m_releasing);
         ALOGD("(%s): END   Waiting for (indirect) stream thread release - line(%d)", __FUNCTION__, __LINE__);
         targetStream->SetSignal(SIGNAL_THREAD_TERMINATE);
@@ -2211,7 +2208,7 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         if (targetStream != NULL) {
             ALOGD("(%s): START Waiting for (indirect) stream thread termination", __FUNCTION__);
             while (!targetStream->IsTerminated())
-                usleep(10000);
+                usleep(SIG_WAITING_TICK);
             ALOGD("(%s): END   Waiting for (indirect) stream thread termination", __FUNCTION__);
             m_streamThreads[0] = NULL;
         }
@@ -3345,8 +3342,6 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             }
 
             cam_int_qbuf(&(m_camera_info.isp), index);
-
-            usleep(10000);
 
             ALOGV("### isp DQBUF start");
             index_isp = cam_int_dqbuf(&(m_camera_info.isp));
@@ -6234,7 +6229,7 @@ static int HAL2_camera_device_open(const struct hw_module_t* module,
         } else {
             ALOGD("(%s): START waiting for cam device free", __FUNCTION__);
             while (g_cam2_device)
-                usleep(10000);
+                usleep(SIG_WAITING_TICK);
             ALOGD("(%s): END   waiting for cam device free", __FUNCTION__);
         }
     }
