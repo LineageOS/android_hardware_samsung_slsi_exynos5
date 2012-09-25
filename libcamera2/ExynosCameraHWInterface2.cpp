@@ -2642,7 +2642,7 @@ void ExynosCameraHWInterface2::m_mainThreadFunc(SignalDrivenThread * self)
         if (m_requestManager->IsRequestQueueFull()==false) {
             m_requestQueueOps->dequeue_request(m_requestQueueOps, &currentRequest);
             if (NULL == currentRequest) {
-                ALOGE("DEBUG(%s)(0x%x): dequeue_request returned NULL ", __FUNCTION__, currentSignal);
+                ALOGD("DEBUG(%s)(0x%x): dequeue_request returned NULL ", __FUNCTION__, currentSignal);
                 m_isRequestQueueNull = true;
                 if (m_requestManager->IsVdisEnable())
                     m_vdisBubbleCnt = 1;
@@ -3153,7 +3153,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 if (shot_ext->shot.ctl.aa.captureIntent == AA_CAPTURE_INTENT_STILL_CAPTURE
                         && shot_ext->shot.ctl.aa.sceneMode == AA_SCENE_MODE_NIGHT) {
                     shot_ext->shot.ctl.aa.sceneMode = AA_SCENE_MODE_NIGHT_CAPTURE;
-                    shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 8;
+                    shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 2;
                     shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
                     m_nightCaptureCnt = 4;
                     m_nightCaptureFrameCnt = matchedFrameCnt;
@@ -3162,23 +3162,30 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             }
             else if (m_nightCaptureCnt == 1) {
                 shot_ext->shot.ctl.aa.sceneMode = AA_SCENE_MODE_NIGHT_CAPTURE;
-                    shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 8;
-                    shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
+                shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 30;
+                shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
                 m_nightCaptureCnt--;
                 m_nightCaptureFrameCnt = 0;
                 shot_ext->request_scc = 1;
             }
             else if (m_nightCaptureCnt == 2) {
                 shot_ext->shot.ctl.aa.sceneMode = AA_SCENE_MODE_NIGHT_CAPTURE;
-                    shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 8;
-                    shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
+                shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 2;
+                shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
                 m_nightCaptureCnt--;
                 shot_ext->request_scc = 0;
             }
-            else if (m_nightCaptureCnt == 3 || m_nightCaptureCnt == 4) {
+            else if (m_nightCaptureCnt == 3) {
                 shot_ext->shot.ctl.aa.sceneMode = AA_SCENE_MODE_NIGHT_CAPTURE;
-                    shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 2;
-                    shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
+                shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 2;
+                shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
+                m_nightCaptureCnt--;
+                shot_ext->request_scc = 0;
+            }
+            else if (m_nightCaptureCnt == 4) {
+                shot_ext->shot.ctl.aa.sceneMode = AA_SCENE_MODE_NIGHT_CAPTURE;
+                shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 2;
+                shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
                 m_nightCaptureCnt--;
                 shot_ext->request_scc = 0;
             }
@@ -3290,19 +3297,19 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             m_currentOutputStreams = shot_ext->shot.ctl.request.outputStreams[0];
 #endif
 
+            if (shot_ext->request_scc) {
+                ALOGV("send SIGNAL_STREAM_DATA_COMING (SCC)");
+                memcpy(&m_jpegMetadata, &shot_ext->shot, sizeof(struct camera2_shot));
+                m_streamThreads[1]->SetSignal(SIGNAL_STREAM_DATA_COMING);
+            }
             if (current_scp) {
                 ALOGV("send SIGNAL_STREAM_DATA_COMING(return scp : %d)", shot_ext->request_scp);
                 m_scpOutputSignalCnt++;
                 m_streamThreads[0]->SetSignal(SIGNAL_STREAM_DATA_COMING);
             }
-
             if (current_scp != shot_ext->request_scp) {
-                CAM_LOGW("WARN(%s): scp frame drop1 request_scp(%d to %d)",
+                ALOGW("WARN(%s): scp frame drop1 request_scp(%d to %d)",
                                 __FUNCTION__, current_scp, shot_ext->request_scp);
-            }
-            if (shot_ext->request_scc) {
-                memcpy(&m_jpegMetadata, &shot_ext->shot, sizeof(struct camera2_shot));
-                m_streamThreads[1]->SetSignal(SIGNAL_STREAM_DATA_COMING);
             }
 
             ALOGV("(%s): SCP_CLOSING check sensor(%d) scc(%d) scp(%d) ", __FUNCTION__,
