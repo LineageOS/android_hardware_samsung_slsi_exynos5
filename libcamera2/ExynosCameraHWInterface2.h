@@ -61,7 +61,7 @@ namespace android {
 #define NODE_PREFIX     "/dev/video"
 
 #define NUM_MAX_STREAM_THREAD       (5)
-#define NUM_MAX_REQUEST_MGR_ENTRY   (4)
+#define NUM_MAX_REQUEST_MGR_ENTRY   (5)
 #define NUM_MAX_CAMERA_BUFFERS      (16)
 #define NUM_BAYER_BUFFERS           (8)
 #define NUM_SCC_BUFFERS             (8)
