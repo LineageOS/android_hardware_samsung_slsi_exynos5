@@ -904,6 +904,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
             m_IsAfModeUpdateRequired(false),
             m_IsAfTriggerRequired(false),
             m_IsAfLockRequired(false),
+            m_sccLocalBufferValid(false),
             m_wideAspect(false),
             m_scpOutputSignalCnt(0),
             m_scpOutputImageCnt(0),
@@ -1089,8 +1090,18 @@ void ExynosCameraHWInterface2::release()
     for (i = 0; i < NUM_BAYER_BUFFERS; i++)
         freeCameraMemory(&m_camera_info.sensor.buffer[i], m_camera_info.sensor.planes);
 
-    for (i = 0; i < NUM_SCC_BUFFERS; i++)
-        freeCameraMemory(&m_camera_info.capture.buffer[i], m_camera_info.capture.planes);
+    if (m_sccLocalBufferValid) {
+        for (i = 0; i < NUM_SCC_BUFFERS; i++)
+#ifdef ENABLE_FRAME_SYNC
+            freeCameraMemory(&m_sccLocalBuffer[i], 2);
+#else
+            freeCameraMemory(&m_sccLocalBuffer[i], 1);
+#endif
+    }
+    else {
+        for (i = 0; i < NUM_SCC_BUFFERS; i++)
+            freeCameraMemory(&m_camera_info.capture.buffer[i], m_camera_info.capture.planes);
+    }
 
     ALOGV("DEBUG(%s): calling exynos_v4l2_close - sensor", __FUNCTION__);
     res = exynos_v4l2_close(m_camera_info.sensor.fd);
@@ -1336,16 +1347,27 @@ void ExynosCameraHWInterface2::StartSCCThread(bool threadExists)
     AllocatedStream->streamType     = STREAM_TYPE_INDIRECT;
     ALOGV("(%s): m_numRegisteredStream = %d", __FUNCTION__, AllocatedStream->m_numRegisteredStream);
 
-    for (int i = 0; i < m_camera_info.capture.buffers; i++){
-        if (!threadExists) {
-            initCameraMemory(&m_camera_info.capture.buffer[i], newParameters.node->planes);
-            m_camera_info.capture.buffer[i].size.extS[0] = m_camera_info.capture.width*m_camera_info.capture.height*2;
+    if (!threadExists) {
+        if (!m_sccLocalBufferValid) {
+            for (int i = 0; i < m_camera_info.capture.buffers; i++){
+                initCameraMemory(&m_camera_info.capture.buffer[i], newParameters.node->planes);
+                m_camera_info.capture.buffer[i].size.extS[0] = m_camera_info.capture.width*m_camera_info.capture.height*2;
 #ifdef ENABLE_FRAME_SYNC
-            m_camera_info.capture.buffer[i].size.extS[1] = 4*1024; // HACK, driver use 4*1024, should be use predefined value
-            allocCameraMemory(m_ionCameraClient, &m_camera_info.capture.buffer[i], m_camera_info.capture.planes, 1<<1);
+                m_camera_info.capture.buffer[i].size.extS[1] = 4*1024; // HACK, driver use 4*1024, should be use predefined value
+                allocCameraMemory(m_ionCameraClient, &m_camera_info.capture.buffer[i], m_camera_info.capture.planes, 1<<1);
 #else
-            allocCameraMemory(m_ionCameraClient, &m_camera_info.capture.buffer[i], m_camera_info.capture.planes);
+                allocCameraMemory(m_ionCameraClient, &m_camera_info.capture.buffer[i], m_camera_info.capture.planes);
 #endif
+                m_sccLocalBuffer[i] = m_camera_info.capture.buffer[i];
+            }
+            m_sccLocalBufferValid = true;
+        }
+    } else {
+        if (m_sccLocalBufferValid) {
+             for (int i = 0; i < m_camera_info.capture.buffers; i++)
+                m_camera_info.capture.buffer[i] = m_sccLocalBuffer[i];
+        } else {
+            ALOGE("(%s): SCC Thread starting with no buffer", __FUNCTION__);
         }
     }
     cam_int_s_input(newParameters.node, m_camera_info.sensor_id);
@@ -1700,12 +1722,10 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
         if (!(m_streamThreads[1].get())) {
             ALOGV("DEBUG(%s): stream thread 1 not exist", __FUNCTION__);
             useDirectOutput = true;
-//            createThread = true;
         }
         else {
             ALOGV("DEBUG(%s): stream thread 1 exists and deactivated.", __FUNCTION__);
-//            useDirectOutput = true;
-//            createThread = false;
+            useDirectOutput = false;
         }
         if (useDirectOutput) {
             *stream_id = STREAM_ID_ZSL;
@@ -1746,6 +1766,62 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             AllocatedStream->m_numRegisteredStream = 1;
             ALOGV("(%s): m_numRegisteredStream = %d", __FUNCTION__, AllocatedStream->m_numRegisteredStream);
             return 0;
+        } else {
+            bool bJpegExists = false;
+            AllocatedStream = (StreamThread*)(m_streamThreads[1].get());
+            subParameters = &m_subStreams[STREAM_ID_JPEG];
+            if (subParameters->type == SUBSTREAM_TYPE_JPEG) {
+                ALOGD("(%s): jpeg stream exists", __FUNCTION__);
+                bJpegExists = true;
+                AllocatedStream->detachSubStream(STREAM_ID_JPEG);
+            }
+            AllocatedStream->m_releasing = true;
+            ALOGD("START stream thread 1 release %d", __LINE__);
+            do {
+                AllocatedStream->release();
+                usleep(33000);
+            } while (AllocatedStream->m_releasing);
+            ALOGD("END   stream thread 1 release %d", __LINE__);
+
+            *stream_id = STREAM_ID_ZSL;
+
+            m_streamThreadInitialize((SignalDrivenThread*)AllocatedStream);
+
+            *format_actual                      = HAL_PIXEL_FORMAT_EXYNOS_YV12;
+            *max_buffers                        = 6;
+
+            *format_actual = HAL_PIXEL_FORMAT_YCbCr_422_I; // YUYV
+            *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
+            *max_buffers = 6;
+
+            newParameters.width                 = width;
+            newParameters.height                = height;
+            newParameters.format                = *format_actual;
+            newParameters.streamOps             = stream_ops;
+            newParameters.usage                 = *usage;
+            newParameters.numHwBuffers          = NUM_SCC_BUFFERS;
+            newParameters.numOwnSvcBuffers      = *max_buffers;
+            newParameters.planes                = NUM_PLANES(*format_actual);
+            newParameters.metaPlanes            = 1;
+
+            newParameters.numSvcBufsInHal       = 0;
+            newParameters.minUndequedBuffer     = 4;
+
+            newParameters.node                  = &m_camera_info.capture;
+            newParameters.node->type            = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+            newParameters.node->memory          = V4L2_MEMORY_DMABUF;
+
+            AllocatedStream->streamType         = STREAM_TYPE_DIRECT;
+            AllocatedStream->m_index            = 1;
+            AllocatedStream->setParameter(&newParameters);
+            AllocatedStream->m_activated = true;
+            AllocatedStream->m_numRegisteredStream = 1;
+            if (bJpegExists) {
+                AllocatedStream->attachSubStream(STREAM_ID_JPEG, 10);
+            }
+            ALOGV("(%s): m_numRegisteredStream = %d", __FUNCTION__, AllocatedStream->m_numRegisteredStream);
+            return 0;
+
         }
     }
     else if (format == HAL_PIXEL_FORMAT_BLOB
@@ -5763,6 +5839,7 @@ void ExynosCameraHWInterface2::freeCameraMemory(ExynosBuffer *buf, int iMemoryNu
                     ALOGE("ERR(%s)", __FUNCTION__);
             }
             ion_free(buf->fd.extFd[i]);
+        ALOGV("freeCameraMemory : [%d][0x%08x] size(%d)", i, (unsigned int)(buf->virt.extP[i]), buf->size.extS[i]);
         }
         buf->fd.extFd[i] = -1;
         buf->virt.extP[i] = (char *)MAP_FAILED;
