@@ -322,8 +322,6 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                     ALOGV("DEBUG(%s): OUTPUT_STREAM[%d] = %d ",  __FUNCTION__, i, curr_entry.data.u8[i]);
                     dst->ctl.request.outputStreams[0] |= (1 << curr_entry.data.u8[i]);
                 }
-
-                dst->ctl.request.outputStreams[15] = curr_entry.count;
                 break;
 
             case ANDROID_REQUEST_INPUT_STREAMS:
