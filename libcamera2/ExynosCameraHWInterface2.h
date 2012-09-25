@@ -118,6 +118,8 @@ namespace android {
 #define SUBSTREAM_TYPE_PRVCB        (3)
 #define FLASH_STABLE_WAIT_TIMEOUT        (10)
 
+#define SIG_WAITING_TICK            (5000)
+
 #ifdef EXYNOS_CAMERA_LOG
 #define CAM_LOGV(...) ((void)ALOG(LOG_VERBOSE, LOG_TAG, __VA_ARGS__))
 #define CAM_LOGD(...) ((void)ALOG(LOG_DEBUG, LOG_TAG, __VA_ARGS__))
@@ -309,11 +311,10 @@ public:
     void    SetDefaultParameters(int cropX);
     void    SetInitialSkip(int count);
     int     GetSkipCnt();
-    void    SetCompleted(int index);
     int     GetCompletedIndex();
-    void  pushSensorQ(int index);
-    int popSensorQ();
-    void releaseSensorQ();
+    void    pushSensorQ(int index);
+    int     popSensorQ();
+    void    releaseSensorQ();
 private:
 
     MetadataConverter               *m_metadataConverter;
@@ -333,7 +334,7 @@ private:
 
     int                             m_sensorPipelineSkipCnt;
     int                             m_cropX;
-    int		         m_frameIndex;
+    int                             m_lastCompletedFrameCnt;
     int                             m_lastAeMode;
     int                             m_lastAaMode;
     int                             m_lastAwbMode;
