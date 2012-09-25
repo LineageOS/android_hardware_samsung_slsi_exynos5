@@ -4423,9 +4423,8 @@ bool ExynosCameraHWInterface2::yuv2Jpeg(ExynosBuffer *yuvBuf,
     if((m_jpegMetadata.ctl.jpeg.thumbnailSize[0] != 0) && (m_jpegMetadata.ctl.jpeg.thumbnailSize[1] != 0)) {
         mExifInfo.enableThumb = true;
         if(!m_checkThumbnailSize(m_jpegMetadata.ctl.jpeg.thumbnailSize[0], m_jpegMetadata.ctl.jpeg.thumbnailSize[1])) {
-            //default value
-            m_thumbNailW = SUPPORT_THUMBNAIL_REAR_SIZE[0][0];
-            m_thumbNailH = SUPPORT_THUMBNAIL_REAR_SIZE[0][1];
+            // in the case of unsupported parameter, disable thumbnail
+            mExifInfo.enableThumb = false;
         } else {
             m_thumbNailW = m_jpegMetadata.ctl.jpeg.thumbnailSize[0];
             m_thumbNailH = m_jpegMetadata.ctl.jpeg.thumbnailSize[1];
