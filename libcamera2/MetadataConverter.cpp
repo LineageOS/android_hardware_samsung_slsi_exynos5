@@ -457,6 +457,20 @@ status_t MetadataConverter::ApplySceneModeParameters(camera_metadata_t * request
         // METERING
         break;
 
+    case AA_SCENE_MODE_FACE_PRIORITY:
+        dst->ctl.aa.mode = AA_CONTROL_AUTO;
+        if ((dst->ctl.aa.aeMode != AA_AEMODE_LOCKED) && (dst->ctl.aa.aeMode < AA_AEMODE_ON_AUTO_FLASH))
+            dst->ctl.aa.aeMode = AA_AEMODE_ON;
+        dst->ctl.aa.sceneMode = AA_SCENE_MODE_FACE_PRIORITY;
+        dst->ctl.aa.isoMode = AA_ISOMODE_AUTO;
+        dst->ctl.aa.isoValue = 0;
+        dst->ctl.noise.mode = PROCESSING_MODE_OFF;
+        dst->ctl.noise.strength = 0;
+        dst->ctl.edge.mode = PROCESSING_MODE_OFF;
+        dst->ctl.edge.strength = 0;
+        dst->ctl.color.saturation = 3; // means '0'
+        break;
+
     default:
         dst->ctl.aa.mode = AA_CONTROL_AUTO;
         if ((dst->ctl.aa.aeMode != AA_AEMODE_LOCKED) && (dst->ctl.aa.aeMode < AA_AEMODE_ON_AUTO_FLASH))
