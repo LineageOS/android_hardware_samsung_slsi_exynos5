@@ -4925,6 +4925,11 @@ void ExynosCameraHWInterface2::OnAfNotificationCAFPicture(enum aa_afstate noti)
         }
     }
     else if (m_afState == HAL_AFSTATE_NEEDS_DETERMINATION) {
+        //Skip notification in case of flash, wait the end of flash on
+        if (m_ctlInfo.flash.m_flashEnableFlg && m_ctlInfo.flash.m_afFlashDoneFlg) {
+            if (m_ctlInfo.flash.m_flashCnt < IS_FLASH_STATE_ON_DONE)
+                return;
+        }
         switch (noti) {
         case AA_AFSTATE_INACTIVE:
             nextState = NO_TRANSITION;
@@ -4935,13 +4940,14 @@ void ExynosCameraHWInterface2::OnAfNotificationCAFPicture(enum aa_afstate noti)
         case AA_AFSTATE_AF_ACQUIRED_FOCUS:
             // If Flash mode is enable, after AF execute pre-capture metering
             if (m_ctlInfo.flash.m_flashEnableFlg && m_ctlInfo.flash.m_afFlashDoneFlg) {
-                ALOGV("[AF Flash] AUTO start with Mode (%d) state (%d) noti (%d)", m_afMode, m_afState, (int)noti);
                 switch (m_ctlInfo.flash.m_flashCnt) {
                 case IS_FLASH_STATE_ON_DONE:
+                    ALOGV("[AF Flash] AUTO start with Mode (%d) state (%d) noti (%d)", m_afMode, m_afState, (int)noti);
                     m_ctlInfo.flash.m_flashCnt = IS_FLASH_STATE_AUTO_AE_AWB_LOCK;
                     nextState = NO_TRANSITION;
                     break;
                 case IS_FLASH_STATE_AUTO_DONE:
+                    ALOGV("[AF Flash] AUTO end with Mode (%d) state (%d) noti (%d)", m_afMode, m_afState, (int)noti);
                     m_ctlInfo.flash.m_flashCnt = IS_FLASH_STATE_AUTO_OFF;
                     m_IsAfLockRequired = true;
                     nextState = HAL_AFSTATE_LOCKED;
@@ -4959,13 +4965,14 @@ void ExynosCameraHWInterface2::OnAfNotificationCAFPicture(enum aa_afstate noti)
         case AA_AFSTATE_AF_FAILED_FOCUS:
             // If Flash mode is enable, after AF execute pre-capture metering
             if (m_ctlInfo.flash.m_flashEnableFlg && m_ctlInfo.flash.m_afFlashDoneFlg) {
-                ALOGV("[AF Flash] AUTO start with Mode (%d) state (%d) noti (%d)", m_afMode, m_afState, (int)noti);
                 switch (m_ctlInfo.flash.m_flashCnt) {
                 case IS_FLASH_STATE_ON_DONE:
+                    ALOGV("[AF Flash] AUTO start with Mode (%d) state (%d) noti (%d)", m_afMode, m_afState, (int)noti);
                     m_ctlInfo.flash.m_flashCnt = IS_FLASH_STATE_AUTO_AE_AWB_LOCK;
                     nextState = NO_TRANSITION;
                     break;
                 case IS_FLASH_STATE_AUTO_DONE:
+                    ALOGV("[AF Flash] AUTO end with Mode (%d) state (%d) noti (%d)", m_afMode, m_afState, (int)noti);
                     m_ctlInfo.flash.m_flashCnt = IS_FLASH_STATE_AUTO_OFF;
                     m_IsAfLockRequired = true;
                     nextState = HAL_AFSTATE_FAILED;
