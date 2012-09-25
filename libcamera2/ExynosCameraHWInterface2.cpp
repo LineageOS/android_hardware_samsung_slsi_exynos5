@@ -1009,6 +1009,8 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
         m_ctlInfo.ae.aeStateNoti = AE_STATE_INACTIVE;
         // af
         m_ctlInfo.af.m_afTriggerTimeOut = 0;
+        // scene
+        m_ctlInfo.scene.prevSceneMode = AA_SCENE_MODE_MAX;
     }
     ALOGD("(%s): EXIT", __FUNCTION__);
 }
@@ -2913,7 +2915,13 @@ void ExynosCameraHWInterface2::m_updateAfRegion(struct camera2_shot_ext * shot_e
         lastAfRegion[2] = 0;
         lastAfRegion[3] = 0;
     } else {
-        if (!(lastAfRegion[0] == shot_ext->shot.ctl.aa.afRegions[0] && lastAfRegion[1] == shot_ext->shot.ctl.aa.afRegions[1]
+        // clear region infos in case of CAF mode
+        if (m_afMode == AA_AFMODE_CONTINUOUS_VIDEO || m_afMode == AA_AFMODE_CONTINUOUS_PICTURE) {
+            shot_ext->shot.ctl.aa.afRegions[0] = lastAfRegion[0] = 0;
+            shot_ext->shot.ctl.aa.afRegions[1] = lastAfRegion[1] = 0;
+            shot_ext->shot.ctl.aa.afRegions[2] = lastAfRegion[2] = 0;
+            shot_ext->shot.ctl.aa.afRegions[3] = lastAfRegion[3] = 0;
+        } else if (!(lastAfRegion[0] == shot_ext->shot.ctl.aa.afRegions[0] && lastAfRegion[1] == shot_ext->shot.ctl.aa.afRegions[1]
                 && lastAfRegion[2] == shot_ext->shot.ctl.aa.afRegions[2] && lastAfRegion[3] == shot_ext->shot.ctl.aa.afRegions[3])) {
             ALOGD("(%s): AF region changed : triggering", __FUNCTION__);
             shot_ext->shot.ctl.aa.afTrigger = 1;
@@ -2924,13 +2932,6 @@ void ExynosCameraHWInterface2::m_updateAfRegion(struct camera2_shot_ext * shot_e
             lastAfRegion[2] = shot_ext->shot.ctl.aa.afRegions[2];
             lastAfRegion[3] = shot_ext->shot.ctl.aa.afRegions[3];
             m_IsAfTriggerRequired = false;
-        }
-        // clear region infos in case of CAF mode
-        if (m_afMode == AA_AFMODE_CONTINUOUS_VIDEO || m_afMode == AA_AFMODE_CONTINUOUS_PICTURE) {
-            shot_ext->shot.ctl.aa.afRegions[0] = lastAfRegion[0] = 0;
-            shot_ext->shot.ctl.aa.afRegions[1] = lastAfRegion[1] = 0;
-            shot_ext->shot.ctl.aa.afRegions[2] = lastAfRegion[2] = 0;
-            shot_ext->shot.ctl.aa.afRegions[3] = lastAfRegion[3] = 0;
         }
     }
 }
@@ -2949,6 +2950,54 @@ void ExynosCameraHWInterface2::m_afTrigger(struct camera2_shot_ext * shot_ext)
     shot_ext->shot.ctl.aa.afTrigger = 1;
     shot_ext->shot.ctl.aa.afMode = m_afMode;
     m_IsAfTriggerRequired = false;
+}
+
+void ExynosCameraHWInterface2::m_sceneModeFaceSetter(struct camera2_shot_ext * shot_ext, int mode)
+{
+    switch (mode) {
+    case 0:
+        // af face setting based on scene mode
+        if (shot_ext->shot.ctl.aa.sceneMode == AA_SCENE_MODE_FACE_PRIORITY) {
+            if(m_afMode == AA_AFMODE_CONTINUOUS_PICTURE) {
+                ALOGV("(%s): AA_AFMODE_CONTINUOUS_PICTURE_FACE", __FUNCTION__);
+                m_afState = HAL_AFSTATE_STARTED;
+                shot_ext->shot.ctl.aa.afTrigger = 1;
+                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE_FACE;
+            } else if (m_afMode == AA_AFMODE_CONTINUOUS_VIDEO) {
+                ALOGV("(%s): AA_AFMODE_CONTINUOUS_VIDEO_FACE", __FUNCTION__);
+                m_afState = HAL_AFSTATE_STARTED;
+                shot_ext->shot.ctl.aa.afTrigger = 1;
+                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_VIDEO_FACE;
+
+            }
+        } else {
+            if(m_afMode == AA_AFMODE_CONTINUOUS_PICTURE) {
+                ALOGV("(%s): AA_AFMODE_CONTINUOUS_PICTURE", __FUNCTION__);
+                m_afState = HAL_AFSTATE_STARTED;
+                shot_ext->shot.ctl.aa.afTrigger = 1;
+                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE;
+            } else if (m_afMode == AA_AFMODE_CONTINUOUS_VIDEO) {
+                ALOGV("(%s): AA_AFMODE_CONTINUOUS_VIDEO", __FUNCTION__);
+                m_afState = HAL_AFSTATE_STARTED;
+                shot_ext->shot.ctl.aa.afTrigger = 1;
+                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_VIDEO;
+
+            }
+        }
+        break;
+    case 1:
+        // face af re-setting after single AF
+        if (shot_ext->shot.ctl.aa.sceneMode == AA_SCENE_MODE_FACE_PRIORITY) {
+            ALOGV("(%s): Face af setting", __FUNCTION__);
+            if(m_afMode == AA_AFMODE_CONTINUOUS_PICTURE)
+                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE_FACE;
+            else if (m_afMode == AA_AFMODE_CONTINUOUS_VIDEO)
+                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_VIDEO_FACE;
+        }
+        break;
+    default:
+        break;
+    }
 }
 
 void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
@@ -3253,6 +3302,16 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 m_streamThreads[1]->SetSignal(SIGNAL_STREAM_REPROCESSING_START);
             }
 
+            // face af mode setting in case of face priority scene mode
+            if (m_ctlInfo.scene.prevSceneMode != shot_ext->shot.ctl.aa.sceneMode) {
+                ALOGV("(%s): Scene mode changed", __FUNCTION__);
+                m_ctlInfo.scene.prevSceneMode = shot_ext->shot.ctl.aa.sceneMode;
+                m_sceneModeFaceSetter(shot_ext, 0);
+            } else if (triggered) {
+                // re-setting after single AF
+                m_sceneModeFaceSetter(shot_ext, 1);
+            }
+
             ALOGV("(%s): queued  aa(%d) aemode(%d) awb(%d) afmode(%d) trigger(%d)", __FUNCTION__,
             (int)(shot_ext->shot.ctl.aa.mode), (int)(shot_ext->shot.ctl.aa.aeMode),
             (int)(shot_ext->shot.ctl.aa.awbMode), (int)(shot_ext->shot.ctl.aa.afMode),
@@ -3353,9 +3412,17 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                                                                                                 / m_streamThreads[0].get()->m_parameters.height;
                 }
             }
-            // At flash on mode, capture can be done as zsl capture
+            // At flash off mode, capture can be done as zsl capture
             if (m_ctlInfo.flash.i_flashMode == AA_AEMODE_ON)
                 shot_ext->shot.dm.aa.aeState = AE_STATE_CONVERGED;
+
+            // At scene mode face priority
+            if (shot_ext->shot.ctl.aa.sceneMode == AA_SCENE_MODE_FACE_PRIORITY) {
+                if (shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_PICTURE_FACE)
+                    shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_PICTURE;
+                else if (shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_VIDEO_FACE)
+                    shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_PICTURE;
+            }
 
             if (m_nightCaptureCnt == 0 && (m_ctlInfo.flash.m_flashCnt < IS_FLASH_STATE_CAPTURE)) {
                 m_requestManager->ApplyDynamicMetadata(shot_ext);

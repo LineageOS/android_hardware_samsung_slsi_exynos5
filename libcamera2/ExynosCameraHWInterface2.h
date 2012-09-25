@@ -264,11 +264,17 @@ typedef struct ae_control_info {
     enum ae_state    aeStateNoti;
 } ctl_ae_info_t;
 
+typedef struct scene_control_info {
+    // pre-capture notification state
+    enum aa_scene_mode    prevSceneMode;
+} ctl_scene_info_t;
+
 typedef struct request_control_info {
     ctl_flash_info_t flash;
     ctl_awb_info_t awb;
     ctl_ae_info_t ae;
     ctl_af_info_t af;
+    ctl_scene_info_t scene;
 } ctl_request_info_t;
 
 class RequestManager {
@@ -606,6 +612,7 @@ class MainThread : public SignalDrivenThread {
     void            m_preCaptureListenerISP(struct camera2_shot_ext * shot_ext);
     void            m_updateAfRegion(struct camera2_shot_ext * shot_ext);
     void            m_afTrigger(struct camera2_shot_ext * shot_ext);
+    void            m_sceneModeFaceSetter(struct camera2_shot_ext * shot_ext, int mode);
     void               *m_exynosPictureCSC;
     void               *m_exynosVideoCSC;
 
