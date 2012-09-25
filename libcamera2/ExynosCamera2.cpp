@@ -440,7 +440,8 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
             160, 120,
             160, 160,
             160, 90,
-            144, 96
+            144, 96,
+              0, 0
     };
 
     ADD_OR_SIZE(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES,
