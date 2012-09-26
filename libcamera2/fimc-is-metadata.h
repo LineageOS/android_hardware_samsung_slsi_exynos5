@@ -29,7 +29,7 @@ struct rational {
 #define CAMERA2_MAX_AVAILABLE_MODE	21
 #define CAMERA2_MAX_FACES		16
 
-#define CAMERA2_FACE_DETECTION_THRESHOLD    100
+#define CAMERA2_FACE_DETECTION_THRESHOLD    35
 
 /*
  *controls/dynamic metadata
@@ -509,7 +509,8 @@ enum aa_scene_mode {
 	AA_SCENE_MODE_PARTY,
 	AA_SCENE_MODE_CANDLELIGHT,
 	AA_SCENE_MODE_BARCODE,
-	AA_SCENE_MODE_NIGHT_CAPTURE  /* part of night mode */
+	AA_SCENE_MODE_NIGHT_CAPTURE, /* part of night mode */
+	AA_SCENE_MODE_MAX
 };
 
 enum aa_effect_mode {
@@ -575,6 +576,9 @@ enum aa_afmode {
 	AA_AFMODE_CONTINUOUS_VIDEO,
 	AA_AFMODE_CONTINUOUS_PICTURE,
 	AA_AFMODE_INFINITY,
+	AA_AFMODE_AUTO_FACE,
+	AA_AFMODE_CONTINUOUS_VIDEO_FACE,
+	AA_AFMODE_CONTINUOUS_PICTURE_FACE,
 	AA_AFMODE_MANUAL,
 	AA_AFMODE_EDOF
 };
@@ -877,6 +881,14 @@ struct camera2_shot_ext {
 	uint32_t		request_scp;
 
 	/**	\brief
+		post processing control(DRC)
+		\remarks
+		[0] bypass off
+		[1] bypass on
+	*/
+	uint32_t		drc_bypass;
+
+	/**	\brief
 		post processing control(DIS)
 		\remarks
 		[0] bypass off
@@ -899,6 +911,9 @@ struct camera2_shot_ext {
 		[1] bypass on
 	*/
 	uint32_t		fd_bypass;
+
+	/* reserved for future */
+	uint32_t		reserved[20];
 
 	/**	\brief
 		processing time debugging
@@ -946,6 +961,14 @@ struct camera2_stream {
 		[X] request count
 	*/
 	uint32_t		rcount;
+
+	/**	\brief
+		frame index of isp framemgr.
+		this value is for driver internal debugging
+		\remarks
+		[X] frame index
+	*/
+	uint32_t		findex;
 };
 
 #define CAM_LENS_CMD		(0x1 << 0x0)

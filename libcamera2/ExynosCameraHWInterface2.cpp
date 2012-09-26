@@ -284,7 +284,7 @@ RequestManager::RequestManager(SignalDrivenThread* main_thread):
     m_lastAwbMode(0),
     m_vdisBubbleEn(false),
     m_lastAeComp(0),
-    m_frameIndex(-1)
+    m_lastCompletedFrameCnt(-1)
 {
     m_metadataConverter = new MetadataConverter;
     m_mainThread = main_thread;
@@ -381,14 +381,16 @@ void RequestManager::DeregisterRequest(camera_metadata_t ** deregistered_request
 
     Mutex::Autolock lock(m_requestMutex);
 
-    frame_index = GetFrameIndex();
+    frame_index = GetCompletedIndex();
     currentEntry =  &(entries[frame_index]);
-    if (currentEntry->status != METADONE) {
+    if (currentEntry->status != COMPLETED) {
         CAM_LOGD("DBG(%s): Circular buffer abnormal. processing(%d), frame(%d), status(%d) ", __FUNCTION__,
                        m_entryProcessingIndex, frame_index,(int)(currentEntry->status));
         return;
     }
     if (deregistered_request)  *deregistered_request = currentEntry->original_request;
+
+    m_lastCompletedFrameCnt = currentEntry->internal_shot.shot.ctl.request.frameCount;
 
     currentEntry->status = EMPTY;
     currentEntry->original_request = NULL;
@@ -399,6 +401,7 @@ void RequestManager::DeregisterRequest(camera_metadata_t ** deregistered_request
     ALOGV("## DeRegistReq DONE num(%d), insert(%d), processing(%d), frame(%d)",
      m_numOfEntries,m_entryInsertionIndex,m_entryProcessingIndex, m_entryFrameOutputIndex);
 
+    CheckCompleted(GetNextIndex(frame_index));
     return;
 }
 
@@ -408,12 +411,12 @@ bool RequestManager::PrepareFrame(size_t* num_entries, size_t* frame_size,
     ALOGV("DEBUG(%s):", __FUNCTION__);
     Mutex::Autolock lock(m_requestMutex);
     status_t res = NO_ERROR;
-    int tempFrameOutputIndex = GetFrameIndex();
+    int tempFrameOutputIndex = GetCompletedIndex();
     request_manager_entry * currentEntry =  &(entries[tempFrameOutputIndex]);
     ALOGV("DEBUG(%s): processing(%d), frameOut(%d), insert(%d) recentlycompleted(%d)", __FUNCTION__,
         m_entryProcessingIndex, m_entryFrameOutputIndex, m_entryInsertionIndex, m_completedIndex);
 
-    if (currentEntry->status != METADONE) {
+    if (currentEntry->status != COMPLETED) {
         ALOGV("DBG(%s): Circular buffer abnormal status(%d)", __FUNCTION__, (int)(currentEntry->status));
 
         return false;
@@ -536,22 +539,19 @@ void RequestManager::NotifyStreamOutput(int frameCnt)
 
 void RequestManager::CheckCompleted(int index)
 {
-    if((entries[index].status == METADONE) && (entries[index].output_stream_count <= 0)){
-        ALOGV("send SIGNAL_MAIN_STREAM_OUTPUT_DONE(index:%d)(frameCnt:%d)",
+    if ((entries[index].status == METADONE || entries[index].status == COMPLETED)
+        && (entries[index].output_stream_count <= 0)){
+        ALOGV("(%s): Completed(index:%d)(frameCnt:%d)", __FUNCTION__,
                 index, entries[index].internal_shot.shot.ctl.request.frameCount );
-        SetFrameIndex(index);
-        m_mainThread->SetSignal(SIGNAL_MAIN_STREAM_OUTPUT_DONE);
+        entries[index].status = COMPLETED;
+        if (m_lastCompletedFrameCnt + 1 == entries[index].internal_shot.shot.ctl.request.frameCount)
+            m_mainThread->SetSignal(SIGNAL_MAIN_STREAM_OUTPUT_DONE);
     }
 }
 
-void RequestManager::SetFrameIndex(int index)
+int RequestManager::GetCompletedIndex()
 {
-    m_frameIndex = index;
-}
-
-int RequestManager::GetFrameIndex()
-{
-    return m_frameIndex;
+    return FindEntryIndexByFrameCnt(m_lastCompletedFrameCnt + 1);
 }
 
 void  RequestManager::pushSensorQ(int index)
@@ -604,7 +604,7 @@ void RequestManager::ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext)
     for (i = 0 ; i < NUM_MAX_REQUEST_MGR_ENTRY ; i++) {
         if((entries[i].internal_shot.shot.ctl.request.frameCount == shot_ext->shot.ctl.request.frameCount)
             && (entries[i].status == CAPTURED)){
-            entries[i].status =METADONE;
+            entries[i].status = METADONE;
             break;
         }
     }
@@ -825,6 +825,7 @@ uint8_t  RequestManager::GetOutputStream(int index)
 
 int     RequestManager::FindFrameCnt(struct camera2_shot_ext * shot_ext)
 {
+    Mutex::Autolock lock(m_requestMutex);
     int i;
 
     if (m_numOfEntries == 0) {
@@ -889,6 +890,15 @@ int     RequestManager::GetNextIndex(int index)
     return index;
 }
 
+int     RequestManager::GetPrevIndex(int index)
+{
+    index--;
+    if (index < 0)
+        index = NUM_MAX_REQUEST_MGR_ENTRY-1;
+
+    return index;
+}
+
 ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_t *dev, ExynosCamera2 * camera, int *openInvalid):
             m_requestQueueOps(NULL),
             m_frameQueueOps(NULL),
@@ -916,6 +926,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
             m_afTriggerId(0),
             m_afPendingTriggerId(0),
             m_afModeWaitingCnt(0),
+            m_scpForceSuspended(false),
             m_halDevice(dev),
             m_nightCaptureCnt(0),
             m_nightCaptureFrameCnt(0),
@@ -1009,6 +1020,8 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
         m_ctlInfo.ae.aeStateNoti = AE_STATE_INACTIVE;
         // af
         m_ctlInfo.af.m_afTriggerTimeOut = 0;
+        // scene
+        m_ctlInfo.scene.prevSceneMode = AA_SCENE_MODE_MAX;
     }
     ALOGD("(%s): EXIT", __FUNCTION__);
 }
@@ -1054,7 +1067,7 @@ void ExynosCameraHWInterface2::release()
     if (m_streamThreads[1] != NULL) {
         ALOGD("(HAL2::release): START Waiting for (indirect) stream thread 1 termination");
         while (!m_streamThreads[1]->IsTerminated())
-            usleep(100000);
+            usleep(SIG_WAITING_TICK);
         ALOGD("(HAL2::release): END   Waiting for (indirect) stream thread 1 termination");
         m_streamThreads[1] = NULL;
     }
@@ -1062,7 +1075,7 @@ void ExynosCameraHWInterface2::release()
     if (m_streamThreads[0] != NULL) {
         ALOGD("(HAL2::release): START Waiting for (indirect) stream thread 0 termination");
         while (!m_streamThreads[0]->IsTerminated())
-            usleep(100000);
+            usleep(SIG_WAITING_TICK);
         ALOGD("(HAL2::release): END   Waiting for (indirect) stream thread 0 termination");
         m_streamThreads[0] = NULL;
     }
@@ -1070,7 +1083,7 @@ void ExynosCameraHWInterface2::release()
     if (m_sensorThread != NULL) {
         ALOGD("(HAL2::release): START Waiting for (indirect) sensor thread termination");
         while (!m_sensorThread->IsTerminated())
-            usleep(100000);
+            usleep(SIG_WAITING_TICK);
         ALOGD("(HAL2::release): END   Waiting for (indirect) sensor thread termination");
         m_sensorThread = NULL;
     }
@@ -1078,7 +1091,7 @@ void ExynosCameraHWInterface2::release()
     if (m_mainThread != NULL) {
         ALOGD("(HAL2::release): START Waiting for (indirect) main thread termination");
         while (!m_mainThread->IsTerminated())
-            usleep(100000);
+            usleep(SIG_WAITING_TICK);
         ALOGD("(HAL2::release): END   Waiting for (indirect) main thread termination");
         m_mainThread = NULL;
     }
@@ -1536,6 +1549,9 @@ int ExynosCameraHWInterface2::notifyRequestQueueNotEmpty()
                     m_camera_info.capture.status = true;
                 }
             }
+            if (m_scpForceSuspended) {
+                m_scpForceSuspended = false;
+            }
         }
     }
     if (m_isIspStarted == false) {
@@ -1784,7 +1800,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             ALOGD("START stream thread 1 release %d", __LINE__);
             do {
                 AllocatedStream->release();
-                usleep(33000);
+                usleep(SIG_WAITING_TICK);
             } while (AllocatedStream->m_releasing);
             ALOGD("END   stream thread 1 release %d", __LINE__);
 
@@ -2164,6 +2180,17 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         return 1;
     }
 
+    if (m_sensorThread != NULL) {
+        m_sensorThread->release();
+        ALOGD("(%s): START Waiting for (indirect) sensor thread termination", __FUNCTION__);
+        while (!m_sensorThread->IsTerminated())
+            usleep(10000);
+        ALOGD("(%s): END   Waiting for (indirect) sensor thread termination", __FUNCTION__);
+    }
+    else {
+        ALOGE("+++++++ sensor thread is NULL %d", __LINE__);
+    }
+
     if (m_streamThreads[1]->m_numRegisteredStream == 0 && m_streamThreads[1]->m_activated) {
         ALOGV("(%s): deactivating stream thread 1 ", __FUNCTION__);
         targetStream = (StreamThread*)(m_streamThreads[1].get());
@@ -2171,7 +2198,7 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         ALOGD("START stream thread release %d", __LINE__);
         do {
             targetStream->release();
-            usleep(33000);
+            usleep(SIG_WAITING_TICK);
         } while (targetStream->m_releasing);
         m_camera_info.capture.status = false;
         ALOGD("END   stream thread release %d", __LINE__);
@@ -2184,7 +2211,7 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         ALOGD("(%s): START Waiting for (indirect) stream thread release - line(%d)", __FUNCTION__, __LINE__);
         do {
             targetStream->release();
-            usleep(33000);
+            usleep(SIG_WAITING_TICK);
         } while (targetStream->m_releasing);
         ALOGD("(%s): END   Waiting for (indirect) stream thread release - line(%d)", __FUNCTION__, __LINE__);
         targetStream->SetSignal(SIGNAL_THREAD_TERMINATE);
@@ -2192,33 +2219,12 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         if (targetStream != NULL) {
             ALOGD("(%s): START Waiting for (indirect) stream thread termination", __FUNCTION__);
             while (!targetStream->IsTerminated())
-                usleep(10000);
+                usleep(SIG_WAITING_TICK);
             ALOGD("(%s): END   Waiting for (indirect) stream thread termination", __FUNCTION__);
             m_streamThreads[0] = NULL;
         }
-
-        if (m_sensorThread != NULL) {
-            m_sensorThread->release();
-            ALOGD("(%s): START Waiting for (indirect) sensor thread termination", __FUNCTION__);
-            while (!m_sensorThread->IsTerminated())
-                usleep(10000);
-            ALOGD("(%s): END   Waiting for (indirect) sensor thread termination", __FUNCTION__);
-        }
-        else {
-            ALOGE("+++++++ sensor thread is NULL %d", __LINE__);
-        }
-
         if (m_camera_info.capture.status == true) {
-            if (cam_int_streamoff(&(m_camera_info.capture)) < 0) {
-                ALOGE("ERR(%s): capture stream off fail", __FUNCTION__);
-            } else {
-                m_camera_info.capture.status = false;
-            }
-            ALOGV("(%s): calling capture streamoff done", __FUNCTION__);
-            m_camera_info.capture.buffers = 0;
-            ALOGV("DEBUG(%s): capture calling reqbuf 0 ", __FUNCTION__);
-            cam_int_reqbufs(&(m_camera_info.capture));
-            ALOGV("DEBUG(%s): capture calling reqbuf 0 done", __FUNCTION__);
+            m_scpForceSuspended = true;
         }
         m_isIspStarted = false;
     }
@@ -2913,7 +2919,13 @@ void ExynosCameraHWInterface2::m_updateAfRegion(struct camera2_shot_ext * shot_e
         lastAfRegion[2] = 0;
         lastAfRegion[3] = 0;
     } else {
-        if (!(lastAfRegion[0] == shot_ext->shot.ctl.aa.afRegions[0] && lastAfRegion[1] == shot_ext->shot.ctl.aa.afRegions[1]
+        // clear region infos in case of CAF mode
+        if (m_afMode == AA_AFMODE_CONTINUOUS_VIDEO || m_afMode == AA_AFMODE_CONTINUOUS_PICTURE) {
+            shot_ext->shot.ctl.aa.afRegions[0] = lastAfRegion[0] = 0;
+            shot_ext->shot.ctl.aa.afRegions[1] = lastAfRegion[1] = 0;
+            shot_ext->shot.ctl.aa.afRegions[2] = lastAfRegion[2] = 0;
+            shot_ext->shot.ctl.aa.afRegions[3] = lastAfRegion[3] = 0;
+        } else if (!(lastAfRegion[0] == shot_ext->shot.ctl.aa.afRegions[0] && lastAfRegion[1] == shot_ext->shot.ctl.aa.afRegions[1]
                 && lastAfRegion[2] == shot_ext->shot.ctl.aa.afRegions[2] && lastAfRegion[3] == shot_ext->shot.ctl.aa.afRegions[3])) {
             ALOGD("(%s): AF region changed : triggering", __FUNCTION__);
             shot_ext->shot.ctl.aa.afTrigger = 1;
@@ -2924,13 +2936,6 @@ void ExynosCameraHWInterface2::m_updateAfRegion(struct camera2_shot_ext * shot_e
             lastAfRegion[2] = shot_ext->shot.ctl.aa.afRegions[2];
             lastAfRegion[3] = shot_ext->shot.ctl.aa.afRegions[3];
             m_IsAfTriggerRequired = false;
-        }
-        // clear region infos in case of CAF mode
-        if (m_afMode == AA_AFMODE_CONTINUOUS_VIDEO || m_afMode == AA_AFMODE_CONTINUOUS_PICTURE) {
-            shot_ext->shot.ctl.aa.afRegions[0] = lastAfRegion[0] = 0;
-            shot_ext->shot.ctl.aa.afRegions[1] = lastAfRegion[1] = 0;
-            shot_ext->shot.ctl.aa.afRegions[2] = lastAfRegion[2] = 0;
-            shot_ext->shot.ctl.aa.afRegions[3] = lastAfRegion[3] = 0;
         }
     }
 }
@@ -2949,6 +2954,54 @@ void ExynosCameraHWInterface2::m_afTrigger(struct camera2_shot_ext * shot_ext)
     shot_ext->shot.ctl.aa.afTrigger = 1;
     shot_ext->shot.ctl.aa.afMode = m_afMode;
     m_IsAfTriggerRequired = false;
+}
+
+void ExynosCameraHWInterface2::m_sceneModeFaceSetter(struct camera2_shot_ext * shot_ext, int mode)
+{
+    switch (mode) {
+    case 0:
+        // af face setting based on scene mode
+        if (shot_ext->shot.ctl.aa.sceneMode == AA_SCENE_MODE_FACE_PRIORITY) {
+            if(m_afMode == AA_AFMODE_CONTINUOUS_PICTURE) {
+                ALOGV("(%s): AA_AFMODE_CONTINUOUS_PICTURE_FACE", __FUNCTION__);
+                m_afState = HAL_AFSTATE_STARTED;
+                shot_ext->shot.ctl.aa.afTrigger = 1;
+                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE_FACE;
+            } else if (m_afMode == AA_AFMODE_CONTINUOUS_VIDEO) {
+                ALOGV("(%s): AA_AFMODE_CONTINUOUS_VIDEO_FACE", __FUNCTION__);
+                m_afState = HAL_AFSTATE_STARTED;
+                shot_ext->shot.ctl.aa.afTrigger = 1;
+                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_VIDEO_FACE;
+
+            }
+        } else {
+            if(m_afMode == AA_AFMODE_CONTINUOUS_PICTURE) {
+                ALOGV("(%s): AA_AFMODE_CONTINUOUS_PICTURE", __FUNCTION__);
+                m_afState = HAL_AFSTATE_STARTED;
+                shot_ext->shot.ctl.aa.afTrigger = 1;
+                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE;
+            } else if (m_afMode == AA_AFMODE_CONTINUOUS_VIDEO) {
+                ALOGV("(%s): AA_AFMODE_CONTINUOUS_VIDEO", __FUNCTION__);
+                m_afState = HAL_AFSTATE_STARTED;
+                shot_ext->shot.ctl.aa.afTrigger = 1;
+                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_VIDEO;
+
+            }
+        }
+        break;
+    case 1:
+        // face af re-setting after single AF
+        if (shot_ext->shot.ctl.aa.sceneMode == AA_SCENE_MODE_FACE_PRIORITY) {
+            ALOGV("(%s): Face af setting", __FUNCTION__);
+            if(m_afMode == AA_AFMODE_CONTINUOUS_PICTURE)
+                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE_FACE;
+            else if (m_afMode == AA_AFMODE_CONTINUOUS_VIDEO)
+                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_VIDEO_FACE;
+        }
+        break;
+    default:
+        break;
+    }
 }
 
 void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
@@ -3253,6 +3306,16 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 m_streamThreads[1]->SetSignal(SIGNAL_STREAM_REPROCESSING_START);
             }
 
+            // face af mode setting in case of face priority scene mode
+            if (m_ctlInfo.scene.prevSceneMode != shot_ext->shot.ctl.aa.sceneMode) {
+                ALOGV("(%s): Scene mode changed", __FUNCTION__);
+                m_ctlInfo.scene.prevSceneMode = shot_ext->shot.ctl.aa.sceneMode;
+                m_sceneModeFaceSetter(shot_ext, 0);
+            } else if (triggered) {
+                // re-setting after single AF
+                m_sceneModeFaceSetter(shot_ext, 1);
+            }
+
             ALOGV("(%s): queued  aa(%d) aemode(%d) awb(%d) afmode(%d) trigger(%d)", __FUNCTION__,
             (int)(shot_ext->shot.ctl.aa.mode), (int)(shot_ext->shot.ctl.aa.aeMode),
             (int)(shot_ext->shot.ctl.aa.awbMode), (int)(shot_ext->shot.ctl.aa.afMode),
@@ -3267,6 +3330,8 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             } else {
                 m_vdisDupFrame = matchedFrameCnt;
             }
+            if (m_scpForceSuspended)
+                shot_ext->request_scc = 0;
 
             uint32_t current_scp = shot_ext->request_scp;
             uint32_t current_scc = shot_ext->request_scc;
@@ -3276,8 +3341,6 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             }
 
             cam_int_qbuf(&(m_camera_info.isp), index);
-
-            usleep(10000);
 
             ALOGV("### isp DQBUF start");
             index_isp = cam_int_dqbuf(&(m_camera_info.isp));
@@ -3353,6 +3416,18 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                                                                                                 / m_streamThreads[0].get()->m_parameters.height;
                 }
             }
+            // At flash off mode, capture can be done as zsl capture
+            if (m_ctlInfo.flash.i_flashMode == AA_AEMODE_ON)
+                shot_ext->shot.dm.aa.aeState = AE_STATE_CONVERGED;
+
+            // At scene mode face priority
+            if (shot_ext->shot.ctl.aa.sceneMode == AA_SCENE_MODE_FACE_PRIORITY) {
+                if (shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_PICTURE_FACE)
+                    shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_PICTURE;
+                else if (shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_VIDEO_FACE)
+                    shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_PICTURE;
+            }
+
             if (m_nightCaptureCnt == 0 && (m_ctlInfo.flash.m_flashCnt < IS_FLASH_STATE_CAPTURE)) {
                 m_requestManager->ApplyDynamicMetadata(shot_ext);
             }
@@ -3952,6 +4027,7 @@ int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuff
     status_t    res;
     ExynosRect jpegRect;
     bool found = false;
+    int srcW, srcH, srcCropX, srcCropY;
     int pictureW, pictureH, pictureFramesize = 0;
     int pictureFormat;
     int cropX, cropY, cropW, cropH = 0;
@@ -3975,6 +4051,12 @@ int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuff
         return 1;
     }
 
+    m_getRatioSize(selfStreamParms->width, selfStreamParms->height,
+                    m_streamThreads[0]->m_parameters.width, m_streamThreads[0]->m_parameters.height,
+                    &srcCropX, &srcCropY,
+                    &srcW, &srcH,
+                    0);
+
     m_jpegPictureRect.w = subParms->width;
     m_jpegPictureRect.h = subParms->height;
 
@@ -3982,7 +4064,7 @@ int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuff
               __FUNCTION__, selfStreamParms->width, selfStreamParms->height,
                    m_jpegPictureRect.w, m_jpegPictureRect.h);
 
-    m_getRatioSize(selfStreamParms->width, selfStreamParms->height,
+    m_getRatioSize(srcW, srcH,
                    m_jpegPictureRect.w, m_jpegPictureRect.h,
                    &cropX, &cropY,
                    &pictureW, &pictureH,
@@ -4002,8 +4084,8 @@ int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuff
             zoom_h = pictureH / m_zoomRatio;
             zoom_w = zoom_h * m_jpegPictureRect.w / m_jpegPictureRect.h;
         }
-        cropX = (pictureW - zoom_w) / 2;
-        cropY = (pictureH - zoom_h) / 2;
+        cropX = (srcW - zoom_w) / 2;
+        cropY = (srcH - zoom_h) / 2;
         cropW = zoom_w;
         cropH = zoom_h;
 
@@ -4011,7 +4093,7 @@ int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuff
               __FUNCTION__, cropX, cropY, cropW, cropH);
 
         csc_set_src_format(m_exynosPictureCSC,
-                           ALIGN(pictureW, 16), ALIGN(pictureH, 16),
+                           ALIGN(srcW, 16), ALIGN(srcH, 16),
                            cropX, cropY, cropW, cropH,
                            V4L2_PIX_2_HAL_PIXEL_FORMAT(pictureFormat),
                            0);
@@ -6153,7 +6235,7 @@ static int HAL2_camera_device_open(const struct hw_module_t* module,
         } else {
             ALOGD("(%s): START waiting for cam device free", __FUNCTION__);
             while (g_cam2_device)
-                usleep(10000);
+                usleep(SIG_WAITING_TICK);
             ALOGD("(%s): END   waiting for cam device free", __FUNCTION__);
         }
     }
