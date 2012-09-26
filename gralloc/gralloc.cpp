@@ -150,19 +150,24 @@ static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int usage,
             bpp = 2;
             break;
         case HAL_PIXEL_FORMAT_BLOB:
-            bpp = 1;
+            *stride = w;
+            vstride = h;
+            size = w * h;
             break;
         default:
             return -EINVAL;
     }
-    bpr = ALIGN(w*bpp, 16);
-    vstride = ALIGN(h, 16);
-    if (vstride == h)
-        size = bpr * (vstride + 1);
-    else
-        size = bpr * vstride;
-    *stride = bpr / bpp;
-    size = ALIGN(size, PAGE_SIZE);
+
+    if (format != HAL_PIXEL_FORMAT_BLOB) {
+        bpr = ALIGN(w*bpp, 16);
+        vstride = ALIGN(h, 16);
+        if (vstride == h)
+            size = bpr * (vstride + 1);
+        else
+            size = bpr * vstride;
+        *stride = bpr / bpp;
+        size = ALIGN(size, PAGE_SIZE);
+    }
 
     if (usage & GRALLOC_USAGE_PROTECTED)
         ion_flags |= ION_EXYNOS_FIMD_VIDEO_MASK;
