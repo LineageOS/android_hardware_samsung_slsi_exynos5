@@ -77,6 +77,8 @@ typedef struct {
     uint32_t rot;
     uint32_t cacheable;
     uint32_t drmMode;
+    int      acquireFenceFd;
+    int      releaseFenceFd;
 } exynos_gsc_img;
 
 /*

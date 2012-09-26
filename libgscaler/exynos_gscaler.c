@@ -1590,10 +1590,8 @@ int exynos_gsc_out_config(void *handle,
     return 0;
 }
 
-int exynos_gsc_out_run(void *handle,
-    unsigned int yAddr,
-    unsigned int uAddr,
-    unsigned int vAddr)
+static int exynos_gsc_out_run(void *handle,
+    exynos_gsc_img *src_img)
 {
     struct GSC_HANDLE *gsc_handle;
     struct v4l2_plane  planes[NUM_OF_GSC_PLANES];
@@ -1609,6 +1607,25 @@ int exynos_gsc_out_run(void *handle,
         return -1;
     }
 
+    /* All buffers have been queued, dequeue one */
+    if (gsc_handle->src.qbuf_cnt == MAX_BUFFERS_GSCALER_OUT) {
+        memset(&buf, 0, sizeof(struct v4l2_buffer));
+        for (i = 0; i < MAX_BUFFERS_GSCALER_OUT; i++)
+            memset(&planes[i], 0, sizeof(struct v4l2_plane));
+
+        buf.type     = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+        buf.memory   = V4L2_MEMORY_DMABUF;
+        buf.length   = src_planes;
+        buf.m.planes = planes;
+
+        if (exynos_v4l2_dqbuf(gsc_handle->gsc_vd_entity->fd, &buf) < 0) {
+            ALOGE("%s::dequeue buffer failed (index=%d)(mSrcBufNum=%d)", __func__,
+                gsc_handle->src.src_buf_idx, MAX_BUFFERS_GSCALER_OUT);
+            return -1;
+        }
+        gsc_handle->src.qbuf_cnt--;
+    }
+
     memset(&buf, 0, sizeof(struct v4l2_buffer));
     for (i = 0; i < NUM_OF_GSC_PLANES; i++)
         memset(&planes[i], 0, sizeof(struct v4l2_plane));
@@ -1619,13 +1636,15 @@ int exynos_gsc_out_run(void *handle,
 
     buf.type     = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
     buf.memory   = V4L2_MEMORY_DMABUF;
+    buf.flags    = V4L2_BUF_FLAG_USE_SYNC;
     buf.length   = src_planes;
     buf.index    = gsc_handle->src.src_buf_idx;
     buf.m.planes = planes;
+    buf.reserved = src_img->acquireFenceFd;
 
-    gsc_handle->src.addr[0] = (void *)yAddr;
-    gsc_handle->src.addr[1] = (void *)uAddr;
-    gsc_handle->src.addr[2] = (void *)vAddr;
+    gsc_handle->src.addr[0] = src_img->yaddr;
+    gsc_handle->src.addr[1] = src_img->uaddr;
+    gsc_handle->src.addr[2] = src_img->vaddr;
 
     if (get_plane_size(src_color_space, plane_size,
         gsc_handle->src_img.fw * gsc_handle->src_img.fh, src_planes) != true) {
@@ -1646,47 +1665,19 @@ int exynos_gsc_out_run(void *handle,
         return -1;
     }
     gsc_handle->src.src_buf_idx++;
+    gsc_handle->src.src_buf_idx = gsc_handle->src.src_buf_idx % MAX_BUFFERS_GSCALER_OUT;
     gsc_handle->src.qbuf_cnt++;
 
     if (gsc_handle->src.stream_on == false) {
-        /* stream on after queing the second buffer
-            to do: below logic should be changed to handle the single frame videos */
-#ifndef GSC_OUT_DELAYED_STREAMON
-        if (gsc_handle->src.src_buf_idx == (MAX_BUFFERS_GSCALER_OUT - 2)) {
-#else
-        if (gsc_handle->src.src_buf_idx == (MAX_BUFFERS_GSCALER_OUT - 1)) {
-#endif
-            if (exynos_v4l2_streamon(gsc_handle->gsc_vd_entity->fd, buf.type) < 0) {
-                ALOGE("%s::stream on failed", __func__);
-                return -1;
-            }
-            gsc_handle->src.stream_on = true;
+        if (exynos_v4l2_streamon(gsc_handle->gsc_vd_entity->fd, buf.type) < 0) {
+            ALOGE("%s::stream on failed", __func__);
+            return -1;
         }
-        gsc_handle->src.src_buf_idx = gsc_handle->src.src_buf_idx % MAX_BUFFERS_GSCALER_OUT;
-#ifndef GSC_OUT_DMA_BLOCKING
-        return 0;
-#endif
+        gsc_handle->src.stream_on = true;
     }
 
-    if (gsc_handle->src.qbuf_cnt < MAX_BUFFERS_GSCALER_OUT)
-        return 0;
-
-    gsc_handle->src.src_buf_idx = gsc_handle->src.src_buf_idx % MAX_BUFFERS_GSCALER_OUT;
-    for (i = 0; i < MAX_BUFFERS_GSCALER_OUT; i++)
-        memset(&planes[i], 0, sizeof(struct v4l2_plane));
-
-    buf.type     = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-    buf.memory   = V4L2_MEMORY_DMABUF;
-    buf.length   = src_planes;
-    buf.m.planes = planes;
-
-     /* DeQueue a buf */
-     if (exynos_v4l2_dqbuf(gsc_handle->gsc_vd_entity->fd, &buf) < 0) {
-        ALOGE("%s::dequeue buffer failed (index=%d)(mSrcBufNum=%d)", __func__,
-            gsc_handle->src.src_buf_idx, MAX_BUFFERS_GSCALER_OUT);
-        return -1;
-     }
-     return 0;
+    src_img->releaseFenceFd = buf.reserved;
+    return 0;
 }
 
 int exynos_gsc_out_stop(void *handle)
@@ -1705,25 +1696,18 @@ int exynos_gsc_out_stop(void *handle)
         return -1;
     }
 
-    if (gsc_handle->src.stream_on == false) {
-        /* to handle special scenario.*/
-            gsc_handle->src.src_buf_idx = 0;
-        gsc_handle->src.qbuf_cnt = 0;
-            ALOGD("%s::GSC is already stopped", __func__);
-        goto SKIP_STREAMOFF;
+    if (gsc_handle->src.stream_on == true) {
+        if (exynos_v4l2_streamoff(gsc_handle->gsc_vd_entity->fd,
+                                V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) < 0) {
+            ALOGE("%s::stream off failed", __func__);
+            return -1;
+        }
+        gsc_handle->src.stream_on = false;
     }
+
     gsc_handle->src.src_buf_idx = 0;
     gsc_handle->src.qbuf_cnt = 0;
-    gsc_handle->src.stream_on = false;
 
-    if (exynos_v4l2_streamoff(gsc_handle->gsc_vd_entity->fd,
-                                V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) < 0) {
-        ALOGE("%s::stream off failed", __func__);
-        return -1;
-    }
-SKIP_STREAMOFF:
-    /* Clear Buffer */
-    /*todo: support for other buffer type & memory */
     reqbuf.type   = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
     reqbuf.memory = V4L2_MEMORY_DMABUF;
     reqbuf.count  = 0;
@@ -2019,8 +2003,7 @@ int exynos_gsc_run_exclusive(void *handle,
         ret = exynos_gsc_m2m_run(handle, src_img, dst_img);
         break;
     case GSC_OUTPUT_MODE:
-        ret = exynos_gsc_out_run(handle, src_img->yaddr,
-                                                src_img->uaddr, src_img->vaddr);
+        ret = exynos_gsc_out_run(handle, src_img);
         break;
     case  GSC_CAPTURE_MODE:
         //to do
