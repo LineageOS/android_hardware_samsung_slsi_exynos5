@@ -701,13 +701,13 @@ inline hwc_rect intersection(const hwc_rect &r1, const hwc_rect &r2)
 }
 
 static int exynos5_prepare_fimd(exynos5_hwc_composer_device_1_t *pdev,
-        hwc_display_contents_1_t* contents, bool force_fb)
+        hwc_display_contents_1_t* contents)
 {
     ALOGV("preparing %u layers for FIMD", contents->numHwLayers);
 
     memset(pdev->bufs.gsc_map, 0, sizeof(pdev->bufs.gsc_map));
 
-    force_fb = force_fb || pdev->force_gpu;
+    bool force_fb = pdev->force_gpu;
     for (size_t i = 0; i < NUM_HW_WINDOWS; i++)
         pdev->bufs.overlay_map[i] = -1;
 
@@ -942,8 +942,7 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
     }
 
     if (fimd_contents) {
-        bool force_fb = pdev->hdmi_enabled && !hdmi_contents;
-        int err = exynos5_prepare_fimd(pdev, fimd_contents, force_fb);
+        int err = exynos5_prepare_fimd(pdev, fimd_contents);
         if (err)
             return err;
     }
