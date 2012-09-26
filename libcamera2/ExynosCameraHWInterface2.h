@@ -614,7 +614,7 @@ class MainThread : public SignalDrivenThread {
     void            m_preCaptureListenerSensor(struct camera2_shot_ext * shot_ext);
     void            m_preCaptureListenerISP(struct camera2_shot_ext * shot_ext);
     void            m_updateAfRegion(struct camera2_shot_ext * shot_ext);
-    void            m_afTrigger(struct camera2_shot_ext * shot_ext);
+    void            m_afTrigger(struct camera2_shot_ext * shot_ext, int mode);
     void            m_sceneModeFaceSetter(struct camera2_shot_ext * shot_ext, int mode);
     void               *m_exynosPictureCSC;
     void               *m_exynosVideoCSC;
