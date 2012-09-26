@@ -580,6 +580,7 @@ static void hdmi_disable(struct exynos5_hwc_composer_device_1_t *dev)
 static int hdmi_configure_fblayer(struct exynos5_hwc_composer_device_1_t *dev,
                                   hwc_layer_1_t &layer)
 {
+    int ret = 0;
     exynos_gsc_img src_cfg, dst_cfg;
     memset(&src_cfg, 0, sizeof(src_cfg));
     memset(&dst_cfg, 0, sizeof(dst_cfg));
@@ -593,6 +594,7 @@ static int hdmi_configure_fblayer(struct exynos5_hwc_composer_device_1_t *dev,
     src_cfg.fh = h->vstride;
     src_cfg.format = HAL_PIXEL_FORMAT_BGRA_8888;
     src_cfg.yaddr = h->fd;
+    src_cfg.acquireFenceFd = layer.acquireFenceFd;
 
     dst_cfg.w = dev->hdmi_w;
     dst_cfg.fw = dev->hdmi_w;
@@ -611,23 +613,28 @@ static int hdmi_configure_fblayer(struct exynos5_hwc_composer_device_1_t *dev,
 
         exynos_gsc_stop_exclusive(dev->hdmi_gsc);
 
-        int ret = exynos_gsc_config_exclusive(dev->hdmi_gsc, &src_cfg, &dst_cfg);
+        ret = exynos_gsc_config_exclusive(dev->hdmi_gsc, &src_cfg, &dst_cfg);
         if (ret < 0) {
             ALOGE("%s: exynos_gsc_config_exclusive failed %d", __func__, ret);
-            return ret;
+            goto err;
         }
 
         dev->hdmi_src = src_cfg;
         dev->hdmi_dst = dst_cfg;
     }
 
-    int ret = exynos_gsc_run_exclusive(dev->hdmi_gsc, &src_cfg, NULL);
+    ret = exynos_gsc_run_exclusive(dev->hdmi_gsc, &src_cfg, NULL);
     if (ret < 0) {
         ALOGE("%s: exynos_gsc_run_exclusive failed %d", __func__, ret);
-        return ret;
+        goto err;
     }
 
-    return 0;
+    layer.releaseFenceFd = src_cfg.releaseFenceFd;
+
+err:
+    if (layer.acquireFenceFd >= 0)
+        close(layer.acquireFenceFd);
+    return ret;
 }
 
 bool exynos5_is_offscreen(hwc_layer_1_t &layer,
@@ -1305,20 +1312,14 @@ static int exynos5_set_fimd(exynos5_hwc_composer_device_1_t *pdev,
 static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
         hwc_display_contents_1_t* contents)
 {
-    for (size_t i = 0; i < contents->numHwLayers; i++) {
-        hwc_layer_1_t &layer = contents->hwLayers[i];
-
-        if (layer.acquireFenceFd != -1) {
-            int err = sync_wait(layer.acquireFenceFd, 100);
-            if (err != 0)
-                ALOGW("fence for layer %zu didn't signal in 100 ms: %s",
-                          i, strerror(errno));
-            close(layer.acquireFenceFd);
+    if (!pdev->hdmi_enabled) {
+        for (size_t i = 0; i < contents->numHwLayers; i++) {
+            hwc_layer_1_t &layer = contents->hwLayers[i];
+            if (layer.acquireFenceFd != -1)
+                close(layer.acquireFenceFd);
         }
-    }
-
-    if (!pdev->hdmi_enabled)
         return 0;
+    }
 
     for (size_t i = 0; i < contents->numHwLayers; i++) {
         hwc_layer_1_t &layer = contents->hwLayers[i];
