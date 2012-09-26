@@ -787,17 +787,19 @@ struct camera2_shot_ext {
  enum ae_lockmode ae_lock;
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
  enum awb_lockmode awb_lock;
+ enum aa_awbmode awb_mode_dm;
 };
 struct camera2_stream {
- uint32_t address;
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+ uint32_t address;
  uint32_t fcount;
  uint32_t rcount;
  uint32_t findex;
-};
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+};
 #define CAM_LENS_CMD (0x1 << 0x0)
 #define CAM_SENSOR_CMD (0x1 << 0x1)
 #define CAM_FLASH_CMD (0x1 << 0x2)
-#endif
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+#endif
+

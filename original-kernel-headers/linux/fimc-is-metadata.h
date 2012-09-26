@@ -932,7 +932,8 @@ struct camera2_shot_ext {
     uint8_t     isReprocessing;
     uint8_t     reprocessInput;
     enum ae_lockmode        ae_lock; // this field is used in cameraHAL only
-    enum awb_lockmode        awb_lock; // this field is used in cameraHAL only
+    enum awb_lockmode       awb_lock; // this field is used in cameraHAL only
+    enum aa_awbmode         awb_mode_dm;
 };
 
 /** \brief
