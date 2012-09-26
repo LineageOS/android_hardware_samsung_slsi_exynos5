@@ -152,7 +152,7 @@ static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int usage,
         case HAL_PIXEL_FORMAT_BLOB:
             *stride = w;
             vstride = h;
-            size = w * h;
+            size = w * h * 2;
             break;
         default:
             return -EINVAL;
