@@ -2871,6 +2871,8 @@ void ExynosCameraHWInterface2::m_preCaptureListenerISP(struct camera2_shot_ext *
             else
                 m_ctlInfo.flash.m_flashDecisionResult = true;
             m_ctlInfo.flash.m_flashCnt = IS_FLASH_STATE_ON_DONE;
+            if (m_ctlInfo.flash.m_afFlashDoneFlg)
+                m_IsAfTriggerRequired = true;
         } else {
             if (m_ctlInfo.flash.m_flashTimeOut == 0) {
                 ALOGV("(%s): [Flash] Timeout IS_FLASH_ON, decision is false setting", __FUNCTION__);
@@ -2927,7 +2929,7 @@ void ExynosCameraHWInterface2::m_updateAfRegion(struct camera2_shot_ext * shot_e
             shot_ext->shot.ctl.aa.afRegions[3] = lastAfRegion[3] = 0;
         } else if (!(lastAfRegion[0] == shot_ext->shot.ctl.aa.afRegions[0] && lastAfRegion[1] == shot_ext->shot.ctl.aa.afRegions[1]
                 && lastAfRegion[2] == shot_ext->shot.ctl.aa.afRegions[2] && lastAfRegion[3] == shot_ext->shot.ctl.aa.afRegions[3])) {
-            ALOGD("(%s): AF region changed : triggering", __FUNCTION__);
+            ALOGD("(%s): AF region changed : triggering (%d)", __FUNCTION__, m_afMode);
             shot_ext->shot.ctl.aa.afTrigger = 1;
             shot_ext->shot.ctl.aa.afMode = m_afMode;
             m_afState = HAL_AFSTATE_STARTED;
@@ -2944,7 +2946,7 @@ void ExynosCameraHWInterface2::m_afTrigger(struct camera2_shot_ext * shot_ext)
 {
     if (m_afState == HAL_AFSTATE_SCANNING) {
         ALOGD("(%s): restarting trigger ", __FUNCTION__);
-    } else {
+    } else if (!m_ctlInfo.flash.m_afFlashDoneFlg) {
         if (m_afState != HAL_AFSTATE_NEEDS_COMMAND)
             ALOGD("(%s): wrong trigger state %d", __FUNCTION__, m_afState);
         else
