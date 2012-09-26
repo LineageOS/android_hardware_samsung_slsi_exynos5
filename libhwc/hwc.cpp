@@ -949,10 +949,6 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
     }
 
     if (hdmi_contents) {
-        if (!pdev->hdmi_enabled) {
-            ALOGE("HDMI disabled; can't prepare contents of external display");
-            return -EINVAL;
-        }
         int err = exynos5_prepare_hdmi(pdev, hdmi_contents);
         if (err)
             return err;
@@ -1320,6 +1316,13 @@ static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
                           i, strerror(errno));
             close(layer.acquireFenceFd);
         }
+    }
+
+    if (!pdev->hdmi_enabled)
+        return 0;
+
+    for (size_t i = 0; i < contents->numHwLayers; i++) {
+        hwc_layer_1_t &layer = contents->hwLayers[i];
 
         if (layer.compositionType == HWC_FRAMEBUFFER_TARGET) {
             if (!layer.handle)
@@ -1353,10 +1356,6 @@ static int exynos5_set(struct hwc_composer_device_1 *dev,
     }
 
     if (hdmi_contents) {
-        if (!pdev->hdmi_enabled) {
-            ALOGE("HDMI disabled; can't set contents of external display");
-            return -EINVAL;
-        }
         int err = exynos5_set_hdmi(pdev, hdmi_contents);
         if (err)
             return err;
