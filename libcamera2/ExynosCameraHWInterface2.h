@@ -118,6 +118,8 @@ namespace android {
 #define SUBSTREAM_TYPE_PRVCB        (3)
 #define FLASH_STABLE_WAIT_TIMEOUT        (10)
 
+#define SIG_WAITING_TICK            (5000)
+
 #ifdef EXYNOS_CAMERA_LOG
 #define CAM_LOGV(...) ((void)ALOG(LOG_VERBOSE, LOG_TAG, __VA_ARGS__))
 #define CAM_LOGD(...) ((void)ALOG(LOG_DEBUG, LOG_TAG, __VA_ARGS__))
@@ -219,7 +221,8 @@ typedef enum request_entry_status {
     REGISTERED,
     REQUESTED,
     CAPTURED,
-    METADONE
+    METADONE,
+    COMPLETED
 } request_entry_status_t;
 
 typedef struct request_manager_entry {
@@ -264,11 +267,17 @@ typedef struct ae_control_info {
     enum ae_state    aeStateNoti;
 } ctl_ae_info_t;
 
+typedef struct scene_control_info {
+    // pre-capture notification state
+    enum aa_scene_mode    prevSceneMode;
+} ctl_scene_info_t;
+
 typedef struct request_control_info {
     ctl_flash_info_t flash;
     ctl_awb_info_t awb;
     ctl_ae_info_t ae;
     ctl_af_info_t af;
+    ctl_scene_info_t scene;
 } ctl_request_info_t;
 
 class RequestManager {
@@ -298,14 +307,14 @@ public:
     int     FindEntryIndexByFrameCnt(int frameCnt);
     void    Dump(void);
     int     GetNextIndex(int index);
+    int     GetPrevIndex(int index);
     void    SetDefaultParameters(int cropX);
     void    SetInitialSkip(int count);
     int     GetSkipCnt();
-    void    SetFrameIndex(int index);
-    int    GetFrameIndex();
-    void  pushSensorQ(int index);
-    int popSensorQ();
-    void releaseSensorQ();
+    int     GetCompletedIndex();
+    void    pushSensorQ(int index);
+    int     popSensorQ();
+    void    releaseSensorQ();
 private:
 
     MetadataConverter               *m_metadataConverter;
@@ -325,7 +334,7 @@ private:
 
     int                             m_sensorPipelineSkipCnt;
     int                             m_cropX;
-    int		         m_frameIndex;
+    int                             m_lastCompletedFrameCnt;
     int                             m_lastAeMode;
     int                             m_lastAaMode;
     int                             m_lastAwbMode;
@@ -606,6 +615,7 @@ class MainThread : public SignalDrivenThread {
     void            m_preCaptureListenerISP(struct camera2_shot_ext * shot_ext);
     void            m_updateAfRegion(struct camera2_shot_ext * shot_ext);
     void            m_afTrigger(struct camera2_shot_ext * shot_ext);
+    void            m_sceneModeFaceSetter(struct camera2_shot_ext * shot_ext, int mode);
     void               *m_exynosPictureCSC;
     void               *m_exynosVideoCSC;
 
@@ -654,6 +664,7 @@ class MainThread : public SignalDrivenThread {
 
     mutable Mutex                       m_qbufLock;
 
+    bool                                m_scpForceSuspended;
     int                                 m_afState;
     int                                 m_afTriggerId;
     enum aa_afmode                      m_afMode;
