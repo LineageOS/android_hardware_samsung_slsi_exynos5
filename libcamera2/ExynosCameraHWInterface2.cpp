@@ -2168,6 +2168,8 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
             res = targetStream->detachSubStream(stream_id);
         else
             return 0;
+        if (targetStream->m_numRegisteredStream != 0)
+            return 0;
     } else if (stream_id == STREAM_ID_PRVCB) {
         targetStream = (StreamThread*)(m_streamThreads[0].get());
         if (m_resizeBuf.size.s != 0) {
@@ -2177,6 +2179,8 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         if (targetStream)
             res = targetStream->detachSubStream(stream_id);
         else
+            return 0;
+        if (targetStream->m_numRegisteredStream != 0)
             return 0;
     } else if (stream_id == STREAM_ID_ZSL) {
         targetStream = (StreamThread*)(m_streamThreads[1].get());
