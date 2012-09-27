@@ -647,6 +647,7 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
     shot_ext->dis_bypass = 1;
     shot_ext->dnr_bypass = 1;
     shot_ext->fd_bypass = 1;
+    shot_ext->drc_bypass = 1;
     shot_ext->setfile = 0;
 
     shot_ext->request_scc = 0;
@@ -3433,6 +3434,32 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             if (m_nightCaptureCnt == 0 && (m_ctlInfo.flash.m_flashCnt < IS_FLASH_STATE_CAPTURE)) {
                 m_requestManager->ApplyDynamicMetadata(shot_ext);
             }
+            OnAfNotification(shot_ext->shot.dm.aa.afState);
+            OnPrecaptureMeteringNotificationISP();
+        }   else {
+            shot_ext->shot.ctl.request.frameCount = 0xfffffffe;
+            shot_ext->request_sensor = 1;
+            shot_ext->dis_bypass = 1;
+            shot_ext->dnr_bypass = 1;
+            shot_ext->fd_bypass = 1;
+            shot_ext->drc_bypass = 1;
+            shot_ext->request_scc = 0;
+            shot_ext->request_scp = 0;
+            if (m_wideAspect) {
+                shot_ext->setfile = ISS_SUB_SCENARIO_VIDEO;
+                shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 30;
+                shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
+            } else {
+                shot_ext->setfile = ISS_SUB_SCENARIO_STILL;
+            }
+            shot_ext->shot.ctl.aa.aeflashMode = AA_FLASHMODE_OFF;
+            ALOGV("### isp QBUF start (bubble)");
+            cam_int_qbuf(&(m_camera_info.isp), index);
+            ALOGV("### isp DQBUF start (bubble)");
+            index_isp = cam_int_dqbuf(&(m_camera_info.isp));
+            shot_ext = (struct camera2_shot_ext *)(m_camera_info.isp.buffer[index_isp].virt.extP[1]);
+            if (m_ctlInfo.flash.m_flashEnableFlg)
+                m_preCaptureListenerISP(shot_ext);
             OnAfNotification(shot_ext->shot.dm.aa.afState);
             OnPrecaptureMeteringNotificationISP();
         }
