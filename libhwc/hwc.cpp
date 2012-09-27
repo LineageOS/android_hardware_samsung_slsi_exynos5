@@ -299,6 +299,18 @@ static uint8_t exynos5_format_to_bpp(int format)
     }
 }
 
+static bool is_x_aligned(const hwc_layer_1_t &layer, int format)
+{
+    if (!exynos5_format_is_supported(format))
+        return true;
+
+    uint8_t bpp = exynos5_format_to_bpp(format);
+    uint8_t pixel_alignment = 32 / bpp;
+
+    return (layer.displayFrame.left % pixel_alignment) == 0 &&
+            (layer.displayFrame.right % pixel_alignment) == 0;
+}
+
 static bool exynos5_supports_gscaler(hwc_layer_1_t &layer, int format,
         bool local_path)
 {
@@ -341,7 +353,7 @@ static bool exynos5_supports_gscaler(hwc_layer_1_t &layer, int format,
 static bool exynos5_requires_gscaler(hwc_layer_1_t &layer, int format)
 {
     return exynos5_format_requires_gscaler(format) || is_scaled(layer)
-            || is_transformed(layer);
+            || is_transformed(layer) || !is_x_aligned(layer, format);
 }
 
 int hdmi_get_config(struct exynos5_hwc_composer_device_1_t *dev)
