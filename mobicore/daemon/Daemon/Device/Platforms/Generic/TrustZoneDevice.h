@@ -7,7 +7,7 @@
  * accessing MobiCore located in an TrustZone environment.
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -50,121 +50,92 @@
 
 #define SCHEDULING_FREQ     5   /**< N-SIQ every n-th time */
 
-class TrustZoneDevice : public MobiCoreDevice {
+class TrustZoneDevice : public MobiCoreDevice
+{
 
 protected:
-	bool         schedulerEnabled; /**< NQ IRQ Scheduler enabling */
-	CSemaphore   schedSync; /**< Semaphore to synchronize S-SIQs with scheduler thread */
-	CMcKMod_ptr  pMcKMod; /**< kernel module */
+    bool         schedulerEnabled; /**< NQ IRQ Scheduler enabling */
+    CSemaphore   schedSync; /**< Semaphore to synchronize S-SIQs with scheduler thread */
+    CMcKMod_ptr  pMcKMod; /**< kernel module */
     CWsm_ptr     pWsmMcp; /**< WSM use for MCP */
     CWsm_ptr     mobicoreInDDR;  /**< WSM used for Mobicore binary */
-    bool         mciReused;
 
-	/** Access functions to the MC Linux kernel module
-	 */
-	bool yield(
-	    void
-	);
+    /** Access functions to the MC Linux kernel module
+     */
+    bool yield(void);
 
-	bool nsiq(
-	    void
-	);
+    bool nsiq(void);
 
-	bool waitSsiq(
-	    void
-	);
+    bool waitSsiq(void);
 
 public:
 
-	TrustZoneDevice(
-	    void
-	);
+    TrustZoneDevice(void);
 
-	virtual ~TrustZoneDevice(
-	    void
-	);
+    virtual ~TrustZoneDevice(void);
 
-//	static MobiCoreDevice* getDeviceInstance(
-//		void
-//	);
-	/** Set up MCI and wait till MC is initialized
-	 * 
-	 * @param devFile the device node to speak to.
-	 * @param loadMobiCore
-	 * @param mobicoreImage
-	 * @param enableScheduler
-	 *
-	 * @return true if mobicore is initialized
-	 * @trows ExcDevice
-	 */
-	bool initDevice(
-		const char	*devFile,
-		bool		loadMobiCore,
-		const char  *mobicoreImage,
-		bool		enableScheduler
-	);
-
-	void initDeviceStep2(
-		void
+//  static MobiCoreDevice* getDeviceInstance(
+//      void
+//  );
+    /** Set up MCI and wait till MC is initialized
+     *
+     * @param devFile the device node to speak to.
+     * @param loadMobiCore
+     * @param mobicoreImage
+     * @param enableScheduler
+     *
+     * @return true if mobicore is initialized
+     * @trows ExcDevice
+     */
+    bool initDevice(
+        const char  *devFile,
+        bool        loadMobiCore,
+        const char  *mobicoreImage,
+        bool        enableScheduler
     );
 
-	void notify(
-	    uint32_t sessionId
-	);
-	
-	void dumpMobicoreStatus(
-		void
-	);
-	
-	uint32_t getMobicoreStatus(
-		void
-	);
+    void initDeviceStep2(void);
 
-	bool checkMciVersion(
-	    void
-	);
+    void notify(uint32_t sessionId);
 
-	/** Memory allocation functions
-	 */
-    // TODO xgal: move memory registration from TzDevice to Device class
-	bool getMciInstance(
-        uint32_t  len,
-        CWsm_ptr  *mci,
-        bool	  *reused
-    );
+    void dumpMobicoreStatus(void);
 
-    bool freeWsm(
-        CWsm_ptr  pWsm
-    );
+    uint32_t getMobicoreStatus(void);
 
-    CWsm_ptr registerWsmL2(
-        addr_t    buffer,
-        uint32_t  len,
-        uint32_t  pid
-    );
+    bool checkMciVersion(void);
 
-    bool unregisterWsmL2(
-        CWsm_ptr  pWsm
-    );
+    /** Memory allocation functions */
+    bool getMciInstance(uint32_t len, CWsm_ptr *mci, bool *reused);
+
+    //bool freeWsm(CWsm_ptr pWsm);
+
+    CWsm_ptr registerWsmL2(addr_t buffer, uint32_t len, uint32_t pid);
+
+    bool unregisterWsmL2(CWsm_ptr pWsm);
+
+    bool lockWsmL2(uint32_t handle);
+
+    bool unlockWsmL2(uint32_t handle);
+
+    addr_t findWsmL2(uint32_t handle);
+
+    bool findContiguousWsm(uint32_t handle, addr_t *phys, uint32_t *len);
+
+    /**
+     * Cleanup all orphaned bulk buffers.
+     */
+    bool cleanupWsmL2(void);
 
     /**
      * Allocates persistent WSM memory for TL (won't be fried when TLC exits).
      */
-    CWsm_ptr allocateContiguousPersistentWsm(
-        uint32_t len
-    );
+    CWsm_ptr allocateContiguousPersistentWsm(uint32_t len);
 
-	bool schedulerAvailable(
-	    void
-	);
+    bool schedulerAvailable(void);
 
-	void schedule(
-	    void
-	);
+    void schedule(void);
 
-	void handleIrq(
-	    void
-	);
+    void handleIrq(void);
 };
 
 #endif /* TRUSTZONEDEVICE_H_ */

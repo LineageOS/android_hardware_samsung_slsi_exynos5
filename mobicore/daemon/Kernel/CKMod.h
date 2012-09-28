@@ -5,7 +5,7 @@
  * Kernel Module Interface.
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -34,14 +34,14 @@
 #define CKMOD_H_
 
 #include <stdint.h>
+#include "ClientLib/public/MobiCoreDriverApi.h"
 
-
-#define ERROR_KMOD_NOT_OPEN          ((int)(-1))
 
 /**
  * Base class for accessing a kernel module.
  */
-class CKMod {
+class CKMod
+{
 
 protected:
 
@@ -51,8 +51,8 @@ protected:
      * Helper function to check if connected to kernel module.
      */
     bool isOpen(
-    	void
-	);
+        void
+    );
 
 public:
 
@@ -64,7 +64,7 @@ public:
         void
     );
 
-    bool open(
+    mcResult_t open(
         const char *deviceName
     );
 

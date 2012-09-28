@@ -5,7 +5,7 @@
  * IRQ handler thread.
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -37,13 +37,14 @@
 #include "CThread.h"
 
 
-class DeviceIrqHandler: public CThread {
+class DeviceIrqHandler: public CThread
+{
 
 public:
 
-	virtual void handleIrq() =0;
+    virtual void handleIrq() = 0;
 
-	void run();
+    void run();
 };
 
 #endif /* DEVICEIRQHANDLER_H_ */

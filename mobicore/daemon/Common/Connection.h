@@ -5,7 +5,7 @@
  * Connection data.
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -43,7 +43,8 @@
 #include <sys/un.h>
 
 
-class Connection {
+class Connection
+{
 
 public:
     struct sockaddr_un remote; /**< Remote address */
@@ -77,18 +78,14 @@ public:
     /**
      * Read bytes from the connection.
      *
-     * @param buffer	Pointer to destination buffer.
+     * @param buffer    Pointer to destination buffer.
      * @param len       Number of bytes to read.
      * @param timeout   Timeout in milliseconds
      * @return Number of bytes read.
      * @return -1 if select() failed (returned -1)
      * @return -2 if no data available, i.e. timeout
      */
-    virtual size_t readData(
-        void      *buffer,
-        uint32_t  len,
-        int32_t   timeout
-    );
+    virtual size_t readData(void *buffer, uint32_t len, int32_t timeout);
 
     /**
      * Read bytes from the connection.
@@ -97,27 +94,30 @@ public:
      * @param len       Number of bytes to read.
      * @return Number of bytes read.
      */
-    virtual size_t readData(
-        void      * buffer,
-        uint32_t  len
-    );
+    virtual size_t readData(void *buffer, uint32_t len);
 
     /**
      * Write bytes to the connection.
      *
-     * @param buffer	Pointer to source buffer.
-     * @param len		Number of bytes to read.
+     * @param buffer    Pointer to source buffer.
+     * @param len       Number of bytes to read.
      * @return Number of bytes written.
      * @return -1 if written bytes not equal to len.
      */
-    virtual size_t writeData(
-        void      *buffer,
-        uint32_t  len
-    );
+    virtual size_t writeData(void *buffer, uint32_t len);
+
+    /**
+     * Wait for data to be available.
+     *
+     * @param timeout   Timeout in milliseconds
+     * @return 0 if data is available
+     * @return error code if otherwise
+     */
+    virtual int waitData(int32_t timeout);
 
 };
 
-typedef std::list<Connection*>         connectionList_t;
+typedef std::list<Connection *>         connectionList_t;
 typedef connectionList_t::iterator     connectionIterator_t;
 
 

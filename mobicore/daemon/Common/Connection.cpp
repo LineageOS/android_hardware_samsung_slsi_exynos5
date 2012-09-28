@@ -5,7 +5,7 @@
  * Connection data.
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -42,34 +42,30 @@
 
 
 //------------------------------------------------------------------------------
-Connection::Connection(
-    void
-) {
-	connectionData = NULL;
-	// Set invalid socketDescriptor
-	socketDescriptor = -1;
+Connection::Connection(void)
+{
+    connectionData = NULL;
+    // Set invalid socketDescriptor
+    socketDescriptor = -1;
 }
 
 
 //------------------------------------------------------------------------------
-Connection::Connection(
-    int           socketDescriptor,
-    sockaddr_un   *remote
-) {
-	assert(NULL != remote);
-	assert(-1 != socketDescriptor);
+Connection::Connection(int socketDescriptor, sockaddr_un *remote)
+{
+    assert(NULL != remote);
+    assert(-1 != socketDescriptor);
 
-	this->socketDescriptor = socketDescriptor;
-	this->remote = *remote;
-	connectionData = NULL;
+    this->socketDescriptor = socketDescriptor;
+    this->remote = *remote;
+    connectionData = NULL;
 }
 
 
 //------------------------------------------------------------------------------
-Connection::~Connection(
-    void
-) {
-	LOG_V(" closing Connection...");
+Connection::~Connection(void)
+{
+    LOG_V(" closing Connection...");
     if (socketDescriptor != -1)
         close(socketDescriptor);
     LOG_I(" Socket connection closed.");
@@ -77,132 +73,138 @@ Connection::~Connection(
 
 
 //------------------------------------------------------------------------------
-bool Connection::connect(
-    const char *dest
-) {
-	bool ret = false;
-	int32_t len;
+bool Connection::connect(const char *dest)
+{
+    int32_t len;
 
-	assert(NULL != dest);
+    assert(NULL != dest);
 
-	LOG_I(" Connecting to %s socket", dest);
-	do {
-		remote.sun_family = AF_UNIX;
-		strncpy(remote.sun_path, dest, sizeof(remote.sun_path) - 1);
-		if ((socketDescriptor = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-            LOG_ERRNO("Can't open stream socket.");
-			break;
-		}
-		len = strlen(remote.sun_path) + sizeof(remote.sun_family);
-		// The Daemon socket is in the Abstract Domain(LINUX ONLY!)
-		remote.sun_path[0] = 0;
-		if (::connect(socketDescriptor, (struct sockaddr *) &remote, len) < 0) {
-		    LOG_ERRNO("connect()");
-			break;
-		}
-		ret = true;
-	} while (false);
-
-	return ret;
+    LOG_I(" Connecting to %s socket", dest);
+    remote.sun_family = AF_UNIX;
+    strncpy(remote.sun_path, dest, sizeof(remote.sun_path) - 1);
+    if ((socketDescriptor = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+        LOG_ERRNO("Can't open stream socket.");
+        return false;
+    }
+    len = strlen(remote.sun_path) + sizeof(remote.sun_family);
+    // The Daemon socket is in the Abstract Domain(LINUX ONLY!)
+    remote.sun_path[0] = 0;
+    if (::connect(socketDescriptor, (struct sockaddr *) &remote, len) < 0) {
+        LOG_ERRNO("connect()");
+        return false;
+    }
+    return true;
 }
 
 
 //------------------------------------------------------------------------------
-size_t Connection::readData(
-    void *buffer,
-    uint32_t len
-) {
+size_t Connection::readData(void *buffer, uint32_t len)
+{
     return readData(buffer, len, -1);
 }
 
 
 //------------------------------------------------------------------------------
-size_t Connection::readData(
-    void      *buffer,
-    uint32_t  len,
-    int32_t   timeout
-) {
-	size_t ret;
-	struct timeval tv;
-	struct timeval *ptv = NULL;
+size_t Connection::readData(void *buffer, uint32_t len, int32_t timeout)
+{
+    size_t ret = 0;
+    struct timeval tv;
+    struct timeval *ptv = NULL;
     fd_set readfds;
 
     assert(NULL != buffer);
-	assert(-1 != socketDescriptor);
+    assert(socketDescriptor != -1);
 
-    do{
+    if (timeout >= 0) {
+        // Calculate timeout value
+        tv.tv_sec = timeout / 1000;
+        tv.tv_usec = (timeout - (tv.tv_sec * 1000)) * 1000;
+        ptv = &tv;
+    }
 
-        if(timeout >= 0){
-            // Calculate timeout value
-            tv.tv_sec = timeout/1000;
-            tv.tv_usec = (timeout - (tv.tv_sec * 1000)) * 1000;
-            ptv = &tv;
-        }
+    FD_ZERO(&readfds);
+    FD_SET(socketDescriptor, &readfds);
+    ret = select(socketDescriptor + 1, &readfds, NULL, NULL, ptv);
 
-        FD_ZERO(&readfds);
-        FD_SET(socketDescriptor, &readfds);
-        ret = select(socketDescriptor + 1, &readfds, NULL, NULL, ptv);
+    // check for read error
+    if ((int)ret == -1) {
+        LOG_ERRNO("select");
+        return -1;
+    }
 
-        // check for read error
-        if (-1 == (int)ret) {
-            LOG_ERRNO("select");
-            break;
-        }
+    // Handle case of no descriptor ready
+    if (0 == ret) {
+        LOG_W(" Timeout during select() / No more notifications.");
+        return -2;
+    }
 
-        // Handle case of no descriptor ready
-        if (0 == ret) {
-            LOG_W(" Timeout during select() / No more notifications.");
-            ret = -2;
-            break;
-        }
+    // one or more descriptors are ready
 
-        // one or more descriptors are ready 
+    // finally check if fd has been selected -> must socketDescriptor
+    if (!FD_ISSET(socketDescriptor, &readfds)) {
+        LOG_ERRNO("no fd is set, select");
+        return ret;
+    }
 
-        // finally check if fd has been selected -> must socketDescriptor
-        if (!FD_ISSET(socketDescriptor, &readfds))
-        {
-            LOG_ERRNO("no fd is set, select");
-            break;
-        }
+    ret = recv(socketDescriptor, buffer, len, MSG_DONTWAIT);
+    if (ret == 0) {
+        LOG_V(" readData(): peer orderly closed connection.");
+    }
 
-        ret = recv(socketDescriptor, buffer, len, MSG_WAITALL);
-        if(0 == ret)
-        {
-            LOG_V(" readData(): peer orderly closed connection.");
-            break;
-        }
-//        if (ret != len)
-//        {
-//            LOG_ERRNO("could not receive all requested data because read");
-//            LOG_E("ret = %d", ret);
-//            ret = -1;
-//        }
-
-    }while(false);
-
-	return ret;
+    return ret;
 }
 
 
 //------------------------------------------------------------------------------
-size_t Connection::writeData(
-    void *buffer,
-    uint32_t len
-) {
-	size_t ret;
+size_t Connection::writeData(void *buffer, uint32_t len)
+{
+    size_t ret;
 
-	assert(NULL != buffer);
-	assert(-1 != socketDescriptor);
+    assert(NULL != buffer);
+    assert(-1 != socketDescriptor);
 
     ret = send(socketDescriptor, buffer, len, 0);
-    if (ret != len)
-    {
+    if (ret != len) {
         LOG_ERRNO("could not send all data, because send");
         LOG_E("ret = %d", ret);
         ret = -1;
     }
 
     return ret;
+}
+
+
+//------------------------------------------------------------------------------
+int Connection::waitData(int32_t timeout)
+{
+    size_t ret;
+    struct timeval tv;
+    struct timeval *ptv = NULL;
+    fd_set readfds;
+
+    assert(socketDescriptor != -1);
+
+    if (timeout >= 0) {
+        // Calculate timeout value
+        tv.tv_sec = timeout / 1000;
+        tv.tv_usec = (timeout - (tv.tv_sec * 1000)) * 1000;
+        ptv = &tv;
+    }
+
+    FD_ZERO(&readfds);
+    FD_SET(socketDescriptor, &readfds);
+    ret = select(socketDescriptor + 1, &readfds, NULL, NULL, ptv);
+
+    // check for read error
+    if ((int)ret == -1) {
+        LOG_ERRNO("select");
+        return ret;
+    } else if (ret == 0) {
+        LOG_E("select() timed out");
+        return -1;
+    }
+
+    return 0;
 }
 
 /** @} */

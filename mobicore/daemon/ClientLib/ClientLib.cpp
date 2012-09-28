@@ -51,27 +51,29 @@
 
 #include "log.h"
 
+#include "Mci/mcimcp.h"
+
 MC_CHECK_VERSION(DAEMON, 0, 2);
 
 /** Notification data structure. */
 typedef struct {
-	uint32_t sessionId; /**< Session ID. */
-	int32_t payload; /**< Additional notification information. */
+    uint32_t sessionId; /**< Session ID. */
+    int32_t payload; /**< Additional notification information. */
 } notification_t;
 
 using namespace std;
 
-list<Device*> devices;
+list<Device *> devices;
 
 // Forward declarations.
-uint32_t getDaemonVersion(Connection* devCon);
+uint32_t getDaemonVersion(Connection *devCon, uint32_t *version);
 
 CMutex devMutex;
 //------------------------------------------------------------------------------
 Device *resolveDeviceId(uint32_t deviceId)
 {
-    for (list<Device*>::iterator iterator = devices.begin();
-         iterator != devices.end(); ++iterator) {
+    for (list<Device *>::iterator iterator = devices.begin();
+            iterator != devices.end(); ++iterator) {
         Device  *device = (*iterator);
 
         if (device->deviceId == deviceId) {
@@ -92,10 +94,9 @@ void addDevice(Device *device)
 //------------------------------------------------------------------------------
 bool removeDevice(uint32_t deviceId)
 {
-    for (list<Device*>::iterator iterator = devices.begin();
-         iterator != devices.end();
-         ++iterator)
-    {
+    for (list<Device *>::iterator iterator = devices.begin();
+            iterator != devices.end();
+            ++iterator) {
         Device  *device = (*iterator);
 
         if (device->deviceId == deviceId) {
@@ -124,7 +125,7 @@ bool removeDevice(uint32_t deviceId)
     if (NULL == X) \
     { \
         LOG_E("Parameter \""#X "\" is NULL"); \
-        mcResult = MC_DRV_ERR_INVALID_PARAMETER; \
+        mcResult = MC_DRV_ERR_NULL_POINTER; \
         break; \
     }
 
@@ -146,20 +147,25 @@ bool removeDevice(uint32_t deviceId)
     }; \
     int ret = CONNECTION->writeData(&x, sizeof x); \
     if(ret < 0) { \
-        LOG_E("%s sending to Daemon failed.",__FUNCTION__); \
-        mcResult = MC_DRV_ERR_DAEMON_UNREACHABLE; \
+        LOG_E("sending to Daemon failed."); \
+        mcResult = MC_DRV_ERR_SOCKET_WRITE; \
         break; \
     } \
 }
+
 #define RECV_FROM_DAEMON(CONNECTION, RSP_STRUCT) \
 { \
-    int ret = CONNECTION->readData( \
+    int rlen = CONNECTION->readData( \
             RSP_STRUCT, \
             sizeof(*RSP_STRUCT)); \
-    if (ret < 0) \
-    { \
-        LOG_E("%s(): reading from Daemon failed", __FUNCTION__); \
-        mcResult = MC_DRV_ERR_DAEMON_UNREACHABLE; \
+    if (rlen <= 0) { \
+        LOG_E("reading from Daemon failed"); \
+        mcResult = MC_DRV_ERR_SOCKET_READ; \
+        break; \
+    } \
+    if (rlen != sizeof(*RSP_STRUCT) && rlen != sizeof(mcDrvResponseHeader_t)) {\
+        LOG_E("wrong buffer length %i received from Daemon", rlen); \
+        mcResult = MC_DRV_ERR_SOCKET_LENGTH; \
         break; \
     } \
 }
@@ -178,22 +184,31 @@ __MC_CLIENT_LIB_API mcResult_t mcOpenDevice(uint32_t deviceId)
         Device *device = resolveDeviceId(deviceId);
         if (device != NULL) {
             LOG_E("Device %d already opened", deviceId);
-            mcResult = MC_DRV_ERR_INVALID_OPERATION;
+            mcResult = MC_DRV_ERR_DEVICE_ALREADY_OPEN;
             break;
         }
 
+        // Handle SIGPIPE inside write()
+        //  If Daemon crashes and ClientLib writes to named socket,
+        //  a sigpipe is send to ClientLib/TLC and kills it.
+        signal(SIGPIPE, SIG_IGN);
+
         // Open new connection to device
         devCon = new Connection();
-        if (!devCon->connect(SOCK_PATH))
-        {
+        if (!devCon->connect(SOCK_PATH)) {
             LOG_W(" Could not connect to %s socket", SOCK_PATH);
-            mcResult = MC_DRV_ERR_DAEMON_UNREACHABLE;
+            mcResult = MC_DRV_ERR_SOCKET_CONNECT;
             break;
         }
 
         // Runtime check of Daemon version.
-        char* errmsg;
-        if (!checkVersionOkDAEMON(getDaemonVersion(devCon), &errmsg)) {
+        char *errmsg;
+        uint32_t version = 0;
+        mcResult = getDaemonVersion(devCon, &version);
+        if(mcResult != MC_DRV_OK) {
+            break;
+        }
+        if (!checkVersionOkDAEMON(version, &errmsg)) {
             LOG_E("%s", errmsg);
             mcResult = MC_DRV_ERR_DAEMON_VERSION;
             break;
@@ -203,35 +218,22 @@ __MC_CLIENT_LIB_API mcResult_t mcOpenDevice(uint32_t deviceId)
         // Forward device open to the daemon and read result
         SEND_TO_DAEMON(devCon, MC_DRV_CMD_OPEN_DEVICE, deviceId);
 
-        uint32_t  responseId;
-        RECV_FROM_DAEMON(devCon, &responseId);
+        RECV_FROM_DAEMON(devCon, &mcResult);
 
-        if (responseId != MC_DRV_RSP_OK) {
-            LOG_W(" %s(): Request at Daemon failed, respId=%d ", __FUNCTION__, responseId);
-            switch(responseId) {
-            case MC_DRV_RSP_PAYLOAD_LENGTH_ERROR:
-                mcResult = MC_DRV_ERR_DAEMON_UNREACHABLE;
-                break;
-            case MC_DRV_INVALID_DEVICE_NAME:
-                mcResult = MC_DRV_ERR_UNKNOWN_DEVICE;
-                break;
-            case MC_DRV_RSP_DEVICE_ALREADY_OPENED:
-            default:
-                mcResult = MC_DRV_ERR_INVALID_OPERATION;
-                break;
-            }
+        if (mcResult != MC_DRV_OK) {
+            LOG_W(" %s(): Request at Daemon failed, respId=%x ", __FUNCTION__, mcResult);
             break;
         }
 
         // there is no payload to read
 
         device = new Device(deviceId, devCon);
-        if (!device->open("/dev/" MC_USER_DEVNODE)) {
+        mcResult = device->open("/dev/" MC_USER_DEVNODE);
+        if (mcResult != MC_DRV_OK) {
             delete device;
             // devCon is freed in the Device destructor
             devCon = NULL;
-            LOG_E("mcOpenDevice(): could not open device file: /dev/%s", MC_USER_DEVNODE);
-            mcResult = MC_DRV_ERR_INVALID_DEVICE_FILE;
+            LOG_E("Could not open device file: /dev/%s", MC_USER_DEVNODE);
             break;
         }
 
@@ -255,7 +257,8 @@ __MC_CLIENT_LIB_API mcResult_t mcOpenDevice(uint32_t deviceId)
 //------------------------------------------------------------------------------
 __MC_CLIENT_LIB_API mcResult_t mcCloseDevice(
     uint32_t deviceId
-) {
+)
+{
     mcResult_t mcResult = MC_DRV_OK;
     devMutex.lock();
     LOG_I("===%s(%i)===", __FUNCTION__, deviceId);
@@ -266,6 +269,7 @@ __MC_CLIENT_LIB_API mcResult_t mcCloseDevice(
         Connection *devCon = device->connection;
 
         // Return if not all sessions have been closed
+        // TODO-2012-08-31-haenellu: improve check, if device connection is dead, this makes no more sense.
         if (device->hasSessions()) {
             LOG_E("Trying to close device while sessions are still pending.");
             mcResult = MC_DRV_ERR_SESSION_PENDING;
@@ -274,12 +278,10 @@ __MC_CLIENT_LIB_API mcResult_t mcCloseDevice(
 
         SEND_TO_DAEMON(devCon, MC_DRV_CMD_CLOSE_DEVICE);
 
-        uint32_t responseId;
-        RECV_FROM_DAEMON(devCon, &responseId);
+        RECV_FROM_DAEMON(devCon, &mcResult);
 
-        if (responseId != MC_DRV_RSP_OK) {
-            LOG_E("mcCloseDevice(): CMD_CLOSE_DEVICE failed, respId=%d", responseId);
-            mcResult = MC_DRV_ERR_DAEMON_UNREACHABLE;
+        if (mcResult != MC_DRV_OK) {
+            LOG_W(" %s(): Request at Daemon failed, respId=%d ", __FUNCTION__, mcResult);
             break;
         }
 
@@ -298,7 +300,8 @@ __MC_CLIENT_LIB_API mcResult_t mcOpenSession(
     const mcUuid_t     *uuid,
     uint8_t            *tci,
     uint32_t           len
-) {
+)
+{
     mcResult_t mcResult = MC_DRV_OK;
 
     devMutex.lock();
@@ -309,10 +312,9 @@ __MC_CLIENT_LIB_API mcResult_t mcOpenSession(
         CHECK_NOT_NULL(uuid);
         CHECK_NOT_NULL(tci);
 
-        if (len > MC_MAX_TCI_LEN)
-        {
+        if (len > MC_MAX_TCI_LEN) {
             LOG_E("TCI length is longer than %d", MC_MAX_TCI_LEN);
-            mcResult = MC_DRV_ERR_INVALID_PARAMETER;
+            mcResult = MC_DRV_ERR_TCI_TOO_BIG;
             break;
         }
 
@@ -324,68 +326,70 @@ __MC_CLIENT_LIB_API mcResult_t mcOpenSession(
 
         // Get the physical address of the given TCI
         CWsm_ptr pWsm = device->findContiguousWsm(tci);
-        if (NULL == pWsm)
-        {
-            LOG_E("mcOpenSession(): Could not resolve physical address of TCI");
-            mcResult = MC_DRV_ERR_INVALID_PARAMETER;
+        if (pWsm == NULL) {
+            LOG_E("Could not resolve physical address of TCI");
+            mcResult = MC_DRV_ERR_WSM_NOT_FOUND;
             break;
         }
 
         if (pWsm->len < len) {
             LOG_E("mcOpenSession(): length is more than allocated TCI");
-            mcResult = MC_DRV_ERR_INVALID_PARAMETER;
+            mcResult = MC_DRV_ERR_TCI_GREATER_THAN_WSM;
             break;
         }
 
         SEND_TO_DAEMON(devCon, MC_DRV_CMD_OPEN_SESSION,
-                        session->deviceId,
-                        *uuid,
-                        (uint32_t)pWsm->physAddr,
-                        len);
+                       session->deviceId,
+                       *uuid,
+                       (uint32_t)0,
+                       (uint32_t)pWsm->handle,
+                       len);
 
         // Read command response
-        uint32_t  responseId;
-        RECV_FROM_DAEMON(devCon, &responseId);
+        RECV_FROM_DAEMON(devCon, &mcResult);
 
-        if (responseId != MC_DRV_RSP_OK) {
-            LOG_E("Daemon reported failing of OPEN SESSION command, responseId %d.", responseId);
-            switch(responseId)
-            {
-            case MC_DRV_RSP_WRONG_PUBLIC_KEY:
-                mcResult = MC_DRV_ERR_WRONG_PUBLIC_KEY;
-                break;
-            case MC_DRV_RSP_CONTAINER_TYPE_MISMATCH:
-                mcResult = MC_DRV_ERR_CONTAINER_TYPE_MISMATCH;
-                break;
-            case MC_DRV_RSP_CONTAINER_LOCKED:
-                mcResult = MC_DRV_ERR_CONTAINER_LOCKED;
-                break;
-            case MC_DRV_RSP_SP_NO_CHILD:
-                mcResult = MC_DRV_ERR_SP_NO_CHILD;
-                break;
-            case MC_DRV_RSP_TL_NO_CHILD:
-                mcResult = MC_DRV_ERR_TL_NO_CHILD;
-                break;
-            case MC_DRV_RSP_UNWRAP_ROOT_FAILED:
-                mcResult = MC_DRV_ERR_UNWRAP_ROOT_FAILED;
-                break;
-            case MC_DRV_RSP_UNWRAP_SP_FAILED:
-                mcResult = MC_DRV_ERR_UNWRAP_SP_FAILED;
-                break;
-            case MC_DRV_RSP_UNWRAP_TRUSTLET_FAILED:
-                mcResult = MC_DRV_ERR_UNWRAP_TRUSTLET_FAILED;
-                break;
-            case MC_DRV_RSP_TRUSTLET_NOT_FOUND:
-                mcResult = MC_DRV_ERR_INVALID_DEVICE_FILE;
-            break;
-            case MC_DRV_RSP_PAYLOAD_LENGTH_ERROR:
-            case MC_DRV_RSP_DEVICE_NOT_OPENED:
-            case MC_DRV_RSP_FAILED:
-            default:
-                mcResult = MC_DRV_ERR_DAEMON_UNREACHABLE;
+        if (mcResult != MC_DRV_OK) {
+            // TODO-2012-09-06-haenellu: Remove this code once tests can handle it
+
+            if (MC_DRV_ERROR_MAJOR(mcResult) != MC_DRV_ERR_MCP_ERROR) {
+                LOG_E("Daemon could not open session, responseId %d.", mcResult);
+            } else {
+                uint32_t mcpResult = MC_DRV_ERROR_MCP(mcResult);
+                LOG_E("MobiCore reported failing of MC_MCP_CMD_OPEN_SESSION command, mcpResult %d.", mcpResult);
+
+                // IMPROVEMENT-2012-09-03-haenellu: Remove this switch case and use MCP code in tests.
+                switch (mcpResult) {
+                case MC_MCP_RET_ERR_WRONG_PUBLIC_KEY:
+                    mcResult = MC_DRV_ERR_WRONG_PUBLIC_KEY;
+                    break;
+                case MC_MCP_RET_ERR_CONTAINER_TYPE_MISMATCH:
+                    mcResult = MC_DRV_ERR_CONTAINER_TYPE_MISMATCH;
+                    break;
+                case MC_MCP_RET_ERR_CONTAINER_LOCKED:
+                    mcResult = MC_DRV_ERR_CONTAINER_LOCKED;
+                    break;
+                case MC_MCP_RET_ERR_SP_NO_CHILD:
+                    mcResult = MC_DRV_ERR_SP_NO_CHILD;
+                    break;
+                case MC_MCP_RET_ERR_TL_NO_CHILD:
+                    mcResult = MC_DRV_ERR_TL_NO_CHILD;
+                    break;
+                case MC_MCP_RET_ERR_UNWRAP_ROOT_FAILED:
+                    mcResult = MC_DRV_ERR_UNWRAP_ROOT_FAILED;
+                    break;
+                case MC_MCP_RET_ERR_UNWRAP_SP_FAILED:
+                    mcResult = MC_DRV_ERR_UNWRAP_SP_FAILED;
+                    break;
+                case MC_MCP_RET_ERR_UNWRAP_TRUSTLET_FAILED:
+                    mcResult = MC_DRV_ERR_UNWRAP_TRUSTLET_FAILED;
+                    break;
+                default:
+                    // TODO-2012-09-06-haenellu: Remove line and adapt codes in tests.
+                    mcResult = MC_DRV_ERR_MCP_ERROR;
+                    break;
+                }
             }
-
-            break;
+            break; // loading of Trustlet failed, unlock mutex and return
         }
 
         // read payload
@@ -399,35 +403,35 @@ __MC_CLIENT_LIB_API mcResult_t mcOpenSession(
 
         // Set up second channel for notifications
         Connection *sessionConnection = new Connection();
-        if (!sessionConnection->connect(SOCK_PATH))
-        {
-            LOG_E("mcOpenSession(): Could not connect to %s", SOCK_PATH);
+        if (!sessionConnection->connect(SOCK_PATH)) {
+            LOG_E("Could not connect to %s", SOCK_PATH);
             delete sessionConnection;
-            mcResult = MC_DRV_ERR_DAEMON_UNREACHABLE;
+            // Here we know we couldn't connect to the Daemon.
+            // Maybe we should use existing connection to close Trustlet.
+            mcResult = MC_DRV_ERR_SOCKET_CONNECT;
             break;
         }
 
         do {
             SEND_TO_DAEMON(sessionConnection, MC_DRV_CMD_NQ_CONNECT,
-                                session->deviceId,
-                                session->sessionId,
-                                rspOpenSessionPayload.deviceSessionId,
-                                rspOpenSessionPayload.sessionMagic);
+                           session->deviceId,
+                           session->sessionId,
+                           rspOpenSessionPayload.deviceSessionId,
+                           rspOpenSessionPayload.sessionMagic);
 
-            uint32_t  responseId;
-            RECV_FROM_DAEMON(sessionConnection, &responseId);
+            RECV_FROM_DAEMON(sessionConnection, &mcResult);
 
-            if (MC_DRV_RSP_OK != responseId)
-            {
-                LOG_E("mcOpenSession(): CMD_NQ_CONNECT failed, respId=%d", responseId);
-                mcResult = MC_DRV_ERR_NQ_FAILED;
+            if (mcResult != MC_DRV_OK) {
+                LOG_E("CMD_NQ_CONNECT failed, respId=%d", mcResult);
                 break;
             }
 
         } while (0);
-        if (MC_DRV_OK != mcResult) {
+        if (mcResult != MC_DRV_OK) {
             delete sessionConnection;
-            break;
+            // Here we know we couldn't communicate well with the Daemon.
+            // Maybe we should use existing connection to close Trustlet.
+            break; // unlock mutex and return
         }
 
         // there is no payload.
@@ -438,6 +442,13 @@ __MC_CLIENT_LIB_API mcResult_t mcOpenSession(
         LOG_I(" Successfully opened session %d.", session->sessionId);
 
     } while (false);
+
+// TODO: enable as soon as there are more error codes
+//    if (mcResult == MC_DRV_ERR_SOCKET_WRITE || mcResult == MC_DRV_ERR_SOCKET_READ) {
+//        LOG_E("Connection is dead, removing device.");
+//        removeDevice(session->deviceId);
+//    }
+
     devMutex.unlock();
 
     return mcResult;
@@ -451,8 +462,7 @@ __MC_CLIENT_LIB_API mcResult_t mcCloseSession(mcSessionHandle_t *session)
 
     LOG_I("===%s()===", __FUNCTION__);
     devMutex.lock();
-    do
-    {
+    do {
         CHECK_NOT_NULL(session);
         LOG_I(" Closing session %d.", session->sessionId);
 
@@ -467,22 +477,25 @@ __MC_CLIENT_LIB_API mcResult_t mcCloseSession(mcSessionHandle_t *session)
 
         SEND_TO_DAEMON(devCon, MC_DRV_CMD_CLOSE_SESSION, session->sessionId);
 
-        uint32_t responseId;
-        RECV_FROM_DAEMON(devCon, &responseId);
+        RECV_FROM_DAEMON(devCon, &mcResult);
 
-        if (MC_DRV_RSP_OK != responseId)
-        {
-            LOG_E("mcCloseSession(): CMD_CLOSE_SESSION failed, respId=%d", responseId);
-            // TODO-2012-08-03-haenellu: Think about better error codes here.
+        if (mcResult != MC_DRV_OK) {
+            LOG_E("CMD_CLOSE_SESSION failed, respId=%d", mcResult);
+            // TODO-2012-08-03-haenellu: Remove once tests can handle it.
             mcResult = MC_DRV_ERR_UNKNOWN_DEVICE;
             break;
         }
 
         bool r = device->removeSession(session->sessionId);
         assert(r == true);
-        mcResult = MC_DRV_OK;
 
     } while (false);
+
+    if (mcResult == MC_DRV_ERR_SOCKET_WRITE || mcResult == MC_DRV_ERR_SOCKET_READ) {
+        LOG_E("Connection is dead, removing device.");
+        removeDevice(session->deviceId);
+    }
+
     devMutex.unlock();
 
     return mcResult;
@@ -491,8 +504,9 @@ __MC_CLIENT_LIB_API mcResult_t mcCloseSession(mcSessionHandle_t *session)
 
 //------------------------------------------------------------------------------
 __MC_CLIENT_LIB_API mcResult_t mcNotify(
-    mcSessionHandle_t	*session
-) {
+    mcSessionHandle_t   *session
+)
+{
     mcResult_t mcResult = MC_DRV_OK;
     devMutex.lock();
     LOG_I("===%s()===", __FUNCTION__);
@@ -511,7 +525,12 @@ __MC_CLIENT_LIB_API mcResult_t mcNotify(
 
         SEND_TO_DAEMON(devCon, MC_DRV_CMD_NOTIFY, session->sessionId);
         // Daemon will not return a response
-    } while(false);
+    } while (false);
+
+    if (mcResult == MC_DRV_ERR_SOCKET_WRITE) {
+        LOG_E("Connection is dead, removing device.");
+        removeDevice(session->deviceId);
+    }
 
     devMutex.unlock();
     return mcResult;
@@ -522,14 +541,14 @@ __MC_CLIENT_LIB_API mcResult_t mcNotify(
 __MC_CLIENT_LIB_API mcResult_t mcWaitNotification(
     mcSessionHandle_t  *session,
     int32_t            timeout
-) {
+)
+{
     mcResult_t mcResult = MC_DRV_OK;
 
     devMutex.lock();
     LOG_I("===%s()===", __FUNCTION__);
 
-    do
-    {
+    do {
         CHECK_NOT_NULL(session);
         LOG_I(" Waiting for notification of session %d.", session->sessionId);
 
@@ -539,22 +558,27 @@ __MC_CLIENT_LIB_API mcResult_t mcWaitNotification(
         Session  *nqSession = device->resolveSessionId(session->sessionId);
         CHECK_SESSION(nqSession, session->sessionId);
 
-        Connection * nqconnection = nqSession->notificationConnection;
+        Connection *nqconnection = nqSession->notificationConnection;
         uint32_t count = 0;
 
         // Read notification queue till it's empty
-        for(;;)
-        {
+        for (;;) {
             notification_t notification;
             ssize_t numRead = nqconnection->readData(
-                                        &notification,
-                                        sizeof(notification_t),
-                                        timeout);
+                                  &notification,
+                                  sizeof(notification_t),
+                                  timeout);
             //Exit on timeout in first run
             //Later runs have timeout set to 0. -2 means, there is no more data.
             if (count == 0 && numRead == -2 ) {
                 LOG_W("Timeout hit at %s", __FUNCTION__);
                 mcResult = MC_DRV_ERR_TIMEOUT;
+                break;
+            }
+            if (count == 0 && numRead == 0 ) {
+                LOG_E("Connection is dead, removing device.");
+                removeDevice(session->deviceId);
+                mcResult = MC_DRV_ERR_NOTIFICATION;
                 break;
             }
             // After first notification the queue will be drained, Thus we set
@@ -565,7 +589,7 @@ __MC_CLIENT_LIB_API mcResult_t mcWaitNotification(
                 if (count == 0) {
                     //failure in first read, notify it
                     mcResult = MC_DRV_ERR_NOTIFICATION;
-                    LOG_E("mcWaitNotification(): read notification failed, %i bytes received", (int)numRead);
+                    LOG_E("read notification failed, %i bytes received", (int)numRead);
                     break;
                 } else {
                     // Read of the n-th notification failed/timeout. We don't tell the
@@ -577,7 +601,7 @@ __MC_CLIENT_LIB_API mcResult_t mcWaitNotification(
 
             count++;
             LOG_I(" Received notification %d for session %d, payload=%d",
-                   count, notification.sessionId, notification.payload);
+                  count, notification.sessionId, notification.payload);
 
             if (notification.payload != 0) {
                 // Session end point died -> store exit code
@@ -597,11 +621,11 @@ __MC_CLIENT_LIB_API mcResult_t mcWaitNotification(
 
 //------------------------------------------------------------------------------
 __MC_CLIENT_LIB_API mcResult_t mcMallocWsm(
-    uint32_t	deviceId,
-    uint32_t	align,
-    uint32_t	len,
-    uint8_t		**wsm,
-    uint32_t	wsmFlags)
+    uint32_t    deviceId,
+    uint32_t    align,
+    uint32_t    len,
+    uint8_t     **wsm,
+    uint32_t    wsmFlags)
 {
     mcResult_t mcResult = MC_DRV_ERR_UNKNOWN;
 
@@ -615,14 +639,14 @@ __MC_CLIENT_LIB_API mcResult_t mcMallocWsm(
 
         CHECK_NOT_NULL(wsm);
 
-        CWsm_ptr pWsm =  device->allocateContiguousWsm(len);
-        if (pWsm == NULL) {
+        CWsm_ptr pWsm;
+        mcResult = device->allocateContiguousWsm(len, &pWsm);
+        if (mcResult != MC_DRV_OK) {
             LOG_W(" Allocation of WSM failed");
-            mcResult = MC_DRV_ERR_NO_FREE_MEMORY;
             break;
         }
 
-        *wsm = (uint8_t*)pWsm->virtAddr;
+        *wsm = (uint8_t *)pWsm->virtAddr;
         mcResult = MC_DRV_OK;
 
     } while (false);
@@ -635,9 +659,10 @@ __MC_CLIENT_LIB_API mcResult_t mcMallocWsm(
 
 //------------------------------------------------------------------------------
 __MC_CLIENT_LIB_API mcResult_t mcFreeWsm(
-    uint32_t	deviceId,
-    uint8_t		*wsm
-) {
+    uint32_t    deviceId,
+    uint8_t     *wsm
+)
+{
     mcResult_t mcResult = MC_DRV_ERR_UNKNOWN;
     Device *device;
 
@@ -653,18 +678,16 @@ __MC_CLIENT_LIB_API mcResult_t mcFreeWsm(
 
         // find WSM object
         CWsm_ptr pWsm = device->findContiguousWsm(wsm);
-        if (NULL == pWsm)
-        {
+        if (pWsm == NULL) {
             LOG_E("address is unknown to mcFreeWsm");
-            mcResult = MC_DRV_ERR_INVALID_PARAMETER;
+            mcResult = MC_DRV_ERR_WSM_NOT_FOUND;
             break;
         }
 
         // Free the given virtual address
-        if (!device->freeContiguousWsm(pWsm))
-        {
-            LOG_E("mcFreeWsm(): Free of virtual address failed");
-            mcResult = MC_DRV_ERR_FREE_MEMORY_FAILED;
+        mcResult = device->freeContiguousWsm(pWsm);
+        if (mcResult != MC_DRV_OK) {
+            LOG_E("Free of virtual address failed");
             break;
         }
         mcResult = MC_DRV_OK;
@@ -682,7 +705,8 @@ __MC_CLIENT_LIB_API mcResult_t mcMap(
     void               *buf,
     uint32_t           bufLen,
     mcBulkMap_t        *mapInfo
-) {
+)
+{
     mcResult_t mcResult = MC_DRV_ERR_UNKNOWN;
     static CMutex mutex;
 
@@ -696,47 +720,45 @@ __MC_CLIENT_LIB_API mcResult_t mcMap(
         CHECK_NOT_NULL(buf);
 
         // Determine device the session belongs to
-        Device  *device = resolveDeviceId(sessionHandle->deviceId);
+        Device *device = resolveDeviceId(sessionHandle->deviceId);
         CHECK_DEVICE(device);
 
         Connection *devCon = device->connection;
 
         // Get session
-        Session  *session = device->resolveSessionId(sessionHandle->sessionId);
+        Session *session = device->resolveSessionId(sessionHandle->sessionId);
         CHECK_SESSION(session, sessionHandle->sessionId);
 
         LOG_I(" Mapping %p to session %d.", buf, sessionHandle->sessionId);
 
         // Register mapped bulk buffer to Kernel Module and keep mapped bulk buffer in mind
-        BulkBufferDescriptor *bulkBuf = session->addBulkBuf(buf, bufLen);
-        if (bulkBuf == NULL) {
-            LOG_E("Registering buffer failed.");
-            mcResult = MC_DRV_ERR_BULK_MAPPING;
+        BulkBufferDescriptor *bulkBuf;
+        mcResult = session->addBulkBuf(buf, bufLen, &bulkBuf);
+        if (mcResult != MC_DRV_OK) {
+            LOG_E("Registering buffer failed. ret=%x", mcResult);
             break;
         }
 
         SEND_TO_DAEMON(devCon, MC_DRV_CMD_MAP_BULK_BUF,
-                        session->sessionId,
-                        (uint32_t)bulkBuf->physAddrWsmL2,
-                        (uint32_t)(bulkBuf->virtAddr) & 0xFFF,
-                        bulkBuf->len);
+                       session->sessionId,
+                       (uint32_t)bulkBuf->handle,
+                       (uint32_t)0,
+                       (uint32_t)(bulkBuf->virtAddr) & 0xFFF,
+                       bulkBuf->len);
 
         // Read command response
-        uint32_t  responseId;
-        RECV_FROM_DAEMON(devCon, &responseId);
+        RECV_FROM_DAEMON(devCon, &mcResult);
 
-        if (responseId != MC_DRV_RSP_OK)
-        {
-            LOG_E("mcMap(): CMD_MAP_BULK_BUF failed, respId=%d", responseId);
-            // REV We ignore Daemon Error code because client cannot handle it anyhow.
-            // TODO-2012-08-03-haenellu: Think about better error codes here.
+        if (mcResult != MC_DRV_OK) {
+            LOG_E("CMD_MAP_BULK_BUF failed, respId=%d", mcResult);
+            // TODO-2012-09-06-haenellu: Remove once tests can handle it.
             mcResult = MC_DRV_ERR_DAEMON_UNREACHABLE;
 
             // Unregister mapped bulk buffer from Kernel Module and remove mapped
             // bulk buffer from session maintenance
-            if (!session->removeBulkBuf(buf)) {
+            if (session->removeBulkBuf(buf) != MC_DRV_OK) {
                 // Removing of bulk buffer not possible
-                LOG_E("mcMap(): Unregistering of bulk memory from Kernel Module failed");
+                LOG_E("Unregistering of bulk memory from Kernel Module failed");
             }
             break;
         }
@@ -744,12 +766,20 @@ __MC_CLIENT_LIB_API mcResult_t mcMap(
         mcDrvRspMapBulkMemPayload_t rspMapBulkMemPayload;
         RECV_FROM_DAEMON(devCon, &rspMapBulkMemPayload);
 
+        // Set mapping info for internal structures
+        bulkBuf->sVirtualAddr = (void *)rspMapBulkMemPayload.secureVirtualAdr;
         // Set mapping info for Trustlet
-        mapInfo->sVirtualAddr = (void *) (rspMapBulkMemPayload.secureVirtualAdr);
+        mapInfo->sVirtualAddr = bulkBuf->sVirtualAddr;
         mapInfo->sVirtualLen = bufLen;
         mcResult = MC_DRV_OK;
 
     } while (false);
+
+//    // TODO: enable as soon as there are more error codes
+//    if (mcResult == MC_DRV_ERR_SOCKET_WRITE || mcResult == MC_DRV_ERR_SOCKET_READ) {
+//        LOG_E("Connection is dead, removing device.");
+//        removeDevice(sessionHandle->deviceId);
+//    }
 
     devMutex.unlock();
 
@@ -761,7 +791,8 @@ __MC_CLIENT_LIB_API mcResult_t mcUnmap(
     mcSessionHandle_t  *sessionHandle,
     void               *buf,
     mcBulkMap_t        *mapInfo
-) {
+)
+{
     mcResult_t mcResult = MC_DRV_ERR_UNKNOWN;
     static CMutex mutex;
 
@@ -769,58 +800,61 @@ __MC_CLIENT_LIB_API mcResult_t mcUnmap(
 
     devMutex.lock();
 
-    do
-    {
+    do {
         CHECK_NOT_NULL(sessionHandle);
         CHECK_NOT_NULL(mapInfo);
         CHECK_NOT_NULL(buf);
 
         // Determine device the session belongs to
-        Device  *device = resolveDeviceId(sessionHandle->deviceId);
+        Device *device = resolveDeviceId(sessionHandle->deviceId);
         CHECK_DEVICE(device);
 
         Connection  *devCon = device->connection;
 
         // Get session
-        Session  *session = device->resolveSessionId(sessionHandle->sessionId);
+        Session *session = device->resolveSessionId(sessionHandle->sessionId);
         CHECK_SESSION(session, sessionHandle->sessionId);
 
-        LOG_I(" Unmapping %p from session %d.", buf, sessionHandle->sessionId);
+        uint32_t handle = session->getBufHandle(mapInfo->sVirtualAddr);
+        if (handle == 0) {
+            LOG_E("Unable to find internal handle for buffer %p.", mapInfo->sVirtualAddr);
+            mcResult = MC_DRV_ERR_BLK_BUFF_NOT_FOUND;
+            break;
+        }
+
+        LOG_I(" Unmapping %p(handle=%u) from session %d.", buf, handle, sessionHandle->sessionId);
 
         SEND_TO_DAEMON(devCon, MC_DRV_CMD_UNMAP_BULK_BUF,
-                        session->sessionId,
-                        (uint32_t)(mapInfo->sVirtualAddr));
+                       session->sessionId,
+                       handle,
+                       (uint32_t)(mapInfo->sVirtualAddr),
+                       mapInfo->sVirtualLen);
 
-        uint32_t  responseId;
-        RECV_FROM_DAEMON(devCon, &responseId);
+        RECV_FROM_DAEMON(devCon, &mcResult);
 
-        if (MC_DRV_RSP_OK != responseId)
-        {
-            LOG_E("Daemon reported failing of UNMAP BULK BUF command, responseId %d.", responseId);
-            // TODO-2012-08-03-haenellu: Think about better error codes here.
+        if (mcResult != MC_DRV_OK) {
+            LOG_E("Daemon reported failing of UNMAP BULK BUF command, responseId %d.", mcResult);
+            // TODO-2012-09-06-haenellu: Remove once tests can handle it.
             mcResult = MC_DRV_ERR_DAEMON_UNREACHABLE;
             break;
         }
 
-        mcDrvRspUnmapBulkMemPayload_t rspUnmapBulkMemPayload;
-        RECV_FROM_DAEMON(devCon, &rspUnmapBulkMemPayload);
-
-        // REV axh: what about check the payload?
-
         // Unregister mapped bulk buffer from Kernel Module and remove mapped
         // bulk buffer from session maintenance
-        if (!session->removeBulkBuf(buf))
-        {
-            // Removing of bulk buffer not possible
-            // TODO-2012-08-03-haenellu: Think about better error codes here.
+        mcResult = session->removeBulkBuf(buf);
+        if (mcResult != MC_DRV_OK) {
             LOG_E("Unregistering of bulk memory from Kernel Module failed.");
-            mcResult = MC_DRV_ERR_BULK_UNMAPPING;
             break;
         }
 
         mcResult = MC_DRV_OK;
 
     } while (false);
+
+    if (mcResult == MC_DRV_ERR_SOCKET_WRITE || mcResult == MC_DRV_ERR_SOCKET_READ) {
+        LOG_E("Connection is dead, removing device.");
+        removeDevice(sessionHandle->deviceId);
+    }
 
     devMutex.unlock();
 
@@ -830,9 +864,10 @@ __MC_CLIENT_LIB_API mcResult_t mcUnmap(
 
 //------------------------------------------------------------------------------
 __MC_CLIENT_LIB_API mcResult_t mcGetSessionErrorCode(
-    mcSessionHandle_t	*session,
-    int32_t				*lastErr
-) {
+    mcSessionHandle_t   *session,
+    int32_t             *lastErr
+)
+{
     mcResult_t mcResult = MC_DRV_OK;
 
     devMutex.lock();
@@ -864,7 +899,8 @@ __MC_CLIENT_LIB_API mcResult_t mcDriverCtrl(
     mcDriverCtrl_t  param,
     uint8_t         *data,
     uint32_t        len
-) {
+)
+{
     LOG_W("mcDriverCtrl(): not implemented");
     return MC_DRV_ERR_NOT_IMPLEMENTED;
 }
@@ -872,31 +908,33 @@ __MC_CLIENT_LIB_API mcResult_t mcDriverCtrl(
 //------------------------------------------------------------------------------
 __MC_CLIENT_LIB_API mcResult_t mcGetMobiCoreVersion(
     uint32_t  deviceId,
-    mcVersionInfo_t* versionInfo
-) {
+    mcVersionInfo_t *versionInfo
+)
+{
     mcResult_t mcResult = MC_DRV_OK;
 
     devMutex.lock();
     LOG_I("===%s()===", __FUNCTION__);
 
     do {
-        Device* device = resolveDeviceId(deviceId);
+        Device *device = resolveDeviceId(deviceId);
 
         CHECK_DEVICE(device);
         CHECK_NOT_NULL(versionInfo);
 
-        Connection* devCon = device->connection;
+        Connection *devCon = device->connection;
 
         SEND_TO_DAEMON(devCon, MC_DRV_CMD_GET_MOBICORE_VERSION);
 
         // Read GET MOBICORE VERSION response.
 
-        uint32_t  responseId;
-        RECV_FROM_DAEMON(devCon, &responseId);
+        RECV_FROM_DAEMON(devCon, &mcResult);
 
-        if (MC_DRV_RSP_OK != responseId) {
-            LOG_E("mcGetMobiCoreVersion(): MC_DRV_CMD_GET_MOBICORE_VERSION bad response, respId=%d", responseId);
-            return MC_DRV_ERR_DAEMON_UNREACHABLE;
+        if (mcResult != MC_DRV_OK) {
+            LOG_E("MC_DRV_CMD_GET_MOBICORE_VERSION bad response, respId=%d", mcResult);
+            // TODO-2012-09-06-haenellu: Remove once tests can handle it.
+            mcResult = MC_DRV_ERR_DAEMON_UNREACHABLE;
+            break;
         }
 
         // Read payload.
@@ -905,7 +943,7 @@ __MC_CLIENT_LIB_API mcResult_t mcGetMobiCoreVersion(
 
         *versionInfo = versionInfo_socket;
 
-    } while(0);
+    } while (0);
 
     devMutex.unlock();
     return mcResult;
@@ -913,37 +951,36 @@ __MC_CLIENT_LIB_API mcResult_t mcGetMobiCoreVersion(
 
 
 //------------------------------------------------------------------------------
-uint32_t getDaemonVersion(Connection* devCon)
+// Only called by mcOpenDevice()
+// Must be taken with devMutex locked.
+uint32_t getDaemonVersion(Connection *devCon, uint32_t *version)
 {
-    assert(devCon != NULL);
+    assert(version != NULL);
     mcResult_t mcResult = MC_DRV_OK;
-    uint32_t version = 0;
+    uint32_t v = 0;
 
     LOG_I("===%s()===", __FUNCTION__);
 
     do {
         SEND_TO_DAEMON(devCon, MC_DRV_CMD_GET_VERSION);
 
-        uint32_t  responseId;
-        RECV_FROM_DAEMON(devCon, &responseId);
+        RECV_FROM_DAEMON(devCon, &mcResult);
 
-        if (MC_DRV_RSP_OK != responseId) {
-            LOG_E("getDaemonVersion(): MC_DRV_CMD_GET_VERSION bad response, respId=%d", responseId);
-            mcResult = MC_DRV_ERR_DAEMON_UNREACHABLE;
+        if (mcResult != MC_DRV_OK) {
+            LOG_E("MC_DRV_CMD_GET_VERSION bad response, respId=%d", mcResult);
+            // version is still 0, we don't further analyze response here.
             break;
         }
 
-        RECV_FROM_DAEMON(devCon, &version);
+        RECV_FROM_DAEMON(devCon, &v);
 
-    } while(0);
+    } while (0);
 
-    devMutex.unlock();
-
-    if (MC_DRV_OK != mcResult) {
-        return 0;
+    if (MC_DRV_OK == mcResult) {
+        *version = v;
     }
 
-    return version;
+    return mcResult;
 }
 
 /** @} */

@@ -7,7 +7,7 @@
  * Device and Trustlet Session management Functions.
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -38,39 +38,41 @@
 #include <stdint.h>
 #include <vector>
 
+#include "public/MobiCoreDriverApi.h"
 #include "Session.h"
 #include "CWsm.h"
 
 
-class Device {
+class Device
+{
 
 private:
-	sessionList_t   sessionList; /**< MobiCore Trustlet session associated with the device */
+    sessionList_t   sessionList; /**< MobiCore Trustlet session associated with the device */
     wsmList_t       wsmL2List; /**< WSM L2 Table  */
 
 
 public:
-	uint32_t     deviceId; /**< Device identifier */
-	Connection   *connection; /**< The device connection */
-	CMcKMod_ptr  pMcKMod;
+    uint32_t     deviceId; /**< Device identifier */
+    Connection   *connection; /**< The device connection */
+    CMcKMod_ptr  pMcKMod;
 
-	Device(
-	    uint32_t    deviceId,
-	    Connection  *connection
-	);
+    Device(
+        uint32_t    deviceId,
+        Connection  *connection
+    );
 
-	virtual ~Device(
-	    void
-	);
+    virtual ~Device(
+        void
+    );
 
-	/**
-	 * Open the device.
-	 * @param deviceName Name of the kernel modules device file.
-	 * @return true if the device has been opened successfully
-	 */
-	bool open(
-	    const char * deviceName
-	);
+    /**
+     * Open the device.
+     * @param deviceName Name of the kernel modules device file.
+     * @return true if the device has been opened successfully
+     */
+    bool open(
+        const char *deviceName
+    );
 
     /**
      * Closes the device.
@@ -79,70 +81,72 @@ public:
         void
     );
 
-	/**
-	 * Check if the device has open sessions.
-	 * @return true if the device has one or more open sessions.
-	 */
-	bool hasSessions(
-	    void
-	);
+    /**
+     * Check if the device has open sessions.
+     * @return true if the device has one or more open sessions.
+     */
+    bool hasSessions(
+        void
+    );
 
-	/**
-	 * Add a session to the device.
-	 * @param sessionId session ID
-	 * @param connection session connection
-	 */
-	void createNewSession(
-	    uint32_t    sessionId,
-	    Connection  *connection
-	);
+    /**
+     * Add a session to the device.
+     * @param sessionId session ID
+     * @param connection session connection
+     */
+    void createNewSession(
+        uint32_t    sessionId,
+        Connection  *connection
+    );
 
-	/**
-	 * Remove the specified session from the device.
-	 * The session object will be destroyed and all resources associated with it will be freed.
-	 *
-	 * @param sessionId Session of the session to remove.
-	 * @return true if a session has been found and removed.
-	 */
-	bool removeSession(
-	    uint32_t sessionId
-	);
+    /**
+     * Remove the specified session from the device.
+     * The session object will be destroyed and all resources associated with it will be freed.
+     *
+     * @param sessionId Session of the session to remove.
+     * @return true if a session has been found and removed.
+     */
+    bool removeSession(
+        uint32_t sessionId
+    );
 
-	/**
-	 * Get as session object for a given session ID.
-	 * @param sessionId Identified of a previously opened session.
-	 * @return Session object if available or NULL if no session has been found.
-	 */
-	Session *resolveSessionId(
-	    uint32_t sessionId
-	);
+    /**
+     * Get as session object for a given session ID.
+     * @param sessionId Identified of a previously opened session.
+     * @return Session object if available or NULL if no session has been found.
+     */
+    Session *resolveSessionId(
+        uint32_t sessionId
+    );
 
-	/**
-	 * Allocate a block of contiguous WSM.
-	 * @param len The virtual address to be registered.
-	 * @return The virtual address of the allocated memory or NULL if no memory is available.
-	 */
-	CWsm_ptr allocateContiguousWsm(
-	    uint32_t len
-	);
+    /**
+     * Allocate a block of contiguous WSM.
+     * @param len The virtual address to be registered.
+     * @param wsm The CWsm object of the allocated memory.
+     * @return MC_DRV_OK if successful.
+     */
+    mcResult_t allocateContiguousWsm(
+        uint32_t len,
+        CWsm **wsm
+    );
 
-	/**
-	 * Unregister a vaddr from a device.
-	 * @param vaddr The virtual address to be registered.
-	 * @param paddr The physical address to be registered.
-	 */
-	bool freeContiguousWsm(
-	    CWsm_ptr  pWsm
-	);
+    /**
+     * Unregister a vaddr from a device.
+     * @param vaddr The virtual address to be registered.
+     * @param paddr The physical address to be registered.
+     */
+    mcResult_t freeContiguousWsm(
+        CWsm_ptr  pWsm
+    );
 
-	/**
-	 * Get a WSM object for a given virtual address.
-	 * @param vaddr The virtual address which has been allocate with mcMallocWsm() in advance.
-	 * @return the WSM object or NULL if no address has been found.
-	 */
-	CWsm_ptr findContiguousWsm(
-	    addr_t  virtAddr
-	);
+    /**
+     * Get a WSM object for a given virtual address.
+     * @param vaddr The virtual address which has been allocate with mcMallocWsm() in advance.
+     * @return the WSM object or NULL if no address has been found.
+     */
+    CWsm_ptr findContiguousWsm(
+        addr_t  virtAddr
+    );
 
 };
 

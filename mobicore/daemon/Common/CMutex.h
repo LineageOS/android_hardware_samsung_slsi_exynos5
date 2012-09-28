@@ -5,7 +5,7 @@
  * Mutex implementation (pthread wrapper).
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -37,24 +37,25 @@
 #include "pthread.h"
 
 
-class CMutex {
+class CMutex
+{
 
 public:
 
-	CMutex(void);
+    CMutex(void);
 
-	~CMutex(void);
+    ~CMutex(void);
 
-	int32_t lock(void);
+    int32_t lock(void);
 
-	int32_t trylock(void);
+    int32_t trylock(void);
 
-	int32_t unlock(void);
+    int32_t unlock(void);
 
 private:
 
-	pthread_mutex_t m_mutex;
-	pthread_cond_t m_cond;
+    pthread_mutex_t m_mutex;
+    pthread_cond_t m_cond;
 
 };
 

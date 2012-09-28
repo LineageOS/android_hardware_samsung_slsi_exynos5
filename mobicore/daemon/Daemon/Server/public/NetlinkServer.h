@@ -9,7 +9,7 @@
  * Iterative socket server using Netlink dgram protocol.
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -48,44 +48,45 @@
 #include "ConnectionHandler.h"
 #include "Server.h"
 
-class NetlinkServer: public Server, public NetlinkConnectionManager {
+class NetlinkServer: public Server, public NetlinkConnectionManager
+{
 public:
-	/**
-	 * Server contructor.
-	 *
-	 * @param connectionHanler Connection handler to pass incoming connections to.
-	 */
+    /**
+     * Server contructor.
+     *
+     * @param connectionHanler Connection handler to pass incoming connections to.
+     */
     NetlinkServer(
-		ConnectionHandler * connectionHandler
-	);
+        ConnectionHandler *connectionHandler
+    );
 
-	/**
-	 * Server destructor.
-	 * All available connections will be terminated. Resources will be freed.
-	 */
+    /**
+     * Server destructor.
+     * All available connections will be terminated. Resources will be freed.
+     */
     virtual ~NetlinkServer(
-		void
-	);
+        void
+    );
 
-	/**
-	 * Start server and listen for incoming connections.
-	 * Implements the central socket server loop. Incoming connections will be stored.
-	 */
-	virtual void run(
-		void
-	);
+    /**
+     * Start server and listen for incoming connections.
+     * Implements the central socket server loop. Incoming connections will be stored.
+     */
+    virtual void run(
+        void
+    );
 
-	/**
-	 * Remove a connection object from the list of available connections.
-	 * Detaching is required for notification connections wich are never used to transfer command
-	 * data from TLCs to the driver. If the function succeeds, freeing the connection will no longer
+    /**
+     * Remove a connection object from the list of available connections.
+     * Detaching is required for notification connections wich are never used to transfer command
+     * data from TLCs to the driver. If the function succeeds, freeing the connection will no longer
      * be the server's responsability.
-	 *
-	 * @param connection The connection object to remove.
-	 */
-	virtual void detachConnection(
-		Connection *connection
-	);
+     *
+     * @param connection The connection object to remove.
+     */
+    virtual void detachConnection(
+        Connection *connection
+    );
 
 private:
     /**
@@ -94,61 +95,61 @@ private:
      * session magic.
      *
      * @param nlh The netlink message's header + payload
-     */   
+     */
     void handleMessage(
         struct nlmsghdr *nlh
     );
-    
+
     /**
-	 * Retreive connection based on hash.
-	 * Search the peer connections hashmap for a hash and return 
-	 * the associated Connection object
+     * Retreive connection based on hash.
+     * Search the peer connections hashmap for a hash and return
+     * the associated Connection object
      *
-	 * @param seq The seq to search
+     * @param seq The seq to search
      * @return The NetlinkConnection object if found or NULL if not found
      */
-    NetlinkConnection* findConnection(
-		uint64_t hash
+    NetlinkConnection *findConnection(
+        uint64_t hash
     );
-    
+
     /**
      * Insert a connection in the peer connection hashmap
-     * Insert a new connection in the peer connections hashmap. If there is 
-	 * already such a connection it will be overriden!
+     * Insert a new connection in the peer connections hashmap. If there is
+     * already such a connection it will be overriden!
      *
-	 * @param seq The seq to use
+     * @param seq The seq to use
      * @param connection The connection object to insert
      */
     void insertConnection(
-		uint64_t hash,
+        uint64_t hash,
         NetlinkConnection *connection
     );
-    
+
     /**
      * Remove a connection from the peer connections
-     * Remove the connection associated with seq from the peer list. 
-	 * This doesn't actually free the connection object!
+     * Remove the connection associated with seq from the peer list.
+     * This doesn't actually free the connection object!
      * If the seq is invalid nothing happens.
      *
      * @param seq The seq to use
      */
     void removeConnection(
-		uint64_t hash
+        uint64_t hash
     );
-	
-	
-	/**
-	 * Check for sessions started by applications that died(exited)
-	 * Remove the connections to applications that are not active anymore
-	 * If the application has died then all the sessions associated with it
-	 * should be closed!
-	 *
-	 */
-	void cleanupConnections(
-		void
-	);
 
-	connectionMap_t peerConnections; /**< Hashmap with connections to clients */
+
+    /**
+     * Check for sessions started by applications that died(exited)
+     * Remove the connections to applications that are not active anymore
+     * If the application has died then all the sessions associated with it
+     * should be closed!
+     *
+     */
+    void cleanupConnections(
+        void
+    );
+
+    connectionMap_t peerConnections; /**< Hashmap with connections to clients */
 };
 
 #endif /* SERVER_H_ */

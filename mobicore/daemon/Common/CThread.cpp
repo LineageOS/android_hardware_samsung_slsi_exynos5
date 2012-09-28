@@ -5,7 +5,7 @@
  * Thread implementation (pthread abstraction).
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -37,48 +37,53 @@
 
 //------------------------------------------------------------------------------
 CThread::CThread(void) :
-	m_terminate(false), m_isExiting(false)
+    m_terminate(false), m_isExiting(false)
 {
-	m_sem = new CSemaphore();
+    m_sem = new CSemaphore();
 }
 
 
 //------------------------------------------------------------------------------
 CThread::~CThread(
-	void
-) {
-	delete m_sem;
+    void
+)
+{
+    delete m_sem;
 }
 
 
 //------------------------------------------------------------------------------
 void CThread::terminate(
-	void
-) {
-	m_terminate = true;
+    void
+)
+{
+    m_terminate = true;
 }
 
 
 //------------------------------------------------------------------------------
 bool CThread::isExiting(
-	void
-) {
+    void
+)
+{
     return m_isExiting;
 }
 
 
 //------------------------------------------------------------------------------
 void CThread::setExiting(
-	void
-) {
+    void
+)
+{
     m_isExiting = true;
 }
 
 
 //------------------------------------------------------------------------------
 void CThread::exit(
-	int32_t exitcode
-) {
+    int32_t exitcode
+)
+{
     setExiting();
     pthread_exit((void *)exitcode);
 }
@@ -86,57 +91,63 @@ void CThread::exit(
 
 //------------------------------------------------------------------------------
 bool CThread::shouldTerminate(
-	void
-) {
-	return m_terminate;
+    void
+)
+{
+    return m_terminate;
 }
 
 
 //------------------------------------------------------------------------------
 void CThread::start(
-	void
-) {
-	int ret;
-	ret = pthread_create(&m_thread, NULL, CThreadStartup, this);
-	if (0 != ret)
-		LOG_E("pthread_create failed with error code %d", ret);
+    void
+)
+{
+    int ret;
+    ret = pthread_create(&m_thread, NULL, CThreadStartup, this);
+    if (0 != ret)
+        LOG_E("pthread_create failed with error code %d", ret);
 }
 
 
 //------------------------------------------------------------------------------
 void CThread::join(
-	void
-) {
-	int ret;
-	ret = pthread_join(m_thread, NULL);
-	if (0 != ret)
-		LOG_E("pthread_join failed with error code %d", ret);
+    void
+)
+{
+    int ret;
+    ret = pthread_join(m_thread, NULL);
+    if (0 != ret)
+        LOG_E("pthread_join failed with error code %d", ret);
 }
 
 
 //------------------------------------------------------------------------------
 void CThread::sleep(
-	void
-) {
-	m_sem->wait();
+    void
+)
+{
+    m_sem->wait();
 }
 
 
 //------------------------------------------------------------------------------
 void CThread::wakeup(
-	void
-) {
-	m_sem->signal();
+    void
+)
+{
+    m_sem->signal();
 }
 
 
 //------------------------------------------------------------------------------
 void *CThreadStartup(
-	void *_tgtObject
-) {
-	CThread *tgtObject = (CThread *) _tgtObject;
-	tgtObject->run();
-	return NULL;
+    void *_tgtObject
+)
+{
+    CThread *tgtObject = (CThread *) _tgtObject;
+    tgtObject->run();
+    return NULL;
 }
 
 /** @} */

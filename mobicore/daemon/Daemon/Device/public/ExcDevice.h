@@ -5,7 +5,7 @@
  * Device exceptions.
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -41,26 +41,27 @@
 #define ERROR_MCI_VERSION_MISMATCH  ((int)(-2))
 #define ERROR_KMOD_VERSION_MISMATCH  ((int)(-3))
 
-class ExcDevice: public std::exception {
+class ExcDevice: public std::exception
+{
 
 public:
 
-	ExcDevice(const char *description, int cause) :
-		cause(cause), description(description) {
-	}
+    ExcDevice(const char *description, int cause) :
+        cause(cause), description(description) {
+    }
 
-	virtual int getCause() const throw () {
-		return cause;
-	}
+    virtual int getCause() const throw () {
+        return cause;
+    }
 
-	virtual const char *getDescription() const throw () {
-		return description;
-	}
+    virtual const char *getDescription() const throw () {
+        return description;
+    }
 
 private:
 
-	int cause;
-	const char *description;
+    int cause;
+    const char *description;
 };
 
 #endif /* EXCDEVICE_H_ */

@@ -4,7 +4,7 @@
  *
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -36,41 +36,44 @@
 
 //------------------------------------------------------------------------------
 NotificationQueue::NotificationQueue(
-	notificationQueue_t *i,
-	notificationQueue_t *o,
-	uint32_t size
-) : in(i), out(o) {
-	in->hdr.queueSize = size;
-	out->hdr.queueSize = size;
+    notificationQueue_t *i,
+    notificationQueue_t *o,
+    uint32_t size
+) : in(i), out(o)
+{
+    in->hdr.queueSize = size;
+    out->hdr.queueSize = size;
 }
 
 
 //------------------------------------------------------------------------------
 void NotificationQueue::putNotification(
-	notification_t *notification
-) {
-	mutex.lock();
-	if ((out->hdr.writeCnt - out->hdr.readCnt) < out->hdr.queueSize) {
-		out->notification[out->hdr.writeCnt & (out->hdr.queueSize - 1)]
-				= *notification;
-		out->hdr.writeCnt++;
-	}
-	mutex.unlock();
+    notification_t *notification
+)
+{
+    mutex.lock();
+    if ((out->hdr.writeCnt - out->hdr.readCnt) < out->hdr.queueSize) {
+        out->notification[out->hdr.writeCnt & (out->hdr.queueSize - 1)]
+        = *notification;
+        out->hdr.writeCnt++;
+    }
+    mutex.unlock();
 }
 
 
 //------------------------------------------------------------------------------
 notification_t *NotificationQueue::getNotification(
-	void
-) {
-	notification_t *ret = NULL;
-	mutex.lock();
-	if ((in->hdr.writeCnt - in->hdr.readCnt) > 0) {
-		ret = &(in->notification[in->hdr.readCnt & (in->hdr.queueSize - 1)]);
-		in->hdr.readCnt++;
-	}
-	mutex.unlock();
-	return ret;
+    void
+)
+{
+    notification_t *ret = NULL;
+    mutex.lock();
+    if ((in->hdr.writeCnt - in->hdr.readCnt) > 0) {
+        ret = &(in->notification[in->hdr.readCnt & (in->hdr.queueSize - 1)]);
+        in->hdr.readCnt++;
+    }
+    mutex.unlock();
+    return ret;
 }
 
 /** @} */
