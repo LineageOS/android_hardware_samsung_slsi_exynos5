@@ -5,7 +5,7 @@
  * Thread implementation (pthread abstraction).
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -40,42 +40,43 @@
 using namespace std;
 
 
-class CThread {
+class CThread
+{
 
 public:
 
-	CThread(void);
+    CThread(void);
 
-	virtual ~CThread(void);
+    virtual ~CThread(void);
 
-	virtual void run(void)=0;
+    virtual void run(void) = 0;
 
-	void start(void);
+    void start(void);
 
-	void join(void);
+    void join(void);
 
-	void sleep(void);
+    void sleep(void);
 
-	void wakeup(void);
+    void wakeup(void);
 
-	void terminate(void);
+    void terminate(void);
 
-	bool isExiting(void);
+    bool isExiting(void);
 
-	void setExiting(void);
+    void setExiting(void);
 
 protected:
 
-	bool shouldTerminate(void);
+    bool shouldTerminate(void);
 
-	void exit(int32_t exitcode);
+    void exit(int32_t exitcode);
 
 private:
 
-	CSemaphore *m_sem;
-	pthread_t m_thread;
-	bool m_terminate;
-	bool m_isExiting;
+    CSemaphore *m_sem;
+    pthread_t m_thread;
+    bool m_terminate;
+    bool m_isExiting;
 
 };
 

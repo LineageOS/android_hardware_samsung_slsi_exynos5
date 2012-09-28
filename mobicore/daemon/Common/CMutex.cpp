@@ -5,7 +5,7 @@
  * Mutex implementation (pthread wrapper).
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -35,42 +35,47 @@
 
 //------------------------------------------------------------------------------
 CMutex::CMutex(
-	void
-) {
-	pthread_mutex_init(&m_mutex, NULL);
-	pthread_cond_init(&m_cond, NULL);
+    void
+)
+{
+    pthread_mutex_init(&m_mutex, NULL);
+    pthread_cond_init(&m_cond, NULL);
 }
 
 
 //------------------------------------------------------------------------------
 CMutex::~CMutex(
-	void
-) {
-	pthread_mutex_destroy(&m_mutex);
-	pthread_cond_destroy(&m_cond);
+    void
+)
+{
+    pthread_mutex_destroy(&m_mutex);
+    pthread_cond_destroy(&m_cond);
 }
 
 
 //------------------------------------------------------------------------------
 int32_t CMutex::lock(
-	void
-) {
-	return pthread_mutex_lock(&m_mutex);
+    void
+)
+{
+    return pthread_mutex_lock(&m_mutex);
 }
 
 
 //------------------------------------------------------------------------------
 int32_t CMutex::trylock(
-	void
-) {
+    void
+)
+{
     return pthread_mutex_trylock(&m_mutex);
 }
 
 
 //------------------------------------------------------------------------------
 int32_t CMutex::unlock(
-	void
-) {
+    void
+)
+{
     return pthread_mutex_unlock(&m_mutex);
 }
 

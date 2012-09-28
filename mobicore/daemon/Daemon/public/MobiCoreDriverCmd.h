@@ -3,7 +3,7 @@
  * @file
  *
  * <!-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -44,42 +44,21 @@ typedef enum {
     MC_DRV_CMD_OPEN_DEVICE          = 2,
     MC_DRV_CMD_CLOSE_DEVICE         = 3,
     MC_DRV_CMD_NQ_CONNECT           = 4,
-	MC_DRV_CMD_OPEN_SESSION         = 5,
-	MC_DRV_CMD_CLOSE_SESSION        = 6,
+    MC_DRV_CMD_OPEN_SESSION         = 5,
+    MC_DRV_CMD_CLOSE_SESSION        = 6,
     MC_DRV_CMD_NOTIFY               = 7,
-	MC_DRV_CMD_MAP_BULK_BUF         = 8,
-	MC_DRV_CMD_UNMAP_BULK_BUF       = 9,
+    MC_DRV_CMD_MAP_BULK_BUF         = 8,
+    MC_DRV_CMD_UNMAP_BULK_BUF       = 9,
     MC_DRV_CMD_GET_VERSION          = 10,
     MC_DRV_CMD_GET_MOBICORE_VERSION = 11,
 } mcDrvCmd_t;
-
-
-typedef enum {
-	MC_DRV_RSP_OK                                   = 0,
-	MC_DRV_RSP_FAILED                               = 1,
-    MC_DRV_RSP_DEVICE_NOT_OPENED                    = 2,
-    MC_DRV_RSP_DEVICE_ALREADY_OPENED                = 3,
-	MC_DRV_RSP_COMMAND_NOT_ALLOWED                  = 4,
-	MC_DRV_INVALID_DEVICE_NAME                      = 5,
-	MC_DRV_RSP_MAP_BULK_ERRO                        = 6,
-	MC_DRV_RSP_TRUSTLET_NOT_FOUND                   = 7,
-	MC_DRV_RSP_PAYLOAD_LENGTH_ERROR	                = 8,
-    MC_DRV_RSP_WRONG_PUBLIC_KEY                     = 9,  /**< System Trustlet public key is wrong. */
-    MC_DRV_RSP_CONTAINER_TYPE_MISMATCH              = 10, /**< Wrong containter type(s). */
-    MC_DRV_RSP_CONTAINER_LOCKED                     = 11, /**< Container is locked (or not activated). */
-    MC_DRV_RSP_SP_NO_CHILD                          = 12, /**< SPID is not registered with root container. */
-    MC_DRV_RSP_TL_NO_CHILD                          = 13, /**< UUID is not registered with sp container. */
-    MC_DRV_RSP_UNWRAP_ROOT_FAILED                   = 14, /**< Unwrapping of root container failed. */
-    MC_DRV_RSP_UNWRAP_SP_FAILED                     = 15, /**< Unwrapping of service provider container failed. */
-    MC_DRV_RSP_UNWRAP_TRUSTLET_FAILED               = 16, /**< Unwrapping of Trustlet container failed. */
-} mcDrvRsp_t;
-
 
 typedef struct {
     uint32_t  commandId;
 } mcDrvCommandHeader_t;
 
 typedef struct {
+    /* MobiCore Daemon uses Client API return codes also in commands between Daemon and Client Library. */
     uint32_t  responseId;
 } mcDrvResponseHeader_t;
 
@@ -92,17 +71,7 @@ struct MC_DRV_CMD_OPEN_DEVICE_struct {
     uint32_t  deviceId;
 };
 
-typedef struct{
-	uint32_t  deviceId;
-} mcDrvCmdOpenDevicePayload_t;
-
-typedef struct{
-    mcDrvCommandHeader_t         header;
-    mcDrvCmdOpenDevicePayload_t  payload;
-} mcDrvCmdOpenDevice_t;
-
-
-typedef struct{
+typedef struct {
     mcDrvResponseHeader_t        header;
 } mcDrvRspOpenDevice_t;
 
@@ -111,15 +80,7 @@ struct MC_DRV_CMD_CLOSE_DEVICE_struct {
     uint32_t  commandId;
 };
 
-typedef struct{
-    mcDrvCommandHeader_t          header;
-    // no payload here because close has none.
-    // If we use an empty struct, C++ will count it as 4 bytes.
-    // This will write too much into the socket at write(cmd,sizeof(cmd))
-} mcDrvCmdCloseDevice_t;
-
-
-typedef struct{
+typedef struct {
     mcDrvResponseHeader_t         header;
 } mcDrvRspCloseDevice_t;
 
@@ -129,31 +90,17 @@ struct MC_DRV_CMD_OPEN_SESSION_struct {
     uint32_t  deviceId;
     mcUuid_t  uuid;
     uint32_t  tci;
+    uint32_t  handle;
     uint32_t  len;
 };
 
-typedef struct{
-	uint32_t  deviceId;
-	mcUuid_t  uuid;
-	uint32_t  tci;
-	uint32_t  len;
-} mcDrvCmdOpenSessionPayload_t, *mcDrvCmdOpenSessionPayload_ptr;
-
-typedef struct{
-    mcDrvCommandHeader_t          header;
-    mcDrvCmdOpenSessionPayload_t  payload;
-} mcDrvCmdOpenSession_t;
-
-
-typedef struct{
-	uint32_t  deviceId;
-	uint32_t  sessionId;
-	uint32_t  deviceSessionId;
-	uint32_t  mcResult;
-	uint32_t  sessionMagic;
+typedef struct {
+    uint32_t  sessionId;
+    uint32_t  deviceSessionId;
+    uint32_t  sessionMagic;
 } mcDrvRspOpenSessionPayload_t, *mcDrvRspOpenSessionPayload_ptr;
 
-typedef struct{
+typedef struct {
     mcDrvResponseHeader_t         header;
     mcDrvRspOpenSessionPayload_t  payload;
 } mcDrvRspOpenSession_t;
@@ -165,17 +112,7 @@ struct MC_DRV_CMD_CLOSE_SESSION_struct {
     uint32_t  sessionId;
 };
 
-typedef struct{
-	uint32_t  sessionId;
-} mcDrvCmdCloseSessionPayload_t;
-
-typedef struct{
-    mcDrvCommandHeader_t           header;
-    mcDrvCmdCloseSessionPayload_t  payload;
-} mcDrvCmdCloseSession_t;
-
-
-typedef struct{
+typedef struct {
     mcDrvResponseHeader_t         header;
 } mcDrvRspCloseSession_t;
 
@@ -186,50 +123,24 @@ struct MC_DRV_CMD_NOTIFY_struct {
     uint32_t  sessionId;
 };
 
-typedef struct{
-	uint32_t sessionId;
-} mcDrvCmdNotifyPayload_t;
-
-typedef struct{
-    mcDrvCommandHeader_t     header;
-    mcDrvCmdNotifyPayload_t  payload;
-} mcDrvCmdNotify_t;
-
-
-typedef struct{
-    mcDrvResponseHeader_t    header;
-} mcDrvRspNotify_t;
-
+// Notify does not have a response
 
 //--------------------------------------------------------------
 struct MC_DRV_CMD_MAP_BULK_BUF_struct {
     uint32_t  commandId;
     uint32_t  sessionId;
+    uint32_t  handle;
     uint32_t  pAddrL2;
     uint32_t  offsetPayload;
     uint32_t  lenBulkMem;
 };
 
-typedef struct{
-	uint32_t  sessionId;
-	uint32_t  pAddrL2;
-	uint32_t  offsetPayload;
-	uint32_t  lenBulkMem;
-} mcDrvCmdMapBulkMemPayload_t, *mcDrvCmdMapBulkMemPayload_ptr;
-
-typedef struct{
-    mcDrvCommandHeader_t         header;
-    mcDrvCmdMapBulkMemPayload_t  payload;
-} mcDrvCmdMapBulkMem_t;
-
-
-typedef struct{
-	uint32_t  sessionId;
-	uint32_t  secureVirtualAdr;
-	uint32_t  mcResult;
+typedef struct {
+    uint32_t  sessionId;
+    uint32_t  secureVirtualAdr;
 } mcDrvRspMapBulkMemPayload_t, *mcDrvRspMapBulkMemPayload_ptr;
 
-typedef struct{
+typedef struct {
     mcDrvResponseHeader_t        header;
     mcDrvRspMapBulkMemPayload_t  payload;
 } mcDrvRspMapBulkMem_t;
@@ -239,31 +150,13 @@ typedef struct{
 struct MC_DRV_CMD_UNMAP_BULK_BUF_struct {
     uint32_t  commandId;
     uint32_t  sessionId;
+    uint32_t  handle;
     uint32_t  secureVirtualAdr;
     uint32_t  lenBulkMem;
 };
 
-typedef struct{
-	uint32_t  sessionId;
-	uint32_t  secureVirtualAdr;
-	uint32_t  lenBulkMem;
-} mcDrvCmdUnmapBulkMemPayload_t, *mcDrvCmdUnmapBulkMemPayload_ptr;
-
-typedef struct{
-    mcDrvCommandHeader_t           header;
-    mcDrvCmdUnmapBulkMemPayload_t  payload;
-} mcDrvCmdUnmapBulkMem_t;
-
-
-typedef struct{
-    uint32_t  responseId;
-	uint32_t  sessionId;
-	uint32_t  mcResult;
-} mcDrvRspUnmapBulkMemPayload_t, *mcDrvRspUnmapBulkMemPayload_ptr;
-
-typedef struct{
+typedef struct {
     mcDrvResponseHeader_t          header;
-    mcDrvRspUnmapBulkMemPayload_t  payload;
 } mcDrvRspUnmapBulkMem_t;
 
 
@@ -277,39 +170,17 @@ struct MC_DRV_CMD_NQ_CONNECT_struct {
 };
 
 typedef struct {
-    uint32_t  deviceId;
-    uint32_t  sessionId;
-    uint32_t  deviceSessionId;
-    uint32_t  sessionMagic; //Random data
-} mcDrvCmdNqConnectPayload_t, *mcDrvCmdNqConnectPayload_ptr;
-
-typedef struct {
-    mcDrvCommandHeader_t        header;
-    mcDrvCmdNqConnectPayload_t  payload;
-} mcDrvCmdNqConnect_t;
-
-
-typedef struct{
     mcDrvResponseHeader_t       header;
 } mcDrvRspNqConnect_t;
 
 //--------------------------------------------------------------
 struct MC_DRV_CMD_GET_VERSION_struct {
-    uint32_t  commandId;
+    uint32_t commandId;
 };
 
 typedef struct {
-    mcDrvCommandHeader_t        header;
-} mcDrvCmdGetVersion_t;
-
-
-typedef struct {
+    uint32_t responseId;
     uint32_t version;
-} mcDrvRspGetVersionPayload_t;
-
-typedef struct{
-    mcDrvResponseHeader_t       header;
-    mcDrvRspGetVersionPayload_t payload;
 } mcDrvRspGetVersion_t;
 
 //--------------------------------------------------------------
@@ -317,34 +188,29 @@ struct MC_DRV_CMD_GET_MOBICORE_VERSION_struct {
     uint32_t  commandId;
 };
 
-typedef struct {
-    mcDrvCommandHeader_t        header;
-} mcDrvCmdGetMobiCoreVersion_t;
-
 
 typedef struct {
-    uint32_t        mcResult;
     mcVersionInfo_t versionInfo;
 } mcDrvRspGetMobiCoreVersionPayload_t, *mcDrvRspGetMobiCoreVersionPayload_ptr;
 
-typedef struct{
+typedef struct {
     mcDrvResponseHeader_t       header;
     mcDrvRspGetMobiCoreVersionPayload_t payload;
 } mcDrvRspGetMobiCoreVersion_t;
 
 //--------------------------------------------------------------
 typedef union {
-    mcDrvCommandHeader_t         header;
-    mcDrvCmdOpenDevice_t         mcDrvCmdOpenDevice;
-    mcDrvCmdCloseDevice_t        mcDrvCmdCloseDevice;
-    mcDrvCmdOpenSession_t        mcDrvCmdOpenSession;
-    mcDrvCmdCloseSession_t       mcDrvCmdCloseSession;
-    mcDrvCmdNqConnect_t          mcDrvCmdNqConnect;
-    mcDrvCmdNotify_t             mcDrvCmdNotify;
-    mcDrvCmdMapBulkMem_t         mcDrvCmdMapBulkMem;
-    mcDrvCmdUnmapBulkMem_t       mcDrvCmdUnmapBulkMem;
-    mcDrvCmdGetVersion_t         mcDrvCmdGetVersion;
-    mcDrvCmdGetMobiCoreVersion_t mcDrvCmdGetMobiCoreVersion;
+    mcDrvCommandHeader_t                header;
+    MC_DRV_CMD_OPEN_DEVICE_struct       mcDrvCmdOpenDevice;
+    MC_DRV_CMD_CLOSE_DEVICE_struct      mcDrvCmdCloseDevice;
+    MC_DRV_CMD_OPEN_SESSION_struct      mcDrvCmdOpenSession;
+    MC_DRV_CMD_CLOSE_SESSION_struct     mcDrvCmdCloseSession;
+    MC_DRV_CMD_NQ_CONNECT_struct        mcDrvCmdNqConnect;
+    MC_DRV_CMD_NOTIFY_struct            mcDrvCmdNotify;
+    MC_DRV_CMD_MAP_BULK_BUF_struct      mcDrvCmdMapBulkMem;
+    MC_DRV_CMD_UNMAP_BULK_BUF_struct    mcDrvCmdUnmapBulkMem;
+    MC_DRV_CMD_GET_VERSION_struct       mcDrvCmdGetVersion;
+    MC_DRV_CMD_GET_MOBICORE_VERSION_struct  mcDrvCmdGetMobiCoreVersion;
 } mcDrvCommand_t, *mcDrvCommand_ptr;
 
 typedef union {
@@ -354,7 +220,6 @@ typedef union {
     mcDrvRspOpenSession_t        mcDrvRspOpenSession;
     mcDrvRspCloseSession_t       mcDrvRspCloseSession;
     mcDrvRspNqConnect_t          mcDrvRspNqConnect;
-    mcDrvRspNotify_t             mcDrvRspNotify;
     mcDrvRspMapBulkMem_t         mcDrvRspMapBulkMem;
     mcDrvRspUnmapBulkMem_t       mcDrvRspUnmapBulkMem;
     mcDrvRspGetVersion_t         mcDrvRspGetVersion;

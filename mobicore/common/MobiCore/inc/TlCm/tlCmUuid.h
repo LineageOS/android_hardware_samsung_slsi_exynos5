@@ -1,4 +1,4 @@
-/** @addtmt=unixgroup CMP
+/** @addtogroup CMP
  * @{
  * @file
  * Content management trustlet UUID definitions.
@@ -34,7 +34,7 @@
 #define TLCMUUID_H
 
 /** UUID of content management trustlet. */
-#define TL_CM_UUID { { 7, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } }
+#define TL_CM_UUID { 7, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
 
 #endif // TLCMUUID_H
 
