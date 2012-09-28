@@ -1683,6 +1683,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             newParameters.metaPlanes            = 1;
             newParameters.numSvcBufsInHal       = 0;
             newParameters.minUndequedBuffer     = 3;
+            newParameters.needsIonMap           = true;
 
             newParameters.node                  = &m_camera_info.scp;
             newParameters.node->type            = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
@@ -1776,6 +1777,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
 
             newParameters.numSvcBufsInHal       = 0;
             newParameters.minUndequedBuffer     = 2;
+            newParameters.needsIonMap           = false;
 
             newParameters.node                  = &m_camera_info.capture;
             newParameters.node->type            = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
@@ -1827,7 +1829,8 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             newParameters.metaPlanes            = 1;
 
             newParameters.numSvcBufsInHal       = 0;
-            newParameters.minUndequedBuffer     = 4;
+            newParameters.minUndequedBuffer     = 2;
+            newParameters.needsIonMap           = false;
 
             newParameters.node                  = &m_camera_info.capture;
             newParameters.node->type            = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
@@ -2073,9 +2076,10 @@ int ExynosCameraHWInterface2::registerStreamBuffers(uint32_t stream_id,
                 }
 
                 for (plane_index = 0 ; plane_index < (int)v4l2_buf.length ; plane_index++) {
-                    currentBuf.virt.extP[plane_index] = (char *)ion_map(currentBuf.fd.extFd[plane_index], currentBuf.size.extS[plane_index], 0);
+                    if (targetStreamParms->needsIonMap)
+                        currentBuf.virt.extP[plane_index] = (char *)ion_map(currentBuf.fd.extFd[plane_index], currentBuf.size.extS[plane_index], 0);
                     v4l2_buf.m.planes[plane_index].length  = currentBuf.size.extS[plane_index];
-                    CAM_LOGV("DEBUG(%s): plane(%d): fd(%d) addr(%x), length(%d)",
+                    ALOGV("(%s): MAPPING plane(%d): fd(%d) addr(%x), length(%d)",
                          __FUNCTION__, plane_index, v4l2_buf.m.planes[plane_index].m.fd,
                          (unsigned int)currentBuf.virt.extP[plane_index],
                          v4l2_buf.m.planes[plane_index].length);
@@ -2133,12 +2137,14 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         targetStream->m_numRegisteredStream--;
         ALOGV("(%s): m_numRegisteredStream = %d", __FUNCTION__, targetStream->m_numRegisteredStream);
         releasingScpMain = true;
-        for (int i = 0; i < targetStream->m_parameters.numSvcBuffers; i++) {
-            for (int j = 0; j < targetStream->m_parameters.planes; j++) {
-                ion_unmap(targetStream->m_parameters.svcBuffers[i].virt.extP[j],
-                                targetStream->m_parameters.svcBuffers[i].size.extS[j]);
-                CAM_LOGD("DBG(%s) ummap stream buffer[%d], plane(%d), fd %d vaddr %x", __FUNCTION__, i, j,
-                              targetStream->m_parameters.svcBuffers[i].fd.extFd[j], targetStream->m_parameters.svcBuffers[i].virt.extP[j]);
+        if (targetStream->m_parameters.needsIonMap) {
+            for (int i = 0; i < targetStream->m_parameters.numSvcBuffers; i++) {
+                for (int j = 0; j < targetStream->m_parameters.planes; j++) {
+                    ion_unmap(targetStream->m_parameters.svcBuffers[i].virt.extP[j],
+                                    targetStream->m_parameters.svcBuffers[i].size.extS[j]);
+                    ALOGV("(%s) ummap stream buffer[%d], plane(%d), fd %d vaddr %x", __FUNCTION__, i, j,
+                                  targetStream->m_parameters.svcBuffers[i].fd.extFd[j], targetStream->m_parameters.svcBuffers[i].virt.extP[j]);
+                }
             }
         }
     } else if (stream_id == STREAM_ID_JPEG) {
@@ -2176,6 +2182,16 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         targetStream = (StreamThread*)(m_streamThreads[1].get());
         targetStream->m_numRegisteredStream--;
         ALOGV("(%s): m_numRegisteredStream = %d", __FUNCTION__, targetStream->m_numRegisteredStream);
+        if (targetStream->m_parameters.needsIonMap) {
+            for (int i = 0; i < targetStream->m_parameters.numSvcBuffers; i++) {
+                for (int j = 0; j < targetStream->m_parameters.planes; j++) {
+                    ion_unmap(targetStream->m_parameters.svcBuffers[i].virt.extP[j],
+                                    targetStream->m_parameters.svcBuffers[i].size.extS[j]);
+                    ALOGV("(%s) ummap stream buffer[%d], plane(%d), fd %d vaddr %x", __FUNCTION__, i, j,
+                                  targetStream->m_parameters.svcBuffers[i].fd.extFd[j], targetStream->m_parameters.svcBuffers[i].virt.extP[j]);
+                }
+            }
+        }
     } else {
         ALOGE("ERR:(%s): wrong stream id (%d)", __FUNCTION__, stream_id);
         return 1;

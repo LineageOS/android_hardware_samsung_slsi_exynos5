@@ -415,6 +415,7 @@ typedef struct stream_parameters {
             int                     bufIndex;
             node_info_t             *node;
             int                     minUndequedBuffer;
+            bool                    needsIonMap;
 } stream_parameters_t;
 
 typedef struct substream_parameters {
