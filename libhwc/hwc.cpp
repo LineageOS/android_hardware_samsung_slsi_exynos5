@@ -1547,7 +1547,12 @@ static int exynos5_blank(struct hwc_composer_device_1 *dev, int dpy, int blank)
     int fb_blank = blank ? FB_BLANK_POWERDOWN : FB_BLANK_UNBLANK;
     int err = ioctl(pdev->fd, FBIOBLANK, fb_blank);
     if (err < 0) {
-        ALOGE("%sblank ioctl failed", blank ? "" : "un");
+        if (errno == EBUSY)
+            ALOGI("%sblank ioctl failed (display already %sblanked)",
+                    blank ? "" : "un", blank ? "" : "un");
+        else
+            ALOGE("%sblank ioctl failed: %s", blank ? "" : "un",
+                    strerror(errno));
         return -errno;
     }
 
