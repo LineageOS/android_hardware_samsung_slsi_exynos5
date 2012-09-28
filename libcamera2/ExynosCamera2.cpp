@@ -447,7 +447,7 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
     ADD_OR_SIZE(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES,
             jpegThumbnailSizes, sizeof(jpegThumbnailSizes)/sizeof(int32_t));
 
-    static const int32_t jpegMaxSize = 5*1024*1024;
+    static const int32_t jpegMaxSize = 10 * 1024 * 1024;
     ADD_OR_SIZE(ANDROID_JPEG_MAX_SIZE, &jpegMaxSize, 1);
 
     // android.stats
