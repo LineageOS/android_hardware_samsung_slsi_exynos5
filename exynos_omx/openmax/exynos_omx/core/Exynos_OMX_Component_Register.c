@@ -141,7 +141,6 @@ OMX_ERRORTYPE Exynos_OMX_Component_Unregister(EXYNOS_OMX_COMPONENT_REGLIST *comp
 {
     OMX_ERRORTYPE ret = OMX_ErrorNone;
 
-    Exynos_OSAL_Memset(componentList, 0, sizeof(EXYNOS_OMX_COMPONENT_REGLIST) * MAX_OMX_COMPONENT_NUM);
     Exynos_OSAL_Free(componentList);
 
 EXIT:
