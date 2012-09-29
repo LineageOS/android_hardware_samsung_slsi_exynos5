@@ -3453,7 +3453,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 }
             }
             // At flash off mode, capture can be done as zsl capture
-            if (m_ctlInfo.flash.i_flashMode == AA_AEMODE_ON)
+            if (m_ctlInfo.flash.i_flashMode == AA_AEMODE_ON && shot_ext->shot.ctl.aa.sceneMode != AA_SCENE_MODE_NIGHT)
                 shot_ext->shot.dm.aa.aeState = AE_STATE_CONVERGED;
 
             // At scene mode face priority
