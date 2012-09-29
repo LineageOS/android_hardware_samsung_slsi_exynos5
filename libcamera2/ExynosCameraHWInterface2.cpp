@@ -3472,6 +3472,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             OnAfNotification(shot_ext->shot.dm.aa.afState);
             OnPrecaptureMeteringNotificationISP();
         }   else {
+            memcpy(&shot_ext->shot.ctl, &m_camera_info.dummy_shot.shot.ctl, sizeof(struct camera2_ctl));
             shot_ext->shot.ctl.request.frameCount = 0xfffffffe;
             shot_ext->request_sensor = 1;
             shot_ext->dis_bypass = 1;
@@ -3489,10 +3490,20 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             }
             shot_ext->shot.ctl.aa.aeflashMode = AA_FLASHMODE_OFF;
             ALOGV("### isp QBUF start (bubble)");
+            ALOGV("bubble: queued  aa(%d) aemode(%d) awb(%d) afmode(%d) trigger(%d)",
+                (int)(shot_ext->shot.ctl.aa.mode), (int)(shot_ext->shot.ctl.aa.aeMode),
+                (int)(shot_ext->shot.ctl.aa.awbMode), (int)(shot_ext->shot.ctl.aa.afMode),
+                (int)(shot_ext->shot.ctl.aa.afTrigger));
+
             cam_int_qbuf(&(m_camera_info.isp), index);
             ALOGV("### isp DQBUF start (bubble)");
             index_isp = cam_int_dqbuf(&(m_camera_info.isp));
             shot_ext = (struct camera2_shot_ext *)(m_camera_info.isp.buffer[index_isp].virt.extP[1]);
+            ALOGV("bubble: DM aa(%d) aemode(%d) awb(%d) afmode(%d)",
+                (int)(shot_ext->shot.dm.aa.mode), (int)(shot_ext->shot.dm.aa.aeMode),
+                (int)(shot_ext->shot.dm.aa.awbMode),
+                (int)(shot_ext->shot.dm.aa.afMode));
+
             if (m_ctlInfo.flash.m_flashEnableFlg)
                 m_preCaptureListenerISP(shot_ext);
             OnAfNotification(shot_ext->shot.dm.aa.afState);
