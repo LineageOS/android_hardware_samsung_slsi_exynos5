@@ -521,7 +521,7 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
             sizeof(exposureCompensationRange)/sizeof(int32_t));
 
     static const int32_t availableTargetFpsRanges[] = {
-            5, 30, 30, 30
+            15, 30, 30, 30
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
             availableTargetFpsRanges,
@@ -851,7 +851,7 @@ status_t ExynosCamera2::constructDefaultRequest(
     ADD_OR_SIZE(ANDROID_CONTROL_AE_EXP_COMPENSATION, &aeExpCompensation, 1);
 
     static const int32_t aeTargetFpsRange[2] = {
-        10, 30
+        15, 30
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, aeTargetFpsRange, 2);
 

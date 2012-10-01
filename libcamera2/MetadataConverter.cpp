@@ -531,6 +531,10 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
                 &metadata->dm.lens.aperture, 1))
         return NO_MEMORY;
 
+    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
+                &(metadata->ctl.aa.aeTargetFpsRange), 2))
+        return NO_MEMORY;
+
     ALOGV("(%s): ID(%d) METAMODE(%d) FrameCnt(%d) Timestamp(%lld) exposure(%lld) aper(%f)", __FUNCTION__,
        metadata->ctl.request.id, metadata->ctl.request.metadataMode, metadata->ctl.request.frameCount,
        metadata->dm.sensor.timeStamp, metadata->dm.sensor.exposureTime, metadata->dm.lens.aperture);
