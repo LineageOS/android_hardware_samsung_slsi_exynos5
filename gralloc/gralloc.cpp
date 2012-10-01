@@ -233,6 +233,7 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format,
     switch (format) {
         case HAL_PIXEL_FORMAT_EXYNOS_YV12:
             {
+                *stride = ALIGN(w, 32);
                 luma_vstride = ALIGN(h, 16);
                 luma_size = luma_vstride * *stride;
                 chroma_size = (luma_vstride / 2) * ALIGN(*stride / 2, 16);
