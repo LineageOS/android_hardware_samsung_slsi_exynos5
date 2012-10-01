@@ -609,8 +609,9 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
                 &metadata->ctl.scaler.cropRegion, 3))
         return NO_MEMORY;
 
+    byteData = metadata->dm.aa.aeState - 1;
     if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_STATE,
-                &(metadata->dm.aa.aeState), 1))
+                &byteData, 1))
         return NO_MEMORY;
 
     if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AWB_STATE,
