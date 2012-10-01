@@ -257,11 +257,6 @@ typedef struct flash_control_info {
     int        m_precaptureTriggerId;
 } ctl_flash_info_t;
 
-typedef struct awb_control_info {
-     // UI awb mode indicator
-    enum aa_awbmode    i_awbMode;
-} ctl_awb_info_t;
-
 typedef struct ae_control_info {
     // pre-capture notification state
     enum ae_state    aeStateNoti;
@@ -274,7 +269,6 @@ typedef struct scene_control_info {
 
 typedef struct request_control_info {
     ctl_flash_info_t flash;
-    ctl_awb_info_t awb;
     ctl_ae_info_t ae;
     ctl_af_info_t af;
     ctl_scene_info_t scene;
@@ -610,7 +604,7 @@ class MainThread : public SignalDrivenThread {
     exif_attribute_t    mExifInfo;
     void            m_setExifFixedAttribute(void);
     void            m_setExifChangedAttribute(exif_attribute_t *exifInfo, ExynosRect *rect,
-                         camera2_shot *currentEntry);
+                         camera2_shot_ext *currentEntry);
     void            m_preCaptureSetter(struct camera2_shot_ext * shot_ext);
     void            m_preCaptureListenerSensor(struct camera2_shot_ext * shot_ext);
     void            m_preCaptureListenerISP(struct camera2_shot_ext * shot_ext);
@@ -677,7 +671,7 @@ class MainThread : public SignalDrivenThread {
     bool                                m_AfHwStateFailed;
     int                                 m_afPendingTriggerId;
     int                                 m_afModeWaitingCnt;
-    struct camera2_shot                 m_jpegMetadata;
+    struct camera2_shot_ext             m_jpegMetadata;
     int                                 m_scpOutputSignalCnt;
     int                                 m_scpOutputImageCnt;
     int                                 m_nightCaptureCnt;

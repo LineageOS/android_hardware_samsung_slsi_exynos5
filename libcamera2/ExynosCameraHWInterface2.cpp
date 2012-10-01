@@ -657,6 +657,8 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
     shot_ext->reprocessInput = request_shot->reprocessInput;
     shot_ext->shot.ctl.request.outputStreams[0] = 0;
 
+    shot_ext->awb_mode_dm = request_shot->awb_mode_dm;
+
     shot_ext->shot.ctl.scaler.cropRegion[0] = request_shot->shot.ctl.scaler.cropRegion[0];
     shot_ext->shot.ctl.scaler.cropRegion[1] = request_shot->shot.ctl.scaler.cropRegion[1];
     shot_ext->shot.ctl.scaler.cropRegion[2] = request_shot->shot.ctl.scaler.cropRegion[2];
@@ -667,9 +669,6 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
             ctl_info->flash.i_flashMode = request_shot->shot.ctl.aa.aeMode;
         request_shot->shot.ctl.aa.aeMode = AA_AEMODE_ON;
     }
-    // mapping awb UI mode form awbMode
-    if (request_shot->shot.ctl.aa.captureIntent == AA_CAPTURE_INTENT_PREVIEW)
-        ctl_info->awb.i_awbMode = request_shot->shot.ctl.aa.awbMode;
 
     // Apply ae/awb lock or unlock
     if (request_shot->ae_lock == AEMODE_LOCK_ON)
@@ -1018,8 +1017,6 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
         m_ctlInfo.flash.m_flashTorchMode = false;
         m_ctlInfo.flash.m_precaptureState = 0;
         m_ctlInfo.flash.m_precaptureTriggerId = 0;
-        // awb
-        m_ctlInfo.awb.i_awbMode = AA_AWBMODE_OFF;
         // ae
         m_ctlInfo.ae.aeStateNoti = AE_STATE_INACTIVE;
         // af
@@ -2208,7 +2205,7 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         m_sensorThread->release();
         ALOGD("(%s): START Waiting for (indirect) sensor thread termination", __FUNCTION__);
         while (!m_sensorThread->IsTerminated())
-            usleep(10000);
+            usleep(SIG_WAITING_TICK);
         ALOGD("(%s): END   Waiting for (indirect) sensor thread termination", __FUNCTION__);
     }
     else {
@@ -3354,12 +3351,12 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             }
 
             if (shot_ext->isReprocessing) {
-                ALOGE("(%s): Reprocess request ", __FUNCTION__);
+                ALOGV("(%s): Reprocess request ", __FUNCTION__);
                 m_currentReprocessOutStreams = shot_ext->shot.ctl.request.outputStreams[0];
                 shot_ext->request_scp = 0;
                 shot_ext->request_scc = 0;
                 m_reprocessingFrameCnt = shot_ext->shot.ctl.request.frameCount;
-                memcpy(&m_jpegMetadata, &shot_ext->shot, sizeof(struct camera2_shot));
+                memcpy(&m_jpegMetadata, (void*)shot_ext, sizeof(struct camera2_shot_ext));
                 m_streamThreads[1]->SetSignal(SIGNAL_STREAM_REPROCESSING_START);
             }
 
@@ -3420,7 +3417,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             }
             if (shot_ext->request_scc) {
                 ALOGV("send SIGNAL_STREAM_DATA_COMING (SCC)");
-                memcpy(&m_jpegMetadata, &shot_ext->shot, sizeof(struct camera2_shot));
+                memcpy(&m_jpegMetadata, (void*)shot_ext, sizeof(struct camera2_shot_ext));
                 m_streamThreads[1]->SetSignal(SIGNAL_STREAM_DATA_COMING);
             }
             if (current_scp != shot_ext->request_scp) {
@@ -3473,7 +3470,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             else if (shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_VIDEO_FACE)
                 shot_ext->shot.dm.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE;
 
-            if (m_nightCaptureCnt == 0 && (m_ctlInfo.flash.m_flashCnt < IS_FLASH_STATE_CAPTURE)) {
+            if (matchedFrameCnt != -1 && m_nightCaptureCnt == 0 && (m_ctlInfo.flash.m_flashCnt < IS_FLASH_STATE_CAPTURE)) {
                 m_requestManager->ApplyDynamicMetadata(shot_ext);
             }
             OnAfNotification(shot_ext->shot.dm.aa.afState);
@@ -4599,14 +4596,14 @@ bool ExynosCameraHWInterface2::yuv2Jpeg(ExynosBuffer *yuvBuf,
         goto jpeg_encode_done;
     }
 
-    if((m_jpegMetadata.ctl.jpeg.thumbnailSize[0] != 0) && (m_jpegMetadata.ctl.jpeg.thumbnailSize[1] != 0)) {
+    if((m_jpegMetadata.shot.ctl.jpeg.thumbnailSize[0] != 0) && (m_jpegMetadata.shot.ctl.jpeg.thumbnailSize[1] != 0)) {
         mExifInfo.enableThumb = true;
-        if(!m_checkThumbnailSize(m_jpegMetadata.ctl.jpeg.thumbnailSize[0], m_jpegMetadata.ctl.jpeg.thumbnailSize[1])) {
+        if(!m_checkThumbnailSize(m_jpegMetadata.shot.ctl.jpeg.thumbnailSize[0], m_jpegMetadata.shot.ctl.jpeg.thumbnailSize[1])) {
             // in the case of unsupported parameter, disable thumbnail
             mExifInfo.enableThumb = false;
         } else {
-            m_thumbNailW = m_jpegMetadata.ctl.jpeg.thumbnailSize[0];
-            m_thumbNailH = m_jpegMetadata.ctl.jpeg.thumbnailSize[1];
+            m_thumbNailW = m_jpegMetadata.shot.ctl.jpeg.thumbnailSize[0];
+            m_thumbNailH = m_jpegMetadata.shot.ctl.jpeg.thumbnailSize[1];
         }
 
         ALOGV("(%s) m_thumbNailW = %d, m_thumbNailH = %d", __FUNCTION__, m_thumbNailW, m_thumbNailH);
@@ -5654,10 +5651,10 @@ void ExynosCameraHWInterface2::m_setExifFixedAttribute(void)
 }
 
 void ExynosCameraHWInterface2::m_setExifChangedAttribute(exif_attribute_t *exifInfo, ExynosRect *rect,
-	camera2_shot *currentEntry)
+	camera2_shot_ext *currentEntry)
 {
-    camera2_dm *dm = &(currentEntry->dm);
-    camera2_ctl *ctl = &(currentEntry->ctl);
+    camera2_dm *dm = &(currentEntry->shot.dm);
+    camera2_ctl *ctl = &(currentEntry->shot.ctl);
 
     ALOGV("(%s): framecnt(%d) exp(%lld) iso(%d)", __FUNCTION__, ctl->request.frameCount, dm->sensor.exposureTime,dm->aa.isoValue );
     if (!ctl->request.frameCount)
@@ -5760,7 +5757,7 @@ void ExynosCameraHWInterface2::m_setExifChangedAttribute(exif_attribute_t *exifI
         exifInfo->flash = EXIF_DEF_FLASH;
 
     //3 White Balance
-    if (m_ctlInfo.awb.i_awbMode == AA_AWBMODE_WB_AUTO)
+    if (currentEntry->awb_mode_dm == AA_AWBMODE_WB_AUTO)
         exifInfo->white_balance = EXIF_WB_AUTO;
     else
         exifInfo->white_balance = EXIF_WB_MANUAL;
