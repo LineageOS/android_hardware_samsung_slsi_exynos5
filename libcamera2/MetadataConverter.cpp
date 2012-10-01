@@ -352,7 +352,13 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
                 dst->ctl.aa.sceneMode = (enum aa_scene_mode)(curr_entry.data.u8[0] + 1);
-                ALOGV("DEBUG(%s): converted ANDROID_CONTROL_SCENE_MODE (%d)",  __FUNCTION__, dst->ctl.aa.sceneMode);
+                break;
+
+            case ANDROID_CONTROL_AE_TARGET_FPS_RANGE:
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 2))
+                    break;
+                for (i=0 ; i<curr_entry.count ; i++)
+                    dst->ctl.aa.aeTargetFpsRange[i] = curr_entry.data.i32[i];
                 break;
 
             default:
