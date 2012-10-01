@@ -560,7 +560,7 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
                 &byteData, 1))
         return NO_MEMORY;
 
-    intData = metadata->ctl.aa.aeExpCompensation;
+    intData = metadata->ctl.aa.aeExpCompensation - 5;
     if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_EXP_COMPENSATION,
                 &intData, 1))
         return NO_MEMORY;
