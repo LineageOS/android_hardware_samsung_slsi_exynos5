@@ -4102,6 +4102,8 @@ int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuff
     ExynosBuffer resizeBufInfo;
     ExynosRect   m_jpegPictureRect;
     buffer_handle_t * buf = NULL;
+    camera2_jpeg_blob * jpegBlob = NULL;
+    int jpegBufSize = 0;
 
     ALOGV("DEBUG(%s): index(%d)",__FUNCTION__, subParms->svcBufIndex);
     for (int i = 0 ; subParms->numSvcBuffers ; i++) {
@@ -4212,11 +4214,23 @@ int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuff
             (unsigned int)subParms->svcBuffers[subParms->svcBufIndex].size.extS[j],
             (unsigned int)subParms->svcBuffers[subParms->svcBufIndex].virt.extP[j]);
 
-    if (yuv2Jpeg(&m_resizeBuf, &subParms->svcBuffers[subParms->svcBufIndex], &jpegRect) == false)
+    jpegBufSize = subParms->svcBuffers[subParms->svcBufIndex].size.extS[0];
+    if (yuv2Jpeg(&m_resizeBuf, &subParms->svcBuffers[subParms->svcBufIndex], &jpegRect) == false) {
         ALOGE("ERR(%s):yuv2Jpeg() fail", __FUNCTION__);
+    } else {
+        m_resizeBuf = resizeBufInfo;
 
-    m_resizeBuf = resizeBufInfo;
+        int jpegSize = subParms->svcBuffers[subParms->svcBufIndex].size.s;
+        ALOGD("(%s): (%d x %d) jpegbuf size(%d) encoded size(%d)", __FUNCTION__,
+            m_jpegPictureRect.w, m_jpegPictureRect.h, jpegBufSize, jpegSize);
+        char * jpegBuffer = (char*)(subParms->svcBuffers[subParms->svcBufIndex].virt.extP[0]);
+        jpegBlob = (camera2_jpeg_blob*)(&jpegBuffer[jpegBufSize - sizeof(camera2_jpeg_blob)]);
 
+        if (jpegBuffer[jpegSize-1] == 0)
+            jpegSize--;
+        jpegBlob->jpeg_size = jpegSize;
+        jpegBlob->jpeg_blob_id = CAMERA2_JPEG_BLOB_ID;
+    }
     res = subParms->streamOps->enqueue_buffer(subParms->streamOps, frameTimeStamp, &(subParms->svcBufHandle[subParms->svcBufIndex]));
 
     ALOGV("DEBUG(%s): streamthread[%d] enqueue_buffer index(%d) to svc done res(%d)",
@@ -5715,7 +5729,7 @@ void ExynosCameraHWInterface2::m_setExifChangedAttribute(exif_attribute_t *exifI
     bv = av + tv - sv;
     ev = av + tv;
     //ALOGD("Shutter speed=%d us, iso=%d", shutterSpeed, exifInfo->iso_speed_rating);
-    ALOGD("AV=%d, TV=%d, SV=%d", av, tv, sv);
+    ALOGV("AV=%d, TV=%d, SV=%d", av, tv, sv);
 
     //3 Shutter Speed
     exifInfo->shutter_speed.num = tv * EXIF_DEF_APEX_DEN;
