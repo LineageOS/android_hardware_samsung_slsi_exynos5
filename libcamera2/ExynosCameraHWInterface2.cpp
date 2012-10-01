@@ -2376,6 +2376,10 @@ void ExynosCameraHWInterface2::m_getAlignedYUVSize(int colorFormat, int w, int h
         break;
     case V4L2_PIX_FMT_YUV420M:
     case V4L2_PIX_FMT_YVU420M :
+        buf->size.extS[0] = ALIGN(w,  32) * ALIGN(h,  16);
+        buf->size.extS[1] = ALIGN(w/2, 16) * ALIGN(h/2, 8);
+        buf->size.extS[2] = ALIGN(w/2, 16) * ALIGN(h/2, 8);
+        break;
     case V4L2_PIX_FMT_YUV422P :
         buf->size.extS[0] = ALIGN(w,  16) * ALIGN(h,  16);
         buf->size.extS[1] = ALIGN(w/2, 16) * ALIGN(h/2, 8);
@@ -4317,7 +4321,7 @@ int ExynosCameraHWInterface2::m_recordCreator(StreamThread *selfThread, ExynosBu
                  __FUNCTION__, cropX, cropY, cropW, cropH);
 
         csc_set_src_format(m_exynosVideoCSC,
-                           previewW, previewH,
+                           ALIGN(previewW, 32), previewH,
                            cropX, cropY, cropW, cropH,
                            selfStreamParms->format,
                            0);
@@ -4437,7 +4441,7 @@ int ExynosCameraHWInterface2::m_prvcbCreator(StreamThread *selfThread, ExynosBuf
             ALOGV("DEBUG(%s):cropX = %d, cropY = %d, cropW = %d, cropH = %d",
                      __FUNCTION__, cropX, cropY, cropW, cropH);
             csc_set_src_format(m_exynosVideoCSC,
-                               previewW, previewH,
+                               ALIGN(previewW, 32), previewH,
                                cropX, cropY, cropW, cropH,
                                selfStreamParms->format,
                                0);
@@ -4477,13 +4481,38 @@ int ExynosCameraHWInterface2::m_prvcbCreator(StreamThread *selfThread, ExynosBuf
     else if (subParms->format == HAL_PIXEL_FORMAT_YV12) {
         int previewCbW = subParms->width, previewCbH = subParms->height;
         int stride = ALIGN(previewCbW, 16);
+        int uv_stride = ALIGN(previewCbW/2, 16);
         int c_stride = ALIGN(stride / 2, 16);
-        memcpy(subParms->svcBuffers[subParms->svcBufIndex].virt.extP[0],
-            srcImageBuf->virt.extP[0], stride * previewCbH);
-        memcpy(subParms->svcBuffers[subParms->svcBufIndex].virt.extP[0] + stride * previewCbH,
-            srcImageBuf->virt.extP[1], c_stride * previewCbH / 2 );
-        memcpy(subParms->svcBuffers[subParms->svcBufIndex].virt.extP[0] + (stride * previewCbH) + (c_stride * previewCbH / 2), 
-            srcImageBuf->virt.extP[2], c_stride * previewCbH / 2 );
+
+        if (previewCbW == ALIGN(previewCbW, 32)) {
+            memcpy(subParms->svcBuffers[subParms->svcBufIndex].virt.extP[0],
+                srcImageBuf->virt.extP[0], stride * previewCbH);
+            memcpy(subParms->svcBuffers[subParms->svcBufIndex].virt.extP[0] + stride * previewCbH,
+                srcImageBuf->virt.extP[1], c_stride * previewCbH / 2 );
+            memcpy(subParms->svcBuffers[subParms->svcBufIndex].virt.extP[0] + (stride * previewCbH) + (c_stride * previewCbH / 2),
+                srcImageBuf->virt.extP[2], c_stride * previewCbH / 2 );
+        } else {
+            char * dstAddr = (char *)(subParms->svcBuffers[subParms->svcBufIndex].virt.extP[0]);
+            char * srcAddr = (char *)(srcImageBuf->virt.extP[0]);
+            for (int i = 0 ; i < previewCbH ; i++) {
+                memcpy(dstAddr, srcAddr, previewCbW);
+                dstAddr += stride;
+                srcAddr += ALIGN(stride, 32);
+            }
+            dstAddr = (char *)(subParms->svcBuffers[subParms->svcBufIndex].virt.extP[0] + stride * previewCbH);
+            srcAddr = (char *)(srcImageBuf->virt.extP[1]);
+            for (int i = 0 ; i < previewCbH/2 ; i++) {
+                memcpy(dstAddr, srcAddr, previewCbW/2);
+                dstAddr += c_stride;
+                srcAddr += uv_stride;
+            }
+            srcAddr = (char *)(srcImageBuf->virt.extP[2]);
+            for (int i = 0 ; i < previewCbH/2 ; i++) {
+                memcpy(dstAddr, srcAddr, previewCbW/2);
+                dstAddr += c_stride;
+                srcAddr += uv_stride;
+            }
+        }
     }
     res = subParms->streamOps->enqueue_buffer(subParms->streamOps, frameTimeStamp, &(subParms->svcBufHandle[subParms->svcBufIndex]));
 
