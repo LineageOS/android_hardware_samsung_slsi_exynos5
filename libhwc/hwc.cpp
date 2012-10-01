@@ -1016,12 +1016,13 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     dst_cfg.h = HEIGHT(layer.displayFrame);
     dst_cfg.rot = layer.transform;
     dst_cfg.drmMode = src_cfg.drmMode;
-    if (exynos5_format_is_rgb(src_handle->format))
+    if (exynos5_format_is_rgb(src_handle->format) &&
+            src_handle->format != HAL_PIXEL_FORMAT_RGB_565)
         dst_cfg.format = HAL_PIXEL_FORMAT_RGBX_8888;
     else
         dst_cfg.format = HAL_PIXEL_FORMAT_BGRA_8888;
-    // RGB surfaces are already in the right color order from the GPU,
-    // YUV surfaces need the Gscaler to swap R & B
+    // RGBX8888 surfaces are already in the right color order from the GPU,
+    // RGB565 and YUV surfaces need the Gscaler to swap R & B
 
     ALOGV("source configuration:");
     dump_gsc_img(src_cfg);
