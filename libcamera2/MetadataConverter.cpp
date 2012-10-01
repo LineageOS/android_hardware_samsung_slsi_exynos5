@@ -134,7 +134,6 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT64, 1))
                     break;
                 dst->dm.sensor.timeStamp = curr_entry.data.i64[0];
-                ALOGE("DEBUG(%s): ANDROID_SENSOR_TIMESTAMP (%lld)",  __FUNCTION__, dst->dm.sensor.timeStamp);
                 break;
 
 
@@ -228,7 +227,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
             case ANDROID_CONTROL_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.aa.mode = (enum aa_mode)curr_entry.data.u8[0];
+                dst->ctl.aa.mode = (enum aa_mode)(curr_entry.data.u8[0] + 1);
                 break;
 
 
@@ -267,6 +266,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 // skip locked mode
                 if (dst->ctl.aa.awbMode == AA_AWBMODE_LOCKED)
                     dst->ctl.aa.awbMode = AA_AWBMODE_OFF;
+                dst_ext->awb_mode_dm = (enum aa_awbmode)(curr_entry.data.u8[0] + 2);
                 break;
 
             case ANDROID_CONTROL_AWB_LOCK:
@@ -367,7 +367,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
             }
         }
     }
-    if (dst->ctl.aa.mode != ANDROID_CONTROL_USE_SCENE_MODE)
+    if (dst->ctl.aa.mode != AA_CONTROL_USE_SCENE_MODE)
         dst->ctl.aa.sceneMode = AA_SCENE_MODE_UNSUPPORTED;
     ApplySceneModeParameters(request, dst_ext);
     return NO_ERROR;
@@ -389,6 +389,7 @@ status_t MetadataConverter::ApplySceneModeParameters(camera_metadata_t * request
         if (dst->ctl.aa.aeMode != AA_AEMODE_LOCKED)
             dst->ctl.aa.aeMode = AA_AEMODE_ON;
         dst->ctl.aa.awbMode = AA_AWBMODE_WB_AUTO;
+        dst_ext->awb_mode_dm = AA_AWBMODE_WB_AUTO;
         dst->ctl.aa.isoMode = AA_ISOMODE_AUTO;
         dst->ctl.aa.isoValue = 0;
         dst->ctl.aa.aeTargetFpsRange[0] = 30;
@@ -409,6 +410,7 @@ status_t MetadataConverter::ApplySceneModeParameters(camera_metadata_t * request
         if (dst->ctl.aa.aeMode != AA_AEMODE_LOCKED)
             dst->ctl.aa.aeMode = AA_AEMODE_ON;
         dst->ctl.aa.awbMode = AA_AWBMODE_WB_AUTO;
+        dst_ext->awb_mode_dm = AA_AWBMODE_WB_AUTO;
         dst->ctl.aa.isoMode = AA_ISOMODE_MANUAL;
         dst->ctl.aa.isoValue = 200;
         dst->ctl.aa.aeTargetFpsRange[0] = 15;
@@ -429,6 +431,7 @@ status_t MetadataConverter::ApplySceneModeParameters(camera_metadata_t * request
         if (dst->ctl.aa.aeMode != AA_AEMODE_LOCKED)
             dst->ctl.aa.aeMode = AA_AEMODE_ON;
         dst->ctl.aa.awbMode = AA_AWBMODE_WB_DAYLIGHT;
+        dst_ext->awb_mode_dm = AA_AWBMODE_WB_DAYLIGHT;
         dst->ctl.aa.isoMode = AA_ISOMODE_AUTO;
         dst->ctl.aa.isoValue = 0;
         dst->ctl.aa.aeTargetFpsRange[0] = 15;
@@ -448,6 +451,7 @@ status_t MetadataConverter::ApplySceneModeParameters(camera_metadata_t * request
         dst->ctl.aa.mode = AA_CONTROL_USE_SCENE_MODE;
         dst->ctl.aa.aeMode = AA_AEMODE_ON; // AE_LOCK is prohibited
         dst->ctl.aa.awbMode = AA_AWBMODE_WB_AUTO;
+        dst_ext->awb_mode_dm = AA_AWBMODE_WB_AUTO;
         dst->ctl.aa.isoMode = AA_ISOMODE_AUTO;
         dst->ctl.aa.isoValue = 0;
         dst->ctl.aa.aeTargetFpsRange[0] = 8;
@@ -532,13 +536,18 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
        metadata->dm.sensor.timeStamp, metadata->dm.sensor.exposureTime, metadata->dm.lens.aperture);
 
 
-    byteData = metadata->dm.aa.awbMode - 1;
+    byteData = metadata_ext->awb_mode_dm- 2;
     if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AWB_MODE,
                 &byteData, 1))
         return NO_MEMORY;
 
     byteData = metadata->dm.aa.aeMode - 1;
     if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_MODE,
+                &byteData, 1))
+        return NO_MEMORY;
+
+    byteData = metadata->dm.aa.afMode - 1;
+    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AF_MODE,
                 &byteData, 1))
         return NO_MEMORY;
 
@@ -591,6 +600,10 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
                     &metaFaceScores, tempFaceCount))
             return NO_MEMORY;
     }
+    if (0 != add_camera_metadata_entry(dst, ANDROID_SENSOR_SENSITIVITY,
+                &metadata->dm.aa.isoValue, 1))
+        return NO_MEMORY;
+
 
     if (0 != add_camera_metadata_entry(dst, ANDROID_SCALER_CROP_REGION,
                 &metadata->ctl.scaler.cropRegion, 3))
@@ -604,9 +617,20 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
                 &(metadata->dm.aa.awbState), 1))
         return NO_MEMORY;
 
-    ALOGV("(%s): AWB(%d) AE(%d) SCENE(%d)  AEComp(%d)", __FUNCTION__,
-       metadata->dm.aa.awbMode - 1, metadata->dm.aa.aeMode - 1, metadata->ctl.aa.sceneMode - 1,
-       metadata->ctl.aa.aeExpCompensation );
+    if (0 != add_camera_metadata_entry(dst, ANDROID_JPEG_GPS_COORDINATES,
+                &(metadata->ctl.jpeg.gpsCoordinates), 3))
+        return NO_MEMORY;
+
+    if (0 != add_camera_metadata_entry(dst, ANDROID_JPEG_GPS_PROCESSING_METHOD,
+                &(metadata_ext->gpsProcessingMethod), 32))
+        return NO_MEMORY;
+
+    if (0 != add_camera_metadata_entry(dst, ANDROID_JPEG_GPS_TIMESTAMP,
+                &(metadata->ctl.jpeg.gpsTimestamp), 1))
+        return NO_MEMORY;
+    ALOGV("(%s): AWB(%d) AE(%d) SCENE(%d)  AEComp(%d) AF(%d)", __FUNCTION__,
+       metadata_ext->awb_mode_dm- 2, metadata->dm.aa.aeMode - 1, metadata->ctl.aa.sceneMode - 1,
+       metadata->ctl.aa.aeExpCompensation, metadata->dm.aa.afMode - 1);
 
 
     if (metadata->ctl.request.metadataMode == METADATA_MODE_NONE) {
