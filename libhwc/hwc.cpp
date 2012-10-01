@@ -58,6 +58,7 @@ const size_t GSC_H_ALIGNMENT = 16;
 const int AVAILABLE_GSC_UNITS[] = { 0, 3 };
 const size_t NUM_GSC_UNITS = sizeof(AVAILABLE_GSC_UNITS) /
         sizeof(AVAILABLE_GSC_UNITS[0]);
+const size_t BURSTLEN_BYTES = 16 * 8;
 
 struct exynos5_hwc_composer_device_1_t;
 
@@ -661,6 +662,20 @@ bool exynos5_is_offscreen(hwc_layer_1_t &layer,
             layer.sourceCrop.bottom < 0;
 }
 
+size_t exynos5_visible_width(hwc_layer_1_t &layer, int format,
+        struct exynos5_hwc_composer_device_1_t *pdev)
+{
+    int bpp;
+    if (exynos5_requires_gscaler(layer, format))
+        bpp = 32;
+    else
+        bpp = exynos5_format_to_bpp(format);
+    int left = max(layer.displayFrame.left, 0);
+    int right = min(layer.displayFrame.right, pdev->xres);
+
+    return (right - left) * bpp / 8;
+}
+
 bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i,
         struct exynos5_hwc_composer_device_1_t *pdev)
 {
@@ -698,6 +713,10 @@ bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i,
     }
     if (CC_UNLIKELY(exynos5_is_offscreen(layer, pdev))) {
         ALOGW("\tlayer %u: off-screen", i);
+        return false;
+    }
+    if (exynos5_visible_width(layer, handle->format, pdev) < BURSTLEN_BYTES) {
+        ALOGV("\tlayer %u: visible area is too narrow", i);
         return false;
     }
 
