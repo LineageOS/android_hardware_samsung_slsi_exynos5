@@ -607,7 +607,7 @@ static int hdmi_configure_fblayer(struct exynos5_hwc_composer_device_1_t *dev,
     src_cfg.fw = h->stride;
     src_cfg.h = HEIGHT(layer.sourceCrop);
     src_cfg.fh = h->vstride;
-    src_cfg.format = HAL_PIXEL_FORMAT_BGRA_8888;
+    src_cfg.format = HAL_PIXEL_FORMAT_RGBX_8888;
     src_cfg.yaddr = h->fd;
     src_cfg.acquireFenceFd = layer.acquireFenceFd;
 
