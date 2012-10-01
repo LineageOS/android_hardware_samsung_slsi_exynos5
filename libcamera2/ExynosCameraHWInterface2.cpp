@@ -730,6 +730,9 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
     if (targetStreamIndex & STREAM_MASK_RECORD) {
         shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 30;
         shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
+    } else {
+        shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = request_shot->shot.ctl.aa.aeTargetFpsRange[0];
+        shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = request_shot->shot.ctl.aa.aeTargetFpsRange[1];
     }
 
     ALOGV("(%s): applied aa(%d) aemode(%d) expComp(%d), awb(%d) afmode(%d), ", __FUNCTION__,
