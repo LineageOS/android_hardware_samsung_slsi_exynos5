@@ -2778,7 +2778,7 @@ void ExynosCameraHWInterface2::m_preCaptureSetter(struct camera2_shot_ext * shot
     // Flash
     switch (m_ctlInfo.flash.m_flashCnt) {
     case IS_FLASH_STATE_ON:
-        ALOGV("(%s): [Flash] Flash ON for Capture", __FUNCTION__);
+        ALOGV("(%s): [Flash] Flash ON for Capture (%d)", __FUNCTION__, shot_ext->shot.ctl.request.frameCount);
         // check AF locked
         if (m_ctlInfo.flash.m_precaptureTriggerId > 0) {
             if (m_ctlInfo.flash.m_flashTimeOut == 0) {
@@ -2808,7 +2808,7 @@ void ExynosCameraHWInterface2::m_preCaptureSetter(struct camera2_shot_ext * shot
             m_ctlInfo.flash.m_flashCnt = IS_FLASH_STATE_AUTO_AE_AWB_LOCK;
         break;
     case IS_FLASH_STATE_AUTO_AE_AWB_LOCK:
-        ALOGV("(%s): [Flash] IS_FLASH_AF_AUTO_AE_AWB_LOCK - %d", __FUNCTION__, shot_ext->shot.dm.flash.decision);
+        ALOGV("(%s): [Flash] IS_FLASH_AF_AUTO_AE_AWB_LOCK (%d)", __FUNCTION__, shot_ext->shot.ctl.request.frameCount);
         shot_ext->shot.ctl.aa.aeflashMode = AA_FLASHMODE_AUTO;
         //shot_ext->shot.ctl.aa.aeMode = AA_AEMODE_LOCKED;
         shot_ext->shot.ctl.aa.awbMode = AA_AWBMODE_LOCKED;
@@ -2820,17 +2820,17 @@ void ExynosCameraHWInterface2::m_preCaptureSetter(struct camera2_shot_ext * shot
         shot_ext->shot.ctl.aa.awbMode = (enum aa_awbmode)0;
         break;
     case IS_FLASH_STATE_AUTO_DONE:
-        ALOGV("(%s): [Flash] IS_FLASH_AF_AUTO DONE", __FUNCTION__);
+        ALOGV("(%s): [Flash] IS_FLASH_AF_AUTO DONE (%d)", __FUNCTION__, shot_ext->shot.ctl.request.frameCount);
         shot_ext->shot.ctl.aa.aeflashMode = AA_FLASHMODE_OFF;
         break;
     case IS_FLASH_STATE_AUTO_OFF:
-        ALOGV("(%s): [Flash] IS_FLASH_AF_AUTO Clear", __FUNCTION__);
+        ALOGV("(%s): [Flash] IS_FLASH_AF_AUTO Clear (%d)", __FUNCTION__, shot_ext->shot.ctl.request.frameCount);
         shot_ext->shot.ctl.aa.aeflashMode = AA_FLASHMODE_OFF;
         m_ctlInfo.flash.m_afFlashDoneFlg = false;
         m_ctlInfo.flash.m_flashEnableFlg = false;
         break;
     case IS_FLASH_STATE_CAPTURE:
-        ALOGV("(%s): [Flash] IS_FLASH_CAPTURE", __FUNCTION__);
+        ALOGV("(%s): [Flash] IS_FLASH_CAPTURE (%d)", __FUNCTION__, shot_ext->shot.ctl.request.frameCount);
         m_ctlInfo.flash.m_flashTimeOut = FLASH_STABLE_WAIT_TIMEOUT;
         shot_ext->shot.ctl.aa.aeflashMode = AA_FLASHMODE_CAPTURE;
         shot_ext->request_scc = 0;
@@ -2848,7 +2848,7 @@ void ExynosCameraHWInterface2::m_preCaptureSetter(struct camera2_shot_ext * shot
         m_ctlInfo.flash.m_flashCnt = IS_FLASH_STATE_CAPTURE_END;  // auto transition
         break;
     case IS_FLASH_STATE_CAPTURE_END:
-        ALOGV("(%s): [Flash] Flash Capture END", __FUNCTION__);
+        ALOGV("(%s): [Flash] Flash Capture END (%d)", __FUNCTION__, shot_ext->shot.ctl.request.frameCount);
         shot_ext->shot.ctl.aa.aeflashMode = AA_FLASHMODE_OFF;
         shot_ext->request_scc = 0;
         shot_ext->request_scp = 0;
@@ -2895,8 +2895,6 @@ void ExynosCameraHWInterface2::m_preCaptureListenerISP(struct camera2_shot_ext *
             else
                 m_ctlInfo.flash.m_flashDecisionResult = true;
             m_ctlInfo.flash.m_flashCnt = IS_FLASH_STATE_ON_DONE;
-            if (m_ctlInfo.flash.m_afFlashDoneFlg)
-                m_IsAfTriggerRequired = true;
         } else {
             if (m_ctlInfo.flash.m_flashTimeOut == 0) {
                 ALOGV("(%s): [Flash] Timeout IS_FLASH_ON, decision is false setting", __FUNCTION__);
@@ -2974,9 +2972,9 @@ void ExynosCameraHWInterface2::m_afTrigger(struct camera2_shot_ext * shot_ext, i
         if (m_afState != HAL_AFSTATE_NEEDS_COMMAND)
             ALOGD("(%s): wrong trigger state %d", __FUNCTION__, m_afState);
         else
-        m_afState = HAL_AFSTATE_STARTED;
+            m_afState = HAL_AFSTATE_STARTED;
     }
-    ALOGD("### AF Triggering with mode (%d)", m_afMode);
+    ALOGD("### AF Triggering with mode (%d) (%d)", m_afMode, m_afState);
     shot_ext->shot.ctl.aa.afTrigger = 1;
     shot_ext->shot.ctl.aa.afMode = m_afMode;
     m_IsAfTriggerRequired = false;
@@ -3111,6 +3109,12 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 m_requestManager->UpdateIspParameters(shot_ext, matchedFrameCnt, &m_ctlInfo);
             }
 
+            // face af mode setting in case of face priority scene mode
+            if (m_ctlInfo.scene.prevSceneMode != shot_ext->shot.ctl.aa.sceneMode) {
+                ALOGV("(%s): Scene mode changed (%d)", __FUNCTION__, shot_ext->shot.ctl.aa.sceneMode);
+                m_ctlInfo.scene.prevSceneMode = shot_ext->shot.ctl.aa.sceneMode;
+            }
+
             if (m_afModeWaitingCnt != 0) {
                 ALOGV("### Af Trigger pulled, waiting for mode change cnt(%d) ", m_afModeWaitingCnt);
                 m_afModeWaitingCnt --;
@@ -3159,7 +3163,22 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                     m_afState = HAL_AFSTATE_STARTED;
                     shot_ext->shot.ctl.aa.afTrigger = 1;
                     triggered = true;
+                    if ((m_ctlInfo.scene.prevSceneMode == AA_SCENE_MODE_UNSUPPORTED) ||
+                            (m_ctlInfo.scene.prevSceneMode == AA_SCENE_MODE_FACE_PRIORITY)) {
+                        switch (m_afMode) {
+                        case AA_AFMODE_CONTINUOUS_PICTURE:
+                            shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE_FACE;
+                            ALOGD("### Face AF Mode change (Mode %d) ", shot_ext->shot.ctl.aa.afMode);
+                            break;
+                        case AA_AFMODE_CONTINUOUS_VIDEO:
+                            shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_VIDEO_FACE;
+                            ALOGD("### Face AF Mode change (Mode %d) ", shot_ext->shot.ctl.aa.afMode);
+                            break;
+                        }
+                    }
+                    m_ctlInfo.af.m_afTriggerTimeOut = 1;
                 }
+
                 m_IsAfModeUpdateRequired = false;
                 // support inifinity focus mode
                 if ((m_afMode == AA_AFMODE_MANUAL) && ( shot_ext->shot.ctl.lens.focusDistance == 0)) {
@@ -3292,14 +3311,18 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                     m_ctlInfo.flash.m_afFlashDoneFlg = false;
                     m_ctlInfo.flash.m_flashCnt = 0;
                 } else if ((m_ctlInfo.flash.m_flashCnt == IS_FLASH_STATE_AUTO_DONE) || (m_ctlInfo.flash.m_flashCnt == IS_FLASH_STATE_AUTO_OFF)) {
-                    ALOGE("(%s): [Flash] Flash capture start : skip request scc 1#####", __FUNCTION__);
+                    ALOGD("(%s): [Flash] Flash capture start : skip request scc 1#####", __FUNCTION__);
                     shot_ext->request_scc = 0;
                     m_ctlInfo.flash.m_flashFrameCount = matchedFrameCnt;
                     m_ctlInfo.flash.m_flashEnableFlg = true;
                     m_ctlInfo.flash.m_afFlashDoneFlg = false;
                     m_ctlInfo.flash.m_flashCnt = IS_FLASH_STATE_CAPTURE;
                 } else if (m_ctlInfo.flash.m_flashCnt < IS_FLASH_STATE_AUTO_DONE) {
-                    ALOGE("(%s): [Flash] Flash capture Error!!!!!!", __FUNCTION__);
+                    ALOGE("(%s): [Flash] Flash capture Error- wrong state !!!!!! (%d)", __FUNCTION__, m_ctlInfo.flash.m_flashCnt);
+                    shot_ext->shot.ctl.aa.aeflashMode = AA_FLASHMODE_OFF;
+                    m_ctlInfo.flash.m_flashEnableFlg = false;
+                    m_ctlInfo.flash.m_flashCnt = 0;
+                    m_ctlInfo.flash.m_afFlashDoneFlg= false;
                 }
             } else if (shot_ext->shot.ctl.aa.captureIntent == AA_CAPTURE_INTENT_STILL_CAPTURE) {
                 m_ctlInfo.flash.m_flashDecisionResult = false;
@@ -3338,16 +3361,6 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 m_reprocessingFrameCnt = shot_ext->shot.ctl.request.frameCount;
                 memcpy(&m_jpegMetadata, &shot_ext->shot, sizeof(struct camera2_shot));
                 m_streamThreads[1]->SetSignal(SIGNAL_STREAM_REPROCESSING_START);
-            }
-
-            // face af mode setting in case of face priority scene mode
-            if (m_ctlInfo.scene.prevSceneMode != shot_ext->shot.ctl.aa.sceneMode) {
-                ALOGV("(%s): Scene mode changed", __FUNCTION__);
-                m_ctlInfo.scene.prevSceneMode = shot_ext->shot.ctl.aa.sceneMode;
-                m_sceneModeFaceSetter(shot_ext, 0);
-            } else if (triggered) {
-                // re-setting after single AF
-                m_sceneModeFaceSetter(shot_ext, 1);
             }
 
             ALOGV("(%s): queued  aa(%d) aemode(%d) awb(%d) afmode(%d) trigger(%d)", __FUNCTION__,
@@ -3455,12 +3468,10 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 shot_ext->shot.dm.aa.aeState = AE_STATE_CONVERGED;
 
             // At scene mode face priority
-            if (shot_ext->shot.ctl.aa.sceneMode == AA_SCENE_MODE_FACE_PRIORITY) {
-                if (shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_PICTURE_FACE)
-                    shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_PICTURE;
-                else if (shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_VIDEO_FACE)
-                    shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_PICTURE;
-            }
+            if (shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_PICTURE_FACE)
+                shot_ext->shot.dm.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE;
+            else if (shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_VIDEO_FACE)
+                shot_ext->shot.dm.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE;
 
             if (m_nightCaptureCnt == 0 && (m_ctlInfo.flash.m_flashCnt < IS_FLASH_STATE_CAPTURE)) {
                 m_requestManager->ApplyDynamicMetadata(shot_ext);
@@ -4894,7 +4905,7 @@ void ExynosCameraHWInterface2::OnPrecaptureMeteringNotificationISP()
                     m_notifyCb(CAMERA2_MSG_AUTOEXPOSURE,
                                     ANDROID_CONTROL_AE_STATE_PRECAPTURE,
                                     m_ctlInfo.flash.m_precaptureTriggerId, 0, m_callbackCookie);
-                    ALOGV("(%s) ANDROID_CONTROL_AE_STATE_LOCKED (%d)", __FUNCTION__, m_ctlInfo.flash.m_flashCnt);
+                    ALOGV("(%s) ANDROID_CONTROL_AE_STATE_PRECAPTURE (%d)", __FUNCTION__, m_ctlInfo.flash.m_flashCnt);
                     m_notifyCb(CAMERA2_MSG_AUTOWB,
                                     ANDROID_CONTROL_AWB_STATE_CONVERGED,
                                     m_ctlInfo.flash.m_precaptureTriggerId, 0, m_callbackCookie);
@@ -5096,6 +5107,17 @@ void ExynosCameraHWInterface2::OnAfNotificationCAFPicture(enum aa_afstate noti)
             nextState = NO_TRANSITION;
             break;
         }
+        // Check AF notification after triggering
+        if (m_ctlInfo.af.m_afTriggerTimeOut > 0) {
+            if (m_ctlInfo.af.m_afTriggerTimeOut > 5) {
+                ALOGE("(%s) AF notification error - try to re-trigger mode (%)", __FUNCTION__, m_afMode);
+                SetAfMode(AA_AFMODE_OFF);
+                SetAfMode(m_afMode);
+                m_ctlInfo.af.m_afTriggerTimeOut = 0;
+            } else {
+                m_ctlInfo.af.m_afTriggerTimeOut++;
+            }
+        }
     }
     else if (m_afState == HAL_AFSTATE_STARTED) {
         switch (noti) {
@@ -5105,10 +5127,12 @@ void ExynosCameraHWInterface2::OnAfNotificationCAFPicture(enum aa_afstate noti)
         case AA_AFSTATE_ACTIVE_SCAN:
             nextState = HAL_AFSTATE_SCANNING;
             SetAfStateForService(ANDROID_CONTROL_AF_STATE_PASSIVE_SCAN);
+            m_ctlInfo.af.m_afTriggerTimeOut = 0;
             break;
         case AA_AFSTATE_AF_ACQUIRED_FOCUS:
             nextState = HAL_AFSTATE_PASSIVE_FOCUSED;
             SetAfStateForService(ANDROID_CONTROL_AF_STATE_PASSIVE_FOCUSED);
+            m_ctlInfo.af.m_afTriggerTimeOut = 0;
             break;
         case AA_AFSTATE_AF_FAILED_FOCUS:
             //nextState = HAL_AFSTATE_FAILED;
