@@ -4238,6 +4238,7 @@ int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuff
         jpegBlob->jpeg_size = jpegSize;
         jpegBlob->jpeg_blob_id = CAMERA2_JPEG_BLOB_ID;
     }
+    subParms->svcBuffers[subParms->svcBufIndex].size.extS[0] = jpegBufSize;
     res = subParms->streamOps->enqueue_buffer(subParms->streamOps, frameTimeStamp, &(subParms->svcBufHandle[subParms->svcBufIndex]));
 
     ALOGV("DEBUG(%s): streamthread[%d] enqueue_buffer index(%d) to svc done res(%d)",
