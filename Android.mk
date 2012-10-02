@@ -32,7 +32,8 @@ exynos5_dirs := \
 	libcamera2 \
 	mobicore \
 	libkeymaster \
-	gralloc
+	gralloc \
+	libsecurepath
 
 BOARD_USE_V4L2 := true
 BOARD_USE_V4L2_ION := true
