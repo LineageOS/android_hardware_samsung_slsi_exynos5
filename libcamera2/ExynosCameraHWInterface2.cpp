@@ -3100,10 +3100,12 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
         }
 
         if (matchedFrameCnt != -1) {
-            if (m_vdisBubbleCnt == 0) {
+            if (m_vdisBubbleCnt == 0 || m_vdisDupFrame != matchedFrameCnt) {
                 frameTime = systemTime();
                 m_requestManager->RegisterTimestamp(matchedFrameCnt, &frameTime);
                 m_requestManager->UpdateIspParameters(shot_ext, matchedFrameCnt, &m_ctlInfo);
+            } else {
+                ALOGV("bubble for vids: m_vdisBubbleCnt %d, matchedFrameCnt %d", m_vdisDupFrame, matchedFrameCnt);
             }
 
             // face af mode setting in case of face priority scene mode
