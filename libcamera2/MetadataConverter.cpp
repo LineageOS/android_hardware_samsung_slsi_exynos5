@@ -582,7 +582,7 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
 
     int tempFaceCount = 0;
     for (int i = 0; i < CAMERA2_MAX_FACES; i++) {
-        if (metadata->dm.stats.faceScores[i] >= CAMERA2_FACE_DETECTION_THRESHOLD) {
+        if (metadata->dm.stats.faceIds[i] > 0) {
             mataFaceIds[tempFaceCount] = metadata->dm.stats.faceIds[i];
             metaFaceScores[tempFaceCount] = metadata->dm.stats.faceScores[i];
 
