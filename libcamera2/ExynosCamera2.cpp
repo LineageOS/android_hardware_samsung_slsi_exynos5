@@ -591,6 +591,11 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
     ADD_OR_SIZE(ANDROID_QUIRKS_USE_ZSL_FORMAT,
             &quirkUseZslFormat, 1);
 
+    static const uint8_t quirkMeteringCropRegion = 1;
+    ADD_OR_SIZE(ANDROID_QUIRKS_METERING_CROP_REGION,
+            &quirkMeteringCropRegion, 1);
+
+
 #undef ADD_OR_SIZE
     /** Allocate metadata if sizing */
     if (sizeRequest) {
