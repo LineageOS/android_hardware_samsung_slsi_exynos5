@@ -826,6 +826,29 @@ uint8_t  RequestManager::GetOutputStream(int index)
     return currentEntry->internal_shot.shot.ctl.request.outputStreams[0];
 }
 
+camera2_shot_ext *  RequestManager::GetInternalShotExtByFrameCnt(int frameCnt)
+{
+    int index = FindEntryIndexByFrameCnt(frameCnt);
+    if (index == -1) {
+        ALOGE("ERR(%s): Cannot find entry for frameCnt(%d)", __FUNCTION__, frameCnt);
+        return 0;
+    }
+    else
+        return GetInternalShotExt(index);
+}
+
+camera2_shot_ext *  RequestManager::GetInternalShotExt(int index)
+{
+    Mutex::Autolock lock(m_requestMutex);
+    if (index < 0 || index >= NUM_MAX_REQUEST_MGR_ENTRY) {
+        ALOGE("ERR(%s): Request entry outside of bounds (%d)", __FUNCTION__, index);
+        return 0;
+    }
+
+    request_manager_entry * currentEntry = &(entries[index]);
+    return &currentEntry->internal_shot;
+}
+
 int     RequestManager::FindFrameCnt(struct camera2_shot_ext * shot_ext)
 {
     Mutex::Autolock lock(m_requestMutex);
@@ -3297,12 +3320,14 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             }
 
             if (shot_ext->isReprocessing) {
-                ALOGV("(%s): Reprocess request ", __FUNCTION__);
+                ALOGV("(%s): Sending signal for Reprocess request", __FUNCTION__);
                 m_currentReprocessOutStreams = shot_ext->shot.ctl.request.outputStreams[0];
                 shot_ext->request_scp = 0;
                 shot_ext->request_scc = 0;
                 m_reprocessingFrameCnt = shot_ext->shot.ctl.request.frameCount;
-                memcpy(&m_jpegMetadata, (void*)shot_ext, sizeof(struct camera2_shot_ext));
+                m_ctlInfo.flash.m_flashDecisionResult = false;
+                memcpy(&m_jpegMetadata, (void*)(m_requestManager->GetInternalShotExtByFrameCnt(m_reprocessingFrameCnt)),
+                    sizeof(struct camera2_shot_ext));
                 m_streamThreads[1]->SetSignal(SIGNAL_STREAM_REPROCESSING_START);
             }
 
@@ -3356,35 +3381,6 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             m_currentOutputStreams = shot_ext->shot.ctl.request.outputStreams[0];
 #endif
 
-            if (current_scc != shot_ext->request_scc) {
-                ALOGD("(%s): scc frame drop1 request_scc(%d to %d)",
-                                __FUNCTION__, current_scc, shot_ext->request_scc);
-                m_requestManager->NotifyStreamOutput(shot_ext->shot.ctl.request.frameCount);
-            }
-            if (shot_ext->request_scc) {
-                ALOGV("send SIGNAL_STREAM_DATA_COMING (SCC)");
-                memcpy(&m_jpegMetadata, (void*)shot_ext, sizeof(struct camera2_shot_ext));
-                m_streamThreads[1]->SetSignal(SIGNAL_STREAM_DATA_COMING);
-            }
-            if (current_scp != shot_ext->request_scp) {
-                ALOGD("(%s): scp frame drop1 request_scp(%d to %d)",
-                                __FUNCTION__, current_scp, shot_ext->request_scp);
-                m_requestManager->NotifyStreamOutput(shot_ext->shot.ctl.request.frameCount);
-            }
-            if (shot_ext->request_scp) {
-                ALOGV("send SIGNAL_STREAM_DATA_COMING (SCP)");
-                m_streamThreads[0]->SetSignal(SIGNAL_STREAM_DATA_COMING);
-            }
-
-            ALOGV("(%s): SCP_CLOSING check sensor(%d) scc(%d) scp(%d) ", __FUNCTION__,
-               shot_ext->request_sensor, shot_ext->request_scc, shot_ext->request_scp);
-            if (shot_ext->request_scc + shot_ext->request_scp + shot_ext->request_sensor == 0) {
-                ALOGV("(%s): SCP_CLOSING check OK ", __FUNCTION__);
-                m_scp_closed = true;
-            }
-            else
-                m_scp_closed = false;
-
             if (!shot_ext->fd_bypass) {
                 /* FD orientation axis transformation */
                 for (int i=0; i < CAMERA2_MAX_FACES; i++) {
@@ -3417,6 +3413,42 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             if (matchedFrameCnt != -1 && m_nightCaptureCnt == 0 && (m_ctlInfo.flash.m_flashCnt < IS_FLASH_STATE_CAPTURE)) {
                 m_requestManager->ApplyDynamicMetadata(shot_ext);
             }
+
+            if (current_scc != shot_ext->request_scc) {
+                ALOGD("(%s): scc frame drop1 request_scc(%d to %d)",
+                                __FUNCTION__, current_scc, shot_ext->request_scc);
+                m_requestManager->NotifyStreamOutput(shot_ext->shot.ctl.request.frameCount);
+            }
+            if (shot_ext->request_scc) {
+                ALOGV("send SIGNAL_STREAM_DATA_COMING (SCC)");
+                if (shot_ext->shot.ctl.request.outputStreams[0] & STREAM_MASK_JPEG) {
+                    if (m_ctlInfo.flash.m_flashCnt < IS_FLASH_STATE_CAPTURE)
+                        memcpy(&m_jpegMetadata, (void*)(m_requestManager->GetInternalShotExtByFrameCnt(shot_ext->shot.ctl.request.frameCount)),
+                            sizeof(struct camera2_shot_ext));
+                    else
+                        memcpy(&m_jpegMetadata, (void*)shot_ext, sizeof(struct camera2_shot_ext));
+                }
+                m_streamThreads[1]->SetSignal(SIGNAL_STREAM_DATA_COMING);
+            }
+            if (current_scp != shot_ext->request_scp) {
+                ALOGD("(%s): scp frame drop1 request_scp(%d to %d)",
+                                __FUNCTION__, current_scp, shot_ext->request_scp);
+                m_requestManager->NotifyStreamOutput(shot_ext->shot.ctl.request.frameCount);
+            }
+            if (shot_ext->request_scp) {
+                ALOGV("send SIGNAL_STREAM_DATA_COMING (SCP)");
+                m_streamThreads[0]->SetSignal(SIGNAL_STREAM_DATA_COMING);
+            }
+
+            ALOGV("(%s): SCP_CLOSING check sensor(%d) scc(%d) scp(%d) ", __FUNCTION__,
+               shot_ext->request_sensor, shot_ext->request_scc, shot_ext->request_scp);
+            if (shot_ext->request_scc + shot_ext->request_scp + shot_ext->request_sensor == 0) {
+                ALOGV("(%s): SCP_CLOSING check OK ", __FUNCTION__);
+                m_scp_closed = true;
+            }
+            else
+                m_scp_closed = false;
+
             OnAfNotification(shot_ext->shot.dm.aa.afState);
             OnPrecaptureMeteringNotificationISP();
         }   else {
