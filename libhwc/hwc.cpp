@@ -55,6 +55,8 @@ const size_t NO_FB_NEEDED = NUM_HW_WINDOWS + 1;
 const size_t MAX_PIXELS = 2560 * 1600 * 2;
 const size_t GSC_W_ALIGNMENT = 16;
 const size_t GSC_H_ALIGNMENT = 16;
+const size_t FIMD_GSC_IDX = 0;
+const size_t HDMI_GSC_IDX = 1;
 const int AVAILABLE_GSC_UNITS[] = { 0, 3 };
 const size_t NUM_GSC_UNITS = sizeof(AVAILABLE_GSC_UNITS) /
         sizeof(AVAILABLE_GSC_UNITS[0]);
@@ -124,7 +126,6 @@ struct exynos5_hwc_composer_device_1_t {
     int  hdmi_w;
     int  hdmi_h;
 
-    exynos5_gsc_data_t      hdmi_gsc;
     hdmi_layer_t            hdmi_layers[2];
 
     exynos5_gsc_data_t      gsc[NUM_GSC_UNITS];
@@ -553,7 +554,7 @@ static void hdmi_disable(struct exynos5_hwc_composer_device_1_t *dev)
     hdmi_disable_layer(dev, dev->hdmi_layers[0]);
     hdmi_disable_layer(dev, dev->hdmi_layers[1]);
 
-    exynos5_gsc_data_t *gsc_data = &dev->hdmi_gsc;
+    exynos5_gsc_data_t *gsc_data = &dev->gsc[HDMI_GSC_IDX];
     for (size_t i = 0; i < NUM_GSC_DST_BUFS; i++) {
         if (gsc_data->dst_buf[i])
             dev->alloc_device->free(dev->alloc_device, gsc_data->dst_buf[i]);
@@ -819,10 +820,13 @@ static int exynos5_prepare_fimd(exynos5_hwc_composer_device_1_t *pdev,
     // necessary because adding a layer to the framebuffer can cause other
     // windows to retroactively violate constraints.)
     bool changed;
+    bool gsc_used;
     do {
         android::Vector<hwc_rect> rects;
         android::Vector<hwc_rect> overlaps;
-        size_t pixels_left, windows_left, gsc_left = NUM_GSC_UNITS;
+        size_t pixels_left, windows_left;
+
+        gsc_used = false;
 
         if (fb_needed) {
             hwc_rect_t fb_rect;
@@ -837,8 +841,6 @@ static int exynos5_prepare_fimd(exynos5_hwc_composer_device_1_t *pdev,
             pixels_left = MAX_PIXELS;
             windows_left = NUM_HW_WINDOWS;
         }
-        if (pdev->hdmi_enabled)
-            gsc_left--;
 
         changed = false;
 
@@ -867,7 +869,7 @@ static int exynos5_prepare_fimd(exynos5_hwc_composer_device_1_t *pdev,
             bool can_compose = windows_left && pixels_needed <= pixels_left;
             bool gsc_required = exynos5_requires_gscaler(layer, handle->format);
             if (gsc_required)
-                can_compose = can_compose && gsc_left;
+                can_compose = can_compose && !gsc_used;
 
             // hwc_rect_t right and bottom values are normally exclusive;
             // the intersection logic is simpler if we make them inclusive
@@ -903,7 +905,7 @@ static int exynos5_prepare_fimd(exynos5_hwc_composer_device_1_t *pdev,
             pixels_left -= pixels_needed;
             windows_left--;
             if (gsc_required)
-                gsc_left--;
+                gsc_used = true;
         }
 
         if (changed)
@@ -912,7 +914,6 @@ static int exynos5_prepare_fimd(exynos5_hwc_composer_device_1_t *pdev,
     } while(changed);
 
     unsigned int nextWindow = 0;
-    int nextGsc = 0;
 
     for (size_t i = 0; i < contents->numHwLayers; i++) {
         hwc_layer_1_t &layer = contents->hwLayers[i];
@@ -932,22 +933,22 @@ static int exynos5_prepare_fimd(exynos5_hwc_composer_device_1_t *pdev,
                 private_handle_t *handle =
                         private_handle_t::dynamicCast(layer.handle);
                 if (exynos5_requires_gscaler(layer, handle->format)) {
-                    ALOGV("\tusing gscaler %u", AVAILABLE_GSC_UNITS[nextGsc]);
+                    ALOGV("\tusing gscaler %u", AVAILABLE_GSC_UNITS[FIMD_GSC_IDX]);
                     pdev->bufs.gsc_map[nextWindow].mode =
                             exynos5_gsc_map_t::GSC_M2M;
-                    pdev->bufs.gsc_map[nextWindow].idx = nextGsc++;
+                    pdev->bufs.gsc_map[nextWindow].idx = FIMD_GSC_IDX;
                 }
             }
             nextWindow++;
         }
     }
 
-    for (size_t i = nextGsc; i < NUM_GSC_UNITS; i++) {
+    if (!gsc_used) {
         for (size_t j = 0; j < NUM_GSC_DST_BUFS; j++)
-            if (pdev->gsc[i].dst_buf[j])
+            if (pdev->gsc[FIMD_GSC_IDX].dst_buf[j])
                 pdev->alloc_device->free(pdev->alloc_device,
-                        pdev->gsc[i].dst_buf[j]);
-        memset(&pdev->gsc[i], 0, sizeof(pdev->gsc[i]));
+                        pdev->gsc[FIMD_GSC_IDX].dst_buf[j]);
+        memset(&pdev->gsc[FIMD_GSC_IDX], 0, sizeof(pdev->gsc[FIMD_GSC_IDX]));
     }
 
     if (fb_needed)
@@ -1417,7 +1418,7 @@ static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
                 layer.acquireFenceFd = -1;
             }
 
-            exynos5_gsc_data_t &gsc = pdev->hdmi_gsc;
+            exynos5_gsc_data_t &gsc = pdev->gsc[HDMI_GSC_IDX];
             exynos5_config_gsc_m2m(layer, pdev->alloc_device, &gsc, 1,
                                             HAL_PIXEL_FORMAT_RGBX_8888);
 
