@@ -136,6 +136,9 @@ struct exynos5_hwc_composer_device_1_t {
     exynos5_gsc_map_t       last_gsc_map[NUM_HW_WINDOWS];
 };
 
+static void exynos5_cleanup_gsc_m2m(exynos5_hwc_composer_device_1_t *pdev,
+        size_t gsc_idx);
+
 static void dump_handle(private_handle_t *h)
 {
     ALOGV("\t\tformat = %d, width = %u, height = %u, stride = %u, vstride = %u",
@@ -554,14 +557,7 @@ static void hdmi_disable(struct exynos5_hwc_composer_device_1_t *dev)
     hdmi_disable_layer(dev, dev->hdmi_layers[0]);
     hdmi_disable_layer(dev, dev->hdmi_layers[1]);
 
-    exynos5_gsc_data_t *gsc_data = &dev->gsc[HDMI_GSC_IDX];
-    for (size_t i = 0; i < NUM_GSC_DST_BUFS; i++) {
-        if (gsc_data->dst_buf[i])
-            dev->alloc_device->free(dev->alloc_device, gsc_data->dst_buf[i]);
-    }
-
-    memset(gsc_data, 0, sizeof(*gsc_data));
-
+    exynos5_cleanup_gsc_m2m(dev, HDMI_GSC_IDX);
     dev->hdmi_enabled = false;
 }
 
@@ -943,13 +939,8 @@ static int exynos5_prepare_fimd(exynos5_hwc_composer_device_1_t *pdev,
         }
     }
 
-    if (!gsc_used) {
-        for (size_t j = 0; j < NUM_GSC_DST_BUFS; j++)
-            if (pdev->gsc[FIMD_GSC_IDX].dst_buf[j])
-                pdev->alloc_device->free(pdev->alloc_device,
-                        pdev->gsc[FIMD_GSC_IDX].dst_buf[j]);
-        memset(&pdev->gsc[FIMD_GSC_IDX], 0, sizeof(pdev->gsc[FIMD_GSC_IDX]));
-    }
+    if (!gsc_used)
+        exynos5_cleanup_gsc_m2m(pdev, FIMD_GSC_IDX);
 
     if (fb_needed)
         pdev->bufs.fb_window = first_fb;
@@ -1116,12 +1107,17 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     ALOGV("destination configuration:");
     dump_gsc_img(dst_cfg);
 
-    gsc_data->gsc = exynos_gsc_create_exclusive(AVAILABLE_GSC_UNITS[gsc_idx],
-            GSC_M2M_MODE, GSC_DUMMY);
-    if (!gsc_data->gsc) {
-        ALOGE("failed to create gscaler handle");
-        ret = -1;
-        goto err_alloc;
+    if (gsc_data->gsc) {
+        ALOGV("reusing open gscaler %u", AVAILABLE_GSC_UNITS[gsc_idx]);
+    } else {
+        ALOGV("opening gscaler %u", AVAILABLE_GSC_UNITS[gsc_idx]);
+        gsc_data->gsc = exynos_gsc_create_exclusive(
+                AVAILABLE_GSC_UNITS[gsc_idx], GSC_M2M_MODE, GSC_DUMMY);
+        if (!gsc_data->gsc) {
+            ALOGE("failed to create gscaler handle");
+            ret = -1;
+            goto err_alloc;
+        }
     }
 
     ret = exynos_gsc_config_exclusive(gsc_data->gsc, &src_cfg, &dst_cfg);
@@ -1154,6 +1150,24 @@ err_alloc:
     memset(&gsc_data->src_cfg, 0, sizeof(gsc_data->src_cfg));
     memset(&gsc_data->dst_cfg, 0, sizeof(gsc_data->dst_cfg));
     return ret;
+}
+
+
+static void exynos5_cleanup_gsc_m2m(exynos5_hwc_composer_device_1_t *pdev,
+        size_t gsc_idx)
+{
+    exynos5_gsc_data_t &gsc_data = pdev->gsc[gsc_idx];
+    if (!gsc_data.gsc)
+        return;
+
+    ALOGV("closing gscaler %u", AVAILABLE_GSC_UNITS[gsc_idx]);
+
+    exynos_gsc_destroy(gsc_data.gsc);
+    for (size_t i = 0; i < NUM_GSC_DST_BUFS; i++)
+        if (gsc_data.dst_buf[i])
+            pdev->alloc_device->free(pdev->alloc_device, gsc_data.dst_buf[i]);
+
+    memset(&gsc_data, 0, sizeof(gsc_data));
 }
 
 static void exynos5_config_handle(private_handle_t *handle,
@@ -1281,8 +1295,6 @@ static int exynos5_post_fimd(exynos5_hwc_composer_device_1_t *pdev,
                 }
 
                 err = exynos_gsc_stop_exclusive(gsc.gsc);
-                exynos_gsc_destroy(gsc.gsc);
-                gsc.gsc = NULL;
                 if (err < 0) {
                     ALOGE("failed to dequeue gscaler output for layer %u", i);
                     continue;
@@ -1423,8 +1435,6 @@ static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
                                             HAL_PIXEL_FORMAT_RGBX_8888);
 
             int err = exynos_gsc_stop_exclusive(gsc.gsc);
-            exynos_gsc_destroy(gsc.gsc);
-            gsc.gsc = NULL;
             if (err < 0) {
                 ALOGE("failed to dequeue gscaler output for layer");
                 continue;
@@ -1451,8 +1461,10 @@ static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
         }
     }
 
-    if (!video_layer)
+    if (!video_layer) {
         hdmi_disable_layer(pdev, pdev->hdmi_layers[0]);
+        exynos5_cleanup_gsc_m2m(pdev, HDMI_GSC_IDX);
+    }
     if (!fb_layer)
         hdmi_disable_layer(pdev, pdev->hdmi_layers[1]);
 
@@ -1985,13 +1997,8 @@ static int exynos5_close(hw_device_t *device)
             (struct exynos5_hwc_composer_device_1_t *)device;
     pthread_kill(dev->vsync_thread, SIGTERM);
     pthread_join(dev->vsync_thread, NULL);
-    for (size_t i = 0; i < NUM_GSC_UNITS; i++) {
-        if (dev->gsc[i].gsc)
-            exynos_gsc_destroy(dev->gsc[i].gsc);
-        for (size_t j = 0; i < NUM_GSC_DST_BUFS; j++)
-            if (dev->gsc[i].dst_buf[j])
-                dev->alloc_device->free(dev->alloc_device, dev->gsc[i].dst_buf[j]);
-    }
+    for (size_t i = 0; i < NUM_GSC_UNITS; i++)
+        exynos5_cleanup_gsc_m2m(dev, i);
     gralloc_close(dev->alloc_device);
     close(dev->vsync_fd);
     close(dev->hdmi_mixer0);
