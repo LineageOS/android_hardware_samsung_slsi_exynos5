@@ -615,6 +615,19 @@ static bool m_exynos_gsc_set_format(
             return false;
         }
         info->stream_on = false;
+
+        req_buf.count  = 0;
+        req_buf.type   = info->buf_type;
+        req_buf.memory = V4L2_MEMORY_DMABUF;
+        if (exynos_v4l2_reqbufs(fd, &req_buf) < 0) {
+            ALOGE("%s::exynos_v4l2_reqbufs() fail", __func__);
+            return false;
+        }
+
+        if (exynos_v4l2_s_ctrl(fd, V4L2_CID_CONTENT_PROTECTION, 0) < 0) {
+            ALOGE("%s::exynos_v4l2_s_ctrl(V4L2_CID_CONTENT_PROTECTION) fail", __func__);
+            return false;
+        }
     }
 
     if (exynos_v4l2_s_ctrl(fd, V4L2_CID_ROTATE, info->rotation) < 0) {
@@ -1065,6 +1078,7 @@ int exynos_gsc_set_src_format(
     gsc_handle->src.v4l2_colorformat = v4l2_colorformat;
     gsc_handle->src.cacheable        = cacheable;
     gsc_handle->src.mode_drm         = mode_drm;
+    gsc_handle->src.dirty            = true;
 
 
     exynos_mutex_unlock(gsc_handle->op_mutex);
@@ -1107,6 +1121,7 @@ int exynos_gsc_set_dst_format(
     gsc_handle->dst.v4l2_colorformat = v4l2_colorformat;
     gsc_handle->dst.cacheable        = cacheable;
     gsc_handle->dst.mode_drm         = mode_drm;
+    gsc_handle->dst.dirty            = true;
 
     exynos_mutex_unlock(gsc_handle->op_mutex);
 
@@ -1753,14 +1768,20 @@ static int exynos_gsc_m2m_run_core(void *handle)
         goto done;
     }
 
-    if (m_exynos_gsc_set_format(gsc_handle->gsc_fd, &gsc_handle->src) == false) {
-        ALOGE("%s::m_exynos_gsc_set_format(src) fail", __func__);
-        goto done;
+    if (gsc_handle->src.dirty) {
+        if (m_exynos_gsc_set_format(gsc_handle->gsc_fd, &gsc_handle->src) == false) {
+            ALOGE("%s::m_exynos_gsc_set_format(src) fail", __func__);
+            goto done;
+        }
+        gsc_handle->src.dirty = false;
     }
 
-    if (m_exynos_gsc_set_format(gsc_handle->gsc_fd, &gsc_handle->dst) == false) {
-        ALOGE("%s::m_exynos_gsc_set_format(dst) fail", __func__);
-        goto done;
+    if (gsc_handle->dst.dirty) {
+        if (m_exynos_gsc_set_format(gsc_handle->gsc_fd, &gsc_handle->dst) == false) {
+            ALOGE("%s::m_exynos_gsc_set_format(dst) fail", __func__);
+            goto done;
+        }
+        gsc_handle->dst.dirty = false;
     }
 
     if (m_exynos_gsc_set_addr(gsc_handle->gsc_fd, &gsc_handle->src) == false) {
