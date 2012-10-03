@@ -1032,7 +1032,7 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
 
 static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
         alloc_device_t* alloc_device, exynos5_gsc_data_t *gsc_data,
-        int gsc_idx)
+        int gsc_idx, int dst_format)
 {
     ALOGV("configuring gscaler %u for memory-to-memory", AVAILABLE_GSC_UNITS[gsc_idx]);
 
@@ -1068,13 +1068,7 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     dst_cfg.h = HEIGHT(layer.displayFrame);
     dst_cfg.rot = layer.transform;
     dst_cfg.drmMode = src_cfg.drmMode;
-    if (exynos5_format_is_rgb(src_handle->format) &&
-            src_handle->format != HAL_PIXEL_FORMAT_RGB_565)
-        dst_cfg.format = HAL_PIXEL_FORMAT_RGBX_8888;
-    else
-        dst_cfg.format = HAL_PIXEL_FORMAT_BGRA_8888;
-    // RGBX8888 surfaces are already in the right color order from the GPU,
-    // RGB565 and YUV surfaces need the Gscaler to swap R & B
+    dst_cfg.format = dst_format;
 
     ALOGV("source configuration:");
     dump_gsc_img(src_cfg);
@@ -1270,8 +1264,15 @@ static int exynos5_post_fimd(exynos5_hwc_composer_device_1_t *pdev,
                     close(layer.acquireFenceFd);
                 }
 
+                // RGBX8888 surfaces are already in the right color order from the GPU,
+                // RGB565 and YUV surfaces need the Gscaler to swap R & B
+                int dst_format = HAL_PIXEL_FORMAT_BGRA_8888;
+                if (exynos5_format_is_rgb(handle->format) &&
+                                handle->format != HAL_PIXEL_FORMAT_RGB_565)
+                    dst_format = HAL_PIXEL_FORMAT_RGBX_8888;
+
                 int err = exynos5_config_gsc_m2m(layer, pdev->alloc_device, &gsc,
-                        gsc_idx);
+                        gsc_idx, dst_format);
                 if (err < 0) {
                     ALOGE("failed to queue gscaler %u input for layer %u",
                             gsc_idx, i);
@@ -1417,7 +1418,8 @@ static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
             }
 
             exynos5_gsc_data_t &gsc = pdev->hdmi_gsc;
-            exynos5_config_gsc_m2m(layer, pdev->alloc_device, &gsc, 1);
+            exynos5_config_gsc_m2m(layer, pdev->alloc_device, &gsc, 1,
+                                            HAL_PIXEL_FORMAT_RGBX_8888);
 
             int err = exynos_gsc_stop_exclusive(gsc.gsc);
             exynos_gsc_destroy(gsc.gsc);
