@@ -422,7 +422,7 @@ bool RequestManager::PrepareFrame(size_t* num_entries, size_t* frame_size,
         return false;
     }
     m_entryFrameOutputIndex = tempFrameOutputIndex;
-    m_tempFrameMetadata = place_camera_metadata(m_tempFrameMetadataBuf, 2000, 25, 500); //estimated
+    m_tempFrameMetadata = place_camera_metadata(m_tempFrameMetadataBuf, 2000, 35, 500); //estimated
     add_camera_metadata_entry(m_tempFrameMetadata, ANDROID_CONTROL_AF_STATE, &afState, 1);
     res = m_metadataConverter->ToDynamicMetadata(&(currentEntry->internal_shot),
                 m_tempFrameMetadata);
@@ -2981,54 +2981,6 @@ void ExynosCameraHWInterface2::m_afTrigger(struct camera2_shot_ext * shot_ext, i
     m_IsAfTriggerRequired = false;
 }
 
-void ExynosCameraHWInterface2::m_sceneModeFaceSetter(struct camera2_shot_ext * shot_ext, int mode)
-{
-    switch (mode) {
-    case 0:
-        // af face setting based on scene mode
-        if (shot_ext->shot.ctl.aa.sceneMode == AA_SCENE_MODE_FACE_PRIORITY) {
-            if(m_afMode == AA_AFMODE_CONTINUOUS_PICTURE) {
-                ALOGV("(%s): AA_AFMODE_CONTINUOUS_PICTURE_FACE", __FUNCTION__);
-                m_afState = HAL_AFSTATE_STARTED;
-                shot_ext->shot.ctl.aa.afTrigger = 1;
-                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE_FACE;
-            } else if (m_afMode == AA_AFMODE_CONTINUOUS_VIDEO) {
-                ALOGV("(%s): AA_AFMODE_CONTINUOUS_VIDEO_FACE", __FUNCTION__);
-                m_afState = HAL_AFSTATE_STARTED;
-                shot_ext->shot.ctl.aa.afTrigger = 1;
-                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_VIDEO_FACE;
-
-            }
-        } else {
-            if(m_afMode == AA_AFMODE_CONTINUOUS_PICTURE) {
-                ALOGV("(%s): AA_AFMODE_CONTINUOUS_PICTURE", __FUNCTION__);
-                m_afState = HAL_AFSTATE_STARTED;
-                shot_ext->shot.ctl.aa.afTrigger = 1;
-                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE;
-            } else if (m_afMode == AA_AFMODE_CONTINUOUS_VIDEO) {
-                ALOGV("(%s): AA_AFMODE_CONTINUOUS_VIDEO", __FUNCTION__);
-                m_afState = HAL_AFSTATE_STARTED;
-                shot_ext->shot.ctl.aa.afTrigger = 1;
-                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_VIDEO;
-
-            }
-        }
-        break;
-    case 1:
-        // face af re-setting after single AF
-        if (shot_ext->shot.ctl.aa.sceneMode == AA_SCENE_MODE_FACE_PRIORITY) {
-            ALOGV("(%s): Face af setting", __FUNCTION__);
-            if(m_afMode == AA_AFMODE_CONTINUOUS_PICTURE)
-                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE_FACE;
-            else if (m_afMode == AA_AFMODE_CONTINUOUS_VIDEO)
-                shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_VIDEO_FACE;
-        }
-        break;
-    default:
-        break;
-    }
-}
-
 void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
 {
     uint32_t        currentSignal = self->GetProcessingSignal();
@@ -3169,10 +3121,6 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                         switch (m_afMode) {
                         case AA_AFMODE_CONTINUOUS_PICTURE:
                             shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE_FACE;
-                            ALOGD("### Face AF Mode change (Mode %d) ", shot_ext->shot.ctl.aa.afMode);
-                            break;
-                        case AA_AFMODE_CONTINUOUS_VIDEO:
-                            shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_VIDEO_FACE;
                             ALOGD("### Face AF Mode change (Mode %d) ", shot_ext->shot.ctl.aa.afMode);
                             break;
                         }
@@ -3470,8 +3418,6 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
 
             // At scene mode face priority
             if (shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_PICTURE_FACE)
-                shot_ext->shot.dm.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE;
-            else if (shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_VIDEO_FACE)
                 shot_ext->shot.dm.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE;
 
             if (matchedFrameCnt != -1 && m_nightCaptureCnt == 0 && (m_ctlInfo.flash.m_flashCnt < IS_FLASH_STATE_CAPTURE)) {
