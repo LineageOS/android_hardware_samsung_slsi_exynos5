@@ -562,6 +562,35 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
     ADD_OR_SIZE(ANDROID_CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES,
             availableVstabModes, sizeof(availableVstabModes));
 
+    static const uint8_t sceneModeOverrides[] = {
+        // ANDROID_CONTROL_SCENE_MODE_ACTION
+            ANDROID_CONTROL_AE_ON,
+            ANDROID_CONTROL_AWB_AUTO,
+            ANDROID_CONTROL_AF_CONTINUOUS_PICTURE,
+        // ANDROID_CONTROL_SCENE_MODE_NIGHT
+            ANDROID_CONTROL_AE_ON,
+            ANDROID_CONTROL_AWB_AUTO,
+            ANDROID_CONTROL_AF_CONTINUOUS_PICTURE,
+        // ANDROID_CONTROL_SCENE_MODE_SUNSET
+            ANDROID_CONTROL_AE_ON,
+            ANDROID_CONTROL_AWB_DAYLIGHT,
+            ANDROID_CONTROL_AF_CONTINUOUS_PICTURE,
+        // ANDROID_CONTROL_SCENE_MODE_PARTY
+            ANDROID_CONTROL_AE_ON_AUTO_FLASH,
+            ANDROID_CONTROL_AWB_AUTO,
+            ANDROID_CONTROL_AF_CONTINUOUS_PICTURE
+    };
+    ADD_OR_SIZE(ANDROID_CONTROL_SCENE_MODE_OVERRIDES,
+            sceneModeOverrides, sizeof(sceneModeOverrides));
+
+    static const uint8_t quirkTriggerAuto = 1;
+    ADD_OR_SIZE(ANDROID_QUIRKS_TRIGGER_AF_WITH_AUTO,
+            &quirkTriggerAuto, 1);
+
+    static const uint8_t quirkUseZslFormat = 1;
+    ADD_OR_SIZE(ANDROID_QUIRKS_USE_ZSL_FORMAT,
+            &quirkUseZslFormat, 1);
+
 #undef ADD_OR_SIZE
     /** Allocate metadata if sizing */
     if (sizeRequest) {
