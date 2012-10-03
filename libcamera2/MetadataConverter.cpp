@@ -401,8 +401,6 @@ status_t MetadataConverter::ApplySceneModeParameters(camera_metadata_t * request
         dst->ctl.edge.strength = 0;
 
         dst->ctl.color.saturation = 3; // means '0'
-        // FLASH
-        // METERING
         break;
 
     case AA_SCENE_MODE_PARTY:
@@ -422,8 +420,6 @@ status_t MetadataConverter::ApplySceneModeParameters(camera_metadata_t * request
         dst->ctl.edge.strength = 0;
 
         dst->ctl.color.saturation = 4; // means '+1'
-        // FLASH
-        // METERING
         break;
 
     case AA_SCENE_MODE_SUNSET:
@@ -443,8 +439,6 @@ status_t MetadataConverter::ApplySceneModeParameters(camera_metadata_t * request
         dst->ctl.edge.strength = 0;
 
         dst->ctl.color.saturation = 3; // means '0'
-        // FLASH
-        // METERING
         break;
 
     case AA_SCENE_MODE_NIGHT:
@@ -463,8 +457,6 @@ status_t MetadataConverter::ApplySceneModeParameters(camera_metadata_t * request
         dst->ctl.edge.strength = 0;
 
         dst->ctl.color.saturation = 3; // means '0'
-        // FLASH
-        // METERING
         break;
 
     case AA_SCENE_MODE_FACE_PRIORITY:
@@ -646,284 +638,5 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
 
 
 }
-
-#if 0  // blocked for alpha version
-
-status_t MetadataConverter::ToDynamicMetadata(camera2_ctl_metadata_t * metadata, camera_metadata_t * dst)
-{
-    status_t    res;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_REQUEST_ID,
-                &(metadata->dm.request.id), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_REQUEST_METADATA_MODE,
-                &(metadata->dm.request.metadataMode), 1))
-        return NO_MEMORY;
-
-    // needs check!
-    if (0 != add_camera_metadata_entry(dst, ANDROID_REQUEST_FRAME_COUNT,
-                &(metadata->dm.request.frameCount), 1))
-        return NO_MEMORY;
-
-
-    if (metadata->dm.request.metadataMode == METADATA_MODE_NONE) {
-        ALOGD("DEBUG(%s): METADATA_MODE_NONE", __func__);
-        return NO_ERROR;
-    }
-
-     ALOGD("DEBUG(%s): METADATA_MODE_FULL", __func__);
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_LENS_FOCUS_DISTANCE,
-                &(metadata->dm.lens.focusDistance), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_LENS_APERTURE,
-                &(metadata->dm.lens.aperture), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_LENS_FOCAL_LENGTH,
-                &(metadata->dm.lens.focalLength), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_LENS_FILTER_DENSITY,
-                &(metadata->dm.lens.filterDensity), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_LENS_OPTICAL_STABILIZATION_MODE,
-                &(metadata->dm.lens.opticalStabilizationMode), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_LENS_APERTURE,
-                &(metadata->dm.lens.aperture), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_LENS_FOCUS_RANGE,
-                &(metadata->dm.lens.focusRange[0]), 2))
-        return NO_MEMORY;
-
-
-
-
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_SENSOR_FRAME_DURATION,
-                &(metadata->dm.sensor.frameDuration), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_SENSOR_SENSITIVITY,
-                &(metadata->dm.aa.isoValue), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_SENSOR_TIMESTAMP,
-                &(metadata->dm.sensor.timeStamp), 1))
-        return NO_MEMORY;
-
-
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_FLASH_MODE,
-                &(metadata->dm.flash.flashMode), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_FLASH_FIRING_POWER,
-                &(metadata->dm.flash.firingPower), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_FLASH_FIRING_TIME,
-                &(metadata->dm.flash.firingPower), 1))
-        return NO_MEMORY;
-
-
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_HOT_PIXEL_MODE,
-                &(metadata->dm.hotpixel.mode), 1))
-        return NO_MEMORY;
-
-
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_DEMOSAIC_MODE,
-                &(metadata->dm.demosaic.mode), 1))
-        return NO_MEMORY;
-
-
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_NOISE_MODE,
-                &(metadata->dm.noise.mode), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_NOISE_STRENGTH,
-                &(metadata->dm.noise.strength), 1))
-        return NO_MEMORY;
-
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_SHADING_MODE,
-                &(metadata->dm.shading.mode), 1))
-        return NO_MEMORY;
-
-
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_GEOMETRIC_MODE,
-                &(metadata->dm.geometric.mode), 1))
-        return NO_MEMORY;
-
-
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_COLOR_MODE,
-                &(metadata->dm.color.mode), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_COLOR_TRANSFORM,
-                &(metadata->dm.color.transform), 9))
-        return NO_MEMORY;
-
-
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_TONEMAP_MODE,
-                &(metadata->dm.tonemap.mode), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_TONEMAP_CURVE_RED,
-                &(metadata->dm.tonemap.curveRed), 32))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_TONEMAP_CURVE_GREEN,
-                &(metadata->dm.tonemap.curveGreen), 32))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_TONEMAP_CURVE_BLUE,
-                &(metadata->dm.tonemap.curveBlue), 32))
-        return NO_MEMORY;
-
-
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_EDGE_MODE,
-                &(metadata->dm.edge.mode), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_EDGE_STRENGTH,
-                &(metadata->dm.edge.strength), 1))
-        return NO_MEMORY;
-
-
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_SCALER_CROP_REGION,
-                &(metadata->dm.scaler.cropRegion), 3))
-        return NO_MEMORY;
-
-
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_JPEG_QUALITY,
-                &(metadata->dm.jpeg.quality), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_JPEG_THUMBNAIL_SIZE,
-                &(metadata->dm.jpeg.thumbnailSize), 2))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_JPEG_THUMBNAIL_QUALITY,
-                &(metadata->dm.jpeg.thumbnailQuality), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_JPEG_GPS_COORDINATES,
-                &(metadata->dm.jpeg.gpsCoordinates), 2)) // needs check
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_JPEG_GPS_PROCESSING_METHOD,
-                &(metadata->dm.jpeg.gpsProcessingMethod), 32))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_JPEG_GPS_TIMESTAMP,
-                &(metadata->dm.jpeg.gpsTimestamp), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_JPEG_ORIENTATION,
-                &(metadata->dm.jpeg.orientation), 1))
-        return NO_MEMORY;
-
-
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_DETECT_MODE,
-                &(metadata->dm.stats.faceDetectMode), 1))
-        return NO_MEMORY;
-
-    // TODO : more stat entries
-
-
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_MODE,
-                &(metadata->dm.aa.mode), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_CAPTURE_INTENT,
-                &(metadata->dm.aa.captureIntent), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_EFFECT_MODE,
-                &(metadata->dm.aa.effect_mode), 1))
-        return NO_MEMORY;
-
-
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_REGIONS,
-                &(metadata->dm.aa.aeRegions), 5))
-        return NO_MEMORY;
-
-
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_STATE,
-                &(metadata->dm.aa.aeState), 1))
-        return NO_MEMORY;
-
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AWB_REGIONS,
-                &(metadata->dm.aa.awbRegions), 5))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AWB_STATE,
-                &(metadata->dm.aa.awbState), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AF_MODE,
-                &(metadata->dm.aa.afMode), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AF_REGIONS,
-                &(metadata->dm.aa.afRegions), 5))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AF_STATE,
-                &(metadata->dm.aa.afState), 1))
-        return NO_MEMORY;
-
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_VIDEO_STABILIZATION_MODE,
-                &(metadata->dm.aa.videoStabilizationMode), 1))
-        return NO_MEMORY;
-
-
-    return NO_ERROR;
-
-/*
-typedef struct camera2_dm {
-    camera2_request_dm_t            request;
-    camera2_lens_dm_t               lens;
-    camera2_sensor_dm_t             sensor;
-    camera2_flash_dm_t              flash;
-    camera2_hotpixel_dm_t           hotpixel;
-    camera2_demosaic_dm_t           demosaic;
-    camera2_noisereduction_dm_t     noise;
-    camera2_shading_dm_t            shading;
-    camera2_geometric_dm_t          geometric;
-    camera2_colorcorrection_dm_t    color;
-    camera2_tonemap_dm_t            tonemap;
-    camera2_edge_dm_t               edge;
-    camera2_scaler_dm_t             scaler;
-    camera2_jpeg_dm_t               jpeg;
-    camera2_stats_dm_t              stats;
-    camera2_aa_dm_t                 aa;
-} camera2_dm_t;
-*/
-
-}
-#endif
-
 
 }; // namespace android
