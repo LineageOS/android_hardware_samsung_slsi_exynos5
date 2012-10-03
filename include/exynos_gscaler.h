@@ -359,6 +359,12 @@ int exynos_gsc_run_exclusive(
     exynos_gsc_img *dst_img);
 
 /*
+ * Blocks until the current frame is done processing.
+ */
+int exynos_gsc_wait_frame_done_exclusive
+(void *handle);
+
+/*
 *api for GSC stop.
 It stops the GSC OUT streaming.
 */

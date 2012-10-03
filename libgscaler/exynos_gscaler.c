@@ -1800,7 +1800,6 @@ done:
 static int exynos_gsc_m2m_wait_frame_done(void *handle)
 {
     struct GSC_HANDLE *gsc_handle;
-    struct v4l2_requestbuffers req_buf;
 
     gsc_handle = (struct GSC_HANDLE *)handle;
 
@@ -1825,6 +1824,20 @@ static int exynos_gsc_m2m_wait_frame_done(void *handle)
         ALOGE("%s::exynos_v4l2_dqbuf(dst) fail", __func__);
         return -1;
     }
+
+    Exynos_gsc_Out();
+
+    return 0;
+}
+
+static int exynos_gsc_m2m_stop(void *handle)
+{
+    struct GSC_HANDLE *gsc_handle;
+    struct v4l2_requestbuffers req_buf;
+
+    gsc_handle = (struct GSC_HANDLE *)handle;
+
+    Exynos_gsc_In();
 
     if (exynos_v4l2_streamoff(gsc_handle->gsc_fd, gsc_handle->src.buf_type) < 0) {
         ALOGE("%s::exynos_v4l2_streamoff(src) fail", __func__);
@@ -1889,6 +1902,11 @@ int exynos_gsc_convert(
 
     if (exynos_gsc_m2m_wait_frame_done(handle) < 0) {
         ALOGE("%s::exynos_gsc_m2m_wait_frame_done", __func__);
+        goto done;
+    }
+
+    if (exynos_gsc_m2m_stop(handle) < 0) {
+        ALOGE("%s::exynos_gsc_m2m_stop", __func__);
         goto done;
     }
 
@@ -2017,6 +2035,27 @@ int exynos_gsc_run_exclusive(void *handle,
     return ret;
 }
 
+int exynos_gsc_wait_frame_done_exclusive(void *handle)
+{
+    struct GSC_HANDLE *gsc_handle;
+    int ret = 0;
+    gsc_handle = (struct GSC_HANDLE *)handle;
+
+    Exynos_gsc_In();
+
+    if (handle == NULL) {
+        ALOGE("%s::handle == NULL() fail", __func__);
+        return -1;
+    }
+
+    if (gsc_handle->gsc_mode == GSC_M2M_MODE)
+        ret = exynos_gsc_m2m_wait_frame_done(handle);
+
+    Exynos_gsc_Out();
+
+    return ret;
+}
+
 int exynos_gsc_stop_exclusive(void *handle)
 {
     struct GSC_HANDLE *gsc_handle;
@@ -2032,7 +2071,7 @@ int exynos_gsc_stop_exclusive(void *handle)
 
     switch (gsc_handle->gsc_mode) {
     case GSC_M2M_MODE:
-        ret = exynos_gsc_m2m_wait_frame_done(handle);
+        ret = exynos_gsc_m2m_stop(handle);
         break;
     case GSC_OUTPUT_MODE:
         ret = exynos_gsc_out_stop(handle);
