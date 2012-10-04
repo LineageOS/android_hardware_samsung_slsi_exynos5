@@ -1033,6 +1033,14 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     private_handle_t *dst_handle;
     int ret = 0;
 
+    if (layer.acquireFenceFd != -1) {
+        int err = sync_wait(layer.acquireFenceFd, 100);
+        if (err != 0)
+            ALOGW("fence didn't signal in 100 ms: %s", strerror(errno));
+        close(layer.acquireFenceFd);
+        layer.acquireFenceFd = -1;
+    }
+
     exynos_gsc_img src_cfg, dst_cfg;
     memset(&src_cfg, 0, sizeof(src_cfg));
     memset(&dst_cfg, 0, sizeof(dst_cfg));
@@ -1065,8 +1073,9 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     ALOGV("source configuration:");
     dump_gsc_img(src_cfg);
 
-    if (gsc_src_cfg_changed(src_cfg, gsc_data->src_cfg) ||
-            gsc_dst_cfg_changed(dst_cfg, gsc_data->dst_cfg)) {
+    bool reconfigure = gsc_src_cfg_changed(src_cfg, gsc_data->src_cfg) ||
+            gsc_dst_cfg_changed(dst_cfg, gsc_data->dst_cfg);
+    if (reconfigure) {
         int dst_stride;
         int usage = GRALLOC_USAGE_SW_READ_NEVER |
                 GRALLOC_USAGE_SW_WRITE_NEVER |
@@ -1120,15 +1129,23 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
         }
     }
 
-    ret = exynos_gsc_config_exclusive(gsc_data->gsc, &src_cfg, &dst_cfg);
-    if (ret < 0) {
-        ALOGE("failed to configure gscaler %u", gsc_idx);
-        goto err_gsc_config;
+    if (reconfigure) {
+        ret = exynos_gsc_config_exclusive(gsc_data->gsc, &src_cfg, &dst_cfg);
+        if (ret < 0) {
+            ALOGE("failed to configure gscaler %u", gsc_idx);
+            goto err_gsc_config;
+        }
     }
 
     ret = exynos_gsc_run_exclusive(gsc_data->gsc, &src_cfg, &dst_cfg);
     if (ret < 0) {
         ALOGE("failed to run gscaler %u", gsc_idx);
+        goto err_gsc_config;
+    }
+
+    ret = exynos_gsc_wait_frame_done_exclusive(gsc_data->gsc);
+    if (ret < 0) {
+        ALOGE("failed to wait for gscaler %u", gsc_idx);
         goto err_gsc_config;
     }
 
@@ -1162,6 +1179,7 @@ static void exynos5_cleanup_gsc_m2m(exynos5_hwc_composer_device_1_t *pdev,
 
     ALOGV("closing gscaler %u", AVAILABLE_GSC_UNITS[gsc_idx]);
 
+    exynos_gsc_stop_exclusive(gsc_data.gsc);
     exynos_gsc_destroy(gsc_data.gsc);
     for (size_t i = 0; i < NUM_GSC_DST_BUFS; i++)
         if (gsc_data.dst_buf[i])
@@ -1271,14 +1289,6 @@ static int exynos5_post_fimd(exynos5_hwc_composer_device_1_t *pdev,
                 int gsc_idx = pdata->gsc_map[i].idx;
                 exynos5_gsc_data_t &gsc = pdev->gsc[gsc_idx];
 
-                if (layer.acquireFenceFd != -1) {
-                    int err = sync_wait(layer.acquireFenceFd, 100);
-                    if (err != 0)
-                        ALOGW("fence for layer %zu didn't signal in 100 ms: %s",
-                              i, strerror(errno));
-                    close(layer.acquireFenceFd);
-                }
-
                 // RGBX8888 surfaces are already in the right color order from the GPU,
                 // RGB565 and YUV surfaces need the Gscaler to swap R & B
                 int dst_format = HAL_PIXEL_FORMAT_BGRA_8888;
@@ -1289,14 +1299,8 @@ static int exynos5_post_fimd(exynos5_hwc_composer_device_1_t *pdev,
                 int err = exynos5_config_gsc_m2m(layer, pdev->alloc_device, &gsc,
                         gsc_idx, dst_format);
                 if (err < 0) {
-                    ALOGE("failed to queue gscaler %u input for layer %u",
+                    ALOGE("failed to configure gscaler %u for layer %u",
                             gsc_idx, i);
-                    continue;
-                }
-
-                err = exynos_gsc_stop_exclusive(gsc.gsc);
-                if (err < 0) {
-                    ALOGE("failed to dequeue gscaler output for layer %u", i);
                     continue;
                 }
 
@@ -1421,24 +1425,9 @@ static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
             ALOGV("HDMI video layer:");
             dump_layer(&layer);
 
-            if (layer.acquireFenceFd != -1) {
-                int err = sync_wait(layer.acquireFenceFd, 100);
-                if (err != 0)
-                    ALOGW("fence for layer %zu didn't signal in 100 ms: %s",
-                                                    i, strerror(errno));
-                close(layer.acquireFenceFd);
-                layer.acquireFenceFd = -1;
-            }
-
             exynos5_gsc_data_t &gsc = pdev->gsc[HDMI_GSC_IDX];
             exynos5_config_gsc_m2m(layer, pdev->alloc_device, &gsc, 1,
                                             HAL_PIXEL_FORMAT_RGBX_8888);
-
-            int err = exynos_gsc_stop_exclusive(gsc.gsc);
-            if (err < 0) {
-                ALOGE("failed to dequeue gscaler output for layer");
-                continue;
-            }
 
             buffer_handle_t dst_buf = gsc.dst_buf[gsc.current_buf];
             gsc.current_buf = (gsc.current_buf + 1) % NUM_GSC_DST_BUFS;
