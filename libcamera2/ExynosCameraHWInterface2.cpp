@@ -5873,9 +5873,9 @@ void ExynosCameraHWInterface2::m_setExifChangedAttribute(exif_attribute_t *exifI
         else
             exifInfo->gps_altitude_ref = 1;
 
-        double latitude = fabs(ctl->jpeg.gpsCoordinates[0] / 10000.0);
-        double longitude = fabs(ctl->jpeg.gpsCoordinates[1] / 10000.0);
-        double altitude = fabs(ctl->jpeg.gpsCoordinates[2] / 100.0);
+        double latitude = fabs(ctl->jpeg.gpsCoordinates[0]);
+        double longitude = fabs(ctl->jpeg.gpsCoordinates[1]);
+        double altitude = fabs(ctl->jpeg.gpsCoordinates[2]);
 
         exifInfo->gps_latitude[0].num = (uint32_t)latitude;
         exifInfo->gps_latitude[0].den = 1;
@@ -5909,6 +5909,7 @@ void ExynosCameraHWInterface2::m_setExifChangedAttribute(exif_attribute_t *exifI
         snprintf((char*)exifInfo->gps_datestamp, sizeof(exifInfo->gps_datestamp),
                 "%04d:%02d:%02d", tm_data.tm_year + 1900, tm_data.tm_mon + 1, tm_data.tm_mday);
 
+        memcpy(exifInfo->gps_processing_method, currentEntry->gpsProcessingMethod, 32);
         exifInfo->enableGps = true;
     } else {
         exifInfo->enableGps = false;
