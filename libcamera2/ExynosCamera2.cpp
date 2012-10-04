@@ -851,7 +851,7 @@ status_t ExynosCamera2::constructDefaultRequest(
     ADD_OR_SIZE(ANDROID_SCALER_CROP_REGION, cropRegion, 3);
 
     /** android.jpeg */
-    static const int32_t jpegQuality = 80;
+    static const int32_t jpegQuality = 100;
     ADD_OR_SIZE(ANDROID_JPEG_QUALITY, &jpegQuality, 1);
 
     static const int32_t thumbnailSize[2] = {
@@ -859,7 +859,7 @@ status_t ExynosCamera2::constructDefaultRequest(
     };
     ADD_OR_SIZE(ANDROID_JPEG_THUMBNAIL_SIZE, thumbnailSize, 2);
 
-    static const int32_t thumbnailQuality = 80;
+    static const int32_t thumbnailQuality = 100;
     ADD_OR_SIZE(ANDROID_JPEG_THUMBNAIL_QUALITY, &thumbnailQuality, 1);
 
     static const double gpsCoordinates[3] = {

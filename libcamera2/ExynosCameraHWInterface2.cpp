@@ -4652,7 +4652,7 @@ bool ExynosCameraHWInterface2::yuv2Jpeg(ExynosBuffer *yuvBuf,
         goto jpeg_encode_done;
     }
 
-    if (jpegEnc.setQuality(100)) {
+    if (jpegEnc.setQuality(m_jpegMetadata.shot.ctl.jpeg.quality)) {
         ALOGE("ERR(%s):jpegEnc.setQuality() fail", __FUNCTION__);
         goto jpeg_encode_done;
     }
@@ -4695,7 +4695,7 @@ bool ExynosCameraHWInterface2::yuv2Jpeg(ExynosBuffer *yuvBuf,
     }
 
     ALOGV("(%s):jpegEnc.setThumbnailSize(%d, %d) ", __FUNCTION__, m_thumbNailW, m_thumbNailW);
-    if (jpegEnc.setThumbnailQuality(50)) {
+    if (jpegEnc.setThumbnailQuality(m_jpegMetadata.shot.ctl.jpeg.thumbnailQuality)) {
         ALOGE("ERR(%s):jpegEnc.setThumbnailQuality fail", __FUNCTION__);
         goto jpeg_encode_done;
     }
