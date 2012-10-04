@@ -21,7 +21,8 @@
 
 static const char ExifAsciiPrefix[] = { 0x41, 0x53, 0x43, 0x49, 0x49, 0x0, 0x0, 0x0 };
 
-#define JPEG_ERROR_LOG(fmt,...)
+#define JPEG_ERROR_LOG ALOGE
+#define LOG_TAG "ExynosJpegForCamera"
 
 #define JPEG_THUMBNAIL_QUALITY (60)
 #define EXIF_LIMIT_SIZE (64*1024)

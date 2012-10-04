@@ -137,6 +137,19 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 break;
 
 
+            case ANDROID_SENSOR_SENSITIVITY:
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 1))
+                    break;
+                dst->dm.aa.isoValue = curr_entry.data.i32[0];
+                break;
+
+            case ANDROID_SENSOR_EXPOSURE_TIME:
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT64, 1))
+                    break;
+                dst->dm.sensor.exposureTime = curr_entry.data.i64[0];
+                break;
+
+
             case ANDROID_FLASH_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
@@ -542,7 +555,7 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
                 &byteData, 1))
         return NO_MEMORY;
 
-    byteData = metadata->dm.aa.afMode - 1;
+    byteData = metadata->ctl.aa.afMode - 1;
     if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AF_MODE,
                 &byteData, 1))
         return NO_MEMORY;
@@ -614,6 +627,24 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
                 &(metadata->dm.aa.awbState), 1))
         return NO_MEMORY;
 
+
+    if (0 != add_camera_metadata_entry(dst, ANDROID_JPEG_ORIENTATION,
+                &metadata->ctl.jpeg.orientation, 1))
+        return NO_MEMORY;
+
+    if (0 != add_camera_metadata_entry(dst, ANDROID_JPEG_QUALITY,
+                &metadata->ctl.jpeg.quality, 1))
+        return NO_MEMORY;
+
+    if (0 != add_camera_metadata_entry(dst, ANDROID_JPEG_THUMBNAIL_SIZE,
+                &metadata->ctl.jpeg.thumbnailSize, 2))
+        return NO_MEMORY;
+
+    if (0 != add_camera_metadata_entry(dst, ANDROID_JPEG_THUMBNAIL_QUALITY,
+                &metadata->ctl.jpeg.thumbnailQuality, 1))
+        return NO_MEMORY;
+
+
     if (0 != add_camera_metadata_entry(dst, ANDROID_JPEG_GPS_COORDINATES,
                 &(metadata->ctl.jpeg.gpsCoordinates), 3))
         return NO_MEMORY;
@@ -627,7 +658,7 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
         return NO_MEMORY;
     ALOGV("(%s): AWB(%d) AE(%d) SCENE(%d)  AEComp(%d) AF(%d)", __FUNCTION__,
        metadata_ext->awb_mode_dm- 2, metadata->dm.aa.aeMode - 1, metadata->ctl.aa.sceneMode - 1,
-       metadata->ctl.aa.aeExpCompensation, metadata->dm.aa.afMode - 1);
+       metadata->ctl.aa.aeExpCompensation, metadata->ctl.aa.afMode - 1);
 
 
     if (metadata->ctl.request.metadataMode == METADATA_MODE_NONE) {

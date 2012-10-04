@@ -296,6 +296,8 @@ public:
     nsecs_t  GetTimestamp(int index);
     uint8_t  GetOutputStreamByFrameCnt(int frameCnt);
     uint8_t  GetOutputStream(int index);
+    camera2_shot_ext *  GetInternalShotExtByFrameCnt(int frameCnt);
+    camera2_shot_ext *  GetInternalShotExt(int index);
     int     FindFrameCnt(struct camera2_shot_ext * shot_ext);
     bool    IsVdisEnable(void);
     int     FindEntryIndexByFrameCnt(int frameCnt);
