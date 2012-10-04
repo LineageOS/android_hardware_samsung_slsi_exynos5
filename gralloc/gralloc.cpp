@@ -330,8 +330,6 @@ static int gralloc_alloc(alloc_device_t* dev,
     if (err)
         return err;
 
-    err = grallocMap(module, hnd);
-
     if (err != 0)
         goto err;
 
@@ -359,7 +357,6 @@ static int gralloc_free(alloc_device_t* dev,
     gralloc_module_t* module = reinterpret_cast<gralloc_module_t*>(
                                                                    dev->common.module);
 
-    grallocUnmap(module, const_cast<private_handle_t*>(hnd));
     close(hnd->fd);
     if (hnd->fd1 >= 0)
         close(hnd->fd1);
