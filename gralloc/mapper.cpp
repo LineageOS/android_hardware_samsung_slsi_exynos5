@@ -164,6 +164,8 @@ int gralloc_lock(gralloc_module_t const* module,
         return -EINVAL;
 
     private_handle_t* hnd = (private_handle_t*)handle;
+    if (!hnd->base)
+        gralloc_map(module, hnd);
     *vaddr = (void*)hnd->base;
     return 0;
 }

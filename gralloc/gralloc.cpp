@@ -356,6 +356,8 @@ static int gralloc_free(alloc_device_t* dev,
     private_handle_t const* hnd = reinterpret_cast<private_handle_t const*>(handle);
     gralloc_module_t* module = reinterpret_cast<gralloc_module_t*>(
                                                                    dev->common.module);
+    if (hnd->base)
+        grallocUnmap(module, const_cast<private_handle_t*>(hnd));
 
     close(hnd->fd);
     if (hnd->fd1 >= 0)
