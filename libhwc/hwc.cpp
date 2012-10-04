@@ -707,11 +707,6 @@ bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i,
         ALOGV("\tlayer %u: handle is NULL", i);
         return false;
     }
-    if (!exynos5_format_is_rgb(handle->format) &&
-            !exynos5_format_is_supported_by_gscaler(handle->format)) {
-        ALOGW("\tlayer %u: unexpected format %u", i, handle->format);
-        return false;
-    }
 
     if (exynos5_requires_gscaler(layer, handle->format)) {
         if (!exynos5_supports_gscaler(layer, handle->format, false)) {
