@@ -2871,7 +2871,6 @@ void ExynosCameraHWInterface2::m_preCaptureSetter(struct camera2_shot_ext * shot
     case IS_FLASH_STATE_AUTO_OFF:
         ALOGV("(%s): [Flash] IS_FLASH_AF_AUTO Clear (%d)", __FUNCTION__, shot_ext->shot.ctl.request.frameCount);
         shot_ext->shot.ctl.aa.aeflashMode = AA_FLASHMODE_OFF;
-        m_ctlInfo.flash.m_afFlashDoneFlg = false;
         m_ctlInfo.flash.m_flashEnableFlg = false;
         break;
     case IS_FLASH_STATE_CAPTURE:
@@ -2900,6 +2899,9 @@ void ExynosCameraHWInterface2::m_preCaptureSetter(struct camera2_shot_ext * shot
         m_ctlInfo.flash.m_flashEnableFlg = false;
         m_ctlInfo.flash.m_flashCnt = 0;
         m_ctlInfo.flash.m_afFlashDoneFlg= false;
+        m_ctlInfo.flash.m_flashDecisionResult = false;
+        break;
+    case IS_FLASH_STATE_NONE:
         break;
     default:
         ALOGE("(%s): [Flash] flash state error!! (%d)", __FUNCTION__, m_ctlInfo.flash.m_flashCnt);
@@ -2974,6 +2976,21 @@ void ExynosCameraHWInterface2::m_preCaptureListenerISP(struct camera2_shot_ext *
         } else {
             m_ctlInfo.flash.m_flashCnt = IS_FLASH_STATE_CAPTURE_JPEG;
         }
+        break;
+    }
+}
+
+void ExynosCameraHWInterface2::m_preCaptureAeState(struct camera2_shot_ext * shot_ext)
+{
+    switch (m_ctlInfo.flash.i_flashMode) {
+    case AA_AEMODE_ON:
+        // At flash off mode, capture can be done as zsl capture
+        shot_ext->shot.dm.aa.aeState = AE_STATE_CONVERGED;
+        break;
+    case AA_AEMODE_ON_AUTO_FLASH:
+        // At flash auto mode, main flash have to be done if pre-flash was done.
+        if (m_ctlInfo.flash.m_flashDecisionResult && m_ctlInfo.flash.m_afFlashDoneFlg)
+            shot_ext->shot.dm.aa.aeState = AE_STATE_FLASH_REQUIRED;
         break;
     }
 }
@@ -3170,6 +3187,13 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                             break;
                         }
                     }
+                    // reset flash result
+                    if (m_ctlInfo.flash.m_afFlashDoneFlg) {
+                        m_ctlInfo.flash.m_flashEnableFlg = false;
+                        m_ctlInfo.flash.m_afFlashDoneFlg = false;
+                        m_ctlInfo.flash.m_flashDecisionResult = false;
+                        m_ctlInfo.flash.m_flashCnt = 0;
+                    }
                     m_ctlInfo.af.m_afTriggerTimeOut = 1;
                 }
 
@@ -3297,7 +3321,8 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                     m_ctlInfo.flash.m_flashEnableFlg = false;
                     m_ctlInfo.flash.m_afFlashDoneFlg = false;
                     m_ctlInfo.flash.m_flashCnt = 0;
-                } else if ((m_ctlInfo.flash.m_flashCnt == IS_FLASH_STATE_AUTO_DONE) || (m_ctlInfo.flash.m_flashCnt == IS_FLASH_STATE_AUTO_OFF)) {
+                } else if ((m_ctlInfo.flash.m_flashCnt == IS_FLASH_STATE_AUTO_DONE) ||
+                                          (m_ctlInfo.flash.m_flashCnt == IS_FLASH_STATE_AUTO_OFF)) {
                     ALOGD("(%s): [Flash] Flash capture start : skip request scc 1#####", __FUNCTION__);
                     shot_ext->request_scc = 0;
                     m_ctlInfo.flash.m_flashFrameCount = matchedFrameCnt;
@@ -3308,8 +3333,8 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                     ALOGE("(%s): [Flash] Flash capture Error- wrong state !!!!!! (%d)", __FUNCTION__, m_ctlInfo.flash.m_flashCnt);
                     shot_ext->shot.ctl.aa.aeflashMode = AA_FLASHMODE_OFF;
                     m_ctlInfo.flash.m_flashEnableFlg = false;
-                    m_ctlInfo.flash.m_flashCnt = 0;
                     m_ctlInfo.flash.m_afFlashDoneFlg= false;
+                    m_ctlInfo.flash.m_flashCnt = 0;
                 }
             } else if (shot_ext->shot.ctl.aa.captureIntent == AA_CAPTURE_INTENT_STILL_CAPTURE) {
                 m_ctlInfo.flash.m_flashDecisionResult = false;
@@ -3335,11 +3360,6 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 }
             }
 
-            if (m_ctlInfo.flash.m_flashEnableFlg) {
-                m_preCaptureListenerSensor(shot_ext);
-                m_preCaptureSetter(shot_ext);
-            }
-
             if (shot_ext->isReprocessing) {
                 ALOGV("(%s): Sending signal for Reprocess request", __FUNCTION__);
                 m_currentReprocessOutStreams = shot_ext->shot.ctl.request.outputStreams[0];
@@ -3350,6 +3370,12 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 memcpy(&m_jpegMetadata, (void*)(m_requestManager->GetInternalShotExtByFrameCnt(m_reprocessingFrameCnt)),
                     sizeof(struct camera2_shot_ext));
                 m_streamThreads[1]->SetSignal(SIGNAL_STREAM_REPROCESSING_START);
+                m_ctlInfo.flash.m_flashEnableFlg = false;
+            }
+
+            if (m_ctlInfo.flash.m_flashEnableFlg) {
+                m_preCaptureListenerSensor(shot_ext);
+                m_preCaptureSetter(shot_ext);
             }
 
             ALOGV("(%s): queued  aa(%d) aemode(%d) awb(%d) afmode(%d) trigger(%d)", __FUNCTION__,
@@ -3423,9 +3449,9 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                                                                                                 / m_streamThreads[0].get()->m_parameters.height;
                 }
             }
-            // At flash off mode, capture can be done as zsl capture
-            if (m_ctlInfo.flash.i_flashMode == AA_AEMODE_ON && shot_ext->shot.ctl.aa.sceneMode != AA_SCENE_MODE_NIGHT)
-                shot_ext->shot.dm.aa.aeState = AE_STATE_CONVERGED;
+            // aeState control
+            if (shot_ext->shot.ctl.aa.sceneMode != AA_SCENE_MODE_NIGHT)
+                m_preCaptureAeState(shot_ext);
 
             // At scene mode face priority
             if (shot_ext->shot.dm.aa.afMode == AA_AFMODE_CONTINUOUS_PICTURE_FACE)
@@ -3495,6 +3521,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
             }
             shot_ext->shot.ctl.aa.aeflashMode = AA_FLASHMODE_OFF;
+            shot_ext->shot.ctl.flash.flashMode = CAM2_FLASH_MODE_OFF;
             ALOGV("### isp QBUF start (bubble)");
             ALOGV("bubble: queued  aa(%d) aemode(%d) awb(%d) afmode(%d) trigger(%d)",
                 (int)(shot_ext->shot.ctl.aa.mode), (int)(shot_ext->shot.ctl.aa.aeMode),
@@ -3510,10 +3537,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 (int)(shot_ext->shot.dm.aa.awbMode),
                 (int)(shot_ext->shot.dm.aa.afMode));
 
-            if (m_ctlInfo.flash.m_flashEnableFlg)
-                m_preCaptureListenerISP(shot_ext);
             OnAfNotification(shot_ext->shot.dm.aa.afState);
-            OnPrecaptureMeteringNotificationISP();
         }
 
         index = m_requestManager->popSensorQ();
