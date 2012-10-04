@@ -933,6 +933,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
             m_halDevice(dev),
             m_nightCaptureCnt(0),
             m_nightCaptureFrameCnt(0),
+            m_lastSceneMode(0),
             m_cameraId(cameraId),
             m_thumbNailW(160),
             m_thumbNailH(120)
@@ -1451,7 +1452,7 @@ int ExynosCameraHWInterface2::notifyRequestQueueNotEmpty()
     }
     m_isRequestQueueNull = false;
     if (m_requestManager->GetNumEntries() == 0)
-        m_requestManager->SetInitialSkip(5);
+        m_requestManager->SetInitialSkip(0);
 
     if (m_isIspStarted == false) {
         /* isp */
@@ -1558,7 +1559,7 @@ int ExynosCameraHWInterface2::notifyRequestQueueNotEmpty()
     if (m_isIspStarted == false) {
         StartISP();
         ALOGV("DEBUG(%s):starting sensor thread", __FUNCTION__);
-        m_requestManager->SetInitialSkip(5);
+        m_requestManager->SetInitialSkip(0);
         m_sensorThread->Start("SensorThread", PRIORITY_DEFAULT, 0);
         m_isIspStarted = true;
     }
@@ -3198,6 +3199,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             // update AF region
             m_updateAfRegion(shot_ext);
 
+            m_lastSceneMode = shot_ext->shot.ctl.aa.sceneMode;
             if (shot_ext->shot.ctl.aa.sceneMode == AA_SCENE_MODE_NIGHT
                     && shot_ext->shot.ctl.aa.aeMode == AA_AEMODE_LOCKED)
                 shot_ext->shot.ctl.aa.aeMode = AA_AEMODE_ON;
@@ -3433,6 +3435,11 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
             } else {
                 shot_ext->setfile = ISS_SUB_SCENARIO_STILL;
+            }
+            shot_ext->shot.ctl.aa.sceneMode = (enum aa_scene_mode)m_lastSceneMode;
+            if (shot_ext->shot.ctl.aa.sceneMode == AA_SCENE_MODE_NIGHT_CAPTURE || shot_ext->shot.ctl.aa.sceneMode == AA_SCENE_MODE_NIGHT) {
+                shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 8;
+                shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
             }
             shot_ext->shot.ctl.aa.aeflashMode = AA_FLASHMODE_OFF;
             ALOGV("### isp QBUF start (bubble)");

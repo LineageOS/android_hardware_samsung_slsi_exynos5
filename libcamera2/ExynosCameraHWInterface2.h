@@ -675,6 +675,7 @@ class MainThread : public SignalDrivenThread {
     int                                 m_scpOutputImageCnt;
     int                                 m_nightCaptureCnt;
     int                                 m_nightCaptureFrameCnt;
+    int                                 m_lastSceneMode;
     int                                 m_thumbNailW;
     int                                 m_thumbNailH;
     int                                 m_reprocessStreamId;
