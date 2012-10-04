@@ -2158,6 +2158,10 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
 
     if (stream_id == STREAM_ID_PREVIEW) {
         targetStream = (StreamThread*)(m_streamThreads[0].get());
+        if (!targetStream) {
+            ALOGW("(%s): Stream Not Exists", __FUNCTION__);
+            return 1;
+        }
         targetStream->m_numRegisteredStream--;
         ALOGV("(%s): m_numRegisteredStream = %d", __FUNCTION__, targetStream->m_numRegisteredStream);
         releasingScpMain = true;
@@ -2173,6 +2177,10 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         }
     } else if (stream_id == STREAM_ID_JPEG) {
         targetStream = (StreamThread*)(m_streamThreads[1].get());
+        if (!targetStream) {
+            ALOGW("(%s): Stream Not Exists", __FUNCTION__);
+            return 1;
+        }
         memset(&m_subStreams[stream_id], 0, sizeof(substream_parameters_t));
         if (m_resizeBuf.size.s != 0) {
             freeCameraMemory(&m_resizeBuf, 1);
@@ -2187,6 +2195,10 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
         return 0;
     } else if (stream_id == STREAM_ID_RECORD) {
         targetStream = (StreamThread*)(m_streamThreads[0].get());
+        if (!targetStream) {
+            ALOGW("(%s): Stream Not Exists", __FUNCTION__);
+            return 1;
+        }
         memset(&m_subStreams[stream_id], 0, sizeof(substream_parameters_t));
         if (targetStream)
             res = targetStream->detachSubStream(stream_id);
@@ -2196,6 +2208,10 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
             return 0;
     } else if (stream_id == STREAM_ID_PRVCB) {
         targetStream = (StreamThread*)(m_streamThreads[0].get());
+        if (!targetStream) {
+            ALOGW("(%s): Stream Not Exists", __FUNCTION__);
+            return 1;
+        }
         if (m_resizeBuf.size.s != 0) {
             freeCameraMemory(&m_previewCbBuf, m_subStreams[stream_id].internalPlanes);
         }
@@ -2208,6 +2224,10 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
             return 0;
     } else if (stream_id == STREAM_ID_ZSL) {
         targetStream = (StreamThread*)(m_streamThreads[1].get());
+        if (!targetStream) {
+            ALOGW("(%s): Stream Not Exists", __FUNCTION__);
+            return 1;
+        }
         targetStream->m_numRegisteredStream--;
         ALOGV("(%s): m_numRegisteredStream = %d", __FUNCTION__, targetStream->m_numRegisteredStream);
         if (targetStream->m_parameters.needsIonMap) {
