@@ -263,12 +263,16 @@ int exynos_gsc_set_rotation(
  * \param addr
  *   buffer pointer array[in]
  *
+ * \param acquireFenceFd
+ *   acquire fence fd for the buffer or -1[in]
+ *
  * \return
  *   error code
  */
 int exynos_gsc_set_src_addr(
     void *handle,
-    void *addr[3]);
+    void *addr[3],
+    int acquireFenceFd);
 
 /*!
  * Set destination buffer
@@ -279,12 +283,16 @@ int exynos_gsc_set_src_addr(
  * \param addr
  *   buffer pointer array[in]
  *
+ * \param acquireFenceFd
+ *   acquire fence fd for the buffer or -1[in]
+ *
  * \return
  *   error code
  */
 int exynos_gsc_set_dst_addr(
     void *handle,
-    void *addr[3]);
+    void *addr[3],
+    int acquireFenceFd);
 
 /*!
  * Convert color space with presetup color format
