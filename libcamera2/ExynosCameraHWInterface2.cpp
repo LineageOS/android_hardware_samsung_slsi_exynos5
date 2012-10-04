@@ -3146,10 +3146,9 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
 
             int32_t new_cropRegion[3] = { zoomLeft, zoomTop, zoomWidth };
 
-            if (new_cropRegion[0] * 2 + new_cropRegion[2] > (int32_t)m_camera2->getSensorW())
-                new_cropRegion[2]--;
-            else if (new_cropRegion[0] * 2 + new_cropRegion[2] < (int32_t)m_camera2->getSensorW())
-                new_cropRegion[2]++;
+            int cropCompensation = (new_cropRegion[0] * 2 + new_cropRegion[2]) - ALIGN(crop_w, 4);
+            if (cropCompensation)
+                new_cropRegion[2] -= cropCompensation;
 
             shot_ext->shot.ctl.scaler.cropRegion[0] = new_cropRegion[0];
             shot_ext->shot.ctl.scaler.cropRegion[1] = new_cropRegion[1];
