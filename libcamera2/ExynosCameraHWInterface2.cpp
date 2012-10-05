@@ -708,9 +708,11 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
     if (request_shot->shot.ctl.aa.videoStabilizationMode) {
         m_vdisBubbleEn = true;
         shot_ext->dis_bypass = 0;
+        shot_ext->dnr_bypass = 0;
     } else {
         m_vdisBubbleEn = false;
         shot_ext->dis_bypass = 1;
+        shot_ext->dnr_bypass = 1;
     }
 
     shot_ext->shot.ctl.aa.afTrigger = 0;
@@ -3411,12 +3413,13 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             if (m_ctlInfo.flash.m_flashEnableFlg)
                 m_preCaptureListenerISP(shot_ext);
 
-            ALOGV("### Isp DQbuf done(%d) count (%d), SCP(%d) SCC(%d) dis_bypass(%d) shot_size(%d)",
+            ALOGV("### Isp DQbuf done(%d) count (%d), SCP(%d) SCC(%d) dis_bypass(%d) dnr_bypass(%d) shot_size(%d)",
                 index,
                 shot_ext->shot.ctl.request.frameCount,
                 shot_ext->request_scp,
                 shot_ext->request_scc,
-                shot_ext->dis_bypass, sizeof(camera2_shot));
+                shot_ext->dis_bypass,
+                shot_ext->dnr_bypass, sizeof(camera2_shot));
 
             ALOGV("(%s): DM aa(%d) aemode(%d) awb(%d) afmode(%d)", __FUNCTION__,
                 (int)(shot_ext->shot.dm.aa.mode), (int)(shot_ext->shot.dm.aa.aeMode),
