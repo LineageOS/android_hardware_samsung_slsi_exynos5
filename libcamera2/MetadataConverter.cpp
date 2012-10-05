@@ -288,13 +288,6 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 dst_ext->awb_lock = (enum awb_lockmode)(curr_entry.data.u8[0]);
                 break;
 
-            case ANDROID_CONTROL_AWB_REGIONS:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 5))
-                    break;
-                for (i=0 ; i<curr_entry.count ; i++)
-                    dst->ctl.aa.awbRegions[i] = curr_entry.data.i32[i];
-                break;
-
             case ANDROID_CONTROL_AF_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
@@ -310,6 +303,12 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                     dst->ctl.aa.afRegions[i] = curr_entry.data.i32[i];
                 break;
 
+            case ANDROID_CONTROL_AE_REGIONS:
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 5))
+                    break;
+                for (i=0 ; i<curr_entry.count ; i++)
+                    dst->ctl.aa.aeRegions[i] = curr_entry.data.i32[i];
+                break;
 
 
             case ANDROID_REQUEST_ID:
