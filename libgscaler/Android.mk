@@ -20,6 +20,10 @@ include $(CLEAR_VARS)
 LOCAL_PRELINK_MODULE := false
 LOCAL_SHARED_LIBRARIES := liblog libutils libcutils libexynosutils libexynosv4l2
 
+# to talk to secure side
+LOCAL_SHARED_LIBRARIES += libMcClient
+LOCAL_STATIC_LIBRARIES := libsecurepath
+
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/../include \
 	$(LOCAL_PATH)/../libexynosutils

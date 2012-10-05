@@ -113,7 +113,8 @@ void *exynos_gsc_create(
 void *exynos_gsc_create_exclusive(
     int dev_num,
     int gsc_mode,
-    int out_mode);
+    int out_mode,
+    int allow_drm);
 
 /*!
  * Destroy libgscaler handle

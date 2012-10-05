@@ -1132,7 +1132,7 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     } else {
         ALOGV("opening gscaler %u", AVAILABLE_GSC_UNITS[gsc_idx]);
         gsc_data->gsc = exynos_gsc_create_exclusive(
-                AVAILABLE_GSC_UNITS[gsc_idx], GSC_M2M_MODE, GSC_DUMMY);
+                AVAILABLE_GSC_UNITS[gsc_idx], GSC_M2M_MODE, GSC_DUMMY, true);
         if (!gsc_data->gsc) {
             ALOGE("failed to create gscaler handle");
             ret = -1;
@@ -1141,6 +1141,12 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     }
 
     if (reconfigure) {
+        ret = exynos_gsc_stop_exclusive(gsc_data->gsc);
+        if (ret < 0) {
+            ALOGE("failed to stop gscaler %u", gsc_idx);
+            goto err_gsc_config;
+        }
+
         ret = exynos_gsc_config_exclusive(gsc_data->gsc, &src_cfg, &dst_cfg);
         if (ret < 0) {
             ALOGE("failed to configure gscaler %u", gsc_idx);

@@ -119,6 +119,7 @@ struct gsc_info {
 
 struct GSC_HANDLE {
     int              gsc_fd;
+    int              gsc_id;
     struct gsc_info  src;
     struct gsc_info  dst;
     exynos_gsc_img   src_img;
@@ -134,6 +135,8 @@ struct GSC_HANDLE {
     struct media_entity *sink_sd_entity;
     int     gsc_mode;
     int     out_mode;
+    bool    allow_drm;
+    bool    protection_enabled;
 };
 
 extern int exynos_gsc_out_stop(void *handle);
