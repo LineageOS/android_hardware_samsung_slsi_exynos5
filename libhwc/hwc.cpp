@@ -55,6 +55,8 @@ const size_t NO_FB_NEEDED = NUM_HW_WINDOWS + 1;
 const size_t MAX_PIXELS = 2560 * 1600 * 2;
 const size_t GSC_W_ALIGNMENT = 16;
 const size_t GSC_H_ALIGNMENT = 16;
+const size_t GSC_DST_W_ALIGNMENT_RGB888 = 32;
+const size_t GSC_DST_H_ALIGNMENT_RGB888 = 1;
 const size_t FIMD_GSC_IDX = 0;
 const size_t HDMI_GSC_IDX = 1;
 const int AVAILABLE_GSC_UNITS[] = { 0, 3 };
@@ -1079,8 +1081,8 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
         if (src_handle->flags & GRALLOC_USAGE_PROTECTED)
             usage |= GRALLOC_USAGE_PROTECTED;
 
-        int w = ALIGN(WIDTH(layer.displayFrame), GSC_W_ALIGNMENT);
-        int h = ALIGN(HEIGHT(layer.displayFrame), GSC_H_ALIGNMENT);
+        int w = ALIGN(WIDTH(layer.displayFrame), GSC_DST_W_ALIGNMENT_RGB888);
+        int h = ALIGN(HEIGHT(layer.displayFrame), GSC_DST_H_ALIGNMENT_RGB888);
 
         for (size_t i = 0; i < NUM_GSC_DST_BUFS; i++) {
             if (gsc_data->dst_buf[i]) {
