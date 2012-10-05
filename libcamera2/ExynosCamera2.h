@@ -51,6 +51,12 @@ public:
     float       focalLength;
     float       aperture;
     float       fnumber;
+    const uint8_t       *availableAfModes;
+    const uint8_t       *sceneModeOverrides;
+    const uint8_t       *availableAeModes;
+    int         numAvailableAfModes;
+    int         numSceneModeOverrides;
+    int         numAvailableAeModes;
 
     /* FD information */
     int32_t    maxFaceCount;
