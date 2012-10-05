@@ -2899,7 +2899,6 @@ void ExynosCameraHWInterface2::m_preCaptureSetter(struct camera2_shot_ext * shot
         m_ctlInfo.flash.m_flashEnableFlg = false;
         m_ctlInfo.flash.m_flashCnt = 0;
         m_ctlInfo.flash.m_afFlashDoneFlg= false;
-        m_ctlInfo.flash.m_flashDecisionResult = false;
         break;
     case IS_FLASH_STATE_NONE:
         break;
