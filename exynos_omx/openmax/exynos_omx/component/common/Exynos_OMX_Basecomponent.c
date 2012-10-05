@@ -343,6 +343,11 @@ OMX_ERRORTYPE Exynos_OMX_ComponentStateSet(OMX_COMPONENTTYPE *pOMXComponent, OMX
                 } else {
                     if (CHECK_PORT_ENABLED(pExynosPort)) {
                         Exynos_OSAL_SemaphoreWait(pExynosComponent->pExynosPort[i].loadedResource);
+                        if (pExynosComponent->abendState == OMX_TRUE) {
+                            Exynos_OSAL_SignalSet(pExynosComponent->abendStateEvent);
+                            ret = Exynos_OMX_Release_Resource(pOMXComponent);
+                            goto EXIT;
+                        }
                         pExynosPort->portDefinition.bPopulated = OMX_TRUE;
                     }
                 }
@@ -1495,6 +1500,12 @@ OMX_ERRORTYPE Exynos_OMX_BaseComponent_Constructor(
         Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "OMX_ErrorInsufficientResources, Line:%d", __LINE__);
         goto EXIT;
     }
+    ret = Exynos_OSAL_SignalCreate(&pExynosComponent->abendStateEvent);
+    if (ret != OMX_ErrorNone) {
+        ret = OMX_ErrorInsufficientResources;
+        Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "OMX_ErrorInsufficientResources, Line:%d", __LINE__);
+        goto EXIT;
+    }
 
     pExynosComponent->bExitMessageHandlerThread = OMX_FALSE;
     Exynos_OSAL_QueueCreate(&pExynosComponent->messageQ, MAX_QUEUE_ELEMENTS);
@@ -1555,6 +1566,8 @@ OMX_ERRORTYPE Exynos_OMX_BaseComponent_Destructor(
     Exynos_OSAL_ThreadTerminate(pExynosComponent->hMessageHandler);
     pExynosComponent->hMessageHandler = NULL;
 
+    Exynos_OSAL_SignalTerminate(pExynosComponent->abendStateEvent);
+    pExynosComponent->abendStateEvent = NULL;
     Exynos_OSAL_MutexTerminate(pExynosComponent->compMutex);
     pExynosComponent->compMutex = NULL;
     Exynos_OSAL_SemaphoreTerminate(pExynosComponent->msgSemaphoreHandle);
