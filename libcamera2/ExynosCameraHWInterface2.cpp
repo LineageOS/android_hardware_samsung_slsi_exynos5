@@ -1582,7 +1582,7 @@ int ExynosCameraHWInterface2::notifyRequestQueueNotEmpty()
     if (m_isIspStarted == false) {
         StartISP();
         ALOGV("DEBUG(%s):starting sensor thread", __FUNCTION__);
-        m_requestManager->SetInitialSkip(0);
+        m_requestManager->SetInitialSkip(6);
         m_sensorThread->Start("SensorThread", PRIORITY_DEFAULT, 0);
         m_isIspStarted = true;
     }
