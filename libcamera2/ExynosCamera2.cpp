@@ -147,6 +147,42 @@ const int32_t jpegResolutionS5K4E5[] =
      320,  240,
 };
 
+const uint8_t availableAfModesS5K4E5[] =
+{
+    ANDROID_CONTROL_AF_OFF,
+    ANDROID_CONTROL_AF_AUTO,
+    ANDROID_CONTROL_AF_MACRO,
+    ANDROID_CONTROL_AF_CONTINUOUS_PICTURE,
+    ANDROID_CONTROL_AF_CONTINUOUS_VIDEO
+};
+
+const uint8_t sceneModeOverridesS5K4E5[] =
+{
+    // ANDROID_CONTROL_SCENE_MODE_ACTION
+    ANDROID_CONTROL_AE_ON,
+    ANDROID_CONTROL_AWB_AUTO,
+    ANDROID_CONTROL_AF_CONTINUOUS_PICTURE,
+    // ANDROID_CONTROL_SCENE_MODE_NIGHT
+    ANDROID_CONTROL_AE_ON,
+    ANDROID_CONTROL_AWB_AUTO,
+    ANDROID_CONTROL_AF_CONTINUOUS_PICTURE,
+    // ANDROID_CONTROL_SCENE_MODE_SUNSET
+    ANDROID_CONTROL_AE_ON,
+    ANDROID_CONTROL_AWB_DAYLIGHT,
+    ANDROID_CONTROL_AF_CONTINUOUS_PICTURE,
+    // ANDROID_CONTROL_SCENE_MODE_PARTY
+    ANDROID_CONTROL_AE_ON_AUTO_FLASH,
+    ANDROID_CONTROL_AWB_AUTO,
+    ANDROID_CONTROL_AF_CONTINUOUS_PICTURE
+};
+
+const uint8_t availableAeModesS5K4E5[] =
+{
+    ANDROID_CONTROL_AE_OFF,
+    ANDROID_CONTROL_AE_ON,
+    ANDROID_CONTROL_AE_ON_AUTO_FLASH
+};
+
 ExynosCamera2InfoS5K4E5::ExynosCamera2InfoS5K4E5()
 {
     sensorW             = 2560;
@@ -161,6 +197,12 @@ ExynosCamera2InfoS5K4E5::ExynosCamera2InfoS5K4E5()
     focalLength         = 3.43f;
     aperture            = 2.7f;
     fnumber             = 2.7f;
+    availableAfModes    = availableAfModesS5K4E5;
+    numAvailableAfModes = ARRAY_SIZE(availableAfModesS5K4E5);
+    sceneModeOverrides  = sceneModeOverridesS5K4E5;
+    numSceneModeOverrides = ARRAY_SIZE(sceneModeOverridesS5K4E5);
+    availableAeModes    = availableAeModesS5K4E5;
+    numAvailableAeModes = ARRAY_SIZE(availableAeModesS5K4E5);
 }
 
 ExynosCamera2InfoS5K4E5::~ExynosCamera2InfoS5K4E5()
@@ -201,6 +243,37 @@ const int32_t jpegResolutionS5K6A3[] =
      320,  240,
 };
 
+const uint8_t availableAfModesS5K6A3[] =
+{
+    ANDROID_CONTROL_AF_OFF
+};
+
+const uint8_t sceneModeOverridesS5K6A3[] =
+{
+    // ANDROID_CONTROL_SCENE_MODE_ACTION
+    ANDROID_CONTROL_AE_ON,
+    ANDROID_CONTROL_AWB_AUTO,
+    ANDROID_CONTROL_AF_OFF,
+    // ANDROID_CONTROL_SCENE_MODE_NIGHT
+    ANDROID_CONTROL_AE_ON,
+    ANDROID_CONTROL_AWB_AUTO,
+    ANDROID_CONTROL_AF_OFF,
+    // ANDROID_CONTROL_SCENE_MODE_SUNSET
+    ANDROID_CONTROL_AE_ON,
+    ANDROID_CONTROL_AWB_DAYLIGHT,
+    ANDROID_CONTROL_AF_OFF,
+    // ANDROID_CONTROL_SCENE_MODE_PARTY
+    ANDROID_CONTROL_AE_ON,
+    ANDROID_CONTROL_AWB_AUTO,
+    ANDROID_CONTROL_AF_OFF
+};
+
+const uint8_t availableAeModesS5K6A3[] =
+{
+    ANDROID_CONTROL_AE_OFF,
+    ANDROID_CONTROL_AE_ON
+};
+
 ExynosCamera2InfoS5K6A3::ExynosCamera2InfoS5K6A3()
 {
     sensorW     = 1392;
@@ -215,6 +288,12 @@ ExynosCamera2InfoS5K6A3::ExynosCamera2InfoS5K6A3()
     focalLength         = 2.73f;
     aperture            = 2.8f;
     fnumber             = 2.8f;
+    availableAfModes    = availableAfModesS5K6A3;
+    numAvailableAfModes = ARRAY_SIZE(availableAfModesS5K6A3);
+    sceneModeOverrides  = sceneModeOverridesS5K6A3;
+    numSceneModeOverrides = ARRAY_SIZE(sceneModeOverridesS5K6A3);
+    availableAeModes    = availableAeModesS5K6A3;
+    numAvailableAeModes = ARRAY_SIZE(availableAeModesS5K6A3);
 }
 
 ExynosCamera2InfoS5K6A3::~ExynosCamera2InfoS5K6A3()
@@ -501,13 +580,8 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
     ADD_OR_SIZE(ANDROID_CONTROL_MAX_REGIONS,
             &max3aRegions, 1);
 
-    static const uint8_t availableAeModes[] = {
-            ANDROID_CONTROL_AE_OFF,
-            ANDROID_CONTROL_AE_ON,
-            ANDROID_CONTROL_AE_ON_AUTO_FLASH
-    };
     ADD_OR_SIZE(ANDROID_CONTROL_AE_AVAILABLE_MODES,
-            availableAeModes, sizeof(availableAeModes));
+            m_curCameraInfo->availableAeModes, m_curCameraInfo->numAvailableAeModes);
 
     static const camera_metadata_rational exposureCompensationStep = {
             1, 1
@@ -545,15 +619,8 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
     ADD_OR_SIZE(ANDROID_CONTROL_AWB_AVAILABLE_MODES,
             availableAwbModes, sizeof(availableAwbModes));
 
-    static const uint8_t availableAfModes[] = {
-            ANDROID_CONTROL_AF_OFF,
-            ANDROID_CONTROL_AF_AUTO,
-            ANDROID_CONTROL_AF_MACRO,
-            ANDROID_CONTROL_AF_CONTINUOUS_PICTURE,
-            ANDROID_CONTROL_AF_CONTINUOUS_VIDEO
-    };
     ADD_OR_SIZE(ANDROID_CONTROL_AF_AVAILABLE_MODES,
-            availableAfModes, sizeof(availableAfModes));
+                m_curCameraInfo->availableAfModes, m_curCameraInfo->numAvailableAfModes);
 
     static const uint8_t availableVstabModes[] = {
             ANDROID_CONTROL_VIDEO_STABILIZATION_OFF,
@@ -562,26 +629,8 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
     ADD_OR_SIZE(ANDROID_CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES,
             availableVstabModes, sizeof(availableVstabModes));
 
-    static const uint8_t sceneModeOverrides[] = {
-        // ANDROID_CONTROL_SCENE_MODE_ACTION
-            ANDROID_CONTROL_AE_ON,
-            ANDROID_CONTROL_AWB_AUTO,
-            ANDROID_CONTROL_AF_CONTINUOUS_PICTURE,
-        // ANDROID_CONTROL_SCENE_MODE_NIGHT
-            ANDROID_CONTROL_AE_ON,
-            ANDROID_CONTROL_AWB_AUTO,
-            ANDROID_CONTROL_AF_CONTINUOUS_PICTURE,
-        // ANDROID_CONTROL_SCENE_MODE_SUNSET
-            ANDROID_CONTROL_AE_ON,
-            ANDROID_CONTROL_AWB_DAYLIGHT,
-            ANDROID_CONTROL_AF_CONTINUOUS_PICTURE,
-        // ANDROID_CONTROL_SCENE_MODE_PARTY
-            ANDROID_CONTROL_AE_ON_AUTO_FLASH,
-            ANDROID_CONTROL_AWB_AUTO,
-            ANDROID_CONTROL_AF_CONTINUOUS_PICTURE
-    };
     ADD_OR_SIZE(ANDROID_CONTROL_SCENE_MODE_OVERRIDES,
-            sceneModeOverrides, sizeof(sceneModeOverrides));
+            m_curCameraInfo->sceneModeOverrides, m_curCameraInfo->numSceneModeOverrides);
 
     static const uint8_t quirkTriggerAuto = 1;
     ADD_OR_SIZE(ANDROID_QUIRKS_TRIGGER_AF_WITH_AUTO,
