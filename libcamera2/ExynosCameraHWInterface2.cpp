@@ -3007,10 +3007,10 @@ void ExynosCameraHWInterface2::m_updateAfRegion(struct camera2_shot_ext * shot_e
     } else {
         // clear region infos in case of CAF mode
         if (m_afMode == AA_AFMODE_CONTINUOUS_VIDEO || m_afMode == AA_AFMODE_CONTINUOUS_PICTURE) {
-            shot_ext->shot.ctl.aa.afRegions[0] = lastAfRegion[0] = 0;
-            shot_ext->shot.ctl.aa.afRegions[1] = lastAfRegion[1] = 0;
-            shot_ext->shot.ctl.aa.afRegions[2] = lastAfRegion[2] = 0;
-            shot_ext->shot.ctl.aa.afRegions[3] = lastAfRegion[3] = 0;
+            shot_ext->shot.ctl.aa.afRegions[0] = shot_ext->shot.ctl.aa.aeRegions[0] = lastAfRegion[0] = 0;
+            shot_ext->shot.ctl.aa.afRegions[1] = shot_ext->shot.ctl.aa.aeRegions[1] = lastAfRegion[1] = 0;
+            shot_ext->shot.ctl.aa.afRegions[2] = shot_ext->shot.ctl.aa.aeRegions[2] = lastAfRegion[2] = 0;
+            shot_ext->shot.ctl.aa.afRegions[3] = shot_ext->shot.ctl.aa.aeRegions[3] = lastAfRegion[3] = 0;
         } else if (!(lastAfRegion[0] == shot_ext->shot.ctl.aa.afRegions[0] && lastAfRegion[1] == shot_ext->shot.ctl.aa.afRegions[1]
                 && lastAfRegion[2] == shot_ext->shot.ctl.aa.afRegions[2] && lastAfRegion[3] == shot_ext->shot.ctl.aa.afRegions[3])) {
             ALOGD("(%s): AF region changed : triggering (%d)", __FUNCTION__, m_afMode);
