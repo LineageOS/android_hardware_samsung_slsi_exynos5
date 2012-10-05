@@ -4804,6 +4804,8 @@ void ExynosCameraHWInterface2::OnAfTriggerAutoMacro(int id)
 
     switch (m_afState) {
     case HAL_AFSTATE_INACTIVE:
+    case HAL_AFSTATE_PASSIVE_FOCUSED:
+    case HAL_AFSTATE_SCANNING:
         nextState = HAL_AFSTATE_NEEDS_COMMAND;
         m_IsAfTriggerRequired = true;
         m_ctlInfo.af.m_afTriggerTimeOut = 4;
@@ -4812,9 +4814,6 @@ void ExynosCameraHWInterface2::OnAfTriggerAutoMacro(int id)
         nextState = NO_TRANSITION;
         break;
     case HAL_AFSTATE_STARTED:
-        nextState = NO_TRANSITION;
-        break;
-    case HAL_AFSTATE_SCANNING:
         nextState = NO_TRANSITION;
         break;
     case HAL_AFSTATE_LOCKED:
