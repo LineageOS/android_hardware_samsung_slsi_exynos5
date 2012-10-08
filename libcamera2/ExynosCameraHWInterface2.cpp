@@ -6137,10 +6137,12 @@ void ExynosCameraHWInterface2::initCameraMemory(ExynosBuffer *buf, int iMemoryNu
 
 static camera2_device_t *g_cam2_device = NULL;
 static bool g_camera_vaild = false;
+static Mutex g_camera_mutex;
 ExynosCamera2 * g_camera2[2] = { NULL, NULL };
 
 static int HAL2_camera_device_close(struct hw_device_t* device)
 {
+    Mutex::Autolock lock(g_camera_mutex);
     ALOGD("(%s): ENTER", __FUNCTION__);
     if (device) {
 
@@ -6388,6 +6390,11 @@ static int HAL2_camera_device_open(const struct hw_module_t* module,
     int cameraId = atoi(id);
     int openInvalid = 0;
 
+    Mutex::Autolock lock(g_camera_mutex);
+    if (g_camera_vaild) {
+        ALOGE("ERR(%s): Can't open, other camera is in use", __FUNCTION__);
+        return -EBUSY;
+    }
     g_camera_vaild = false;
     ALOGD("\n\n>>> I'm Samsung's CameraHAL_2(ID:%d) <<<\n\n", cameraId);
     if (cameraId < 0 || cameraId >= HAL2_getNumberOfCameras()) {
