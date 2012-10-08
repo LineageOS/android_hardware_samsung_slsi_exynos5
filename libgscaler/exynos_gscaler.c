@@ -2016,6 +2016,16 @@ int exynos_gsc_m2m_run(void *handle,
         return -1;
     }
 
+    if (src_img->acquireFenceFd >= 0) {
+        close(src_img->acquireFenceFd);
+        src_img->acquireFenceFd = -1;
+    }
+
+    if (dst_img->acquireFenceFd >= 0) {
+        close(dst_img->acquireFenceFd);
+        dst_img->acquireFenceFd = -1;
+    }
+
     src_img->releaseFenceFd = gsc_handle->src.releaseFenceFd;
     dst_img->releaseFenceFd = gsc_handle->dst.releaseFenceFd;
 
