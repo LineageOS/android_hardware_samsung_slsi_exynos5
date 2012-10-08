@@ -42,6 +42,8 @@
 //#define LOG_NDEBUG 0
 #include "exynos_gsc_utils.h"
 
+static int exynos_gsc_m2m_wait_frame_done(void *handle);
+
 static unsigned int m_gsc_get_plane_count(
     int v4l_pixel_format)
 {
@@ -703,10 +705,12 @@ static bool m_exynos_gsc_set_addr(
                          info->v4l2_colorformat);
 
     info->buffer.index    = 0;
+    info->buffer.flags    = V4L2_BUF_FLAG_USE_SYNC;
     info->buffer.type     = info->buf_type;
     info->buffer.memory   = V4L2_MEMORY_DMABUF;
     info->buffer.m.planes = info->planes;
     info->buffer.length   = info->format.fmt.pix_mp.num_planes;
+    info->buffer.reserved = info->acquireFenceFd;
 
     for (i = 0; i < info->format.fmt.pix_mp.num_planes; i++) {
         info->buffer.m.planes[i].m.fd = (int)info->addr[i];
@@ -718,6 +722,9 @@ static bool m_exynos_gsc_set_addr(
         ALOGE("%s::exynos_v4l2_qbuf() fail", __func__);
         return false;
     }
+    info->buffer_queued = true;
+
+    info->releaseFenceFd = info->buffer.reserved;
 
     return true;
 }
@@ -1169,7 +1176,8 @@ done:
 
 int exynos_gsc_set_src_addr(
     void *handle,
-    void *addr[3])
+    void *addr[3],
+    int acquireFenceFd)
 {
     struct GSC_HANDLE *gsc_handle;
     gsc_handle = (struct GSC_HANDLE *)handle;
@@ -1186,7 +1194,7 @@ int exynos_gsc_set_src_addr(
     gsc_handle->src.addr[0] = addr[0];
     gsc_handle->src.addr[1] = addr[1];
     gsc_handle->src.addr[2] = addr[2];
-
+    gsc_handle->src.acquireFenceFd = acquireFenceFd;
 
     exynos_mutex_unlock(gsc_handle->op_mutex);
 
@@ -1197,7 +1205,8 @@ int exynos_gsc_set_src_addr(
 
 int exynos_gsc_set_dst_addr(
     void *handle,
-    void *addr[3])
+    void *addr[3],
+    int acquireFenceFd)
 {
     struct GSC_HANDLE *gsc_handle;
     gsc_handle = (struct GSC_HANDLE *)handle;
@@ -1215,6 +1224,7 @@ int exynos_gsc_set_dst_addr(
     gsc_handle->dst.addr[0] = addr[0];
     gsc_handle->dst.addr[1] = addr[1];
     gsc_handle->dst.addr[2] = addr[2];
+    gsc_handle->dst.acquireFenceFd = acquireFenceFd;
 
 
     exynos_mutex_unlock(gsc_handle->op_mutex);
@@ -1784,6 +1794,14 @@ static int exynos_gsc_m2m_run_core(void *handle)
         gsc_handle->dst.dirty = false;
     }
 
+    /* dequeue buffers from previous work if necessary */
+    if (gsc_handle->src.stream_on == true) {
+        if (exynos_gsc_m2m_wait_frame_done(handle) < 0) {
+            ALOGE("%s::exynos_gsc_m2m_wait_frame_done fail", __func__);
+            goto done;
+        }
+    }
+
     if (m_exynos_gsc_set_addr(gsc_handle->gsc_fd, &gsc_handle->src) == false) {
         ALOGE("%s::m_exynos_gsc_set_addr(src) fail", __func__);
         goto done;
@@ -1836,14 +1854,20 @@ static int exynos_gsc_m2m_wait_frame_done(void *handle)
         return -1;
     }
 
-    if (exynos_v4l2_dqbuf(gsc_handle->gsc_fd, &gsc_handle->src.buffer) < 0) {
-        ALOGE("%s::exynos_v4l2_dqbuf(src) fail", __func__);
-        return -1;
+    if (gsc_handle->src.buffer_queued) {
+        if (exynos_v4l2_dqbuf(gsc_handle->gsc_fd, &gsc_handle->src.buffer) < 0) {
+            ALOGE("%s::exynos_v4l2_dqbuf(src) fail", __func__);
+            return -1;
+        }
+        gsc_handle->src.buffer_queued = false;
     }
 
-    if (exynos_v4l2_dqbuf(gsc_handle->gsc_fd, &gsc_handle->dst.buffer) < 0) {
-        ALOGE("%s::exynos_v4l2_dqbuf(dst) fail", __func__);
-        return -1;
+    if (gsc_handle->dst.buffer_queued) {
+        if (exynos_v4l2_dqbuf(gsc_handle->gsc_fd, &gsc_handle->dst.buffer) < 0) {
+            ALOGE("%s::exynos_v4l2_dqbuf(dst) fail", __func__);
+            return -1;
+        }
+        gsc_handle->dst.buffer_queued = false;
     }
 
     Exynos_gsc_Out();
@@ -1926,6 +1950,16 @@ int exynos_gsc_convert(
         goto done;
     }
 
+    if (gsc_handle->src.releaseFenceFd >= 0) {
+        close(gsc_handle->src.releaseFenceFd);
+        gsc_handle->src.releaseFenceFd = -1;
+    }
+
+    if (gsc_handle->dst.releaseFenceFd >= 0) {
+        close(gsc_handle->dst.releaseFenceFd);
+        gsc_handle->dst.releaseFenceFd = -1;
+    }
+
     if (exynos_gsc_m2m_stop(handle) < 0) {
         ALOGE("%s::exynos_gsc_m2m_stop", __func__);
         goto done;
@@ -1950,6 +1984,7 @@ int exynos_gsc_m2m_run(void *handle,
     exynos_gsc_img *src_img,
     exynos_gsc_img *dst_img)
 {
+    struct GSC_HANDLE *gsc_handle = handle;
     void *addr[3] = {NULL, NULL, NULL};
     int ret = 0;
 
@@ -1958,8 +1993,7 @@ int exynos_gsc_m2m_run(void *handle,
     addr[0] = (void *)src_img->yaddr;
     addr[1] = (void *)src_img->uaddr;
     addr[2] = (void *)src_img->vaddr;
-
-    ret = exynos_gsc_set_src_addr(handle, addr);
+    ret = exynos_gsc_set_src_addr(handle, addr, src_img->acquireFenceFd);
     if (ret < 0) {
         ALOGE("%s::fail: exynos_gsc_set_src_addr[%x %x %x]", __func__,
             (unsigned int)addr[0], (unsigned int)addr[1], (unsigned int)addr[2]);
@@ -1969,7 +2003,7 @@ int exynos_gsc_m2m_run(void *handle,
     addr[0] = (void *)dst_img->yaddr;
     addr[1] = (void *)dst_img->uaddr;
     addr[2] = (void *)dst_img->vaddr;
-    ret = exynos_gsc_set_dst_addr(handle, addr);
+    ret = exynos_gsc_set_dst_addr(handle, addr, dst_img->acquireFenceFd);
     if (ret < 0) {
         ALOGE("%s::fail: exynos_gsc_set_dst_addr[%x %x %x]", __func__,
             (unsigned int)addr[0], (unsigned int)addr[1], (unsigned int)addr[2]);
@@ -1981,6 +2015,9 @@ int exynos_gsc_m2m_run(void *handle,
         ALOGE("%s::fail: exynos_gsc_m2m_run_core", __func__);
         return -1;
     }
+
+    src_img->releaseFenceFd = gsc_handle->src.releaseFenceFd;
+    dst_img->releaseFenceFd = gsc_handle->dst.releaseFenceFd;
 
     Exynos_gsc_Out();
 
