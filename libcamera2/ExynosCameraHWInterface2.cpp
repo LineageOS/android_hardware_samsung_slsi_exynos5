@@ -2724,7 +2724,7 @@ void ExynosCameraHWInterface2::m_mainThreadFunc(SignalDrivenThread * self)
         if (m_requestManager->IsRequestQueueFull()==false) {
             m_requestQueueOps->dequeue_request(m_requestQueueOps, &currentRequest);
             if (NULL == currentRequest) {
-                ALOGD("DEBUG(%s)(0x%x): dequeue_request returned NULL ", __FUNCTION__, currentSignal);
+                ALOGD("DEBUG(%s)(0x%x): No more service requests left in the queue ", __FUNCTION__, currentSignal);
                 m_isRequestQueueNull = true;
                 if (m_requestManager->IsVdisEnable())
                     m_vdisBubbleCnt = 1;
