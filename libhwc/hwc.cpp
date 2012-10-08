@@ -566,7 +566,9 @@ static void hdmi_disable(struct exynos5_hwc_composer_device_1_t *dev)
 static int hdmi_output(struct exynos5_hwc_composer_device_1_t *dev,
                        hdmi_layer_t &hl,
                        hwc_layer_1_t &layer,
-                       private_handle_t *h)
+                       private_handle_t *h,
+                       int acquireFenceFd,
+                       int *releaseFenceFd)
 {
     int ret = 0;
 
@@ -641,7 +643,7 @@ static int hdmi_output(struct exynos5_hwc_composer_device_1_t *dev,
     buffer.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
     buffer.memory = V4L2_MEMORY_DMABUF;
     buffer.flags = V4L2_BUF_FLAG_USE_SYNC;
-    buffer.reserved = layer.acquireFenceFd;
+    buffer.reserved = acquireFenceFd;
     buffer.length = 1;
     buffer.m.planes = planes;
     buffer.m.planes[0].m.fd = h->fd;
@@ -651,7 +653,10 @@ static int hdmi_output(struct exynos5_hwc_composer_device_1_t *dev,
         goto err;
     }
 
-    layer.releaseFenceFd = buffer.reserved;
+    if (releaseFenceFd)
+        *releaseFenceFd = buffer.reserved;
+    else
+        close(buffer.reserved);
 
     hl.queued_buf++;
     hl.current_buf = (hl.current_buf + 1) % NUM_HDMI_BUFFERS;
@@ -666,8 +671,8 @@ static int hdmi_output(struct exynos5_hwc_composer_device_1_t *dev,
     }
 
 err:
-    if (layer.acquireFenceFd >= 0)
-        close(layer.acquireFenceFd);
+    if (acquireFenceFd >= 0)
+        close(acquireFenceFd);
 
     return ret;
 }
@@ -1030,14 +1035,6 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     private_handle_t *dst_handle;
     int ret = 0;
 
-    if (layer.acquireFenceFd != -1) {
-        int err = sync_wait(layer.acquireFenceFd, 100);
-        if (err != 0)
-            ALOGW("fence didn't signal in 100 ms: %s", strerror(errno));
-        close(layer.acquireFenceFd);
-        layer.acquireFenceFd = -1;
-    }
-
     exynos_gsc_img src_cfg, dst_cfg;
     memset(&src_cfg, 0, sizeof(src_cfg));
     memset(&dst_cfg, 0, sizeof(dst_cfg));
@@ -1058,6 +1055,8 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     }
     src_cfg.format = src_handle->format;
     src_cfg.drmMode = !!(src_handle->flags & GRALLOC_USAGE_PROTECTED);
+    src_cfg.acquireFenceFd = layer.acquireFenceFd;
+    layer.acquireFenceFd = -1;
 
     dst_cfg.x = 0;
     dst_cfg.y = 0;
@@ -1066,6 +1065,7 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     dst_cfg.rot = layer.transform;
     dst_cfg.drmMode = src_cfg.drmMode;
     dst_cfg.format = dst_format;
+    dst_cfg.acquireFenceFd = -1;
 
     ALOGV("source configuration:");
     dump_gsc_img(src_cfg);
@@ -1140,14 +1140,10 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
         goto err_gsc_config;
     }
 
-    ret = exynos_gsc_wait_frame_done_exclusive(gsc_data->gsc);
-    if (ret < 0) {
-        ALOGE("failed to wait for gscaler %u", gsc_idx);
-        goto err_gsc_config;
-    }
-
     gsc_data->src_cfg = src_cfg;
     gsc_data->dst_cfg = dst_cfg;
+
+    layer.releaseFenceFd = src_cfg.releaseFenceFd;
 
     return 0;
 
@@ -1155,6 +1151,8 @@ err_gsc_config:
     exynos_gsc_destroy(gsc_data->gsc);
     gsc_data->gsc = NULL;
 err_alloc:
+    if (src_cfg.acquireFenceFd >= 0)
+        close(src_cfg.acquireFenceFd);
     for (size_t i = 0; i < NUM_GSC_DST_BUFS; i++) {
         if (gsc_data->dst_buf[i]) {
            alloc_device->free(alloc_device, gsc_data->dst_buf[i]);
@@ -1307,8 +1305,9 @@ static int exynos5_post_fimd(exynos5_hwc_composer_device_1_t *pdev,
                         private_handle_t::dynamicCast(dst_buf);
                 hwc_rect_t sourceCrop = { 0, 0,
                         WIDTH(layer.displayFrame), HEIGHT(layer.displayFrame) };
+                int fence = gsc.dst_cfg.releaseFenceFd;
                 exynos5_config_handle(dst_handle, sourceCrop,
-                        layer.displayFrame, layer.blending, -1, config[i],
+                        layer.displayFrame, layer.blending, fence, config[i],
                         pdev);
             } else {
                 exynos5_config_overlay(&layer, config[i], pdev);
@@ -1378,7 +1377,8 @@ static int exynos5_set_fimd(exynos5_hwc_composer_device_1_t *pdev,
         return fence;
 
     for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
-        if (pdev->bufs.overlay_map[i] != -1) {
+        if (pdev->bufs.overlay_map[i] != -1 &&
+                        pdev->bufs.gsc_map[i].mode != exynos5_gsc_map_t::GSC_M2M) {
             hwc_layer_1_t &layer =
                     contents->hwLayers[pdev->bufs.overlay_map[i]];
             int dup_fd = dup(fence);
@@ -1401,8 +1401,10 @@ static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
     if (!pdev->hdmi_enabled) {
         for (size_t i = 0; i < contents->numHwLayers; i++) {
             hwc_layer_1_t &layer = contents->hwLayers[i];
-            if (layer.acquireFenceFd != -1)
+            if (layer.acquireFenceFd != -1) {
                 close(layer.acquireFenceFd);
+                layer.acquireFenceFd = -1;
+            }
         }
         return 0;
     }
@@ -1423,14 +1425,20 @@ static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
             dump_layer(&layer);
 
             exynos5_gsc_data_t &gsc = pdev->gsc[HDMI_GSC_IDX];
-            exynos5_config_gsc_m2m(layer, pdev->alloc_device, &gsc, 1,
-                                            HAL_PIXEL_FORMAT_RGBX_8888);
+            int ret = exynos5_config_gsc_m2m(layer, pdev->alloc_device, &gsc, 1,
+                                             HAL_PIXEL_FORMAT_RGBX_8888);
+            if (ret < 0) {
+                ALOGE("failed to configure gscaler for video layer");
+                continue;
+            }
 
             buffer_handle_t dst_buf = gsc.dst_buf[gsc.current_buf];
             gsc.current_buf = (gsc.current_buf + 1) % NUM_GSC_DST_BUFS;
             private_handle_t *h = private_handle_t::dynamicCast(dst_buf);
 
-            hdmi_output(pdev, pdev->hdmi_layers[0], layer, h);
+            int acquireFenceFd = gsc.dst_cfg.releaseFenceFd;
+
+            hdmi_output(pdev, pdev->hdmi_layers[0], layer, h, acquireFenceFd, NULL);
             video_layer = &layer;
         }
 
@@ -1442,7 +1450,8 @@ static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
             dump_layer(&layer);
 
             private_handle_t *h = private_handle_t::dynamicCast(layer.handle);
-            hdmi_output(pdev, pdev->hdmi_layers[1], layer, h);
+            hdmi_output(pdev, pdev->hdmi_layers[1], layer, h, layer.acquireFenceFd,
+                                                             &layer.releaseFenceFd);
             fb_layer = &layer;
         }
     }
