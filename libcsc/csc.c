@@ -439,8 +439,8 @@ static CSC_ERRORCODE csc_set_buffer(
             break;
 #ifdef ENABLE_GSCALER
         case CSC_HW_TYPE_GSCALER:
-            exynos_gsc_set_src_addr(csc_handle->csc_hw_handle, csc_handle->src_buffer.planes);
-            exynos_gsc_set_dst_addr(csc_handle->csc_hw_handle, csc_handle->dst_buffer.planes);
+            exynos_gsc_set_src_addr(csc_handle->csc_hw_handle, csc_handle->src_buffer.planes, -1);
+            exynos_gsc_set_dst_addr(csc_handle->csc_hw_handle, csc_handle->dst_buffer.planes, -1);
             break;
 #endif
         default:
