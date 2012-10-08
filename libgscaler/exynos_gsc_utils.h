@@ -103,11 +103,14 @@ struct gsc_info {
     bool               dirty;
 
     void              *addr[NUM_OF_GSC_PLANES];
+    int                acquireFenceFd;
+    int                releaseFenceFd;
     bool               stream_on;
 
     enum v4l2_buf_type buf_type;
     struct v4l2_format format;
     struct v4l2_buffer buffer;
+    bool               buffer_queued;
     struct v4l2_plane  planes[NUM_OF_GSC_PLANES];
     struct v4l2_crop   crop;
     int             src_buf_idx;
