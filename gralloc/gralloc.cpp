@@ -48,6 +48,7 @@
 #define ION_EXYNOS_FIMD_VIDEO_MASK  (1 << 28)
 #define ION_EXYNOS_MFC_OUTPUT_MASK  (1 << 26)
 #define ION_EXYNOS_MFC_INPUT_MASK   (1 << 25)
+#define MB_1 (1024*1024)
 
 
 /*****************************************************************************/
@@ -130,7 +131,7 @@ static unsigned int _select_heap(int usage)
 static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int usage,
                              unsigned int ion_flags, private_handle_t **hnd, int *stride)
 {
-    size_t size, bpr;
+    size_t size, bpr, alignment = 0;
     int bpp = 0, vstride, fd, err;
     unsigned int heap_mask = _select_heap(usage);
 
@@ -169,10 +170,12 @@ static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int usage,
         size = ALIGN(size, PAGE_SIZE);
     }
 
-    if (usage & GRALLOC_USAGE_PROTECTED)
+    if (usage & GRALLOC_USAGE_PROTECTED) {
+        alignment = MB_1;
         ion_flags |= ION_EXYNOS_FIMD_VIDEO_MASK;
+    }
 
-    err = ion_alloc_fd(ionfd, size, 0, heap_mask, ion_flags,
+    err = ion_alloc_fd(ionfd, size, alignment, heap_mask, ion_flags,
                        &fd);
     *hnd = new private_handle_t(fd, size, usage, w, h, format, *stride,
                                 vstride);
