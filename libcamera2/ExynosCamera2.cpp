@@ -211,9 +211,9 @@ ExynosCamera2InfoS5K4E5::~ExynosCamera2InfoS5K4E5()
 }
 const int32_t scalerResolutionS5K6A3[] =
 {
-    1392, 1392, // 1:1
     1344,  896, // 3:2
     1280, 1024, // 5:4
+    1024, 1024, // 1:1
     1280,  960, // 4:3
     1280,  720, // 16:9
      960,  720, // 4:3
