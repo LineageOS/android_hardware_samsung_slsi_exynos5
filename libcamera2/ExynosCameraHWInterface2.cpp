@@ -34,6 +34,7 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "ExynosCameraHAL2"
 #include <utils/Log.h>
+#include <math.h>
 
 #include "ExynosCameraHWInterface2.h"
 #include "exynos_format.h"
@@ -5891,7 +5892,7 @@ void ExynosCameraHWInterface2::m_setExifChangedAttribute(exif_attribute_t *exifI
         exifInfo->gps_latitude[0].den = 1;
         exifInfo->gps_latitude[1].num = (uint32_t)((latitude - exifInfo->gps_latitude[0].num) * 60);
         exifInfo->gps_latitude[1].den = 1;
-        exifInfo->gps_latitude[2].num = (uint32_t)((((latitude - exifInfo->gps_latitude[0].num) * 60)
+        exifInfo->gps_latitude[2].num = (uint32_t)round((((latitude - exifInfo->gps_latitude[0].num) * 60)
                                         - exifInfo->gps_latitude[1].num) * 60);
         exifInfo->gps_latitude[2].den = 1;
 
@@ -5899,11 +5900,11 @@ void ExynosCameraHWInterface2::m_setExifChangedAttribute(exif_attribute_t *exifI
         exifInfo->gps_longitude[0].den = 1;
         exifInfo->gps_longitude[1].num = (uint32_t)((longitude - exifInfo->gps_longitude[0].num) * 60);
         exifInfo->gps_longitude[1].den = 1;
-        exifInfo->gps_longitude[2].num = (uint32_t)((((longitude - exifInfo->gps_longitude[0].num) * 60)
+        exifInfo->gps_longitude[2].num = (uint32_t)round((((longitude - exifInfo->gps_longitude[0].num) * 60)
                                         - exifInfo->gps_longitude[1].num) * 60);
         exifInfo->gps_longitude[2].den = 1;
 
-        exifInfo->gps_altitude.num = (uint32_t)altitude;
+        exifInfo->gps_altitude.num = (uint32_t)round(altitude);
         exifInfo->gps_altitude.den = 1;
 
         struct tm tm_data;
