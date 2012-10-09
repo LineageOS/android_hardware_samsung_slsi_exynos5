@@ -1345,6 +1345,20 @@ static int exynos5_post_fimd(exynos5_hwc_composer_device_1_t *pdev,
     return win_data.fence;
 }
 
+static int exynos5_clear_fimd(exynos5_hwc_composer_device_1_t *pdev)
+{
+    struct s3c_fb_win_config_data win_data;
+    memset(&win_data, 0, sizeof(win_data));
+
+    int ret = ioctl(pdev->fd, S3CFB_WIN_CONFIG, &win_data);
+    LOG_ALWAYS_FATAL_IF(ret < 0,
+            "ioctl S3CFB_WIN_CONFIG failed to clear screen: %s",
+            strerror(errno));
+    // the causes of an empty config failing are all unrecoverable
+
+    return win_data.fence;
+}
+
 static int exynos5_set_fimd(exynos5_hwc_composer_device_1_t *pdev,
         hwc_display_contents_1_t* contents)
 {
@@ -1352,6 +1366,7 @@ static int exynos5_set_fimd(exynos5_hwc_composer_device_1_t *pdev,
         return 0;
 
     hwc_layer_1_t *fb_layer = NULL;
+    int err = 0;
 
     if (pdev->bufs.fb_window != NO_FB_NEEDED) {
         for (size_t i = 0; i < contents->numHwLayers; i++) {
@@ -1365,16 +1380,22 @@ static int exynos5_set_fimd(exynos5_hwc_composer_device_1_t *pdev,
 
         if (CC_UNLIKELY(!fb_layer)) {
             ALOGE("framebuffer target expected, but not provided");
-            return -EINVAL;
+            err = -EINVAL;
+        } else {
+            ALOGV("framebuffer target buffer:");
+            dump_layer(fb_layer);
         }
-
-        ALOGV("framebuffer target buffer:");
-        dump_layer(fb_layer);
     }
 
-    int fence = exynos5_post_fimd(pdev, contents);
-    if (fence < 0)
-        return fence;
+    int fence;
+    if (!err) {
+        fence = exynos5_post_fimd(pdev, contents);
+        if (fence < 0)
+            err = fence;
+    }
+
+    if (err)
+        fence = exynos5_clear_fimd(pdev);
 
     for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
         if (pdev->bufs.overlay_map[i] != -1 &&
@@ -1389,7 +1410,7 @@ static int exynos5_set_fimd(exynos5_hwc_composer_device_1_t *pdev,
     }
     close(fence);
 
-    return 0;
+    return err;
 }
 
 static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
@@ -1476,20 +1497,18 @@ static int exynos5_set(struct hwc_composer_device_1 *dev,
             (exynos5_hwc_composer_device_1_t *)dev;
     hwc_display_contents_1_t *fimd_contents = displays[HWC_DISPLAY_PRIMARY];
     hwc_display_contents_1_t *hdmi_contents = displays[HWC_DISPLAY_EXTERNAL];
+    int fimd_err = 0, hdmi_err = 0;
 
-    if (fimd_contents) {
-        int err = exynos5_set_fimd(pdev, fimd_contents);
-        if (err)
-            return err;
-    }
+    if (fimd_contents)
+        fimd_err = exynos5_set_fimd(pdev, fimd_contents);
 
-    if (hdmi_contents) {
-        int err = exynos5_set_hdmi(pdev, hdmi_contents);
-        if (err)
-            return err;
-    }
+    if (hdmi_contents)
+        hdmi_err = exynos5_set_hdmi(pdev, hdmi_contents);
 
-    return 0;
+    if (fimd_err)
+        return fimd_err;
+
+    return hdmi_err;
 }
 
 static void exynos5_registerProcs(struct hwc_composer_device_1* dev,
