@@ -341,9 +341,6 @@ int ExynosJpegEncoderForCamera::makeExif (unsigned char *exifOut,
         tmp = NUM_0TH_IFD_TIFF;
     else
         tmp = NUM_0TH_IFD_TIFF - 1;
-    // STOPSHIP TODO(aray): remove before launch, takes fields below out of exif
-    tmp -= 4;
-    // end TODO(aray)
 
     memcpy(pCur, &tmp, NUM_SIZE);
     pCur += NUM_SIZE;
@@ -364,7 +361,6 @@ int ExynosJpegEncoderForCamera::makeExif (unsigned char *exifOut,
     writeExifIfd(&pCur, EXIF_TAG_SOFTWARE, EXIF_TYPE_ASCII,
                  strlen((char *)exifInfo->software) + 1, exifInfo->software, &LongerTagOffest, pIfdStart);
 #endif
-
     writeExifIfd(&pCur, EXIF_TAG_DATE_TIME, EXIF_TYPE_ASCII,
                  20, exifInfo->date_time, &LongerTagOffest, pIfdStart);
     writeExifIfd(&pCur, EXIF_TAG_YCBCR_POSITIONING, EXIF_TYPE_SHORT,
