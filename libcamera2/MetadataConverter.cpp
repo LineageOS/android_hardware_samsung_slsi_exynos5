@@ -78,6 +78,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
     uint32_t    num_entry = 0;
     uint32_t    index = 0;
     uint32_t    i = 0;
+    uint32_t    cnt = 0;
     camera_metadata_entry_t curr_entry;
     struct camera2_shot * dst = NULL;
 
@@ -92,7 +93,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
     dst->ctl.aa.aeTargetFpsRange[1] = 30;
     dst->ctl.aa.aeExpCompensation = 5;
 
-    num_entry = (uint32_t)get_camera_metadata_data_count(request);
+    num_entry = (uint32_t)get_camera_metadata_entry_count(request);
     for (index = 0 ; index < num_entry ; index++) {
 
         if (get_camera_metadata_entry(request, index, &curr_entry)==0) {
@@ -205,9 +206,13 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 break;
 
             case ANDROID_JPEG_GPS_PROCESSING_METHOD:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 32))
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE))
                     break;
-                for (i=0 ; i<curr_entry.count ; i++)
+                if (curr_entry.count > 32)
+                    cnt = 32;
+                else
+                    cnt = curr_entry.count;
+                for (i = 0 ; i < cnt ; i++)
                     dst_ext->gpsProcessingMethod[i] = curr_entry.data.u8[i];
                 break;
 
