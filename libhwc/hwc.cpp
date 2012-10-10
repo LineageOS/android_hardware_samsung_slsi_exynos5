@@ -328,6 +328,19 @@ static bool is_x_aligned(const hwc_layer_1_t &layer, int format)
             (layer.displayFrame.right % pixel_alignment) == 0;
 }
 
+static bool dst_crop_w_aligned(const hwc_layer_1_t &layer, int format)
+{
+    int dest_w;
+    int dst_crop_w_alignement;
+
+    dest_w = WIDTH(layer.displayFrame);
+
+   /* GSC's dst crop size should be aligned 128Bytes */
+    dst_crop_w_alignement = 32;
+
+    return (dest_w % dst_crop_w_alignement) == 0;
+}
+
 static bool exynos5_supports_gscaler(hwc_layer_1_t &layer, int format,
         bool local_path)
 {
@@ -353,6 +366,7 @@ static bool exynos5_supports_gscaler(hwc_layer_1_t &layer, int format,
     const int max_upscale = 8;
 
     return exynos5_format_is_supported_by_gscaler(format) &&
+            dst_crop_w_aligned(layer,format) &&
             handle->stride <= max_w &&
             handle->stride % GSC_W_ALIGNMENT == 0 &&
             src_w <= dest_w * max_downscale &&
