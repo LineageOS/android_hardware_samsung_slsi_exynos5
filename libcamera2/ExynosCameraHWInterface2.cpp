@@ -954,6 +954,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
             m_afTriggerId(0),
             m_afPendingTriggerId(0),
             m_afModeWaitingCnt(0),
+            m_jpegEncodingCount(0),
             m_scpForceSuspended(false),
             m_halDevice(dev),
             m_nightCaptureCnt(0),
@@ -1609,8 +1610,9 @@ int ExynosCameraHWInterface2::setFrameQueueDstOps(const camera2_frame_queue_dst_
 int ExynosCameraHWInterface2::getInProgressCount()
 {
     int inProgressCount = m_requestManager->GetNumEntries();
-    ALOGV("DEBUG(%s): # of dequeued req (%d)", __FUNCTION__, inProgressCount);
-    return inProgressCount;
+    ALOGV("DEBUG(%s): # of dequeued req (%d) jpeg(%d) = (%d)", __FUNCTION__,
+        inProgressCount, m_jpegEncodingCount, (inProgressCount + m_jpegEncodingCount));
+    return (inProgressCount + m_jpegEncodingCount);
 }
 
 int ExynosCameraHWInterface2::flushCapturesInProgress()
@@ -4137,6 +4139,7 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
 }
 int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuffer *srcImageBuf, nsecs_t frameTimeStamp)
 {
+    Mutex::Autolock lock(m_jpegEncoderLock);
     stream_parameters_t     *selfStreamParms = &(selfThread->m_parameters);
     substream_parameters_t  *subParms        = &m_subStreams[STREAM_ID_JPEG];
     status_t    res;
@@ -4167,6 +4170,8 @@ int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuff
         subParms->svcBufIndex++;
         return 1;
     }
+
+    m_jpegEncodingCount++;
 
     m_getRatioSize(selfStreamParms->width, selfStreamParms->height,
                     m_streamThreads[0]->m_parameters.width, m_streamThreads[0]->m_parameters.height,
@@ -4330,6 +4335,7 @@ int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuff
                 subParms->svcBufIndex,  subParms->svcBufStatus[subParms->svcBufIndex]);
         }
     }
+    m_jpegEncodingCount--;
     return 0;
 }
 
