@@ -5928,6 +5928,7 @@ void ExynosCameraHWInterface2::m_setExifChangedAttribute(exif_attribute_t *exifI
         snprintf((char*)exifInfo->gps_datestamp, sizeof(exifInfo->gps_datestamp),
                 "%04d:%02d:%02d", tm_data.tm_year + 1900, tm_data.tm_mon + 1, tm_data.tm_mday);
 
+        memset(exifInfo->gps_processing_method, 0, 100);
         memcpy(exifInfo->gps_processing_method, currentEntry->gpsProcessingMethod, 32);
         exifInfo->enableGps = true;
     } else {
