@@ -660,6 +660,8 @@ class MainThread : public SignalDrivenThread {
     int                                 m_vdisDupFrame;
 
     mutable Mutex                       m_qbufLock;
+    mutable Mutex                       m_jpegEncoderLock;
+    int                                 m_jpegEncodingCount;
 
     bool                                m_scpForceSuspended;
     int                                 m_afState;
