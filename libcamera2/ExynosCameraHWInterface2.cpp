@@ -3400,6 +3400,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
 
             if (m_vdisBubbleCnt > 0 && m_vdisDupFrame == matchedFrameCnt) {
                 shot_ext->dis_bypass = 1;
+                shot_ext->dnr_bypass = 1;
                 shot_ext->request_scp = 0;
                 shot_ext->request_scc = 0;
                 m_vdisBubbleCnt--;
