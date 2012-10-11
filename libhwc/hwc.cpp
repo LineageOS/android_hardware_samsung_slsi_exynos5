@@ -1080,6 +1080,7 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     dst_cfg.rot = layer.transform;
     dst_cfg.drmMode = src_cfg.drmMode;
     dst_cfg.format = dst_format;
+    dst_cfg.narrowRgb = !exynos5_format_is_rgb(src_handle->format);
 
     ALOGV("source configuration:");
     dump_gsc_img(src_cfg);
