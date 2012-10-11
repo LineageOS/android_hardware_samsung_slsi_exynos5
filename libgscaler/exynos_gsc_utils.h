@@ -100,6 +100,7 @@ struct gsc_info {
     int                rotation;
     int                flip_horizontal;
     int                flip_vertical;
+    bool               csc_range;
     bool               dirty;
 
     void              *addr[NUM_OF_GSC_PLANES];

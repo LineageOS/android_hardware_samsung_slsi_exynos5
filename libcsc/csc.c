@@ -411,7 +411,8 @@ static CSC_ERRORCODE csc_set_format(
                 csc_handle->dst_format.crop_height,
                 HAL_PIXEL_FORMAT_2_V4L2_PIX(csc_handle->dst_format.color_format),
                 csc_handle->dst_format.cacheable,
-                csc_handle->hw_property.mode_drm);
+                csc_handle->hw_property.mode_drm,
+                0);
             break;
 #endif
         default:
