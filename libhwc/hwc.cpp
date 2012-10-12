@@ -1596,6 +1596,8 @@ static void handle_hdmi_uevent(struct exynos5_hwc_composer_device_1_t *pdev,
             pdev->hdmi_hpd = false;
             return;
         }
+
+        pdev->hdmi_blanked = false;
     }
 
     ALOGV("HDMI HPD changed to %s", pdev->hdmi_hpd ? "enabled" : "disabled");
@@ -1685,27 +1687,38 @@ static void *hwc_vsync_thread(void *data)
     return NULL;
 }
 
-static int exynos5_blank(struct hwc_composer_device_1 *dev, int dpy, int blank)
+static int exynos5_blank(struct hwc_composer_device_1 *dev, int disp, int blank)
 {
     struct exynos5_hwc_composer_device_1_t *pdev =
             (struct exynos5_hwc_composer_device_1_t *)dev;
 
-    int fb_blank = blank ? FB_BLANK_POWERDOWN : FB_BLANK_UNBLANK;
-    int err = ioctl(pdev->fd, FBIOBLANK, fb_blank);
-    if (err < 0) {
-        if (errno == EBUSY)
-            ALOGI("%sblank ioctl failed (display already %sblanked)",
-                    blank ? "" : "un", blank ? "" : "un");
-        else
-            ALOGE("%sblank ioctl failed: %s", blank ? "" : "un",
-                    strerror(errno));
-        return -errno;
+    switch (disp) {
+    case HWC_DISPLAY_PRIMARY: {
+        int fb_blank = blank ? FB_BLANK_POWERDOWN : FB_BLANK_UNBLANK;
+        int err = ioctl(pdev->fd, FBIOBLANK, fb_blank);
+        if (err < 0) {
+            if (errno == EBUSY)
+                ALOGI("%sblank ioctl failed (display already %sblanked)",
+                        blank ? "" : "un", blank ? "" : "un");
+            else
+                ALOGE("%sblank ioctl failed: %s", blank ? "" : "un",
+                        strerror(errno));
+            return -errno;
+        }
+        break;
     }
 
-    if (pdev->hdmi_hpd) {
-        if (blank && !pdev->hdmi_blanked)
-            hdmi_disable(pdev);
-        pdev->hdmi_blanked = !!blank;
+    case HWC_DISPLAY_EXTERNAL:
+        if (pdev->hdmi_hpd) {
+            if (blank && !pdev->hdmi_blanked)
+                hdmi_disable(pdev);
+            pdev->hdmi_blanked = !!blank;
+        }
+        break;
+
+    default:
+        return -EINVAL;
+
     }
 
     return 0;
