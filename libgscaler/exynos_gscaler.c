@@ -41,8 +41,10 @@
 
 //#define LOG_NDEBUG 0
 #include "exynos_gsc_utils.h"
+#include "content_protect.h"
 
 static int exynos_gsc_m2m_wait_frame_done(void *handle);
+static int exynos_gsc_m2m_stop(void *handle);
 
 static unsigned int m_gsc_get_plane_count(
     int v4l_pixel_format)
@@ -515,19 +517,10 @@ static bool m_exynos_gsc_destroy(
 {
     Exynos_gsc_In();
 
-    if (gsc_handle->src.stream_on == true) {
-        if (exynos_v4l2_streamoff(gsc_handle->gsc_fd, gsc_handle->src.buf_type) < 0)
-            ALOGE("%s::exynos_v4l2_streamoff() fail", __func__);
-
-        gsc_handle->src.stream_on = false;
-    }
-
-    if (gsc_handle->dst.stream_on == true) {
-        if (exynos_v4l2_streamoff(gsc_handle->gsc_fd, gsc_handle->dst.buf_type) < 0)
-            ALOGE("%s::exynos_v4l2_streamoff() fail", __func__);
-
-        gsc_handle->dst.stream_on = false;
-    }
+    /* just in case, we call stop here because we cannot afford to leave
+     * secure side protection on if things failed.
+     */
+    exynos_gsc_m2m_stop(gsc_handle);
 
     if (0 < gsc_handle->gsc_fd)
         close(gsc_handle->gsc_fd);
@@ -560,6 +553,7 @@ bool m_exynos_gsc_find_and_trylock_and_create(
                 m_exynos_gsc_destroy(gsc_handle);
 
                 // create new one.
+                gsc_handle->gsc_id = i;
                 gsc_handle->gsc_fd = m_exynos_gsc_m2m_create(i);
                 if (gsc_handle->gsc_fd < 0) {
                     gsc_handle->gsc_fd = 0;
@@ -611,27 +605,6 @@ static bool m_exynos_gsc_set_format(
         return false;
     }
 
-    if (info->stream_on == true) {
-        if (exynos_v4l2_streamoff(fd, info->buf_type) < 0) {
-            ALOGE("%s::exynos_v4l2_streamoff() fail", __func__);
-            return false;
-        }
-        info->stream_on = false;
-
-        req_buf.count  = 0;
-        req_buf.type   = info->buf_type;
-        req_buf.memory = V4L2_MEMORY_DMABUF;
-        if (exynos_v4l2_reqbufs(fd, &req_buf) < 0) {
-            ALOGE("%s::exynos_v4l2_reqbufs() fail", __func__);
-            return false;
-        }
-
-        if (exynos_v4l2_s_ctrl(fd, V4L2_CID_CONTENT_PROTECTION, 0) < 0) {
-            ALOGE("%s::exynos_v4l2_s_ctrl(V4L2_CID_CONTENT_PROTECTION) fail", __func__);
-            return false;
-        }
-    }
-
     if (exynos_v4l2_s_ctrl(fd, V4L2_CID_ROTATE, info->rotation) < 0) {
         ALOGE("%s::exynos_v4l2_s_ctrl(V4L2_CID_ROTATE) fail", __func__);
         return false;
@@ -670,11 +643,6 @@ static bool m_exynos_gsc_set_format(
     }
 
     if (exynos_v4l2_s_ctrl(fd, V4L2_CID_CACHEABLE, info->cacheable) < 0) {
-        ALOGE("%s::exynos_v4l2_s_ctrl() fail", __func__);
-        return false;
-    }
-
-    if (exynos_v4l2_s_ctrl(fd, V4L2_CID_CONTENT_PROTECTION, info->mode_drm) < 0) {
         ALOGE("%s::exynos_v4l2_s_ctrl() fail", __func__);
         return false;
     }
@@ -887,7 +855,8 @@ void exynos_gsc_release(void *handle)
 void *exynos_gsc_create_exclusive(
     int dev_num,
     int mode,
-    int out_mode)
+    int out_mode,
+    int allow_drm)
 {
     int i     = 0;
     int op_id = 0;
@@ -908,6 +877,13 @@ void *exynos_gsc_create_exclusive(
         return NULL;
     }
 
+    /* currently only gscalers 0 and 3 are DRM capable */
+    if (allow_drm && (dev_num != 0 && dev_num != 3)) {
+        ALOGE("%s::fail:: gscaler %d does not support drm\n", __func__,
+              dev_num);
+        return NULL;
+    }
+
     struct GSC_HANDLE *gsc_handle = (struct GSC_HANDLE *)malloc(sizeof(struct GSC_HANDLE));
     if (gsc_handle == NULL) {
         ALOGE("%s::malloc(struct GSC_HANDLE) fail", __func__);
@@ -916,6 +892,8 @@ void *exynos_gsc_create_exclusive(
     memset(gsc_handle, 0, sizeof(struct GSC_HANDLE));
     gsc_handle->gsc_fd = -1;
     gsc_handle->gsc_mode = mode;
+    gsc_handle->gsc_id = dev_num;
+    gsc_handle->allow_drm = allow_drm;
 
     gsc_handle->src.buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
     gsc_handle->dst.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
@@ -1348,8 +1326,16 @@ int exynos_gsc_m2m_config(void *handle,
     Exynos_gsc_In();
 
     gsc_handle = (struct GSC_HANDLE *)handle;
-     if (gsc_handle == NULL) {
+    if (gsc_handle == NULL) {
         ALOGE("%s::gsc_handle == NULL() fail", __func__);
+        return -1;
+    }
+
+    if ((src_img->drmMode && !gsc_handle->allow_drm) ||
+        (src_img->drmMode != dst_img->drmMode)) {
+        ALOGE("%s::invalid drm state request for gsc%d (s=%d d=%d)",
+              __func__, gsc_handle->gsc_id,
+              src_img->drmMode, dst_img->drmMode);
         return -1;
     }
 
@@ -1750,6 +1736,8 @@ int exynos_gsc_out_stop(void *handle)
 static int exynos_gsc_m2m_run_core(void *handle)
 {
     struct GSC_HANDLE *gsc_handle;
+    bool is_dirty;
+    bool is_drm;
 
     gsc_handle = (struct GSC_HANDLE *)handle;
 
@@ -1760,13 +1748,26 @@ static int exynos_gsc_m2m_run_core(void *handle)
         return -1;
     }
 
+    is_dirty = gsc_handle->src.dirty || gsc_handle->dst.dirty;
+    is_drm = gsc_handle->src.mode_drm;
+
+    if (is_dirty && (gsc_handle->src.mode_drm != gsc_handle->dst.mode_drm)) {
+        ALOGE("%s: drm mode mismatch between src and dst, gsc%d (s=%d d=%d)",
+              __func__, gsc_handle->gsc_id, gsc_handle->src.mode_drm,
+              gsc_handle->dst.mode_drm);
+        return -1;
+    } else if (is_drm && !gsc_handle->allow_drm) {
+        ALOGE("%s: drm mode is not supported on gsc%d", __func__,
+              gsc_handle->gsc_id);
+        return -1;
+    }
 
     if (m_exynos_gsc_check_src_size(&gsc_handle->src.width, &gsc_handle->src.height,
                                     &gsc_handle->src.crop_left, &gsc_handle->src.crop_top,
                                     &gsc_handle->src.crop_width, &gsc_handle->src.crop_height,
                                     gsc_handle->src.v4l2_colorformat) == false) {
         ALOGE("%s::m_exynos_gsc_check_src_size() fail", __func__);
-        goto done;
+        return -1;
     }
 
     if (m_exynos_gsc_check_dst_size(&gsc_handle->dst.width, &gsc_handle->dst.height,
@@ -1775,8 +1776,33 @@ static int exynos_gsc_m2m_run_core(void *handle)
                                     gsc_handle->dst.v4l2_colorformat,
                                     gsc_handle->dst.rotation) == false) {
         ALOGE("%s::m_exynos_gsc_check_dst_size() fail", __func__);
-        goto done;
+        return -1;
     }
+
+    /* dequeue buffers from previous work if necessary */
+    if (gsc_handle->src.stream_on == true) {
+        if (exynos_gsc_m2m_wait_frame_done(handle) < 0) {
+            ALOGE("%s::exynos_gsc_m2m_wait_frame_done fail", __func__);
+            return -1;
+        }
+    }
+
+    /*
+     * need to set the content protection flag before doing reqbufs
+     * in set_format
+     */
+    if (is_dirty && gsc_handle->allow_drm && is_drm) {
+        if (exynos_v4l2_s_ctrl(gsc_handle->gsc_fd,
+                               V4L2_CID_CONTENT_PROTECTION, is_drm) < 0) {
+            ALOGE("%s::exynos_v4l2_s_ctrl() fail", __func__);
+            return -1;
+        }
+    }
+
+    /*
+     * from this point on, we have to ensure to call stop to clean up whatever
+     * state we have set.
+     */
 
     if (gsc_handle->src.dirty) {
         if (m_exynos_gsc_set_format(gsc_handle->gsc_fd, &gsc_handle->src) == false) {
@@ -1794,12 +1820,28 @@ static int exynos_gsc_m2m_run_core(void *handle)
         gsc_handle->dst.dirty = false;
     }
 
-    /* dequeue buffers from previous work if necessary */
-    if (gsc_handle->src.stream_on == true) {
-        if (exynos_gsc_m2m_wait_frame_done(handle) < 0) {
-            ALOGE("%s::exynos_gsc_m2m_wait_frame_done fail", __func__);
+    /* if we are enabling drm, make sure to enable hw protection.
+     * Need to do this before queuing buffers so that the mmu is reserved
+     * and power domain is kept on.
+     */
+    if (is_dirty && gsc_handle->allow_drm && is_drm) {
+        unsigned int protect_id = 0;
+
+        if (gsc_handle->gsc_id == 0) {
+            protect_id = CP_PROTECT_GSC0;
+        } else if (gsc_handle->gsc_id == 3) {
+            protect_id = CP_PROTECT_GSC3;
+        } else {
+            ALOGE("%s::invalid gscaler id %d for content protection", __func__,
+                  gsc_handle->gsc_id);
             goto done;
         }
+
+        if (CP_Enable_Path_Protection(protect_id) != 0) {
+            ALOGE("%s::CP_Enable_Path_Protection failed", __func__);
+            goto done;
+        }
+        gsc_handle->protection_enabled = true;
     }
 
     if (m_exynos_gsc_set_addr(gsc_handle->gsc_fd, &gsc_handle->src) == false) {
@@ -1833,6 +1875,7 @@ static int exynos_gsc_m2m_run_core(void *handle)
     return 0;
 
 done:
+    exynos_gsc_m2m_stop(handle);
     return -1;
 }
 
@@ -1879,22 +1922,64 @@ static int exynos_gsc_m2m_stop(void *handle)
 {
     struct GSC_HANDLE *gsc_handle;
     struct v4l2_requestbuffers req_buf;
+    int ret = 0;
 
     gsc_handle = (struct GSC_HANDLE *)handle;
 
     Exynos_gsc_In();
 
-    if (exynos_v4l2_streamoff(gsc_handle->gsc_fd, gsc_handle->src.buf_type) < 0) {
-        ALOGE("%s::exynos_v4l2_streamoff(src) fail", __func__);
-        return -1;
+    if (!gsc_handle->src.stream_on && !gsc_handle->dst.stream_on) {
+        /* wasn't streaming, return success */
+        return 0;
+    } else if (gsc_handle->src.stream_on != gsc_handle->dst.stream_on) {
+        ALOGE("%s: invalid state, queue stream state doesn't match (%d != %d)",
+              __func__, gsc_handle->src.stream_on, gsc_handle->dst.stream_on);
+        ret = -1;
     }
-    gsc_handle->src.stream_on = false;
 
-    if (exynos_v4l2_streamoff(gsc_handle->gsc_fd, gsc_handle->dst.buf_type) < 0) {
-        ALOGE("%s::exynos_v4l2_streamoff(dst) fail", __func__);
-        return -1;
+    /*
+     * we need to plow forward on errors below to make sure that if we had
+     * turned on content protection on secure side, we turn it off.
+     *
+     * also, if we only failed to turn on one of the streams, we'll turn
+     * the other one off correctly.
+     */
+    if (gsc_handle->src.stream_on == true) {
+        if (exynos_v4l2_streamoff(gsc_handle->gsc_fd, gsc_handle->src.buf_type) < 0) {
+            ALOGE("%s::exynos_v4l2_streamoff(src) fail", __func__);
+            ret = -1;
+        }
+        gsc_handle->src.stream_on = false;
     }
-    gsc_handle->dst.stream_on = false;
+
+
+    if (gsc_handle->dst.stream_on == true) {
+        if (exynos_v4l2_streamoff(gsc_handle->gsc_fd, gsc_handle->dst.buf_type) < 0) {
+            ALOGE("%s::exynos_v4l2_streamoff(dst) fail", __func__);
+            ret = -1;
+        }
+        gsc_handle->dst.stream_on = false;
+    }
+
+    /* if drm is enabled */
+    if (gsc_handle->allow_drm && gsc_handle->protection_enabled) {
+        unsigned int protect_id = 0;
+
+        if (gsc_handle->gsc_id == 0)
+            protect_id = CP_PROTECT_GSC0;
+        else if (gsc_handle->gsc_id == 3)
+            protect_id = CP_PROTECT_GSC3;
+
+        CP_Disable_Path_Protection(protect_id);
+        gsc_handle->protection_enabled = false;
+    }
+
+    if (exynos_v4l2_s_ctrl(gsc_handle->gsc_fd,
+                           V4L2_CID_CONTENT_PROTECTION, 0) < 0) {
+        ALOGE("%s::exynos_v4l2_s_ctrl(V4L2_CID_CONTENT_PROTECTION) fail",
+              __func__);
+        ret = -1;
+    }
 
     /* src: clear_buf */
     req_buf.count  = 0;
@@ -1902,7 +1987,7 @@ static int exynos_gsc_m2m_stop(void *handle)
     req_buf.memory = V4L2_MEMORY_DMABUF;
     if (exynos_v4l2_reqbufs(gsc_handle->gsc_fd, &req_buf) < 0) {
         ALOGE("%s::exynos_v4l2_reqbufs():src: fail", __func__);
-        return -1;
+        ret = -1;
     }
 
     /* dst: clear_buf */
@@ -1911,12 +1996,12 @@ static int exynos_gsc_m2m_stop(void *handle)
     req_buf.memory = V4L2_MEMORY_DMABUF;
     if (exynos_v4l2_reqbufs(gsc_handle->gsc_fd, &req_buf) < 0) {
         ALOGE("%s::exynos_v4l2_reqbufs():dst: fail", __func__);
-        return -1;
+        ret = -1;
     }
 
     Exynos_gsc_Out();
 
-     return 0;
+    return ret;
 }
 
 int exynos_gsc_convert(
