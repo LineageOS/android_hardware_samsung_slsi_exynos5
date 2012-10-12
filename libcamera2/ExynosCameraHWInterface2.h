@@ -282,11 +282,11 @@ public:
     int     GetNumEntries();
     bool    IsRequestQueueFull();
 
-    void    RegisterRequest(camera_metadata_t *new_request);
+    void    RegisterRequest(camera_metadata_t *new_request, int * afMode, uint32_t * afRegion);
     void    DeregisterRequest(camera_metadata_t **deregistered_request);
     bool    PrepareFrame(size_t *num_entries, size_t *frame_size,
                 camera_metadata_t **prepared_frame, int afState);
-    int     MarkProcessingRequest(ExynosBuffer * buf, int *afMode);
+    int     MarkProcessingRequest(ExynosBuffer * buf);
     void    NotifyStreamOutput(int frameCnt);
     void    ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext);
     void    CheckCompleted(int index);
@@ -585,7 +585,7 @@ class MainThread : public SignalDrivenThread {
     void            StartSCCThread(bool threadExists);
     int             GetAfState();
     void            SetAfMode(enum aa_afmode afMode);
-    void            OnAfTriggerStart(int id);
+    void            SetAfRegion(uint32_t * afRegion);
     void            OnAfTrigger(int id);
     void            OnAfTriggerAutoMacro(int id);
     void            OnAfTriggerCAFPicture(int id);
@@ -653,7 +653,7 @@ class MainThread : public SignalDrivenThread {
     bool                                m_scp_closing;
     bool                                m_scp_closed;
     bool                                m_wideAspect;
-    uint32_t                            lastAfRegion[4];
+    uint32_t                            currentAfRegion[4];
     float                               m_zoomRatio;
 
     int                                 m_vdisBubbleCnt;
@@ -662,6 +662,7 @@ class MainThread : public SignalDrivenThread {
     mutable Mutex                       m_qbufLock;
     mutable Mutex                       m_jpegEncoderLock;
     int                                 m_jpegEncodingCount;
+    mutable Mutex                       m_afModeTriggerLock;
 
     bool                                m_scpForceSuspended;
     int                                 m_afState;
