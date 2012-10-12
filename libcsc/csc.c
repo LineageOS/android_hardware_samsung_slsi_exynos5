@@ -347,7 +347,7 @@ static CSC_ERRORCODE csc_init_hw(
 #ifdef ENABLE_GSCALER
         case CSC_HW_TYPE_GSCALER:
             if (csc_handle->hw_property.fixed_node >= 0)
-                csc_handle->csc_hw_handle = exynos_gsc_create_exclusive(csc_handle->hw_property.fixed_node, GSC_M2M_MODE, 0);
+                csc_handle->csc_hw_handle = exynos_gsc_create_exclusive(csc_handle->hw_property.fixed_node, GSC_M2M_MODE, 0, 0);
             else
             csc_handle->csc_hw_handle = exynos_gsc_create();
             ALOGV("%s:: CSC_HW_TYPE_GSCALER", __func__);
