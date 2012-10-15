@@ -88,6 +88,7 @@ struct exynos5_gsc_data_t {
     exynos_gsc_img  src_cfg;
     exynos_gsc_img  dst_cfg;
     buffer_handle_t dst_buf[NUM_GSC_DST_BUFS];
+    int             dst_buf_fence[NUM_GSC_DST_BUFS];
     size_t          current_buf;
 };
 
@@ -1079,7 +1080,6 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     dst_cfg.rot = layer.transform;
     dst_cfg.drmMode = src_cfg.drmMode;
     dst_cfg.format = dst_format;
-    dst_cfg.acquireFenceFd = -1;
 
     ALOGV("source configuration:");
     dump_gsc_img(src_cfg);
@@ -1104,6 +1104,11 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
                 gsc_data->dst_buf[i] = NULL;
             }
 
+            if (gsc_data->dst_buf_fence[i] >= 0) {
+                close(gsc_data->dst_buf_fence[i]);
+                gsc_data->dst_buf_fence[i] = -1;
+            }
+
             int ret = alloc_device->alloc(alloc_device, w, h,
                     HAL_PIXEL_FORMAT_RGBX_8888, usage, &gsc_data->dst_buf[i],
                     &dst_stride);
@@ -1123,6 +1128,8 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     dst_cfg.fw = dst_handle->stride;
     dst_cfg.fh = dst_handle->vstride;
     dst_cfg.yaddr = dst_handle->fd;
+    dst_cfg.acquireFenceFd = gsc_data->dst_buf_fence[gsc_data->current_buf];
+    gsc_data->dst_buf_fence[gsc_data->current_buf] = -1;
 
     ALOGV("destination configuration:");
     dump_gsc_img(dst_cfg);
@@ -1174,9 +1181,13 @@ err_alloc:
     if (src_cfg.acquireFenceFd >= 0)
         close(src_cfg.acquireFenceFd);
     for (size_t i = 0; i < NUM_GSC_DST_BUFS; i++) {
-        if (gsc_data->dst_buf[i]) {
+       if (gsc_data->dst_buf[i]) {
            alloc_device->free(alloc_device, gsc_data->dst_buf[i]);
            gsc_data->dst_buf[i] = NULL;
+       }
+       if (gsc_data->dst_buf_fence[i] >= 0) {
+           close(gsc_data->dst_buf_fence[i]);
+           gsc_data->dst_buf_fence[i] = -1;
        }
     }
     memset(&gsc_data->src_cfg, 0, sizeof(gsc_data->src_cfg));
@@ -1196,11 +1207,16 @@ static void exynos5_cleanup_gsc_m2m(exynos5_hwc_composer_device_1_t *pdev,
 
     exynos_gsc_stop_exclusive(gsc_data.gsc);
     exynos_gsc_destroy(gsc_data.gsc);
-    for (size_t i = 0; i < NUM_GSC_DST_BUFS; i++)
+    for (size_t i = 0; i < NUM_GSC_DST_BUFS; i++) {
         if (gsc_data.dst_buf[i])
             pdev->alloc_device->free(pdev->alloc_device, gsc_data.dst_buf[i]);
+        if (gsc_data.dst_buf_fence[i] >= 0)
+            close(gsc_data.dst_buf_fence[i]);
+    }
 
     memset(&gsc_data, 0, sizeof(gsc_data));
+    for (size_t i = 0; i < NUM_GSC_DST_BUFS; i++)
+        gsc_data.dst_buf_fence[i] = -1;
 }
 
 static void exynos5_config_handle(private_handle_t *handle,
@@ -1316,11 +1332,11 @@ static int exynos5_post_fimd(exynos5_hwc_composer_device_1_t *pdev,
                 if (err < 0) {
                     ALOGE("failed to configure gscaler %u for layer %u",
                             gsc_idx, i);
+                    pdata->gsc_map[i].mode = exynos5_gsc_map_t::GSC_NONE;
                     continue;
                 }
 
                 buffer_handle_t dst_buf = gsc.dst_buf[gsc.current_buf];
-                gsc.current_buf = (gsc.current_buf + 1) % NUM_GSC_DST_BUFS;
                 private_handle_t *dst_handle =
                         private_handle_t::dynamicCast(dst_buf);
                 hwc_rect_t sourceCrop = { 0, 0,
@@ -1418,14 +1434,20 @@ static int exynos5_set_fimd(exynos5_hwc_composer_device_1_t *pdev,
         fence = exynos5_clear_fimd(pdev);
 
     for (size_t i = 0; i < NUM_HW_WINDOWS; i++) {
-        if (pdev->bufs.overlay_map[i] != -1 &&
-                        pdev->bufs.gsc_map[i].mode != exynos5_gsc_map_t::GSC_M2M) {
+        if (pdev->bufs.overlay_map[i] != -1) {
             hwc_layer_1_t &layer =
                     contents->hwLayers[pdev->bufs.overlay_map[i]];
             int dup_fd = dup(fence);
             if (dup_fd < 0)
                 ALOGW("release fence dup failed: %s", strerror(errno));
-            layer.releaseFenceFd = dup_fd;
+            if (pdev->bufs.gsc_map[i].mode == exynos5_gsc_map_t::GSC_M2M) {
+                int gsc_idx = pdev->bufs.gsc_map[i].idx;
+                exynos5_gsc_data_t &gsc = pdev->gsc[gsc_idx];
+                gsc.dst_buf_fence[gsc.current_buf] = dup_fd;
+                gsc.current_buf = (gsc.current_buf + 1) % NUM_GSC_DST_BUFS;
+            } else {
+                layer.releaseFenceFd = dup_fd;
+            }
         }
     }
     close(fence);
@@ -1474,13 +1496,17 @@ static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
             }
 
             buffer_handle_t dst_buf = gsc.dst_buf[gsc.current_buf];
-            gsc.current_buf = (gsc.current_buf + 1) % NUM_GSC_DST_BUFS;
             private_handle_t *h = private_handle_t::dynamicCast(dst_buf);
 
             int acquireFenceFd = gsc.dst_cfg.releaseFenceFd;
+            int releaseFenceFd = -1;
 
-            hdmi_output(pdev, pdev->hdmi_layers[0], layer, h, acquireFenceFd, NULL);
+            hdmi_output(pdev, pdev->hdmi_layers[0], layer, h, acquireFenceFd,
+                                                             &releaseFenceFd);
             video_layer = &layer;
+
+            gsc.dst_buf_fence[gsc.current_buf] = releaseFenceFd;
+            gsc.current_buf = (gsc.current_buf + 1) % NUM_GSC_DST_BUFS;
         }
 
         if (layer.compositionType == HWC_FRAMEBUFFER_TARGET) {
@@ -1953,6 +1979,10 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
           "refresh rate = %d Hz\n",
           dev->xres, dev->yres, info.width, dev->xdpi / 1000.0,
           info.height, dev->ydpi / 1000.0, refreshRate);
+
+    for (size_t i = 0; i < NUM_GSC_UNITS; i++)
+        for (size_t j = 0; j < NUM_GSC_DST_BUFS; j++)
+            dev->gsc[i].dst_buf_fence[j] = -1;
 
     dev->hdmi_mixer0 = open("/dev/v4l-subdev7", O_RDWR);
     if (dev->hdmi_mixer0 < 0) {
