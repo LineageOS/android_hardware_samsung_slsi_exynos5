@@ -273,9 +273,8 @@ notification_t notification = { sessionId :
 uint32_t TrustZoneDevice::getMobicoreStatus(void)
 {
     uint32_t status;
-    //IMPROVEMENT-2012-03-07-maneaval Can fcInfo ever fail? Before it threw an
-    //exception but the handler depended on the context.
-    pMcKMod->fcInfo(0, &status, NULL);
+
+    pMcKMod->fcInfo(1, &status, NULL);
 
     return status;
 }
