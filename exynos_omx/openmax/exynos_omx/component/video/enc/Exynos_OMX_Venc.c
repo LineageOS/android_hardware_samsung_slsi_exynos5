@@ -662,7 +662,8 @@ OMX_ERRORTYPE Exynos_OMX_SrcInputBufferProcess(OMX_HANDLETYPE hComponent)
                 (!CHECK_PORT_BEING_FLUSHED(exynosInputPort))) {
                 ret = Exynos_InputBufferGetQueue(pExynosComponent);
 #ifdef USE_METADATABUFFERTYPE
-                if (pVideoEnc->bFirstInput == OMX_TRUE) {
+                if ((pVideoEnc->bFirstInput == OMX_TRUE) &&
+                    (!CHECK_PORT_BEING_FLUSHED(exynosInputPort))) {
                     Exynos_OMX_ExtensionSetup(hComponent);
                     pVideoEnc->bFirstInput = OMX_FALSE;
                 }
