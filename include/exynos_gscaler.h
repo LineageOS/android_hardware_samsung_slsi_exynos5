@@ -77,6 +77,7 @@ typedef struct {
     uint32_t rot;
     uint32_t cacheable;
     uint32_t drmMode;
+    uint32_t narrowRgb;
     int      acquireFenceFd;
     int      releaseFenceFd;
 } exynos_gsc_img;
@@ -212,6 +213,9 @@ int exynos_gsc_set_src_format(
  * \param mode_drm
  *   mode_drm[in]
  *
+ * \param narrowRgb
+ *   narrow RGB range[in]
+ *
  * \return
  *   error code
  */
@@ -225,7 +229,8 @@ int exynos_gsc_set_dst_format(
     unsigned int crop_height,
     unsigned int v4l2_colorformat,
     unsigned int cacheable,
-    unsigned int mode_drm);
+    unsigned int mode_drm,
+    unsigned int narrowRgb);
 
 /*!
  * Set rotation.

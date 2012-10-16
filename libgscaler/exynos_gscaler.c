@@ -619,6 +619,11 @@ static bool m_exynos_gsc_set_format(
         ALOGE("%s::exynos_v4l2_s_ctrl(V4L2_CID_HFLIP) fail", __func__);
         return false;
     }
+
+    if (exynos_v4l2_s_ctrl(fd, V4L2_CID_CSC_RANGE, info->csc_range) < 0) {
+        ALOGE("%s::exynos_v4l2_s_ctrl(V4L2_CID_CSC_RANGE) fail", __func__);
+        return false;
+    }
     info->format.type = info->buf_type;
     info->format.fmt.pix_mp.width       = info->width;
     info->format.fmt.pix_mp.height      = info->height;
@@ -1083,7 +1088,8 @@ int exynos_gsc_set_dst_format(
     unsigned int crop_height,
     unsigned int v4l2_colorformat,
     unsigned int cacheable,
-    unsigned int mode_drm)
+    unsigned int mode_drm,
+    unsigned int narrowRgb)
 {
     Exynos_gsc_In();
 
@@ -1107,6 +1113,7 @@ int exynos_gsc_set_dst_format(
     gsc_handle->dst.cacheable        = cacheable;
     gsc_handle->dst.mode_drm         = mode_drm;
     gsc_handle->dst.dirty            = true;
+    gsc_handle->dst.csc_range        = !narrowRgb;
 
     exynos_mutex_unlock(gsc_handle->op_mutex);
 
@@ -1356,7 +1363,8 @@ int exynos_gsc_m2m_config(void *handle,
 
     ret = exynos_gsc_set_dst_format(gsc_handle, dst_img->fw, dst_img->fh,
                                   dst_img->x, dst_img->y, dst_img->w, dst_img->h,
-                                  dst_color_space, dst_img->cacheable, dst_img->drmMode);
+                                  dst_color_space, dst_img->cacheable, dst_img->drmMode,
+                                  dst_img->narrowRgb);
     if (ret < 0) {
         ALOGE("%s: fail: exynos_gsc_set_dst_format [fw %d fh %d x %d y %d w %d h %d f %x rot %d]",
             __func__, dst_img->fw, dst_img->fh, dst_img->x, dst_img->y, dst_img->w, dst_img->h,
@@ -1385,6 +1393,7 @@ int exynos_gsc_out_config(void *handle,
     unsigned int vflip;
     unsigned int plane_size[NUM_OF_GSC_PLANES];
     bool rgb;
+    int csc_range = !dst_img->narrowRgb;
 
     struct v4l2_rect dst_rect;
     int32_t      src_color_space;
@@ -1559,6 +1568,13 @@ int exynos_gsc_out_config(void *handle,
     if (exynos_v4l2_s_ctrl(gsc_handle->gsc_vd_entity->fd,
         V4L2_CID_CONTENT_PROTECTION, gsc_handle->src_img.drmMode) < 0) {
         ALOGE("%s::exynos_v4l2_s_ctrl(V4L2_CID_CONTENT_PROTECTION) fail", __func__);
+        return -1;
+    }
+
+    if (exynos_v4l2_s_ctrl(gsc_handle->gsc_vd_entity->fd, V4L2_CID_CSC_RANGE,
+            csc_range)) {
+        ALOGE("%s::exynos_v4l2_s_ctrl(V4L2_CID_CSC_RANGE: %d) fail", __func__,
+                csc_range);
         return -1;
     }
 
