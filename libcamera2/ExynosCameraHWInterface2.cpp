@@ -729,13 +729,8 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
     if (shot_ext->shot.ctl.stats.faceDetectMode != FACEDETECT_MODE_OFF)
         shot_ext->fd_bypass = 0;
 
-    if (targetStreamIndex & STREAM_MASK_RECORD) {
-        shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 30;
-        shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
-    } else {
-        shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = request_shot->shot.ctl.aa.aeTargetFpsRange[0];
-        shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = request_shot->shot.ctl.aa.aeTargetFpsRange[1];
-    }
+    shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = request_shot->shot.ctl.aa.aeTargetFpsRange[0];
+    shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = request_shot->shot.ctl.aa.aeTargetFpsRange[1];
 
     ALOGV("(%s): applied aa(%d) aemode(%d) expComp(%d), awb(%d) afmode(%d), ", __FUNCTION__,
     (int)(shot_ext->shot.ctl.aa.mode), (int)(shot_ext->shot.ctl.aa.aeMode),
@@ -3252,8 +3247,6 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
 
             if (m_wideAspect) {
                 shot_ext->setfile = ISS_SUB_SCENARIO_VIDEO;
-                shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 30;
-                shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
             } else {
                 shot_ext->setfile = ISS_SUB_SCENARIO_STILL;
             }
@@ -3520,8 +3513,6 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             shot_ext->request_scp = 0;
             if (m_wideAspect) {
                 shot_ext->setfile = ISS_SUB_SCENARIO_VIDEO;
-                shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 30;
-                shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
             } else {
                 shot_ext->setfile = ISS_SUB_SCENARIO_STILL;
             }
