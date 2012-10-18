@@ -58,6 +58,8 @@ typedef struct _EXYNOS_OMX_BASECOMPONENT
 
     OMX_STATETYPE               currentState;
     EXYNOS_OMX_TRANS_STATETYPE  transientState;
+    OMX_BOOL                    abendState;
+    OMX_HANDLETYPE              abendStateEvent;
 
     EXYNOS_CODEC_TYPE           codecType;
     EXYNOS_OMX_PRIORITYMGMTTYPE compPriority;
