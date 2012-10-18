@@ -15,6 +15,7 @@
  */
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 #include <poll.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -55,6 +56,7 @@ const size_t NO_FB_NEEDED = NUM_HW_WINDOWS + 1;
 const size_t MAX_PIXELS = 2560 * 1600 * 2;
 const size_t GSC_W_ALIGNMENT = 16;
 const size_t GSC_H_ALIGNMENT = 16;
+const size_t GSC_DST_CROP_W_ALIGNMENT_RGB888 = 32;
 const size_t GSC_DST_W_ALIGNMENT_RGB888 = 32;
 const size_t GSC_DST_H_ALIGNMENT_RGB888 = 1;
 const size_t FIMD_GSC_IDX = 0;
@@ -196,6 +198,22 @@ inline int HEIGHT(const hwc_rect &rect) { return rect.bottom - rect.top; }
 template<typename T> inline T max(T a, T b) { return (a > b) ? a : b; }
 template<typename T> inline T min(T a, T b) { return (a < b) ? a : b; }
 
+template<typename T> void align_crop_and_center(T &w, T &h,
+        hwc_rect_t *crop, size_t alignment)
+{
+    double aspect = 1.0 * h / w;
+    T w_orig = w, h_orig = h;
+
+    w = ALIGN(w, alignment);
+    h = round(aspect * w);
+    if (crop) {
+        crop->left = (w - w_orig) / 2;
+        crop->top = (h - h_orig) / 2;
+        crop->right = crop->left + w_orig;
+        crop->bottom = crop->top + h_orig;
+    }
+}
+
 static bool is_transformed(const hwc_layer_1_t &layer)
 {
     return layer.transform != 0;
@@ -329,15 +347,12 @@ static bool is_x_aligned(const hwc_layer_1_t &layer, int format)
             (layer.displayFrame.right % pixel_alignment) == 0;
 }
 
-static bool dst_crop_w_aligned(const hwc_layer_1_t &layer, int format)
+static bool dst_crop_w_aligned(int dest_w)
 {
-    int dest_w;
     int dst_crop_w_alignement;
 
-    dest_w = WIDTH(layer.displayFrame);
-
    /* GSC's dst crop size should be aligned 128Bytes */
-    dst_crop_w_alignement = 32;
+    dst_crop_w_alignement = GSC_DST_CROP_W_ALIGNMENT_RGB888;
 
     return (dest_w % dst_crop_w_alignement) == 0;
 }
@@ -363,11 +378,16 @@ static bool exynos5_supports_gscaler(hwc_layer_1_t &layer, int format,
         dest_w = WIDTH(layer.displayFrame);
         dest_h = HEIGHT(layer.displayFrame);
     }
+
+    if (handle->flags & GRALLOC_USAGE_PROTECTED)
+        align_crop_and_center(dest_w, dest_h, NULL,
+                GSC_DST_CROP_W_ALIGNMENT_RGB888);
+
     int max_downscale = local_path ? 4 : 16;
     const int max_upscale = 8;
 
     return exynos5_format_is_supported_by_gscaler(format) &&
-            dst_crop_w_aligned(layer,format) &&
+            dst_crop_w_aligned(dest_w) &&
             handle->stride <= max_w &&
             handle->stride % GSC_W_ALIGNMENT == 0 &&
             src_w <= dest_w * max_downscale &&
@@ -600,7 +620,7 @@ static int hdmi_output(struct exynos5_hwc_composer_device_1_t *dev,
         struct v4l2_format fmt;
         memset(&fmt, 0, sizeof(fmt));
         fmt.type  = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-        fmt.fmt.pix_mp.width       = cfg.w;
+        fmt.fmt.pix_mp.width       = h->stride;
         fmt.fmt.pix_mp.height      = cfg.h;
         fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_BGR32;
         fmt.fmt.pix_mp.field       = V4L2_FIELD_ANY;
@@ -730,6 +750,10 @@ bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i,
         return false;
     }
 
+    if (exynos5_visible_width(layer, handle->format, pdev) < BURSTLEN_BYTES) {
+        ALOGV("\tlayer %u: visible area is too narrow", i);
+        return false;
+    }
     if (exynos5_requires_gscaler(layer, handle->format)) {
         if (!exynos5_supports_gscaler(layer, handle->format, false)) {
             ALOGV("\tlayer %u: gscaler required but not supported", i);
@@ -747,10 +771,6 @@ bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i,
     }
     if (CC_UNLIKELY(exynos5_is_offscreen(layer, pdev))) {
         ALOGW("\tlayer %u: off-screen", i);
-        return false;
-    }
-    if (exynos5_visible_width(layer, handle->format, pdev) < BURSTLEN_BYTES) {
-        ALOGV("\tlayer %u: visible area is too narrow", i);
         return false;
     }
 
@@ -1041,7 +1061,7 @@ static int exynos5_prepare(hwc_composer_device_1_t *dev,
 
 static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
         alloc_device_t* alloc_device, exynos5_gsc_data_t *gsc_data,
-        int gsc_idx, int dst_format)
+        int gsc_idx, int dst_format, hwc_rect_t *sourceCrop)
 {
     ALOGV("configuring gscaler %u for memory-to-memory", AVAILABLE_GSC_UNITS[gsc_idx]);
 
@@ -1053,6 +1073,10 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     exynos_gsc_img src_cfg, dst_cfg;
     memset(&src_cfg, 0, sizeof(src_cfg));
     memset(&dst_cfg, 0, sizeof(dst_cfg));
+
+    hwc_rect_t sourceCropTemp;
+    if (!sourceCrop)
+        sourceCrop = &sourceCropTemp;
 
     src_cfg.x = layer.sourceCrop.left;
     src_cfg.y = layer.sourceCrop.top;
@@ -1081,6 +1105,9 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
     dst_cfg.drmMode = src_cfg.drmMode;
     dst_cfg.format = dst_format;
     dst_cfg.narrowRgb = !exynos5_format_is_rgb(src_handle->format);
+    if (dst_cfg.drmMode)
+        align_crop_and_center(dst_cfg.w, dst_cfg.h, sourceCrop,
+                GSC_DST_CROP_W_ALIGNMENT_RGB888);
 
     ALOGV("source configuration:");
     dump_gsc_img(src_cfg);
@@ -1096,8 +1123,8 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
         if (src_handle->flags & GRALLOC_USAGE_PROTECTED)
             usage |= GRALLOC_USAGE_PROTECTED;
 
-        int w = ALIGN(WIDTH(layer.displayFrame), GSC_DST_W_ALIGNMENT_RGB888);
-        int h = ALIGN(HEIGHT(layer.displayFrame), GSC_DST_H_ALIGNMENT_RGB888);
+        int w = ALIGN(dst_cfg.w, GSC_DST_W_ALIGNMENT_RGB888);
+        int h = ALIGN(dst_cfg.h, GSC_DST_H_ALIGNMENT_RGB888);
 
         for (size_t i = 0; i < NUM_GSC_DST_BUFS; i++) {
             if (gsc_data->dst_buf[i]) {
@@ -1134,6 +1161,12 @@ static int exynos5_config_gsc_m2m(hwc_layer_1_t &layer,
 
     ALOGV("destination configuration:");
     dump_gsc_img(dst_cfg);
+
+    if ((int)dst_cfg.w != WIDTH(layer.displayFrame))
+        ALOGV("padding %u x %u output to %u x %u and cropping to {%u,%u,%u,%u}",
+                WIDTH(layer.displayFrame), HEIGHT(layer.displayFrame),
+                dst_cfg.w, dst_cfg.h, sourceCrop->left, sourceCrop->top,
+                sourceCrop->right, sourceCrop->bottom);
 
     if (gsc_data->gsc) {
         ALOGV("reusing open gscaler %u", AVAILABLE_GSC_UNITS[gsc_idx]);
@@ -1328,8 +1361,10 @@ static int exynos5_post_fimd(exynos5_hwc_composer_device_1_t *pdev,
                                 handle->format != HAL_PIXEL_FORMAT_RGB_565)
                     dst_format = HAL_PIXEL_FORMAT_RGBX_8888;
 
+                hwc_rect_t sourceCrop = { 0, 0,
+                        WIDTH(layer.displayFrame), HEIGHT(layer.displayFrame) };
                 int err = exynos5_config_gsc_m2m(layer, pdev->alloc_device, &gsc,
-                        gsc_idx, dst_format);
+                        gsc_idx, dst_format, &sourceCrop);
                 if (err < 0) {
                     ALOGE("failed to configure gscaler %u for layer %u",
                             gsc_idx, i);
@@ -1340,8 +1375,6 @@ static int exynos5_post_fimd(exynos5_hwc_composer_device_1_t *pdev,
                 buffer_handle_t dst_buf = gsc.dst_buf[gsc.current_buf];
                 private_handle_t *dst_handle =
                         private_handle_t::dynamicCast(dst_buf);
-                hwc_rect_t sourceCrop = { 0, 0,
-                        WIDTH(layer.displayFrame), HEIGHT(layer.displayFrame) };
                 int fence = gsc.dst_cfg.releaseFenceFd;
                 exynos5_config_handle(dst_handle, sourceCrop,
                         layer.displayFrame, layer.blending, fence, config[i],
@@ -1490,7 +1523,7 @@ static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
 
             exynos5_gsc_data_t &gsc = pdev->gsc[HDMI_GSC_IDX];
             int ret = exynos5_config_gsc_m2m(layer, pdev->alloc_device, &gsc, 1,
-                                             HAL_PIXEL_FORMAT_RGBX_8888);
+                                             HAL_PIXEL_FORMAT_RGBX_8888, NULL);
             if (ret < 0) {
                 ALOGE("failed to configure gscaler for video layer");
                 continue;
