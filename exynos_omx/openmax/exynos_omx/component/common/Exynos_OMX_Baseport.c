@@ -774,14 +774,15 @@ EXIT:
 
 OMX_ERRORTYPE Exynos_OMX_Port_Destructor(OMX_HANDLETYPE hComponent)
 {
-    OMX_ERRORTYPE          ret = OMX_ErrorNone;
-    OMX_COMPONENTTYPE     *pOMXComponent = NULL;
+    OMX_ERRORTYPE             ret = OMX_ErrorNone;
+    OMX_COMPONENTTYPE        *pOMXComponent = NULL;
     EXYNOS_OMX_BASECOMPONENT *pExynosComponent = NULL;
     EXYNOS_OMX_BASEPORT      *pExynosPort = NULL;
 
-    FunctionIn();
-
+    OMX_S32 countValue = 0;
     int i = 0;
+
+    FunctionIn();
 
     if (hComponent == NULL) {
         ret = OMX_ErrorBadParameter;
@@ -797,6 +798,17 @@ OMX_ERRORTYPE Exynos_OMX_Port_Destructor(OMX_HANDLETYPE hComponent)
         goto EXIT;
     }
     pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
+
+    if (pExynosComponent->transientState == EXYNOS_OMX_TransStateLoadedToIdle) {
+        pExynosComponent->abendState = OMX_TRUE;
+        for (i = 0; i < ALL_PORT_NUM; i++) {
+            pExynosPort = &pExynosComponent->pExynosPort[i];
+            Exynos_OSAL_SemaphorePost(pExynosPort->loadedResource);
+        }
+        Exynos_OSAL_SignalWait(pExynosComponent->abendStateEvent, DEF_MAX_WAIT_TIME);
+        Exynos_OSAL_SignalReset(pExynosComponent->abendStateEvent);
+    }
+
     for (i = 0; i < ALL_PORT_NUM; i++) {
         pExynosPort = &pExynosComponent->pExynosPort[i];
 
