@@ -3313,6 +3313,26 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 shot_ext->request_scc = 0;
             }
 
+            switch (shot_ext->shot.ctl.aa.aeTargetFpsRange[1]) {
+            case 15:
+                shot_ext->shot.ctl.sensor.frameDuration = (66666 * 1000);
+                break;
+
+            case 24:
+                shot_ext->shot.ctl.sensor.frameDuration = (41666 * 1000);
+                break;
+
+            case 25:
+                shot_ext->shot.ctl.sensor.frameDuration = (40000 * 1000);
+                break;
+
+            case 30:
+            default:
+                shot_ext->shot.ctl.sensor.frameDuration = (33333 * 1000);
+                break;
+            }
+            shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
+
             // Flash mode
             // Keep and Skip request_scc = 1 at flash enable mode to operate flash sequence
             if ((m_ctlInfo.flash.i_flashMode >= AA_AEMODE_ON_AUTO_FLASH)
