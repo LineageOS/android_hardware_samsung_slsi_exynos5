@@ -668,6 +668,8 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
     if (request_shot->shot.ctl.aa.aeMode >= AA_AEMODE_ON) {
         if (request_shot->shot.ctl.aa.captureIntent == AA_CAPTURE_INTENT_PREVIEW)
             ctl_info->flash.i_flashMode = request_shot->shot.ctl.aa.aeMode;
+        else if (request_shot->shot.ctl.aa.captureIntent == AA_CAPTURE_INTENT_VIDEO_RECORD)
+            ctl_info->flash.i_flashMode = request_shot->shot.ctl.aa.aeMode;
         request_shot->shot.ctl.aa.aeMode = AA_AEMODE_ON;
     }
 
