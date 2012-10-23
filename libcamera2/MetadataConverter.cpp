@@ -588,7 +588,11 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
     for (int i = 0; i < CAMERA2_MAX_FACES; i++) {
         if (metadata->dm.stats.faceIds[i] > 0) {
             mataFaceIds[tempFaceCount] = metadata->dm.stats.faceIds[i];
-            metaFaceScores[tempFaceCount] = metadata->dm.stats.faceScores[i];
+            // clipping fd score because the max face score of android is 100
+            if (metadata->dm.stats.faceScores[i] > 100)
+                metaFaceScores[tempFaceCount] = 100;
+            else
+                metaFaceScores[tempFaceCount] = metadata->dm.stats.faceScores[i];
 
             memcpy(&mataFaceLandmarks[tempFaceCount][0], &metadata->dm.stats.faceLandmarks[i][0], 6*sizeof(uint32_t));
             memcpy(&metaFaceRectangles[tempFaceCount][0], &metadata->dm.stats.faceRectangles[i][0], 4*sizeof(uint32_t));
