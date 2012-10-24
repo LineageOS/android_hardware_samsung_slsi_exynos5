@@ -580,6 +580,22 @@ static int hdmi_enable(struct exynos5_hwc_composer_device_1_t *dev)
         return -1;
     }
 
+    char value[PROPERTY_VALUE_MAX];
+    property_get("persist.hdmi.hdcp_enabled", value, "1");
+    int hdcp_enabled = atoi(value);
+
+    if (exynos_v4l2_s_ctrl(dev->hdmi_layers[1].fd, V4L2_CID_TV_HDCP_ENABLE,
+                           hdcp_enabled) < 0)
+        ALOGE("%s: s_ctrl(CID_TV_HDCP_ENABLE) failed %d", __func__, errno);
+
+    /* "3" is RGB709_16_235 */
+    property_get("persist.hdmi.color_range", value, "3");
+    int color_range = atoi(value);
+
+    if (exynos_v4l2_s_ctrl(dev->hdmi_layers[1].fd, V4L2_CID_TV_SET_COLOR_RANGE,
+                           color_range) < 0)
+        ALOGE("%s: s_ctrl(CID_TV_COLOR_RANGE) failed %d", __func__, errno);
+
     hdmi_enable_layer(dev, dev->hdmi_layers[1]);
 
     dev->hdmi_enabled = true;
