@@ -154,7 +154,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
             case ANDROID_FLASH_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
-                dst->ctl.flash.flashMode = (enum flash_mode)curr_entry.data.u8[0];
+                dst->ctl.flash.flashMode = (enum flash_mode)(curr_entry.data.u8[0] + 1);
                 break;
 
             case ANDROID_FLASH_FIRING_POWER:
