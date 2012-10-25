@@ -3340,18 +3340,12 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 m_ctlInfo.flash.m_flashDecisionResult = false;
             }
 
-            // TODO : set torch mode for video recording. need to find proper position.
-            // m_wideAspect is will be changed to recording hint
-            if ((shot_ext->shot.ctl.flash.flashMode == CAM2_FLASH_MODE_SINGLE) && m_wideAspect) {
-                shot_ext->shot.ctl.flash.flashMode = CAM2_FLASH_MODE_TORCH;
-                shot_ext->shot.ctl.flash.firingPower = 10;
-                m_ctlInfo.flash.m_flashTorchMode = true;
-            } else if (m_wideAspect){
-                shot_ext->shot.ctl.flash.flashMode = CAM2_FLASH_MODE_OFF;
-                shot_ext->shot.ctl.flash.firingPower = 0;
-                m_ctlInfo.flash.m_flashTorchMode = false;
+            if (shot_ext->shot.ctl.flash.flashMode == CAM2_FLASH_MODE_TORCH) {
+                if (m_ctlInfo.flash.m_flashTorchMode == false) {
+                    m_ctlInfo.flash.m_flashTorchMode = true;
+                }
             } else {
-                if (m_ctlInfo.flash.m_flashTorchMode) {
+                if (m_ctlInfo.flash.m_flashTorchMode == true) {
                     shot_ext->shot.ctl.flash.flashMode = CAM2_FLASH_MODE_OFF;
                     shot_ext->shot.ctl.flash.firingPower = 0;
                     m_ctlInfo.flash.m_flashTorchMode = false;
@@ -4765,7 +4759,7 @@ void ExynosCameraHWInterface2::OnAfTrigger(int id)
     switch (m_afMode) {
     case AA_AFMODE_AUTO:
     case AA_AFMODE_MACRO:
-    case AA_AFMODE_OFF:
+    case AA_AFMODE_MANUAL:
         ALOGV("[AF] OnAfTrigger - AUTO,MACRO,OFF (Mode %d) ", m_afMode);
         // If flash is enable, Flash operation is executed before triggering AF
         if ((m_ctlInfo.flash.i_flashMode >= AA_AEMODE_ON_AUTO_FLASH)
@@ -4788,6 +4782,7 @@ void ExynosCameraHWInterface2::OnAfTrigger(int id)
         OnAfTriggerCAFPicture(id);
         break;
 
+    case AA_AFMODE_OFF:
     default:
         break;
     }
