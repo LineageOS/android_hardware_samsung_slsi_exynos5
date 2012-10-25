@@ -2177,7 +2177,7 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
                     ion_unmap(targetStream->m_parameters.svcBuffers[i].virt.extP[j],
                                     targetStream->m_parameters.svcBuffers[i].size.extS[j]);
                     ALOGV("(%s) ummap stream buffer[%d], plane(%d), fd %d vaddr %x", __FUNCTION__, i, j,
-                                  targetStream->m_parameters.svcBuffers[i].fd.extFd[j], targetStream->m_parameters.svcBuffers[i].virt.extP[j]);
+                                  targetStream->m_parameters.svcBuffers[i].fd.extFd[j], (unsigned int)(targetStream->m_parameters.svcBuffers[i].virt.extP[j]));
                 }
             }
         }
@@ -2249,7 +2249,7 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
                     ion_unmap(targetStream->m_parameters.svcBuffers[i].virt.extP[j],
                                     targetStream->m_parameters.svcBuffers[i].size.extS[j]);
                     ALOGV("(%s) ummap stream buffer[%d], plane(%d), fd %d vaddr %x", __FUNCTION__, i, j,
-                                  targetStream->m_parameters.svcBuffers[i].fd.extFd[j], targetStream->m_parameters.svcBuffers[i].virt.extP[j]);
+                                  targetStream->m_parameters.svcBuffers[i].fd.extFd[j], (unsigned int)(targetStream->m_parameters.svcBuffers[i].virt.extP[j]));
                 }
             }
         }
@@ -3899,7 +3899,7 @@ void ExynosCameraHWInterface2::m_streamFunc_direct(SignalDrivenThread *self)
                             &(selfStreamParms->svcBufHandle[selfStreamParms->bufIndex]));
                 }
                 else if ((currentOutputStreams & STREAM_MASK_ZSL) && selfThread->m_index == 1) {
-                    ALOGV("** SCC output (frameCnt:%d), last(%d)", frame->rcount);
+                    ALOGV("** SCC output (frameCnt:%d)", frame->rcount);
                     res = selfStreamParms->streamOps->enqueue_buffer(selfStreamParms->streamOps,
                                 frameTimeStamp,
                                 &(selfStreamParms->svcBufHandle[selfStreamParms->bufIndex]));
@@ -5529,6 +5529,7 @@ void ExynosCameraHWInterface2::OnAfCancel(int id)
     case AA_AFMODE_AUTO:
     case AA_AFMODE_MACRO:
     case AA_AFMODE_OFF:
+    case AA_AFMODE_MANUAL:
         OnAfCancelAutoMacro(id);
         break;
     case AA_AFMODE_CONTINUOUS_VIDEO:
@@ -5650,6 +5651,8 @@ void ExynosCameraHWInterface2::SetAfMode(enum aa_afmode afMode)
             ALOGV("(%s): current(%d) new(%d)", __FUNCTION__, m_afMode, afMode);
             m_IsAfModeUpdateRequired = true;
             m_afMode = afMode;
+            SetAfStateForService(ANDROID_CONTROL_AF_STATE_INACTIVE);
+            m_afState = HAL_AFSTATE_INACTIVE;
         }
     }
 }
