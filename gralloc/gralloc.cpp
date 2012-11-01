@@ -193,16 +193,17 @@ static int gralloc_alloc_framework_yuv(int ionfd, int w, int h, int format,
     switch (format) {
         case HAL_PIXEL_FORMAT_YV12:
             *stride = ALIGN(w, 16);
+            size = (*stride * h) + (ALIGN(*stride / 2, 16) * h);
             break;
         case HAL_PIXEL_FORMAT_YCrCb_420_SP:
             *stride = w;
+            size = *stride * h * 3 / 2;
             break;
         default:
             ALOGE("invalid yuv format %d\n", format);
             return -EINVAL;
     }
 
-    size = *stride * h * 3 / 2;
     err = ion_alloc_fd(ionfd, size, 0, 1 << ION_HEAP_TYPE_SYSTEM,
                        ion_flags, &fd);
     if (err)
