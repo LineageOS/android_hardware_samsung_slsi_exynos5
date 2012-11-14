@@ -19,8 +19,6 @@
 #include <string.h>
 #include <stdint.h>
 
-#include <keystore.h>
-
 #include <hardware/hardware.h>
 #include <hardware/keymaster.h>
 
