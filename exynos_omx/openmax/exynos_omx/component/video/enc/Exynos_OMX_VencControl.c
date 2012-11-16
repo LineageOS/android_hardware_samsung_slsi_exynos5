@@ -1196,6 +1196,25 @@ OMX_ERRORTYPE Exynos_OMX_VideoEncodeGetParameter(
 #endif
     }
         break;
+    case OMX_IndexParamVideoIntraRefresh:
+    {
+        OMX_VIDEO_PARAM_INTRAREFRESHTYPE *pIntraRefresh = (OMX_VIDEO_PARAM_INTRAREFRESHTYPE *)ComponentParameterStructure;
+        OMX_U32                           portIndex = pIntraRefresh->nPortIndex;
+        EXYNOS_OMX_VIDEOENC_COMPONENT    *pVideoEnc = NULL;
+
+        if (portIndex != OUTPUT_PORT_INDEX) {
+            ret = OMX_ErrorBadPortIndex;
+            goto EXIT;
+        } else {
+            pVideoEnc = (EXYNOS_OMX_VIDEOENC_COMPONENT *)pExynosComponent->hComponentHandle;
+            pIntraRefresh->eRefreshMode = pVideoEnc->intraRefresh.eRefreshMode;
+            pIntraRefresh->nAirMBs = pVideoEnc->intraRefresh.nAirMBs;
+            pIntraRefresh->nAirRef = pVideoEnc->intraRefresh.nAirRef;
+            pIntraRefresh->nCirMBs = pVideoEnc->intraRefresh.nCirMBs;
+        }
+        ret = OMX_ErrorNone;
+    }
+        break;
     default:
     {
         ret = Exynos_OMX_GetParameter(hComponent, nParamIndex, ComponentParameterStructure);
@@ -1354,6 +1373,30 @@ OMX_ERRORTYPE Exynos_OMX_VideoEncodeSetParameter(
             Exynos_UpdateFrameSize(pOMXComponent);
             Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pExynosOutputPort->portDefinition.nBufferSize: %d",
                             pExynosOutputPort->portDefinition.nBufferSize);
+        }
+        ret = OMX_ErrorNone;
+    }
+        break;
+    case OMX_IndexParamVideoIntraRefresh:
+    {
+        OMX_VIDEO_PARAM_INTRAREFRESHTYPE *pIntraRefresh = (OMX_VIDEO_PARAM_INTRAREFRESHTYPE *)ComponentParameterStructure;
+        OMX_U32                           portIndex = pIntraRefresh->nPortIndex;
+        EXYNOS_OMX_VIDEOENC_COMPONENT    *pVideoEnc = NULL;
+
+        if (portIndex != OUTPUT_PORT_INDEX) {
+            ret = OMX_ErrorBadPortIndex;
+            goto EXIT;
+        } else {
+            pVideoEnc = (EXYNOS_OMX_VIDEOENC_COMPONENT *)pExynosComponent->hComponentHandle;
+            if (pIntraRefresh->eRefreshMode == OMX_VIDEO_IntraRefreshCyclic) {
+                pVideoEnc->intraRefresh.eRefreshMode = pIntraRefresh->eRefreshMode;
+                pVideoEnc->intraRefresh.nCirMBs = pIntraRefresh->nCirMBs;
+                Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "OMX_VIDEO_IntraRefreshCyclic Enable, nCirMBs: %d",
+                                pVideoEnc->intraRefresh.nCirMBs);
+            } else {
+                ret = OMX_ErrorUnsupportedSetting;
+                goto EXIT;
+            }
         }
         ret = OMX_ErrorNone;
     }

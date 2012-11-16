@@ -232,7 +232,6 @@ static void Set_Mpeg4Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
     pCommonParam->SourceHeight = pExynosOutputPort->portDefinition.format.video.nFrameHeight;
     pCommonParam->IDRPeriod    = pMpeg4Enc->mpeg4Component[OUTPUT_PORT_INDEX].nPFrames + 1;
     pCommonParam->SliceMode    = 0;
-    pCommonParam->RandomIntraMBRefresh = 0;
     pCommonParam->Bitrate      = pExynosOutputPort->portDefinition.format.video.nBitrate;
     pCommonParam->FrameQp      = pVideoEnc->quantization.nQpI;
     pCommonParam->FrameQp_P    = pVideoEnc->quantization.nQpP;
@@ -242,6 +241,14 @@ static void Set_Mpeg4Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
     pCommonParam->LumaPadVal   = 0;
     pCommonParam->CbPadVal     = 0;
     pCommonParam->CrPadVal     = 0;
+
+    if (pVideoEnc->intraRefresh.eRefreshMode == OMX_VIDEO_IntraRefreshCyclic) {
+        /* Cyclic Mode */
+        pCommonParam->RandomIntraMBRefresh = pVideoEnc->intraRefresh.nCirMBs;
+    } else {
+        /* Don't support "Adaptive" and "Cyclic + Adaptive" */
+        pCommonParam->RandomIntraMBRefresh = 0;
+    }
 
     if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
         if (pVideoEnc->ANBColorFormat == OMX_SEC_COLOR_FormatNV21Linear)
@@ -333,7 +340,6 @@ static void Set_H263Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
     pCommonParam->SourceHeight = pExynosOutputPort->portDefinition.format.video.nFrameHeight;
     pCommonParam->IDRPeriod    = pMpeg4Enc->h263Component[OUTPUT_PORT_INDEX].nPFrames + 1;
     pCommonParam->SliceMode    = 0;
-    pCommonParam->RandomIntraMBRefresh = 0;
     pCommonParam->Bitrate      = pExynosOutputPort->portDefinition.format.video.nBitrate;
     pCommonParam->FrameQp      = pVideoEnc->quantization.nQpI;
     pCommonParam->FrameQp_P    = pVideoEnc->quantization.nQpP;
@@ -343,6 +349,14 @@ static void Set_H263Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
     pCommonParam->LumaPadVal   = 0;
     pCommonParam->CbPadVal     = 0;
     pCommonParam->CrPadVal     = 0;
+
+    if (pVideoEnc->intraRefresh.eRefreshMode == OMX_VIDEO_IntraRefreshCyclic) {
+        /* Cyclic Mode */
+        pCommonParam->RandomIntraMBRefresh = pVideoEnc->intraRefresh.nCirMBs;
+    } else {
+        /* Don't support "Adaptive" and "Cyclic + Adaptive" */
+        pCommonParam->RandomIntraMBRefresh = 0;
+    }
 
     if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
         if (pVideoEnc->ANBColorFormat == OMX_SEC_COLOR_FormatNV21Linear)
