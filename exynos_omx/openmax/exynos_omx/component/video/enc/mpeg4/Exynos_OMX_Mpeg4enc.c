@@ -437,7 +437,7 @@ static void Change_Mpeg4Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
         setParam = pExynosOutputPort->portDefinition.format.video.nBitrate;
         pEncOps->Set_BitRate(pMpeg4Enc->hMFCMpeg4Handle.hMFCHandle, setParam);
     }
-    if (pMpeg4Param->TimeIncreamentRes != (int)((pExynosOutputPort->portDefinition.format.video.xFramerate) >> 16)) {
+    if (pMpeg4Param->TimeIncreamentRes != (int)((pExynosInputPort->portDefinition.format.video.xFramerate) >> 16)) {
         setParam = (pExynosInputPort->portDefinition.format.video.xFramerate) >> 16;
         pEncOps->Set_FrameRate(pMpeg4Enc->hMFCMpeg4Handle.hMFCHandle, setParam);
     }
@@ -484,7 +484,7 @@ static void Change_H263Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
         setParam = pExynosOutputPort->portDefinition.format.video.nBitrate;
         pEncOps->Set_BitRate(pMpeg4Enc->hMFCMpeg4Handle.hMFCHandle, setParam);
     }
-    if (pH263Param->FrameRate != (int)((pExynosOutputPort->portDefinition.format.video.xFramerate) >> 16)) {
+    if (pH263Param->FrameRate != (int)((pExynosInputPort->portDefinition.format.video.xFramerate) >> 16)) {
         setParam = (pExynosInputPort->portDefinition.format.video.xFramerate) >> 16;
         pEncOps->Set_FrameRate(pMpeg4Enc->hMFCMpeg4Handle.hMFCHandle, setParam);
     }
@@ -1955,6 +1955,13 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_SrcIn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX
         ret = Mpeg4CodecDstSetup(pOMXComponent);
     }
 
+    if (pVideoEnc->configChange == OMX_TRUE) {
+        if (pMpeg4Enc->hMFCMpeg4Handle.codecType == CODEC_TYPE_MPEG4)
+            Change_Mpeg4Enc_Param(pExynosComponent);
+        else
+            Change_H263Enc_Param(pExynosComponent);
+        pVideoEnc->configChange = OMX_FALSE;
+    }
     if ((pSrcInputData->dataLen >= 0) ||
         ((pSrcInputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS)) {
         OMX_U32 nAllocLen[MFC_INPUT_BUFFER_PLANE] = {0, 0};
