@@ -201,7 +201,7 @@ OMX_ERRORTYPE Exynos_OMX_ComponentStateSet(OMX_COMPONENTTYPE *pOMXComponent, OMX
         Exynos_OMX_Release_Resource(pOMXComponent);
     }
 
-    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "destState: %d", destState);
+    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "destState: %d currentState: %d", destState, currentState);
     switch (destState) {
     case OMX_StateInvalid:
         switch (currentState) {
@@ -357,6 +357,8 @@ OMX_ERRORTYPE Exynos_OMX_ComponentStateSet(OMX_COMPONENTTYPE *pOMXComponent, OMX
                 /*
                  * if (CHECK_PORT_TUNNELED == OMX_TRUE) thenTunnel Buffer Free
                  */
+                Exynos_OSAL_SignalSet(pExynosComponent->abendStateEvent);
+                Exynos_OMX_Release_Resource(pOMXComponent);
                 goto EXIT;
             }
             if (pExynosComponent->bMultiThreadProcess == OMX_FALSE) {
