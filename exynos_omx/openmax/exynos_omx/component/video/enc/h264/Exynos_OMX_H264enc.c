@@ -241,7 +241,6 @@ static void Set_H264Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
     pCommonParam->SourceHeight = pExynosOutputPort->portDefinition.format.video.nFrameHeight;
     pCommonParam->IDRPeriod    = pH264Enc->AVCComponent[OUTPUT_PORT_INDEX].nPFrames + 1;
     pCommonParam->SliceMode    = 0;
-    pCommonParam->RandomIntraMBRefresh = 0;
     pCommonParam->Bitrate      = pExynosOutputPort->portDefinition.format.video.nBitrate;
     pCommonParam->FrameQp      = pVideoEnc->quantization.nQpI;
     pCommonParam->FrameQp_P    = pVideoEnc->quantization.nQpP;
@@ -251,6 +250,15 @@ static void Set_H264Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
     pCommonParam->LumaPadVal   = 0;
     pCommonParam->CbPadVal     = 0;
     pCommonParam->CrPadVal     = 0;
+
+    if (pVideoEnc->intraRefresh.eRefreshMode == OMX_VIDEO_IntraRefreshCyclic) {
+        /* Cyclic Mode */
+        pCommonParam->RandomIntraMBRefresh = pVideoEnc->intraRefresh.nCirMBs;
+        Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "RandomIntraMBRefresh: %d", pCommonParam->RandomIntraMBRefresh);
+    } else {
+        /* Don't support "Adaptive" and "Cyclic + Adaptive" */
+        pCommonParam->RandomIntraMBRefresh = 0;
+    }
 
     if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
         if (pVideoEnc->ANBColorFormat == OMX_COLOR_FormatYUV420SemiPlanar)
