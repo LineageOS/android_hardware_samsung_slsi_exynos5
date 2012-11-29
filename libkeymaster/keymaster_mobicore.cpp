@@ -432,7 +432,7 @@ static int exynos_km_open(const hw_module_t* module, const char* name,
     dev->common.module = (struct hw_module_t*) module;
     dev->common.close = exynos_km_close;
 
-    dev->flags = KEYMASTER_SOFTWARE_ONLY;
+    dev->flags = 0;
 
     dev->generate_keypair = exynos_km_generate_keypair;
     dev->import_keypair = exynos_km_import_keypair;
