@@ -104,6 +104,8 @@ OMX_ERRORTYPE Exynos_Input_CodecBufferToData(EXYNOS_OMX_BASECOMPONENT *pExynosCo
 
     pData->buffer.multiPlaneBuffer.dataBuffer[0] = pInputCodecBuffer->pVirAddr[0];
     pData->buffer.multiPlaneBuffer.dataBuffer[1] = pInputCodecBuffer->pVirAddr[1];
+    pData->buffer.multiPlaneBuffer.fd[0] = pInputCodecBuffer->fd[0];
+    pData->buffer.multiPlaneBuffer.fd[1] = pInputCodecBuffer->fd[1];
     pData->allocSize     = pInputCodecBuffer->bufferSize[0] + pInputCodecBuffer->bufferSize[1];
     pData->dataLen       = pInputCodecBuffer->dataSize;
     pData->usedDataLen   = 0;
