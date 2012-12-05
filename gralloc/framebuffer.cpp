@@ -105,6 +105,52 @@ static int fb_close(struct hw_device_t *dev)
     return 0;
 }
 
+static void get_screen_res(const char *fbname, int32_t *xres, int32_t *yres,
+                           int32_t *refresh)
+{
+    char *path;
+    int fd;
+    char buf[128];
+    int ret;
+    unsigned int _x, _y, _r;
+
+    asprintf(&path, "/sys/class/graphics/%s/modes", fbname);
+    if (!path)
+        goto err_asprintf;
+    fd = open(path, O_RDONLY);
+    if (fd < 0)
+        goto err_open;
+    ret = read(fd, buf, sizeof(buf));
+    if (ret <= 0)
+        goto err_read;
+    buf[sizeof(buf)-1] = '\0';
+
+    ret = sscanf(buf, "U:%ux%up-%u", &_x, &_y, &_r);
+    if (ret != 3)
+        goto err_sscanf;
+
+    ALOGI("Using %ux%u %uHz resolution for '%s' from modes list\n",
+          _x, _y, _r, fbname);
+
+    *xres = (int32_t)_x;
+    *yres = (int32_t)_y;
+    *refresh = (int32_t)_r;
+
+    close(fd);
+    free(path);
+    return;
+
+err_sscanf:
+err_read:
+    close(fd);
+err_open:
+    free(path);
+err_asprintf:
+    *xres = 2560;
+    *yres = 1600;
+    *refresh = 60;
+}
+
 int init_fb(struct private_module_t* module)
 {
     char const * const device_template[] = {
@@ -135,19 +181,13 @@ int init_fb(struct private_module_t* module)
         return -errno;
     }
 
-    int refreshRate = 1000000000000000LLU /
-        (
-         uint64_t( info.upper_margin + info.lower_margin + info.yres )
-         * ( info.left_margin  + info.right_margin + info.xres )
-         * info.pixclock
-        );
-
+    int32_t refreshRate;
+    get_screen_res("fb0", &module->xres, &module->yres, &refreshRate);
     if (refreshRate == 0)
-        refreshRate = 60*1000;  /* 60 Hz */
+        refreshRate = 60;  /* 60 Hz */
 
-    float xdpi = (info.xres * 25.4f) / info.width;
-    float ydpi = (info.yres * 25.4f) / info.height;
-    float fps  = refreshRate / 1000.0f;
+    float xdpi = (module->xres * 25.4f) / info.width;
+    float ydpi = (module->yres * 25.4f) / info.height;
 
     ALOGI("using (id=%s)\n"
           "xres         = %d px\n"
@@ -155,15 +195,13 @@ int init_fb(struct private_module_t* module)
           "width        = %d mm (%f dpi)\n"
           "height       = %d mm (%f dpi)\n"
           "refresh rate = %.2f Hz\n",
-          finfo.id, info.xres, info.yres, info.width,  xdpi, info.height, ydpi,
-          fps);
+          finfo.id, module->xres, module->yres, info.width,  xdpi, info.height,
+          ydpi, (float)refreshRate);
 
-    module->xres = 2560;
-    module->yres = 1600;
-    module->line_length = 2560;
+    module->line_length = module->xres * 4;
     module->xdpi = xdpi;
     module->ydpi = ydpi;
-    module->fps = fps;
+    module->fps = (float)refreshRate;
 
     return 0;
 }
