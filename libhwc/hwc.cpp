@@ -565,6 +565,10 @@ static void hdmi_show_layer(struct exynos5_hwc_composer_device_1_t *dev,
 
 static int hdmi_enable(struct exynos5_hwc_composer_device_1_t *dev)
 {
+    /* hdmi not supported */
+    if (dev->hdmi_mixer0 < 0)
+        return 0;
+
     if (dev->hdmi_enabled)
         return 0;
 
@@ -2086,11 +2090,8 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
             dev->gsc[i].dst_buf_fence[j] = -1;
 
     dev->hdmi_mixer0 = open("/dev/v4l-subdev7", O_RDWR);
-    if (dev->hdmi_mixer0 < 0) {
+    if (dev->hdmi_mixer0 < 0)
         ALOGE("failed to open hdmi mixer0 subdev");
-        ret = dev->hdmi_mixer0;
-        goto err_ioctl;
-    }
 
     dev->hdmi_layers[0].id = 0;
     dev->hdmi_layers[0].fd = open("/dev/video16", O_RDWR);
@@ -2160,7 +2161,8 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
 err_vsync:
     close(dev->vsync_fd);
 err_mixer0:
-    close(dev->hdmi_mixer0);
+    if (dev->hdmi_mixer0 >= 0)
+        close(dev->hdmi_mixer0);
 err_hdmi1:
     close(dev->hdmi_layers[0].fd);
 err_hdmi0:
@@ -2184,7 +2186,8 @@ static int exynos5_close(hw_device_t *device)
         exynos5_cleanup_gsc_m2m(dev, i);
     gralloc_close(dev->alloc_device);
     close(dev->vsync_fd);
-    close(dev->hdmi_mixer0);
+    if (dev->hdmi_mixer0 >= 0)
+        close(dev->hdmi_mixer0);
     close(dev->hdmi_layers[0].fd);
     close(dev->hdmi_layers[1].fd);
     close(dev->fd);
