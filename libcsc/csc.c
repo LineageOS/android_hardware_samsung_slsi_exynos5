@@ -363,8 +363,7 @@ static CSC_ERRORCODE csc_init_hw(
     if (csc_handle->csc_method == CSC_METHOD_HW) {
         if (csc_handle->csc_hw_handle == NULL) {
             ALOGE("%s:: CSC_METHOD_HW can't open HW", __func__);
-            free(csc_handle);
-            csc_handle = NULL;
+            ret = CSC_Error;
         }
     }
 
@@ -711,11 +710,19 @@ CSC_ERRORCODE csc_convert(
         return CSC_ErrorNotInit;
 
     if ((csc_handle->csc_method == CSC_METHOD_HW) &&
-        (csc_handle->csc_hw_handle == NULL))
-        csc_init_hw(handle);
+        (csc_handle->csc_hw_handle == NULL)) {
+        ret = csc_init_hw(handle);
+        if (ret != CSC_ErrorNone)
+            return ret;
+    }
 
-    csc_set_format(csc_handle);
-    csc_set_buffer(csc_handle);
+    ret = csc_set_format(csc_handle);
+    if (ret != CSC_ErrorNone)
+        return ret;
+
+    ret = csc_set_buffer(csc_handle);
+    if (ret != CSC_ErrorNone)
+        return ret;
 
     if (csc_handle->csc_method == CSC_METHOD_HW)
         ret = conv_hw(csc_handle);
