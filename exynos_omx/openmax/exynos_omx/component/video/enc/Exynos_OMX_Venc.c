@@ -301,8 +301,6 @@ OMX_BOOL Exynos_CSC_InputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA 
     }
 #endif
 
-    ret = OMX_TRUE;
-
 EXIT:
     FunctionOut();
 
@@ -405,18 +403,24 @@ OMX_BOOL Exynos_Preprocessor_InputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
             Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "exynos_checkInputFrame : OMX_TRUE");
 
             if (((srcInputData->allocSize) - (srcInputData->dataLen)) >= copySize) {
-                Exynos_CSC_InputData(pOMXComponent, srcInputData);
+                ret = Exynos_CSC_InputData(pOMXComponent, srcInputData);
+                if (ret) {
+                    inputUseBuffer->dataLen -= copySize;
+                    inputUseBuffer->remainDataLen -= copySize;
+                    inputUseBuffer->usedDataLen += copySize;
 
-                inputUseBuffer->dataLen -= copySize;
-                inputUseBuffer->remainDataLen -= copySize;
-                inputUseBuffer->usedDataLen += copySize;
+                    srcInputData->dataLen += copySize;
+                    srcInputData->remainDataLen += copySize;
 
-                srcInputData->dataLen += copySize;
-                srcInputData->remainDataLen += copySize;
-
-                srcInputData->timeStamp = inputUseBuffer->timeStamp;
-                srcInputData->nFlags = inputUseBuffer->nFlags;
-                srcInputData->bufferHeader = inputUseBuffer->bufferHeader;
+                    srcInputData->timeStamp = inputUseBuffer->timeStamp;
+                    srcInputData->nFlags = inputUseBuffer->nFlags;
+                    srcInputData->bufferHeader = inputUseBuffer->bufferHeader;
+                } else {
+                    Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Exynos_CSC_InputData() failure");
+                    pExynosComponent->pCallbacks->EventHandler((OMX_HANDLETYPE)pOMXComponent,
+                            pExynosComponent->callbackData, OMX_EventError,
+                            OMX_ErrorUndefined, 0, NULL );
+                }
             } else {
                 Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "input codec buffer is smaller than decoded input data size Out Length");
                 pExynosComponent->pCallbacks->EventHandler((OMX_HANDLETYPE)pOMXComponent,
