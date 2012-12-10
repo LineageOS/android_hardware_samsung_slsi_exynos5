@@ -191,6 +191,7 @@ OMX_ERRORTYPE Exynos_OMX_ComponentStateSet(OMX_COMPONENTTYPE *pOMXComponent, OMX
     if ((currentState == OMX_StateLoaded) && (destState == OMX_StateIdle)) {
         ret = Exynos_OMX_Get_Resource(pOMXComponent);
         if (ret != OMX_ErrorNone) {
+            Exynos_OSAL_SignalSet(pExynosComponent->abendStateEvent);
             goto EXIT;
         }
     }
