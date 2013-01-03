@@ -45,7 +45,7 @@ OMX_COLOR_FORMATTYPE hal_2_omx_pixel_format(
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
         omx_format = OMX_SEC_COLOR_FormatNV12Tiled;
         break;
-    case HAL_PIXEL_FORMAT_ARGB888:
+    case HAL_PIXEL_FORMAT_CUSTOM_ARGB_8888:
         omx_format = OMX_COLOR_Format32bitARGB8888;
         break;
     default:
@@ -76,7 +76,7 @@ unsigned int omx_2_hal_pixel_format(
         hal_format = HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED;
         break;
     case OMX_COLOR_Format32bitARGB8888:
-        hal_format = HAL_PIXEL_FORMAT_ARGB888;
+        hal_format = HAL_PIXEL_FORMAT_CUSTOM_ARGB_8888;
         break;
     default:
         hal_format = HAL_PIXEL_FORMAT_YCbCr_420_P;

@@ -265,7 +265,7 @@ static CSC_ERRORCODE conv_sw(
     case HAL_PIXEL_FORMAT_YCbCr_420_SP:
         ret = conv_sw_src_yuv420sp(handle);
         break;
-    case HAL_PIXEL_FORMAT_ARGB888:
+    case HAL_PIXEL_FORMAT_CUSTOM_ARGB_8888:
         ret = conv_sw_src_argb888(handle);
         break;
     default:
