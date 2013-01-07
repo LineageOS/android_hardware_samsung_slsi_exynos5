@@ -3229,14 +3229,6 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             } else {
                 shot_ext->setfile = ISS_SUB_SCENARIO_STILL;
             }
-            if (m_wideAspect) {
-//                shot_ext->setfile = ISS_SUB_SCENARIO_VIDEO;
-                shot_ext->shot.ctl.aa.aeTargetFpsRange[0] = 30;
-                shot_ext->shot.ctl.aa.aeTargetFpsRange[1] = 30;
-            }
-            else {
-//                shot_ext->setfile = ISS_SUB_SCENARIO_STILL;
-            }
             if (triggered)
                 shot_ext->shot.ctl.aa.afTrigger = 1;
 
