@@ -1091,6 +1091,8 @@ OMX_ERRORTYPE Exynos_OMX_VideoEncodeComponentInit(OMX_IN OMX_HANDLETYPE hCompone
     EXYNOS_OMX_BASEPORT           *pExynosPort = NULL;
     EXYNOS_OMX_VIDEOENC_COMPONENT *pVideoEnc = NULL;
 
+    CSC_METHOD csc_method = CSC_METHOD_SW;
+
     FunctionIn();
 
     if (hComponent == NULL) {
@@ -1138,6 +1140,19 @@ OMX_ERRORTYPE Exynos_OMX_VideoEncodeComponentInit(OMX_IN OMX_HANDLETYPE hCompone
     pVideoEnc->quantization.nQpI = 4; // I frame quantization parameter
     pVideoEnc->quantization.nQpP = 5; // P frame quantization parameter
     pVideoEnc->quantization.nQpB = 5; // B frame quantization parameter
+
+#if 0//defined(USE_CSC_GSCALER)
+    csc_method = CSC_METHOD_HW; //in case of Use ION buffer.
+#endif
+    pVideoEnc->csc_handle = csc_init(csc_method);
+    if (pVideoEnc->csc_handle == NULL) {
+        Exynos_OSAL_Free(pVideoEnc);
+        Exynos_OMX_BaseComponent_Destructor(pOMXComponent);
+        ret = OMX_ErrorInsufficientResources;
+        Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "OMX_ErrorInsufficientResources, Line:%d", __LINE__);
+        goto EXIT;
+    }
+    pVideoEnc->csc_set_format = OMX_FALSE;
 
     pExynosComponent->bMultiThreadProcess = OMX_TRUE;
 
@@ -1234,6 +1249,11 @@ OMX_ERRORTYPE Exynos_OMX_VideoEncodeComponentDeinit(OMX_IN OMX_HANDLETYPE hCompo
     pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
 
     pVideoEnc = (EXYNOS_OMX_VIDEOENC_COMPONENT *)pExynosComponent->hComponentHandle;
+
+    if (pVideoEnc->csc_handle != NULL) {
+        csc_deinit(pVideoEnc->csc_handle);
+        pVideoEnc->csc_handle = NULL;
+    }
 
     Exynos_OSAL_Free(pVideoEnc);
     pExynosComponent->hComponentHandle = pVideoEnc = NULL;
