@@ -475,7 +475,7 @@ CSC_ERRORCODE csc_deinit(
     CSC_HANDLE *csc_handle;
 
     csc_handle = (CSC_HANDLE *)handle;
-    if (csc_handle->csc_method == CSC_METHOD_HW) {
+    if (csc_handle->csc_hw_handle) {
         switch (csc_handle->csc_hw_type) {
 #ifdef ENABLE_FIMC
         case CSC_HW_TYPE_FIMC:
@@ -513,6 +513,22 @@ CSC_ERRORCODE csc_get_method(
 
     csc_handle = (CSC_HANDLE *)handle;
     *method = csc_handle->csc_method;
+
+    return ret;
+}
+
+CSC_ERRORCODE csc_set_method(
+    void           *handle,
+    CSC_METHOD     method)
+{
+    CSC_HANDLE *csc_handle;
+    CSC_ERRORCODE ret = CSC_ErrorNone;
+
+    if (handle == NULL)
+        return CSC_ErrorNotInit;
+
+    csc_handle = (CSC_HANDLE *)handle;
+    csc_handle->csc_method = method;
 
     return ret;
 }
