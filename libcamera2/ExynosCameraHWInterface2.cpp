@@ -6046,7 +6046,7 @@ int ExynosCameraHWInterface2::allocCameraMemory(ion_client ionClient, ExynosBuff
             break;
         }
         if (1 << i & cacheFlag)
-            flag = ION_FLAG_CACHED;
+            flag = ION_FLAG_CACHED | ION_FLAG_CACHED_NEEDS_SYNC;
         else
             flag = 0;
         buf->fd.extFd[i] = ion_alloc(ionClient, \
