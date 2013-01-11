@@ -265,7 +265,7 @@ static CSC_ERRORCODE conv_sw(
     case HAL_PIXEL_FORMAT_YCbCr_420_SP:
         ret = conv_sw_src_yuv420sp(handle);
         break;
-    case HAL_PIXEL_FORMAT_ARGB888:
+    case HAL_PIXEL_FORMAT_CUSTOM_ARGB_8888:
         ret = conv_sw_src_argb888(handle);
         break;
     default:
@@ -363,8 +363,7 @@ static CSC_ERRORCODE csc_init_hw(
     if (csc_handle->csc_method == CSC_METHOD_HW) {
         if (csc_handle->csc_hw_handle == NULL) {
             ALOGE("%s:: CSC_METHOD_HW can't open HW", __func__);
-            free(csc_handle);
-            csc_handle = NULL;
+            ret = CSC_Error;
         }
     }
 
@@ -476,7 +475,7 @@ CSC_ERRORCODE csc_deinit(
     CSC_HANDLE *csc_handle;
 
     csc_handle = (CSC_HANDLE *)handle;
-    if (csc_handle->csc_method == CSC_METHOD_HW) {
+    if (csc_handle->csc_hw_handle) {
         switch (csc_handle->csc_hw_type) {
 #ifdef ENABLE_FIMC
         case CSC_HW_TYPE_FIMC:
@@ -514,6 +513,22 @@ CSC_ERRORCODE csc_get_method(
 
     csc_handle = (CSC_HANDLE *)handle;
     *method = csc_handle->csc_method;
+
+    return ret;
+}
+
+CSC_ERRORCODE csc_set_method(
+    void           *handle,
+    CSC_METHOD     method)
+{
+    CSC_HANDLE *csc_handle;
+    CSC_ERRORCODE ret = CSC_ErrorNone;
+
+    if (handle == NULL)
+        return CSC_ErrorNotInit;
+
+    csc_handle = (CSC_HANDLE *)handle;
+    csc_handle->csc_method = method;
 
     return ret;
 }
@@ -711,11 +726,19 @@ CSC_ERRORCODE csc_convert(
         return CSC_ErrorNotInit;
 
     if ((csc_handle->csc_method == CSC_METHOD_HW) &&
-        (csc_handle->csc_hw_handle == NULL))
-        csc_init_hw(handle);
+        (csc_handle->csc_hw_handle == NULL)) {
+        ret = csc_init_hw(handle);
+        if (ret != CSC_ErrorNone)
+            return ret;
+    }
 
-    csc_set_format(csc_handle);
-    csc_set_buffer(csc_handle);
+    ret = csc_set_format(csc_handle);
+    if (ret != CSC_ErrorNone)
+        return ret;
+
+    ret = csc_set_buffer(csc_handle);
+    if (ret != CSC_ErrorNone)
+        return ret;
 
     if (csc_handle->csc_method == CSC_METHOD_HW)
         ret = conv_hw(csc_handle);

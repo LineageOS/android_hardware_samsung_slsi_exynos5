@@ -30,7 +30,7 @@ enum {
     HAL_PIXEL_FORMAT_YCbCr_420_SP               = 0x105,
     HAL_PIXEL_FORMAT_YCrCb_422_SP               = 0x106,
     HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED         = 0x107,
-    HAL_PIXEL_FORMAT_ARGB888                    = 0x108,
+    HAL_PIXEL_FORMAT_CUSTOM_ARGB_8888           = 0x108,
     // support custom format for zero copy
     HAL_PIXEL_FORMAT_CUSTOM_YCbCr_420_SP        = 0x110,
     HAL_PIXEL_FORMAT_CUSTOM_YCrCb_420_SP        = 0x111,

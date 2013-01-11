@@ -117,6 +117,22 @@ CSC_ERRORCODE csc_get_method(
     CSC_METHOD     *method);
 
 /*
+ * set color space converter method
+ *
+ * @param handle
+ *   CSC handle[in]
+ *
+ * @param method
+ *   CSC method[in]
+ *
+ * @return
+ *   error code
+ */
+CSC_ERRORCODE csc_set_method(
+    void           *handle,
+    CSC_METHOD     method);
+
+/*
  * Set hw property
  *
  * @param handle

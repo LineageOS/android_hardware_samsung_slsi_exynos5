@@ -1533,7 +1533,6 @@ OMX_ERRORTYPE Exynos_H264Enc_Init(OMX_COMPONENTTYPE *pOMXComponent)
     ExynosVideoEncBufferOps *pInbufOps  = NULL;
     ExynosVideoEncBufferOps *pOutbufOps = NULL;
 
-    CSC_METHOD csc_method = CSC_METHOD_SW;
     int i = 0;
 
     FunctionIn();
@@ -1632,16 +1631,6 @@ OMX_ERRORTYPE Exynos_H264Enc_Init(OMX_COMPONENTTYPE *pOMXComponent)
 
     pExynosComponent->getAllDelayBuffer = OMX_FALSE;
 
-#if 0//defined(USE_CSC_GSCALER)
-    csc_method = CSC_METHOD_HW; //in case of Use ION buffer.
-#endif
-    pVideoEnc->csc_handle = csc_init(csc_method);
-    if (pVideoEnc->csc_handle == NULL) {
-        ret = OMX_ErrorInsufficientResources;
-        goto EXIT;
-    }
-    pVideoEnc->csc_set_format = OMX_FALSE;
-
 EXIT:
     FunctionOut();
 
@@ -1666,11 +1655,6 @@ OMX_ERRORTYPE Exynos_H264Enc_Terminate(OMX_COMPONENTTYPE *pOMXComponent)
     int i = 0, plane = 0;
 
     FunctionIn();
-
-    if (pVideoEnc->csc_handle != NULL) {
-        csc_deinit(pVideoEnc->csc_handle);
-        pVideoEnc->csc_handle = NULL;
-    }
 
     Exynos_OSAL_SignalTerminate(pH264Enc->hDestinationStartEvent);
     pH264Enc->hDestinationStartEvent = NULL;
