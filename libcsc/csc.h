@@ -88,6 +88,40 @@ unsigned int omx_2_hal_pixel_format(
     unsigned int omx_format);
 
 /*
+ * change hal pixel format to g2d color format
+ *
+ * @param hal_format
+ *   hal pixel format[in]
+ *
+ * @return
+ *   g2d color format
+ */
+unsigned int hal_2_g2d_color_format(unsigned int hal_format);
+
+/*
+ * change hal pixel format to g2d pixel order
+ *
+ * @param hal_format
+ *   hal pixel format[in]
+ *
+ * @return
+ *   g2d pixel order
+ */
+unsigned int hal_2_g2d_pixel_order(unsigned int hal_format);
+
+/*
+ * change hal pixel format to g2d "bpp" (actual bpp for RGB formats, 8 bpp for
+ * YUV formats)
+ *
+ * @param hal_format
+ *   hal pixel format[in]
+ *
+ * @return
+ *   g2d bpp
+ */
+size_t hal_2_g2d_bpp(unsigned int hal_format);
+
+/*
  * Init CSC handle
  *
  * @return

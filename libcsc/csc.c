@@ -53,6 +53,19 @@
 #include "exynos_gscaler.h"
 #endif
 
+#ifdef ENABLE_G2D
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include "fimg2d.h"
+
+typedef struct
+{
+    struct fimg2d_image src;
+    struct fimg2d_image dst;
+    int fd;
+} g2d_data;
+#endif
+
 #define GSCALER_IMG_ALIGN 16
 #define ALIGN(x, a)       (((x) + (a) - 1) & ~((a) - 1))
 
@@ -309,6 +322,29 @@ static CSC_ERRORCODE conv_hw(
         }
         break;
 #endif
+#ifdef ENABLE_G2D
+    case CSC_HW_TYPE_G2D:
+    {
+        g2d_data *g2d = (g2d_data *)handle->csc_hw_handle;
+        struct fimg2d_blit blit;
+        int err;
+
+        memset(&blit, 0, sizeof(blit));
+        blit.op = BLIT_OP_SRC_COPY;
+        blit.param.g_alpha = 0xFF;
+        blit.src = &g2d->src;
+        blit.dst = &g2d->dst;
+        blit.sync = BLIT_SYNC;
+
+        err = ioctl(g2d->fd, FIMG2D_BITBLT_BLIT, &blit);
+        if (err < 0) {
+            ALOGE("FIMG2D_BITBLT_BLIT ioctl failed: %s", strerror(errno));
+            ret = CSC_Error;
+        }
+
+        break;
+    }
+#endif
     default:
         ALOGE("%s:: unsupported csc_hw_type(%d)", __func__, handle->csc_hw_type);
         ret = CSC_ErrorNotImplemented;
@@ -342,9 +378,27 @@ static CSC_ERRORCODE csc_init_hw(
             ALOGV("%s:: CSC_HW_TYPE_GSCALER", __func__);
             break;
 #endif
+#ifdef ENABLE_G2D
+        case CSC_HW_TYPE_G2D:
+        {
+            g2d_data *g2d = calloc(1, sizeof(g2d_data));
+            if (!g2d) {
+                ALOGE("failed to allocate G2D data");
+                break;
+            }
+            g2d->fd = open("/dev/fimg2d", O_RDWR);
+            if (g2d->fd < 0) {
+                ALOGE("failed to open G2D: %s", strerror(errno));
+                free(g2d);
+            } else {
+                csc_handle->csc_hw_handle = g2d;
+            }
+            break;
+        }
+#endif
         default:
             ALOGE("%s:: unsupported csc_hw_type, csc use sw", __func__);
-            csc_handle->csc_hw_handle == NULL;
+            csc_handle->csc_hw_handle = NULL;
             break;
         }
     }
@@ -403,6 +457,42 @@ static CSC_ERRORCODE csc_set_format(
                 0);
             break;
 #endif
+#ifdef ENABLE_G2D
+        case CSC_HW_TYPE_G2D:
+        {
+            g2d_data *g2d = (g2d_data *)csc_handle->csc_hw_handle;
+
+            g2d->src.width = ALIGN(csc_handle->src_format.width,
+                    GSCALER_IMG_ALIGN);
+            g2d->src.height = csc_handle->src_format.height;
+            g2d->src.stride = g2d->src.width *
+                    hal_2_g2d_bpp(csc_handle->src_format.color_format) >> 3;
+            g2d->src.order = hal_2_g2d_pixel_order(csc_handle->src_format.color_format);
+            g2d->src.fmt = hal_2_g2d_color_format(csc_handle->src_format.color_format);
+            g2d->src.rect.x1 = csc_handle->src_format.crop_left;
+            g2d->src.rect.y1 = csc_handle->src_format.crop_top;
+            g2d->src.rect.x2 = csc_handle->src_format.crop_left +
+                    csc_handle->src_format.crop_width;
+            g2d->src.rect.y2 = csc_handle->src_format.crop_top +
+                    csc_handle->src_format.crop_height;
+
+            g2d->dst.width = ALIGN(csc_handle->dst_format.width,
+                    GSCALER_IMG_ALIGN);
+            g2d->dst.height = csc_handle->dst_format.height;
+            g2d->dst.stride = g2d->dst.width *
+                    hal_2_g2d_bpp(csc_handle->dst_format.color_format) >> 3;
+            g2d->dst.order = hal_2_g2d_pixel_order(csc_handle->dst_format.color_format);
+            g2d->dst.fmt = hal_2_g2d_color_format(csc_handle->dst_format.color_format);
+            g2d->dst.rect.x1 = csc_handle->dst_format.crop_left;
+            g2d->dst.rect.y1 = csc_handle->dst_format.crop_top;
+            g2d->dst.rect.x2 = csc_handle->dst_format.crop_left +
+                    csc_handle->dst_format.crop_width;
+            g2d->dst.rect.y2 = csc_handle->dst_format.crop_top +
+                    csc_handle->dst_format.crop_height;
+
+            break;
+        }
+#endif
         default:
             ALOGE("%s:: unsupported csc_hw_type", __func__);
             break;
@@ -431,6 +521,22 @@ static CSC_ERRORCODE csc_set_buffer(
             exynos_gsc_set_src_addr(csc_handle->csc_hw_handle, csc_handle->src_buffer.planes, -1);
             exynos_gsc_set_dst_addr(csc_handle->csc_hw_handle, csc_handle->dst_buffer.planes, -1);
             break;
+#endif
+#ifdef ENABLE_G2D
+        case CSC_HW_TYPE_G2D:
+        {
+            g2d_data *g2d = (g2d_data *)csc_handle->csc_hw_handle;
+
+            g2d->src.addr.type = ADDR_DMA_BUF;
+            g2d->src.addr.fd[0] = (int)csc_handle->src_buffer.planes[0];
+            g2d->src.addr.fd[1] = (int)csc_handle->src_buffer.planes[1];
+
+            g2d->dst.addr.type = ADDR_DMA_BUF;
+            g2d->dst.addr.fd[0] = (int)csc_handle->dst_buffer.planes[0];
+            g2d->dst.addr.fd[1] = (int)csc_handle->dst_buffer.planes[1];
+
+            break;
+        }
 #endif
         default:
             ALOGE("%s:: unsupported csc_hw_type", __func__);
@@ -475,6 +581,15 @@ CSC_ERRORCODE csc_deinit(
         case CSC_HW_TYPE_GSCALER:
             exynos_gsc_destroy(csc_handle->csc_hw_handle);
             break;
+#endif
+#ifdef ENABLE_G2D
+        case CSC_HW_TYPE_G2D:
+        {
+            g2d_data *g2d = (g2d_data *)csc_handle->csc_hw_handle;
+            close(g2d->fd);
+            free(g2d);
+            break;
+        }
 #endif
         default:
             ALOGE("%s:: unsupported csc_hw_type", __func__);
