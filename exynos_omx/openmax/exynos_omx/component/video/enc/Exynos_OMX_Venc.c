@@ -222,7 +222,7 @@ OMX_BOOL Exynos_CSC_InputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA 
 
             Exynos_OSAL_LockANBHandle((OMX_U32)ppBuf[0], nFrameWidth, nFrameHeight, OMX_COLOR_FormatAndroidOpaque, planes);
 
-#ifdef USE_CSC_GSCALER
+#if defined(USE_CSC_GSCALER) || defined(USE_CSC_G2D)
             csc_method = CSC_METHOD_HW;
 #endif
             pSrcBuf[0] = planes[0].addr;
@@ -1150,9 +1150,13 @@ OMX_ERRORTYPE Exynos_OMX_VideoEncodeComponentInit(OMX_IN OMX_HANDLETYPE hCompone
         goto EXIT;
     }
     pVideoEnc->csc_set_format = OMX_FALSE;
-#if defined(USE_CSC_GSCALER)
+#if defined(USE_CSC_GSCALER) && defined(USE_CSC_G2D)
+#error USE_CSC_GSCALER and USE_CSC_G2D are mutually exclusive
+#elif defined(USE_CSC_GSCALER)
     csc_set_hw_property(pVideoEnc->csc_handle, CSC_HW_PROPERTY_FIXED_NODE, CSC_GSCALER_IDX);
     csc_set_hw_property(pVideoEnc->csc_handle, CSC_HW_PROPERTY_HW_TYPE, CSC_HW_TYPE_GSCALER);
+#elif defined(USE_CSC_G2D)
+    csc_set_hw_property(pVideoEnc->csc_handle, CSC_HW_PROPERTY_HW_TYPE, CSC_HW_TYPE_G2D);
 #endif
 
     pExynosComponent->bMultiThreadProcess = OMX_TRUE;
