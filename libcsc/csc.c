@@ -64,11 +64,6 @@ typedef enum _CSC_PLANE {
     CSC_V_PLANE = 2
 } CSC_PLANE;
 
-typedef enum _CSC_HW_TYPE {
-    CSC_HW_TYPE_FIMC = 0,
-    CSC_HW_TYPE_GSCALER
-} CSC_HW_TYPE;
-
 typedef struct _CSC_FORMAT {
     unsigned int width;
     unsigned int height;
@@ -331,12 +326,6 @@ static CSC_ERRORCODE csc_init_hw(
 
     csc_handle = (CSC_HANDLE *)handle;
     if (csc_handle->csc_method == CSC_METHOD_HW) {
-#ifdef ENABLE_FIMC
-        csc_handle->csc_hw_type = CSC_HW_TYPE_FIMC;
-#endif
-#ifdef ENABLE_GSCALER
-        csc_handle->csc_hw_type = CSC_HW_TYPE_GSCALER;
-#endif
         switch (csc_handle->csc_hw_type) {
 #ifdef ENABLE_FIMC
         case CSC_HW_TYPE_FIMC:
@@ -545,12 +534,21 @@ CSC_ERRORCODE csc_set_hw_property(
         return CSC_ErrorNotInit;
 
     csc_handle = (CSC_HANDLE *)handle;
+
+    if (csc_handle->csc_hw_handle) {
+        ALOGE("%s:: cannot set hw property after hw is already initialized", __func__);
+        return CSC_ErrorUnsupportFormat;
+    }
+
     switch (property) {
     case CSC_HW_PROPERTY_FIXED_NODE:
         csc_handle->hw_property.fixed_node = value;
         break;
     case CSC_HW_PROPERTY_MODE_DRM:
         csc_handle->hw_property.mode_drm = value;
+        break;
+    case CSC_HW_PROPERTY_HW_TYPE:
+        csc_handle->csc_hw_type = value;
         break;
     default:
         ALOGE("%s:: not supported hw property", __func__);

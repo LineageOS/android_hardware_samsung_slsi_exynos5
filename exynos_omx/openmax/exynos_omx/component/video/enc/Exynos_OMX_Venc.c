@@ -1152,6 +1152,7 @@ OMX_ERRORTYPE Exynos_OMX_VideoEncodeComponentInit(OMX_IN OMX_HANDLETYPE hCompone
     pVideoEnc->csc_set_format = OMX_FALSE;
 #if defined(USE_CSC_GSCALER)
     csc_set_hw_property(pVideoEnc->csc_handle, CSC_HW_PROPERTY_FIXED_NODE, CSC_GSCALER_IDX);
+    csc_set_hw_property(pVideoEnc->csc_handle, CSC_HW_PROPERTY_HW_TYPE, CSC_HW_TYPE_GSCALER);
 #endif
 
     pExynosComponent->bMultiThreadProcess = OMX_TRUE;

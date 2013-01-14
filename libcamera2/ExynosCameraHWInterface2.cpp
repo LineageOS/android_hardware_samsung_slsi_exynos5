@@ -1026,11 +1026,13 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
         if (m_exynosPictureCSC == NULL)
             ALOGE("ERR(%s): csc_init() fail", __FUNCTION__);
         csc_set_hw_property(m_exynosPictureCSC, CSC_HW_PROPERTY_FIXED_NODE, PICTURE_GSC_NODE_NUM);
+        csc_set_hw_property(m_exynosPictureCSC, CSC_HW_PROPERTY_HW_TYPE, CSC_HW_TYPE_GSCALER);
 
         m_exynosVideoCSC = csc_init(cscMethod);
         if (m_exynosVideoCSC == NULL)
             ALOGE("ERR(%s): csc_init() fail", __FUNCTION__);
         csc_set_hw_property(m_exynosVideoCSC, CSC_HW_PROPERTY_FIXED_NODE, VIDEO_GSC_NODE_NUM);
+        csc_set_hw_property(m_exynosVideoCSC, CSC_HW_PROPERTY_HW_TYPE, CSC_HW_TYPE_GSCALER);
 
         m_setExifFixedAttribute();
 
