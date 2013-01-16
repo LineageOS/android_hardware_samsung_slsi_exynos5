@@ -439,9 +439,9 @@ OMX_BOOL Exynos_Preprocessor_InputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
 
         if ((srcInputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS) {
             Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "bSaveFlagEOS : OMX_TRUE");
-            srcInputData->dataLen = 0;
-            srcInputData->remainDataLen = 0;
             pExynosComponent->bSaveFlagEOS = OMX_TRUE;
+            if (srcInputData->dataLen != 0)
+                pExynosComponent->bBehaviorEOS = OMX_TRUE;
         }
 
         if (pExynosComponent->checkTimeStamp.needSetStartTimeStamp == OMX_TRUE) {
@@ -1077,6 +1077,9 @@ OMX_ERRORTYPE Exynos_OMX_BufferProcess_Terminate(OMX_HANDLETYPE hComponent)
     Exynos_OSAL_ThreadTerminate(pVideoEnc->hDstOutputThread);
     pVideoEnc->hDstOutputThread = NULL;
 
+    pExynosComponent->checkTimeStamp.needSetStartTimeStamp = OMX_FALSE;
+    pExynosComponent->checkTimeStamp.needCheckStartTimeStamp = OMX_FALSE;
+
 EXIT:
     FunctionOut();
 
@@ -1133,6 +1136,7 @@ OMX_ERRORTYPE Exynos_OMX_VideoEncodeComponentInit(OMX_IN OMX_HANDLETYPE hCompone
     pExynosComponent->hComponentHandle = (OMX_HANDLETYPE)pVideoEnc;
 
     pExynosComponent->bSaveFlagEOS = OMX_FALSE;
+    pExynosComponent->bBehaviorEOS = OMX_FALSE;
 
     pVideoEnc->bFirstInput  = OMX_FALSE;
     pVideoEnc->bFirstOutput = OMX_FALSE;

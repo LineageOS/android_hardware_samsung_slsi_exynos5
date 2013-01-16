@@ -1541,6 +1541,7 @@ OMX_ERRORTYPE Exynos_H264Enc_Init(OMX_COMPONENTTYPE *pOMXComponent)
     pH264Enc->hMFCH264Handle.bConfiguredMFCDst = OMX_FALSE;
     pExynosComponent->bUseFlagEOF = OMX_TRUE;
     pExynosComponent->bSaveFlagEOS = OMX_FALSE;
+    pExynosComponent->bBehaviorEOS = OMX_FALSE;
 
     eColorFormat = pExynosInputPort->portDefinition.format.video.eColorFormat;
     if (pExynosInputPort->bStoreMetaData == OMX_TRUE) {
@@ -1994,10 +1995,14 @@ OMX_ERRORTYPE Exynos_H264Enc_DstOut(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX
     }
 
     if ((displayStatus == VIDEO_FRAME_STATUS_CHANGE_RESOL) ||
-        ((pDstOutputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS)) {
+        (((pDstOutputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS) &&
+         (pExynosComponent->bBehaviorEOS == OMX_FALSE))) {
         Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%x displayStatus:%d, nFlags0x%x", pExynosComponent, displayStatus, pDstOutputData->nFlags);
         pDstOutputData->remainDataLen = 0;
     }
+    if (((pDstOutputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS) &&
+        (pExynosComponent->bBehaviorEOS == OMX_TRUE))
+        pExynosComponent->bBehaviorEOS = OMX_FALSE;
 
     ret = OMX_ErrorNone;
 

@@ -40,6 +40,7 @@
 
 #include "ExynosVideoApi.h"
 #include "ExynosVideoDec.h"
+#include "OMX_Core.h"
 
 /* #define LOG_NDEBUG 0 */
 #define LOG_TAG "ExynosVideoDecoder"
@@ -1439,6 +1440,12 @@ static ExynosVideoErrorType MFC_Decoder_Enqueue_Inbuf(
         buf.memory = V4L2_MEMORY_MMAP;
         for (i = 0; i < nPlanes; i++)
             buf.m.planes[i].bytesused = dataSize[i];
+    }
+
+    if ((((OMX_BUFFERHEADERTYPE *)pPrivate)->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS) {
+        buf.flags |= V4L2_BUF_FLAG_LAST_FRAME;
+        ALOGD("%s: OMX_BUFFERFLAG_EOS => LAST_FRAME: 0x%x", __func__,
+              !!(buf.flags & V4L2_BUF_FLAG_LAST_FRAME));
     }
 
     if (exynos_v4l2_qbuf(pCtx->hDec, &buf) != 0) {

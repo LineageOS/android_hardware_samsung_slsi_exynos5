@@ -95,7 +95,8 @@ typedef struct _EXYNOS_OMX_BASECOMPONENT
     OMX_BOOL                    reInputData;
 
     OMX_BOOL bUseFlagEOF;
-    OMX_BOOL bSaveFlagEOS;
+    OMX_BOOL bSaveFlagEOS;    //bSaveFlagEOS is OMX_TRUE, if EOS flag is incoming.
+    OMX_BOOL bBehaviorEOS;    //bBehaviorEOS is OMX_TRUE, if EOS flag with Data are incoming.
 
     /* Check for Old & New OMX Process type switch */
     OMX_BOOL bMultiThreadProcess;
