@@ -48,6 +48,15 @@ enum {
     HAL_PIXEL_FORMAT_CUSTOM_MAX
 };
 
+// Colorspace Gamuts
+enum {
+    HAL_PIXEL_GAMUT_DEFAULT = 0,
+    // Values range 0-255
+    HAL_PIXEL_GAMUT_JFIF_8,
+    // Values range 16-235
+    HAL_PIXEL_GAMUT_BT601_8
+};
+
 struct ADDRS {
     unsigned int addr_y;
     unsigned int addr_cbcr;
