@@ -770,10 +770,10 @@ err:
 bool exynos5_is_offscreen(hwc_layer_1_t &layer,
         struct exynos5_hwc_composer_device_1_t *pdev)
 {
-    return layer.sourceCrop.left > pdev->xres ||
-            layer.sourceCrop.right < 0 ||
-            layer.sourceCrop.top > pdev->yres ||
-            layer.sourceCrop.bottom < 0;
+    return layer.displayFrame.left > pdev->xres ||
+            layer.displayFrame.right < 0 ||
+            layer.displayFrame.top > pdev->yres ||
+            layer.displayFrame.bottom < 0;
 }
 
 size_t exynos5_visible_width(hwc_layer_1_t &layer, int format,
