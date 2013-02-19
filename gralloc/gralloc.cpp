@@ -163,7 +163,7 @@ static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int usage,
     }
 
     if (format != HAL_PIXEL_FORMAT_BLOB) {
-        bpr = ALIGN(w*bpp, 16);
+        bpr = ALIGN(w*bpp, 64);
         vstride = ALIGN(h, 16);
         if (vstride < h + 2)
             size = bpr * (h + 2);
