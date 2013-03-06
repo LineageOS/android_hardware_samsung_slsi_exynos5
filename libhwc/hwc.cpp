@@ -1490,9 +1490,6 @@ static int exynos5_clear_fimd(exynos5_hwc_composer_device_1_t *pdev)
 static int exynos5_set_fimd(exynos5_hwc_composer_device_1_t *pdev,
         hwc_display_contents_1_t* contents)
 {
-    if (!contents->dpy || !contents->sur)
-        return 0;
-
     hwc_layer_1_t *fb_layer = NULL;
     int err = 0;
 
