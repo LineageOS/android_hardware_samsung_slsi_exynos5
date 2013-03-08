@@ -87,6 +87,7 @@ struct private_handle_t {
     int     stride;
     int     vstride;
     int     gamut;
+    int     chroma;
 
     // FIXME: the attributes below should be out-of-line
     void    *base;
@@ -98,7 +99,7 @@ struct private_handle_t {
 
 #ifdef __cplusplus
     static const int sNumFds = 3;
-    static const int sNumInts = 16;
+    static const int sNumInts = 17;
     static const int sMagic = 0x3141592;
 
 
@@ -106,7 +107,8 @@ struct private_handle_t {
 		     int h, int format, int stride, int vstride) :
         fd(fd), fd1(-1), fd2(-1), magic(sMagic), flags(flags), size(size),
         offset(0), format(format), width(w), height(h), stride(stride),
-        vstride(vstride), gamut(0), base(0), handle(0), handle1(0), handle2(0)
+        vstride(vstride), gamut(0), chroma(0), base(0), handle(0), handle1(0),
+        handle2(0)
     {
         version = sizeof(native_handle);
         numInts = sNumInts + 2;
@@ -117,8 +119,8 @@ struct private_handle_t {
 		     int h, int format, int stride, int vstride) :
         fd(fd), fd1(fd1), fd2(-1), magic(sMagic), flags(flags), size(size),
         offset(0), format(format), width(w), height(h), stride(stride),
-        vstride(vstride), gamut(0), base(0), base1(0), base2(0), handle(0),
-        handle1(0), handle2(0)
+        vstride(vstride), gamut(0), chroma(0), base(0), base1(0), base2(0),
+        handle(0), handle1(0), handle2(0)
     {
         version = sizeof(native_handle);
         numInts = sNumInts + 1;
@@ -129,8 +131,8 @@ struct private_handle_t {
 		     int h, int format, int stride, int vstride) :
         fd(fd), fd1(fd1), fd2(fd2), magic(sMagic), flags(flags), size(size),
         offset(0), format(format), width(w), height(h), stride(stride),
-        vstride(vstride), gamut(0), base(0), base1(0), base2(0), handle(0),
-        handle1(0), handle2(0)
+        vstride(vstride), gamut(0), chroma(0), base(0), base1(0), base2(0),
+        handle(0), handle1(0), handle2(0)
     {
         version = sizeof(native_handle);
         numInts = sNumInts;
