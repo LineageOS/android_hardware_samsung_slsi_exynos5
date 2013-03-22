@@ -46,6 +46,7 @@ OMX_COLOR_FORMATTYPE hal_2_omx_pixel_format(
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
         omx_format = OMX_SEC_COLOR_FormatNV12Tiled;
         break;
+    case HAL_PIXEL_FORMAT_BGRA_8888:
     case HAL_PIXEL_FORMAT_CUSTOM_ARGB_8888:
         omx_format = OMX_COLOR_Format32bitARGB8888;
         break;
@@ -125,7 +126,7 @@ unsigned int hal_2_g2d_pixel_order(unsigned int hal_format)
     switch (hal_format) {
     case HAL_PIXEL_FORMAT_BGRA_8888:
     case HAL_PIXEL_FORMAT_CUSTOM_ARGB_8888:
-        return AX_BGR;
+        return AX_RGB;
 
     case HAL_PIXEL_FORMAT_RGBA_8888:
     case HAL_PIXEL_FORMAT_RGBX_8888:
@@ -139,7 +140,7 @@ unsigned int hal_2_g2d_pixel_order(unsigned int hal_format)
         return P1_Y1CBY0CR;
 
     case HAL_PIXEL_FORMAT_YCbCr_420_SP:
-        return P2_CBCR;
+        return P2_CRCB;
 
     default:
         return ARGB_ORDER_END;
