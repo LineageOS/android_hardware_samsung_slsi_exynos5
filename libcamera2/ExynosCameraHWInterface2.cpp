@@ -6062,7 +6062,7 @@ int ExynosCameraHWInterface2::allocCameraMemory(ion_client ionClient, ExynosBuff
         else
             flag = 0;
         buf->fd.extFd[i] = ion_alloc(ionClient, \
-                                      buf->size.extS[i], 0, ION_HEAP_EXYNOS_MASK, flag);
+                                      buf->size.extS[i], 0, ION_HEAP_SYSTEM_MASK, flag);
         if ((buf->fd.extFd[i] == -1) ||(buf->fd.extFd[i] == 0)) {
             ALOGE("[%s]ion_alloc(%d) failed\n", __FUNCTION__, buf->size.extS[i]);
             buf->fd.extFd[i] = -1;
