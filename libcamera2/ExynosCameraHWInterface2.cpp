@@ -949,6 +949,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
             m_IsAfModeUpdateRequired(false),
             m_IsAfTriggerRequired(false),
             m_IsAfLockRequired(false),
+            m_serviceAfState(ANDROID_CONTROL_AF_STATE_INACTIVE),
             m_sccLocalBufferValid(false),
             m_wideAspect(false),
             m_scpOutputSignalCnt(0),
