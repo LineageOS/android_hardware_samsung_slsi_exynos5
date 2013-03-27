@@ -1277,10 +1277,19 @@ int ExynosCameraHWInterface2::InitializeISPChain()
     m_camera_info.sensor.memory = V4L2_MEMORY_DMABUF;
 
     for(i = 0; i < m_camera_info.sensor.buffers; i++){
+        int res;
         initCameraMemory(&m_camera_info.sensor.buffer[i], m_camera_info.sensor.planes);
         m_camera_info.sensor.buffer[i].size.extS[0] = m_camera_info.sensor.width*m_camera_info.sensor.height*2;
         m_camera_info.sensor.buffer[i].size.extS[1] = 8*1024; // HACK, driver use 8*1024, should be use predefined value
-        allocCameraMemory(m_ionCameraClient, &m_camera_info.sensor.buffer[i], m_camera_info.sensor.planes, 1<<1);
+        res = allocCameraMemory(m_ionCameraClient, &m_camera_info.sensor.buffer[i], m_camera_info.sensor.planes, 1<<1);
+        if (res) {
+            ALOGE("ERROR(%s): failed to allocateCameraMemory for sensor buffer %d", __FUNCTION__, i);
+            // Free allocated sensor buffers
+            for (int j = 0; j < i; j++) {
+                freeCameraMemory(&m_camera_info.sensor.buffer[j], m_camera_info.sensor.planes);
+            }
+            return false;
+        }
     }
 
     m_camera_info.isp.width = m_camera_info.sensor.width;
