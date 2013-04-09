@@ -315,6 +315,7 @@ private:
 
     MetadataConverter               *m_metadataConverter;
     SignalDrivenThread              *m_mainThread;
+    Mutex                           m_numOfEntriesLock;
     int                             m_numOfEntries;
     int                             m_entryInsertionIndex;
     int                             m_entryProcessingIndex;
