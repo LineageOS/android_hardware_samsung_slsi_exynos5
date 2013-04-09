@@ -309,6 +309,7 @@ RequestManager::~RequestManager()
 void RequestManager::ResetEntry()
 {
     Mutex::Autolock lock(m_requestMutex);
+    Mutex::Autolock lock2(m_numOfEntriesLock);
     for (int i=0 ; i<NUM_MAX_REQUEST_MGR_ENTRY; i++) {
         memset(&(entries[i]), 0x00, sizeof(request_manager_entry_t));
         entries[i].internal_shot.shot.ctl.request.frameCount = -1;
@@ -321,6 +322,7 @@ void RequestManager::ResetEntry()
 
 int RequestManager::GetNumEntries()
 {
+    Mutex::Autolock lock(m_numOfEntriesLock);
     return m_numOfEntries;
 }
 
@@ -332,6 +334,7 @@ void RequestManager::SetDefaultParameters(int cropX)
 bool RequestManager::IsRequestQueueFull()
 {
     Mutex::Autolock lock(m_requestMutex);
+    Mutex::Autolock lock2(m_numOfEntriesLock);
     if (m_numOfEntries>=NUM_MAX_REQUEST_MGR_ENTRY)
         return true;
     else
@@ -343,6 +346,7 @@ void RequestManager::RegisterRequest(camera_metadata_t * new_request, int * afMo
     ALOGV("DEBUG(%s):", __FUNCTION__);
 
     Mutex::Autolock lock(m_requestMutex);
+    Mutex::Autolock lock2(m_numOfEntriesLock);
 
     request_manager_entry * newEntry = NULL;
     int newInsertionIndex = GetNextIndex(m_entryInsertionIndex);
@@ -386,6 +390,7 @@ void RequestManager::DeregisterRequest(camera_metadata_t ** deregistered_request
     request_manager_entry * currentEntry;
 
     Mutex::Autolock lock(m_requestMutex);
+    Mutex::Autolock lock2(m_numOfEntriesLock);
 
     frame_index = GetCompletedIndex();
     currentEntry =  &(entries[frame_index]);
@@ -454,6 +459,7 @@ int RequestManager::MarkProcessingRequest(ExynosBuffer* buf)
     static int count = 0;
 
     Mutex::Autolock lock(m_requestMutex);
+    Mutex::Autolock lock2(m_numOfEntriesLock);
     if (m_numOfEntries == 0)  {
         CAM_LOGD("DEBUG(%s): Request Manager Empty ", __FUNCTION__);
         return -1;
@@ -899,6 +905,7 @@ void RequestManager::Dump(void)
 {
     int i = 0;
     request_manager_entry * currentEntry;
+    Mutex::Autolock lock(m_numOfEntriesLock);
     ALOGD("## Dump  totalentry(%d), insert(%d), processing(%d), frame(%d)",
     m_numOfEntries,m_entryInsertionIndex,m_entryProcessingIndex, m_entryFrameOutputIndex);
 
@@ -1623,10 +1630,17 @@ int ExynosCameraHWInterface2::setFrameQueueDstOps(const camera2_frame_queue_dst_
 
 int ExynosCameraHWInterface2::getInProgressCount()
 {
-    int inProgressCount = m_requestManager->GetNumEntries();
+    int inProgressJpeg;
+    int inProgressCount;
+
+    {
+        Mutex::Autolock lock(m_jpegEncoderLock);
+        inProgressJpeg = m_jpegEncodingCount;
+        inProgressCount = m_requestManager->GetNumEntries();
+    }
     ALOGV("DEBUG(%s): # of dequeued req (%d) jpeg(%d) = (%d)", __FUNCTION__,
-        inProgressCount, m_jpegEncodingCount, (inProgressCount + m_jpegEncodingCount));
-    return (inProgressCount + m_jpegEncodingCount);
+        inProgressCount, inProgressJpeg, (inProgressCount + inProgressJpeg));
+    return (inProgressCount + inProgressJpeg);
 }
 
 int ExynosCameraHWInterface2::flushCapturesInProgress()
@@ -4129,7 +4143,6 @@ void ExynosCameraHWInterface2::m_streamThreadFunc(SignalDrivenThread * self)
 }
 int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuffer *srcImageBuf, nsecs_t frameTimeStamp)
 {
-    Mutex::Autolock lock(m_jpegEncoderLock);
     stream_parameters_t     *selfStreamParms = &(selfThread->m_parameters);
     substream_parameters_t  *subParms        = &m_subStreams[STREAM_ID_JPEG];
     status_t    res;
@@ -4161,7 +4174,10 @@ int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuff
         return 1;
     }
 
-    m_jpegEncodingCount++;
+    {
+        Mutex::Autolock lock(m_jpegEncoderLock);
+        m_jpegEncodingCount++;
+    }
 
     m_getRatioSize(selfStreamParms->width, selfStreamParms->height,
                     m_streamThreads[0]->m_parameters.width, m_streamThreads[0]->m_parameters.height,
@@ -4325,7 +4341,10 @@ int ExynosCameraHWInterface2::m_jpegCreator(StreamThread *selfThread, ExynosBuff
                 subParms->svcBufIndex,  subParms->svcBufStatus[subParms->svcBufIndex]);
         }
     }
-    m_jpegEncodingCount--;
+    {
+        Mutex::Autolock lock(m_jpegEncoderLock);
+        m_jpegEncodingCount--;
+    }
     return 0;
 }
 
