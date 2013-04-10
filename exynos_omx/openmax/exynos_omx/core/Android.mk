@@ -15,7 +15,7 @@ LOCAL_CFLAGS :=
 LOCAL_ARM_MODE := arm
 
 LOCAL_STATIC_LIBRARIES := libExynosOMX_OSAL libExynosOMX_Basecomponent
-LOCAL_SHARED_LIBRARIES := libc libdl libcutils libutils \
+LOCAL_SHARED_LIBRARIES := libc libdl libcutils libutils liblog \
 	libExynosOMX_Resourcemanager
 
 LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
@@ -24,4 +24,3 @@ LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
 	$(EXYNOS_OMX_TOP)/component/common
 
 include $(BUILD_SHARED_LIBRARY)
-
