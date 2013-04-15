@@ -1726,6 +1726,8 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
 
             *format_actual                      = HAL_PIXEL_FORMAT_EXYNOS_YV12;
             *usage                              = GRALLOC_USAGE_SW_WRITE_OFTEN;
+            if (m_wideAspect)
+                *usage                         |= GRALLOC_USAGE_PRIVATE_CHROMA;
             *max_buffers                        = 6;
 
             newParameters.width                 = width;
@@ -1771,6 +1773,8 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
 
             *format_actual = HAL_PIXEL_FORMAT_YCbCr_420_SP; // NV12M
             *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
+            if (m_wideAspect)
+                *usage |= GRALLOC_USAGE_PRIVATE_CHROMA;
             *max_buffers = 6;
 
             subParameters->type         = SUBSTREAM_TYPE_RECORD;
@@ -1819,6 +1823,8 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
 
             *format_actual = HAL_PIXEL_FORMAT_YCbCr_422_I; // YUYV
             *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
+            if (m_wideAspect)
+                *usage |= GRALLOC_USAGE_PRIVATE_CHROMA;
             *max_buffers = 6;
 
             newParameters.width                 = width;
@@ -1872,6 +1878,8 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
 
             *format_actual = HAL_PIXEL_FORMAT_YCbCr_422_I; // YUYV
             *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
+            if (m_wideAspect)
+                *usage |= GRALLOC_USAGE_PRIVATE_CHROMA;
             *max_buffers = 6;
 
             newParameters.width                 = width;
@@ -1924,6 +1932,8 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
 
         *format_actual = HAL_PIXEL_FORMAT_BLOB;
         *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
+        if (m_wideAspect)
+            *usage |= GRALLOC_USAGE_PRIVATE_CHROMA;
         *max_buffers = 4;
 
         subParameters->type          = SUBSTREAM_TYPE_JPEG;
@@ -1960,6 +1970,8 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
 
         *format_actual = format;
         *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
+        if (m_wideAspect)
+            *usage |= GRALLOC_USAGE_PRIVATE_CHROMA;
         *max_buffers = 6;
 
         subParameters->type         = SUBSTREAM_TYPE_PRVCB;
