@@ -65,6 +65,9 @@ struct private_handle_t {
     struct native_handle nativeHandle;
 #endif
 
+// set if using video encoding colorspace
+#define GRALLOC_USAGE_PRIVATE_CHROMA (GRALLOC_USAGE_PRIVATE_0)
+
     enum {
         PRIV_FLAGS_FRAMEBUFFER = 0x00000001,
         PRIV_FLAGS_USES_UMP    = 0x00000002,

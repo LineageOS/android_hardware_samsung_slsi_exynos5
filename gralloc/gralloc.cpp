@@ -300,6 +300,16 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format,
                                         *stride, luma_vstride);
         }
     }
+    // Set chroma & gamut fields
+    if (!err && *hnd) {
+        if (usage & GRALLOC_USAGE_PRIVATE_CHROMA) {
+            (*hnd)->chroma = HAL_PIXEL_CHROMA_BT601_8;
+            (*hnd)->gamut = HAL_PIXEL_GAMUT_NARROW_8;
+        } else {
+            (*hnd)->chroma = HAL_PIXEL_CHROMA_BT709_8;
+            (*hnd)->gamut = HAL_PIXEL_GAMUT_WIDE_8;
+        }
+    }
     return err;
 
 err2:
