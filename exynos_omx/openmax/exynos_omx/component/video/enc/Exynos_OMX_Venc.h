@@ -99,6 +99,7 @@ typedef struct _EXYNOS_OMX_VIDEOENC_COMPONENT
     OMX_BOOL IntraRefreshVOP;
     OMX_VIDEO_CONTROLRATETYPE eControlRate[ALL_PORT_NUM];
     OMX_VIDEO_PARAM_QUANTIZATIONTYPE quantization;
+    OMX_VIDEO_PARAM_INTRAREFRESHTYPE intraRefresh;
 
     OMX_BOOL bFirstInput;
     OMX_BOOL bFirstOutput;

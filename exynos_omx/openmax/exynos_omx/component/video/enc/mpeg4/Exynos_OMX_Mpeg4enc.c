@@ -232,7 +232,6 @@ static void Set_Mpeg4Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
     pCommonParam->SourceHeight = pExynosOutputPort->portDefinition.format.video.nFrameHeight;
     pCommonParam->IDRPeriod    = pMpeg4Enc->mpeg4Component[OUTPUT_PORT_INDEX].nPFrames + 1;
     pCommonParam->SliceMode    = 0;
-    pCommonParam->RandomIntraMBRefresh = 0;
     pCommonParam->Bitrate      = pExynosOutputPort->portDefinition.format.video.nBitrate;
     pCommonParam->FrameQp      = pVideoEnc->quantization.nQpI;
     pCommonParam->FrameQp_P    = pVideoEnc->quantization.nQpP;
@@ -242,6 +241,14 @@ static void Set_Mpeg4Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
     pCommonParam->LumaPadVal   = 0;
     pCommonParam->CbPadVal     = 0;
     pCommonParam->CrPadVal     = 0;
+
+    if (pVideoEnc->intraRefresh.eRefreshMode == OMX_VIDEO_IntraRefreshCyclic) {
+        /* Cyclic Mode */
+        pCommonParam->RandomIntraMBRefresh = pVideoEnc->intraRefresh.nCirMBs;
+    } else {
+        /* Don't support "Adaptive" and "Cyclic + Adaptive" */
+        pCommonParam->RandomIntraMBRefresh = 0;
+    }
 
     if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
         if (pVideoEnc->ANBColorFormat == OMX_SEC_COLOR_FormatNV21Linear)
@@ -333,7 +340,6 @@ static void Set_H263Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
     pCommonParam->SourceHeight = pExynosOutputPort->portDefinition.format.video.nFrameHeight;
     pCommonParam->IDRPeriod    = pMpeg4Enc->h263Component[OUTPUT_PORT_INDEX].nPFrames + 1;
     pCommonParam->SliceMode    = 0;
-    pCommonParam->RandomIntraMBRefresh = 0;
     pCommonParam->Bitrate      = pExynosOutputPort->portDefinition.format.video.nBitrate;
     pCommonParam->FrameQp      = pVideoEnc->quantization.nQpI;
     pCommonParam->FrameQp_P    = pVideoEnc->quantization.nQpP;
@@ -343,6 +349,14 @@ static void Set_H263Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
     pCommonParam->LumaPadVal   = 0;
     pCommonParam->CbPadVal     = 0;
     pCommonParam->CrPadVal     = 0;
+
+    if (pVideoEnc->intraRefresh.eRefreshMode == OMX_VIDEO_IntraRefreshCyclic) {
+        /* Cyclic Mode */
+        pCommonParam->RandomIntraMBRefresh = pVideoEnc->intraRefresh.nCirMBs;
+    } else {
+        /* Don't support "Adaptive" and "Cyclic + Adaptive" */
+        pCommonParam->RandomIntraMBRefresh = 0;
+    }
 
     if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
         if (pVideoEnc->ANBColorFormat == OMX_SEC_COLOR_FormatNV21Linear)
@@ -437,7 +451,7 @@ static void Change_Mpeg4Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
         setParam = pExynosOutputPort->portDefinition.format.video.nBitrate;
         pEncOps->Set_BitRate(pMpeg4Enc->hMFCMpeg4Handle.hMFCHandle, setParam);
     }
-    if (pMpeg4Param->TimeIncreamentRes != (int)((pExynosOutputPort->portDefinition.format.video.xFramerate) >> 16)) {
+    if (pMpeg4Param->TimeIncreamentRes != (int)((pExynosInputPort->portDefinition.format.video.xFramerate) >> 16)) {
         setParam = (pExynosInputPort->portDefinition.format.video.xFramerate) >> 16;
         pEncOps->Set_FrameRate(pMpeg4Enc->hMFCMpeg4Handle.hMFCHandle, setParam);
     }
@@ -484,7 +498,7 @@ static void Change_H263Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
         setParam = pExynosOutputPort->portDefinition.format.video.nBitrate;
         pEncOps->Set_BitRate(pMpeg4Enc->hMFCMpeg4Handle.hMFCHandle, setParam);
     }
-    if (pH263Param->FrameRate != (int)((pExynosOutputPort->portDefinition.format.video.xFramerate) >> 16)) {
+    if (pH263Param->FrameRate != (int)((pExynosInputPort->portDefinition.format.video.xFramerate) >> 16)) {
         setParam = (pExynosInputPort->portDefinition.format.video.xFramerate) >> 16;
         pEncOps->Set_FrameRate(pMpeg4Enc->hMFCMpeg4Handle.hMFCHandle, setParam);
     }
@@ -1955,6 +1969,13 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_SrcIn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX
         ret = Mpeg4CodecDstSetup(pOMXComponent);
     }
 
+    if (pVideoEnc->configChange == OMX_TRUE) {
+        if (pMpeg4Enc->hMFCMpeg4Handle.codecType == CODEC_TYPE_MPEG4)
+            Change_Mpeg4Enc_Param(pExynosComponent);
+        else
+            Change_H263Enc_Param(pExynosComponent);
+        pVideoEnc->configChange = OMX_FALSE;
+    }
     if ((pSrcInputData->dataLen >= 0) ||
         ((pSrcInputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS)) {
         OMX_U32 nAllocLen[MFC_INPUT_BUFFER_PLANE] = {0, 0};

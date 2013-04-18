@@ -241,7 +241,6 @@ static void Set_H264Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
     pCommonParam->SourceHeight = pExynosOutputPort->portDefinition.format.video.nFrameHeight;
     pCommonParam->IDRPeriod    = pH264Enc->AVCComponent[OUTPUT_PORT_INDEX].nPFrames + 1;
     pCommonParam->SliceMode    = 0;
-    pCommonParam->RandomIntraMBRefresh = 0;
     pCommonParam->Bitrate      = pExynosOutputPort->portDefinition.format.video.nBitrate;
     pCommonParam->FrameQp      = pVideoEnc->quantization.nQpI;
     pCommonParam->FrameQp_P    = pVideoEnc->quantization.nQpP;
@@ -251,6 +250,15 @@ static void Set_H264Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
     pCommonParam->LumaPadVal   = 0;
     pCommonParam->CbPadVal     = 0;
     pCommonParam->CrPadVal     = 0;
+
+    if (pVideoEnc->intraRefresh.eRefreshMode == OMX_VIDEO_IntraRefreshCyclic) {
+        /* Cyclic Mode */
+        pCommonParam->RandomIntraMBRefresh = pVideoEnc->intraRefresh.nCirMBs;
+        Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "RandomIntraMBRefresh: %d", pCommonParam->RandomIntraMBRefresh);
+    } else {
+        /* Don't support "Adaptive" and "Cyclic + Adaptive" */
+        pCommonParam->RandomIntraMBRefresh = 0;
+    }
 
     if (pExynosInputPort->bufferProcessType == BUFFER_SHARE) {
         if (pVideoEnc->ANBColorFormat == OMX_COLOR_FormatYUV420SemiPlanar)
@@ -362,7 +370,7 @@ static void Change_H264Enc_Param(EXYNOS_OMX_BASECOMPONENT *pExynosComponent)
         setParam = pExynosOutputPort->portDefinition.format.video.nBitrate;
         pEncOps->Set_BitRate(pH264Enc->hMFCH264Handle.hMFCHandle, setParam);
     }
-    if (pH264Param->FrameRate != (int)((pExynosOutputPort->portDefinition.format.video.xFramerate) >> 16)) {
+    if (pH264Param->FrameRate != (int)((pExynosInputPort->portDefinition.format.video.xFramerate) >> 16)) {
         setParam = (pExynosInputPort->portDefinition.format.video.xFramerate) >> 16;
         pEncOps->Set_FrameRate(pH264Enc->hMFCH264Handle.hMFCHandle, setParam);
     }
@@ -1745,6 +1753,10 @@ OMX_ERRORTYPE Exynos_H264Enc_SrcIn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_
         ret = H264CodecDstSetup(pOMXComponent);
     }
 
+    if (pVideoEnc->configChange == OMX_TRUE) {
+        Change_H264Enc_Param(pExynosComponent);
+        pVideoEnc->configChange = OMX_FALSE;
+    }
     if ((pSrcInputData->dataLen >= 0) ||
         ((pSrcInputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS)) {
         OMX_U32 nAllocLen[MFC_INPUT_BUFFER_PLANE] = {0, 0};

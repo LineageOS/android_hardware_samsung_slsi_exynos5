@@ -128,6 +128,7 @@ struct exynos5_hwc_composer_device_1_t {
     bool hdmi_hpd;
     bool hdmi_enabled;
     bool hdmi_blanked;
+    bool hdmi_fb_needed;
     int  hdmi_w;
     int  hdmi_h;
 
@@ -526,6 +527,24 @@ static void hdmi_disable_layer(struct exynos5_hwc_composer_device_1_t *dev,
     hl.enabled = false;
 
     ALOGV("%s: layer%d disabled", __func__, hl.id);
+}
+
+static void hdmi_hide_layer(struct exynos5_hwc_composer_device_1_t *dev,
+                            hdmi_layer_t &hl)
+{
+    if (exynos_v4l2_s_ctrl(hl.fd, V4L2_CID_TV_LAYER_PRIO, 0) < 0)
+        ALOGE("%s: layer%d: LAYER_PRIO failed %d", __func__,
+                                                   hl.id, errno);
+}
+
+static void hdmi_show_layer(struct exynos5_hwc_composer_device_1_t *dev,
+                            hdmi_layer_t &hl)
+{
+    int prio = hl.id ? 3 : 2;
+
+    if (exynos_v4l2_s_ctrl(hl.fd, V4L2_CID_TV_LAYER_PRIO, prio) < 0)
+        ALOGE("%s: layer%d: LAYER_PRIO failed %d", __func__,
+                                                   hl.id, errno);
 }
 
 static int hdmi_enable(struct exynos5_hwc_composer_device_1_t *dev)
@@ -1009,6 +1028,8 @@ static int exynos5_prepare_hdmi(exynos5_hwc_composer_device_1_t *pdev,
     ALOGV("preparing %u layers for HDMI", contents->numHwLayers);
     hwc_layer_1_t *video_layer = NULL;
 
+    pdev->hdmi_fb_needed = false;
+
     for (size_t i = 0; i < contents->numHwLayers; i++) {
         hwc_layer_1_t &layer = contents->hwLayers[i];
 
@@ -1036,6 +1057,7 @@ static int exynos5_prepare_hdmi(exynos5_hwc_composer_device_1_t *pdev,
             }
         }
 
+        pdev->hdmi_fb_needed = true;
         layer.compositionType = HWC_FRAMEBUFFER;
         dump_layer(&layer);
     }
@@ -1508,7 +1530,6 @@ static int exynos5_set_fimd(exynos5_hwc_composer_device_1_t *pdev,
 static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
         hwc_display_contents_1_t* contents)
 {
-    hwc_layer_1_t *fb_layer = NULL;
     hwc_layer_1_t *video_layer = NULL;
 
     if (!pdev->hdmi_enabled) {
@@ -1560,16 +1581,17 @@ static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
         }
 
         if (layer.compositionType == HWC_FRAMEBUFFER_TARGET) {
-            if (!layer.handle)
-                continue;
+            if (pdev->hdmi_fb_needed && layer.handle) {
+                ALOGV("HDMI FB layer:");
+                dump_layer(&layer);
 
-            ALOGV("HDMI FB layer:");
-            dump_layer(&layer);
-
-            private_handle_t *h = private_handle_t::dynamicCast(layer.handle);
-            hdmi_output(pdev, pdev->hdmi_layers[1], layer, h, layer.acquireFenceFd,
-                                                             &layer.releaseFenceFd);
-            fb_layer = &layer;
+                private_handle_t *h = private_handle_t::dynamicCast(layer.handle);
+                hdmi_show_layer(pdev, pdev->hdmi_layers[1]);
+                hdmi_output(pdev, pdev->hdmi_layers[1], layer, h, layer.acquireFenceFd,
+                                                                 &layer.releaseFenceFd);
+            } else {
+                hdmi_hide_layer(pdev, pdev->hdmi_layers[1]);
+            }
         }
     }
 
@@ -1577,8 +1599,6 @@ static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
         hdmi_disable_layer(pdev, pdev->hdmi_layers[0]);
         exynos5_cleanup_gsc_m2m(pdev, HDMI_GSC_IDX);
     }
-    if (!fb_layer)
-        hdmi_disable_layer(pdev, pdev->hdmi_layers[1]);
 
     if (exynos_v4l2_s_ctrl(pdev->hdmi_layers[1].fd, V4L2_CID_TV_UPDATE, 1) < 0) {
         ALOGE("%s: s_ctrl(CID_TV_UPDATE) failed %d", __func__, errno);
