@@ -360,8 +360,12 @@ static int exynos_km_sign_data(const keymaster_device_t* dev,
 
     *signedDataLength = RSA_KEY_MAX_SIZE;
 
-    ret = TEE_RSASign(keyBlob, keyBlobLength, data, dataLength, signedDataPtr.get(),
+    /* binder gives us read-only mappings we can't use with mobicore */
+    void *tmpData = malloc(dataLength);
+    memcpy(tmpData, data, dataLength);
+    ret = TEE_RSASign(keyBlob, keyBlobLength, (const uint8_t *)tmpData, dataLength, signedDataPtr.get(),
 			signedDataLength, TEE_RSA_NODIGEST_NOPADDING);
+    free(tmpData);
     if (ret != TEE_ERR_NONE) {
         ALOGE("TEE_RSASign() is failed: %d", ret);
         return -1;
@@ -397,8 +401,14 @@ static int exynos_km_verify_data(const keymaster_device_t* dev,
         return -1;
     }
 
-    ret = TEE_RSAVerify(keyBlob, keyBlobLength, signedData, signedDataLength, signature,
+    void *tmpSignedData = malloc(signedDataLength);
+    memcpy(tmpSignedData, signedData, signedDataLength);
+    void *tmpSig = malloc(signatureLength);
+    memcpy(tmpSig, signature, signatureLength);
+    ret = TEE_RSAVerify(keyBlob, keyBlobLength, (const uint8_t*)tmpSignedData, signedDataLength, (const uint8_t *)tmpSig,
 			signatureLength, TEE_RSA_NODIGEST_NOPADDING, &result);
+    free(tmpSignedData);
+    free(tmpSig);
     if (ret != TEE_ERR_NONE) {
         ALOGE("TEE_RSAVerify() is failed: %d", ret);
         return -1;
