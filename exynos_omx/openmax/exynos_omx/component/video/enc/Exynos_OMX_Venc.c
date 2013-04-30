@@ -680,6 +680,10 @@ OMX_ERRORTYPE Exynos_OMX_SrcInputBufferProcess(OMX_HANDLETYPE hComponent)
             if ((bCheckInputData == OMX_FALSE) &&
                 (!CHECK_PORT_BEING_FLUSHED(exynosInputPort))) {
                 ret = Exynos_InputBufferGetQueue(pExynosComponent);
+                if (ret != OMX_ErrorNone) {
+                    Exynos_OSAL_MutexUnlock(srcInputUseBuffer->bufferMutex);
+                    break;
+                }
 #ifdef USE_METADATABUFFERTYPE
                 if ((pVideoEnc->bFirstInput == OMX_TRUE) &&
                     (!CHECK_PORT_BEING_FLUSHED(exynosInputPort))) {
