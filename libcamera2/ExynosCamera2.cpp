@@ -440,7 +440,8 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
     ADD_OR_SIZE(ANDROID_SENSOR_INFO_COLOR_FILTER_ARRANGEMENT,
             &Sensor::kColorFilterArrangement, 1);
 
-    static const float sensorPhysicalSize[2] = {3.20f, 2.40f}; // mm
+    // Empirically derived to get correct FOV measurements
+    static const float sensorPhysicalSize[2] = {3.50f, 2.625f}; // mm
     ADD_OR_SIZE(ANDROID_SENSOR_INFO_PHYSICAL_SIZE,
             sensorPhysicalSize, 2);
 
