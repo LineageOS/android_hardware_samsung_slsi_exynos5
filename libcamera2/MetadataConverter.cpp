@@ -172,9 +172,9 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
 
 
             case ANDROID_SCALER_CROP_REGION:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 3))
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 4))
                     break;
-                for (i=0 ; i<curr_entry.count ; i++)
+                for (i=0 ; i<3; i++)
                     dst->ctl.scaler.cropRegion[i] = ALIGN(curr_entry.data.i32[i], 2);
                 break;
 
