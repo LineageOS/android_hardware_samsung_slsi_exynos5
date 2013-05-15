@@ -512,6 +512,12 @@ OMX_ERRORTYPE Exynos_OSAL_SetANBParameter(
             goto EXIT;
         }
 
+        if (portIndex == OUTPUT_PORT_INDEX) {
+            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "%s: metadata is not supported on output port", __func__);
+            ret = OMX_ErrorBadPortIndex;
+            goto EXIT;
+        }
+
         pExynosPort = &pExynosComponent->pExynosPort[portIndex];
         if (CHECK_PORT_TUNNELED(pExynosPort) && CHECK_PORT_BUFFER_SUPPLIER(pExynosPort)) {
             ret = OMX_ErrorBadPortIndex;
