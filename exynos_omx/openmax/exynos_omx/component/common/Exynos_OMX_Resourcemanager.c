@@ -40,7 +40,7 @@
 
 
 #define MAX_RESOURCE_VIDEO_DEC 3 /* for Android */
-#define MAX_RESOURCE_VIDEO_ENC 1 /* for Android */
+#define MAX_RESOURCE_VIDEO_ENC 2 /* for Android */
 
 /* Max allowable video scheduler component instance */
 static EXYNOS_OMX_RM_COMPONENT_LIST *gpVideoDecRMComponentList = NULL;
