@@ -621,9 +621,15 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
                 &metadata->dm.aa.isoValue, 1))
         return NO_MEMORY;
 
-
+    // Need a four-entry crop region
+    uint32_t cropRegion[4] = {
+        metadata->ctl.scaler.cropRegion[0],
+        metadata->ctl.scaler.cropRegion[1],
+        metadata->ctl.scaler.cropRegion[2],
+        0
+    };
     if (0 != add_camera_metadata_entry(dst, ANDROID_SCALER_CROP_REGION,
-                &metadata->ctl.scaler.cropRegion, 3))
+                cropRegion, 4))
         return NO_MEMORY;
 
     byteData = metadata->dm.aa.aeState - 1;
