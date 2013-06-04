@@ -70,6 +70,8 @@ OMX_ERRORTYPE Exynos_OSAL_GetInfoFromMetaData(OMX_IN OMX_BYTE pBuffer,
 OMX_ERRORTYPE Exynos_OSAL_CheckANB(OMX_IN EXYNOS_OMX_DATA *pBuffer,
                                    OMX_OUT OMX_BOOL *bIsANBEnabled);
 
+OMX_ERRORTYPE Exynos_OSAL_SetPrependSPSPPSToIDR(OMX_PTR pComponentParameterStructure,
+                                                OMX_PTR pbPrependSpsPpsToIdr);
 OMX_COLOR_FORMATTYPE Exynos_OSAL_Hal2OMXPixelFormat(unsigned int hal_format);
 
 unsigned int Exynos_OSAL_OMX2HalPixelFormat(OMX_COLOR_FORMATTYPE omx_format);

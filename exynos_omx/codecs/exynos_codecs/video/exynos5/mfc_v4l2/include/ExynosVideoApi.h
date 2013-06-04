@@ -247,6 +247,7 @@ typedef struct _ExynosVideoEncOps {
     ExynosVideoErrorType (*Set_BitRate)(void *pHandle, int bitRate);
     ExynosVideoErrorType (*Set_FrameSkip)(void *pHandle, int frameSkip);
     ExynosVideoErrorType (*Set_IDRPeriod)(void *pHandle, int period);
+    ExynosVideoErrorType (*Enable_PrependSpsPpsToIdr)(void *pHandle);
 } ExynosVideoEncOps;
 
 typedef struct _ExynosVideoDecBufferOps {

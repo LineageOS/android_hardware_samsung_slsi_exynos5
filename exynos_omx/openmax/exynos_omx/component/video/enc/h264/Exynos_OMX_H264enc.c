@@ -796,6 +796,13 @@ OMX_ERRORTYPE H264CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DAT
         }
     }
 
+    if (pMFCH264Handle->bPrependSpsPpsToIdr == OMX_TRUE) {
+        if (pEncOps->Enable_PrependSpsPpsToIdr)
+            pEncOps->Enable_PrependSpsPpsToIdr(pH264Enc->hMFCH264Handle.hMFCHandle);
+        else
+            Exynos_OSAL_Log(EXYNOS_LOG_WARNING, "%s: Not supported control: Enable_PrependSpsPpsToIdr", __func__);
+    }
+
     /* input buffer info: only 3 config values needed */
     Exynos_OSAL_Memset(&bufferConf, 0, sizeof(bufferConf));
     bufferConf.eColorFormat = pEncParam->commonParam.FrameMap;//VIDEO_COLORFORMAT_NV12;
@@ -1299,6 +1306,13 @@ OMX_ERRORTYPE Exynos_H264Enc_SetParameter(
         pDstErrorCorrectionType->bEnableRVLC = pSrcErrorCorrectionType->bEnableRVLC;
     }
         break;
+    case OMX_IndexParamPrependSPSPPSToIDR:
+    {
+        EXYNOS_H264ENC_HANDLE *pH264Enc = (EXYNOS_H264ENC_HANDLE *)((EXYNOS_OMX_VIDEOENC_COMPONENT *)pExynosComponent->hComponentHandle)->hCodecHandle;
+
+        ret = Exynos_OSAL_SetPrependSPSPPSToIDR(pComponentParameterStructure, &(pH264Enc->hMFCH264Handle.bPrependSpsPpsToIdr));
+    }
+        break;
     default:
         ret = Exynos_OMX_VideoEncodeSetParameter(hComponent, nIndex, pComponentParameterStructure);
         break;
@@ -1481,6 +1495,9 @@ OMX_ERRORTYPE Exynos_H264Enc_GetExtensionIndex(
     if (Exynos_OSAL_Strcmp(cParameterName, EXYNOS_INDEX_CONFIG_VIDEO_INTRAPERIOD) == 0) {
         *pIndexType = OMX_IndexConfigVideoIntraPeriod;
         ret = OMX_ErrorNone;
+    } else if (Exynos_OSAL_Strcmp(cParameterName, EXYNOS_INDEX_PARAM_PREPEND_SPSPPS_TO_IDR) == 0) {
+        *pIndexType = OMX_IndexParamPrependSPSPPSToIDR;
+        ret = OMX_ErrorNone;
     } else {
         ret = Exynos_OMX_VideoEncodeGetExtensionIndex(hComponent, cParameterName, pIndexType);
     }
@@ -1525,7 +1542,7 @@ OMX_ERRORTYPE Exynos_H264Enc_Init(OMX_COMPONENTTYPE *pOMXComponent)
     EXYNOS_OMX_BASEPORT      *pExynosInputPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
     EXYNOS_OMX_BASEPORT      *pExynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
     EXYNOS_H264ENC_HANDLE    *pH264Enc = (EXYNOS_H264ENC_HANDLE *)((EXYNOS_OMX_VIDEOENC_COMPONENT *)pExynosComponent->hComponentHandle)->hCodecHandle;;
-    EXYNOS_MFC_H264ENC_HANDLE     *pMFCH264Handle    = &pH264Enc->hMFCH264Handle;
+    EXYNOS_MFC_H264ENC_HANDLE     *pMFCH264Handle = NULL;
     OMX_PTR                   hMFCHandle = pH264Enc->hMFCH264Handle.hMFCHandle;
     OMX_COLOR_FORMATTYPE      eColorFormat;
 
@@ -1559,6 +1576,7 @@ OMX_ERRORTYPE Exynos_H264Enc_Init(OMX_COMPONENTTYPE *pOMXComponent)
     if (ret != OMX_ErrorNone) {
         goto EXIT;
     }
+    pMFCH264Handle = &pH264Enc->hMFCH264Handle;
 
     pEncOps    = pH264Enc->hMFCH264Handle.pEncOps;
     pInbufOps  = pH264Enc->hMFCH264Handle.pInbufOps;
