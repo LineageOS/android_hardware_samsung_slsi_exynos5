@@ -392,6 +392,12 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
     if ( ( ret = addOrSize(*info, sizeRequest, &entryCount, &dataCount, \
             tag, data, count) ) != OK ) return ret
 
+    // android.info
+
+    int32_t hardwareLevel = ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_FULL;
+    ADD_OR_SIZE(ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL,
+            &hardwareLevel, 1);
+
     // android.lens
 
     ADD_OR_SIZE(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
