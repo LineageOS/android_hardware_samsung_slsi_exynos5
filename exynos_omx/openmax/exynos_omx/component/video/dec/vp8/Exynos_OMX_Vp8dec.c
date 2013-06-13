@@ -539,7 +539,7 @@ OMX_ERRORTYPE VP8CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA
     }
 
     if (pVideoDec->bThumbnailMode == OMX_TRUE)
-        pDecOps->Set_DisplayDelay(hMFCHandle, 0);
+        pDecOps->Set_IFrameDecoding(hMFCHandle);
 
     /* input buffer info */
     Exynos_OSAL_Memset(&bufferConf, 0, sizeof(bufferConf));
@@ -640,6 +640,8 @@ OMX_ERRORTYPE VP8CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA
     pVp8Dec->hMFCVp8Handle.maxDPBNum = pDecOps->Get_ActualBufferCount(hMFCHandle);
     if (pVideoDec->bThumbnailMode == OMX_FALSE)
         pVp8Dec->hMFCVp8Handle.maxDPBNum += EXTRA_DPB_NUM;
+    else
+        pVp8Dec->hMFCVp8Handle.maxDPBNum += PLATFORM_DISPLAY_BUFFER;
     Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "Vp8CodecSetup nOutbufs: %d", pVp8Dec->hMFCVp8Handle.maxDPBNum);
 
     pVp8Dec->hMFCVp8Handle.bConfiguredMFCSrc = OMX_TRUE;
@@ -673,8 +675,8 @@ OMX_ERRORTYPE VP8CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA
             pExynosInputPort->portDefinition.format.video.nStride = ((pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth + 15) & (~15));
             pExynosInputPort->portDefinition.format.video.nSliceHeight = ((pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight + 15) & (~15));
 
-            pExynosOutputPort->portDefinition.nBufferCountActual = pVp8Dec->hMFCVp8Handle.maxDPBNum - 1;
-            pExynosOutputPort->portDefinition.nBufferCountMin = pVp8Dec->hMFCVp8Handle.maxDPBNum - 1;
+            pExynosOutputPort->portDefinition.nBufferCountActual = pVp8Dec->hMFCVp8Handle.maxDPBNum - PLATFORM_DISPLAY_BUFFER;
+            pExynosOutputPort->portDefinition.nBufferCountMin = pVp8Dec->hMFCVp8Handle.maxDPBNum - PLATFORM_DISPLAY_BUFFER;
 
             Exynos_UpdateFrameSize(pOMXComponent);
             pExynosOutputPort->exceptionFlag = NEED_PORT_DISABLE;
@@ -1115,13 +1117,7 @@ OMX_ERRORTYPE Exynos_VP8Dec_GetExtensionIndex(
         goto EXIT;
     }
 
-    if (Exynos_OSAL_Strcmp(cParameterName, EXYNOS_INDEX_PARAM_ENABLE_THUMBNAIL) == 0) {
-        EXYNOS_VP8DEC_HANDLE *pVp8Dec = (EXYNOS_VP8DEC_HANDLE *)((EXYNOS_OMX_VIDEODEC_COMPONENT *)pExynosComponent->hComponentHandle)->hCodecHandle;
-        *pIndexType = OMX_IndexVendorThumbnailMode;
-        ret = OMX_ErrorNone;
-    } else {
-        ret = Exynos_OMX_VideoDecodeGetExtensionIndex(hComponent, cParameterName, pIndexType);
-    }
+    ret = Exynos_OMX_VideoDecodeGetExtensionIndex(hComponent, cParameterName, pIndexType);
 
 EXIT:
     FunctionOut();

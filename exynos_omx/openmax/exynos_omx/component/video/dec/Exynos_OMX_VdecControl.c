@@ -1343,6 +1343,26 @@ OMX_ERRORTYPE Exynos_OMX_VideoDecodeSetParameter(
     }
         break;
 #endif
+    case OMX_IndexParamEnableThumbnailMode:
+    {
+        EXYNOS_OMX_VIDEO_THUMBNAILMODE *pThumbnailMode = (EXYNOS_OMX_VIDEO_THUMBNAILMODE *)ComponentParameterStructure;
+        EXYNOS_OMX_VIDEODEC_COMPONENT *pVideoDec = (EXYNOS_OMX_VIDEODEC_COMPONENT *)pExynosComponent->hComponentHandle;
+
+        ret = Exynos_OMX_Check_SizeVersion(pThumbnailMode, sizeof(EXYNOS_OMX_VIDEO_THUMBNAILMODE));
+        if (ret != OMX_ErrorNone) {
+            goto EXIT;
+        }
+
+        pVideoDec->bThumbnailMode = pThumbnailMode->bEnable;
+        if (pVideoDec->bThumbnailMode == OMX_TRUE) {
+            EXYNOS_OMX_BASEPORT *pExynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
+            pExynosOutputPort->portDefinition.nBufferCountMin = 1;
+            pExynosOutputPort->portDefinition.nBufferCountActual = 1;
+        }
+
+        ret = OMX_ErrorNone;
+    }
+        break;
     default:
     {
         ret = Exynos_OMX_SetParameter(hComponent, nIndex, ComponentParameterStructure);
@@ -1437,14 +1457,6 @@ OMX_ERRORTYPE Exynos_OMX_VideoDecodeSetConfig(
     }
 
     switch (nIndex) {
-    case OMX_IndexVendorThumbnailMode:
-    {
-        EXYNOS_OMX_VIDEODEC_COMPONENT *pVideoDec = (EXYNOS_OMX_VIDEODEC_COMPONENT *)pExynosComponent->hComponentHandle;
-        pVideoDec->bThumbnailMode = *((OMX_BOOL *)pComponentConfigStructure);
-
-        ret = OMX_ErrorNone;
-    }
-        break;
     default:
         ret = Exynos_OMX_SetConfig(hComponent, nIndex, pComponentConfigStructure);
         break;
@@ -1493,17 +1505,25 @@ OMX_ERRORTYPE Exynos_OMX_VideoDecodeGetExtensionIndex(
     }
 
 #ifdef USE_ANB
-    if (Exynos_OSAL_Strcmp(cParameterName, EXYNOS_INDEX_PARAM_ENABLE_ANB) == 0)
+    if (Exynos_OSAL_Strcmp(cParameterName, EXYNOS_INDEX_PARAM_ENABLE_ANB) == 0) {
         *pIndexType = (OMX_INDEXTYPE) OMX_IndexParamEnableAndroidBuffers;
-    else if (Exynos_OSAL_Strcmp(cParameterName, EXYNOS_INDEX_PARAM_GET_ANB) == 0)
+        goto EXIT;
+    }
+    if (Exynos_OSAL_Strcmp(cParameterName, EXYNOS_INDEX_PARAM_GET_ANB) == 0) {
         *pIndexType = (OMX_INDEXTYPE) OMX_IndexParamGetAndroidNativeBuffer;
-    else if (Exynos_OSAL_Strcmp(cParameterName, EXYNOS_INDEX_PARAM_USE_ANB) == 0)
+        goto EXIT;
+    }
+    if (Exynos_OSAL_Strcmp(cParameterName, EXYNOS_INDEX_PARAM_USE_ANB) == 0) {
         *pIndexType = (OMX_INDEXTYPE) OMX_IndexParamUseAndroidNativeBuffer;
-    else
-        ret = Exynos_OMX_GetExtensionIndex(hComponent, cParameterName, pIndexType);
-#else
-    ret = Exynos_OMX_GetExtensionIndex(hComponent, cParameterName, pIndexType);
+        goto EXIT;
+    }
 #endif
+    if (Exynos_OSAL_Strcmp(cParameterName, EXYNOS_INDEX_PARAM_ENABLE_THUMBNAIL) == 0) {
+        *pIndexType = OMX_IndexParamEnableThumbnailMode;
+        goto EXIT;
+    }
+
+    ret = Exynos_OMX_GetExtensionIndex(hComponent, cParameterName, pIndexType);
 
 EXIT:
     FunctionOut();

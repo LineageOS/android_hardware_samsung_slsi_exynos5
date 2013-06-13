@@ -620,7 +620,7 @@ OMX_ERRORTYPE H264CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DAT
     }
 
     if (pVideoDec->bThumbnailMode == OMX_TRUE)
-        pDecOps->Set_DisplayDelay(hMFCHandle, 0);
+        pDecOps->Set_IFrameDecoding(hMFCHandle);
 
     /* input buffer info */
     Exynos_OSAL_Memset(&bufferConf, 0, sizeof(bufferConf));
@@ -726,6 +726,8 @@ OMX_ERRORTYPE H264CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DAT
     pH264Dec->hMFCH264Handle.maxDPBNum = pDecOps->Get_ActualBufferCount(hMFCHandle);
     if (pVideoDec->bThumbnailMode == OMX_FALSE)
         pH264Dec->hMFCH264Handle.maxDPBNum += EXTRA_DPB_NUM;
+    else
+        pH264Dec->hMFCH264Handle.maxDPBNum += PLATFORM_DISPLAY_BUFFER;
     Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "H264CodecSetup nOutbufs: %d", pH264Dec->hMFCH264Handle.maxDPBNum);
 
     pH264Dec->hMFCH264Handle.bConfiguredMFCSrc = OMX_TRUE;
@@ -764,8 +766,8 @@ OMX_ERRORTYPE H264CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DAT
             pExynosInputPort->portDefinition.format.video.nStride = ((pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameWidth + 15) & (~15));
             pExynosInputPort->portDefinition.format.video.nSliceHeight = ((pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameHeight + 15) & (~15));
 
-            pExynosOutputPort->portDefinition.nBufferCountActual = pH264Dec->hMFCH264Handle.maxDPBNum - 1;
-            pExynosOutputPort->portDefinition.nBufferCountMin = pH264Dec->hMFCH264Handle.maxDPBNum - 1;
+            pExynosOutputPort->portDefinition.nBufferCountActual = pH264Dec->hMFCH264Handle.maxDPBNum - PLATFORM_DISPLAY_BUFFER;
+            pExynosOutputPort->portDefinition.nBufferCountMin = pH264Dec->hMFCH264Handle.maxDPBNum - PLATFORM_DISPLAY_BUFFER;
 
             Exynos_UpdateFrameSize(pOMXComponent);
             pExynosOutputPort->exceptionFlag = NEED_PORT_DISABLE;
@@ -1387,13 +1389,7 @@ OMX_ERRORTYPE Exynos_H264Dec_GetExtensionIndex(
         goto EXIT;
     }
 
-    if (Exynos_OSAL_Strcmp(cParameterName, EXYNOS_INDEX_PARAM_ENABLE_THUMBNAIL) == 0) {
-        EXYNOS_H264DEC_HANDLE *pH264Dec = (EXYNOS_H264DEC_HANDLE *)((EXYNOS_OMX_VIDEODEC_COMPONENT *)pExynosComponent->hComponentHandle)->hCodecHandle;
-        *pIndexType = OMX_IndexVendorThumbnailMode;
-        ret = OMX_ErrorNone;
-    } else {
-        ret = Exynos_OMX_VideoDecodeGetExtensionIndex(hComponent, cParameterName, pIndexType);
-    }
+    ret = Exynos_OMX_VideoDecodeGetExtensionIndex(hComponent, cParameterName, pIndexType);
 
 EXIT:
     FunctionOut();
