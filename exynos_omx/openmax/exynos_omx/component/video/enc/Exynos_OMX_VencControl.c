@@ -548,6 +548,7 @@ OMX_ERRORTYPE Exynos_OMX_BufferFlush(OMX_COMPONENTTYPE *pOMXComponent, OMX_S32 n
             Exynos_OSAL_Memset(pExynosComponent->nFlags, 0, sizeof(OMX_U32) * MAX_FLAGS);
             pExynosComponent->getAllDelayBuffer = OMX_FALSE;
             pExynosComponent->bSaveFlagEOS = OMX_FALSE;
+            pExynosComponent->bBehaviorEOS = OMX_FALSE;
             pExynosComponent->reInputData = OMX_FALSE;
         }
 
@@ -751,7 +752,6 @@ OMX_ERRORTYPE Exynos_OutputBufferReturn(OMX_COMPONENTTYPE *pOMXComponent)
         }
 
         if ((bufferHeader->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS) {
-            bufferHeader->nFilledLen = 0;
             Exynos_OSAL_Log(EXYNOS_LOG_TRACE,"event OMX_BUFFERFLAG_EOS!!!");
             pExynosComponent->pCallbacks->EventHandler(pOMXComponent,
                             pExynosComponent->callbackData,
@@ -797,7 +797,6 @@ OMX_ERRORTYPE Exynos_FlushOutputBufferReturn(OMX_COMPONENTTYPE *pOMXComponent, E
         }
 
         if ((bufferHeader->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS) {
-            bufferHeader->nFilledLen = 0;
             Exynos_OSAL_Log(EXYNOS_LOG_TRACE,"event OMX_BUFFERFLAG_EOS!!!");
             pExynosComponent->pCallbacks->EventHandler(pOMXComponent,
                             pExynosComponent->callbackData,

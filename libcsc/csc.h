@@ -53,7 +53,15 @@ typedef enum _CSC_METHOD {
 typedef enum _CSC_HW_PROPERTY_TYPE {
     CSC_HW_PROPERTY_FIXED_NODE = 0,
     CSC_HW_PROPERTY_MODE_DRM,
+    CSC_HW_PROPERTY_HW_TYPE,
 } CSC_HW_PROPERTY_TYPE;
+
+typedef enum _CSC_HW_TYPE {
+    CSC_HW_TYPE_NONE = 0,
+    CSC_HW_TYPE_FIMC,
+    CSC_HW_TYPE_GSCALER,
+    CSC_HW_TYPE_G2D,
+} CSC_HW_TYPE;
 
 /*
  * change hal pixel format to omx pixel format
@@ -78,6 +86,40 @@ unsigned int hal_2_omx_pixel_format(
  */
 unsigned int omx_2_hal_pixel_format(
     unsigned int omx_format);
+
+/*
+ * change hal pixel format to g2d color format
+ *
+ * @param hal_format
+ *   hal pixel format[in]
+ *
+ * @return
+ *   g2d color format
+ */
+unsigned int hal_2_g2d_color_format(unsigned int hal_format);
+
+/*
+ * change hal pixel format to g2d pixel order
+ *
+ * @param hal_format
+ *   hal pixel format[in]
+ *
+ * @return
+ *   g2d pixel order
+ */
+unsigned int hal_2_g2d_pixel_order(unsigned int hal_format);
+
+/*
+ * change hal pixel format to g2d "bpp" (actual bpp for RGB formats, 8 bpp for
+ * YUV formats)
+ *
+ * @param hal_format
+ *   hal pixel format[in]
+ *
+ * @return
+ *   g2d bpp
+ */
+size_t hal_2_g2d_bpp(unsigned int hal_format);
 
 /*
  * Init CSC handle
@@ -115,6 +157,22 @@ CSC_ERRORCODE csc_deinit(
 CSC_ERRORCODE csc_get_method(
     void           *handle,
     CSC_METHOD     *method);
+
+/*
+ * set color space converter method
+ *
+ * @param handle
+ *   CSC handle[in]
+ *
+ * @param method
+ *   CSC method[in]
+ *
+ * @return
+ *   error code
+ */
+CSC_ERRORCODE csc_set_method(
+    void           *handle,
+    CSC_METHOD     method);
 
 /*
  * Set hw property

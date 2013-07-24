@@ -53,6 +53,19 @@
 #include "exynos_gscaler.h"
 #endif
 
+#ifdef ENABLE_G2D
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include "fimg2d.h"
+
+typedef struct
+{
+    struct fimg2d_image src;
+    struct fimg2d_image dst;
+    int fd;
+} g2d_data;
+#endif
+
 #define GSCALER_IMG_ALIGN 16
 #define ALIGN(x, a)       (((x) + (a) - 1) & ~((a) - 1))
 
@@ -63,11 +76,6 @@ typedef enum _CSC_PLANE {
     CSC_UV_PLANE = 1,
     CSC_V_PLANE = 2
 } CSC_PLANE;
-
-typedef enum _CSC_HW_TYPE {
-    CSC_HW_TYPE_FIMC = 0,
-    CSC_HW_TYPE_GSCALER
-} CSC_HW_TYPE;
 
 typedef struct _CSC_FORMAT {
     unsigned int width;
@@ -265,7 +273,7 @@ static CSC_ERRORCODE conv_sw(
     case HAL_PIXEL_FORMAT_YCbCr_420_SP:
         ret = conv_sw_src_yuv420sp(handle);
         break;
-    case HAL_PIXEL_FORMAT_ARGB888:
+    case HAL_PIXEL_FORMAT_CUSTOM_ARGB_8888:
         ret = conv_sw_src_argb888(handle);
         break;
     default:
@@ -314,6 +322,29 @@ static CSC_ERRORCODE conv_hw(
         }
         break;
 #endif
+#ifdef ENABLE_G2D
+    case CSC_HW_TYPE_G2D:
+    {
+        g2d_data *g2d = (g2d_data *)handle->csc_hw_handle;
+        struct fimg2d_blit blit;
+        int err;
+
+        memset(&blit, 0, sizeof(blit));
+        blit.op = BLIT_OP_SRC_COPY;
+        blit.param.g_alpha = 0xFF;
+        blit.src = &g2d->src;
+        blit.dst = &g2d->dst;
+        blit.sync = BLIT_SYNC;
+
+        err = ioctl(g2d->fd, FIMG2D_BITBLT_BLIT, &blit);
+        if (err < 0) {
+            ALOGE("FIMG2D_BITBLT_BLIT ioctl failed: %s", strerror(errno));
+            ret = CSC_Error;
+        }
+
+        break;
+    }
+#endif
     default:
         ALOGE("%s:: unsupported csc_hw_type(%d)", __func__, handle->csc_hw_type);
         ret = CSC_ErrorNotImplemented;
@@ -331,12 +362,6 @@ static CSC_ERRORCODE csc_init_hw(
 
     csc_handle = (CSC_HANDLE *)handle;
     if (csc_handle->csc_method == CSC_METHOD_HW) {
-#ifdef ENABLE_FIMC
-        csc_handle->csc_hw_type = CSC_HW_TYPE_FIMC;
-#endif
-#ifdef ENABLE_GSCALER
-        csc_handle->csc_hw_type = CSC_HW_TYPE_GSCALER;
-#endif
         switch (csc_handle->csc_hw_type) {
 #ifdef ENABLE_FIMC
         case CSC_HW_TYPE_FIMC:
@@ -353,9 +378,27 @@ static CSC_ERRORCODE csc_init_hw(
             ALOGV("%s:: CSC_HW_TYPE_GSCALER", __func__);
             break;
 #endif
+#ifdef ENABLE_G2D
+        case CSC_HW_TYPE_G2D:
+        {
+            g2d_data *g2d = calloc(1, sizeof(g2d_data));
+            if (!g2d) {
+                ALOGE("failed to allocate G2D data");
+                break;
+            }
+            g2d->fd = open("/dev/fimg2d", O_RDWR);
+            if (g2d->fd < 0) {
+                ALOGE("failed to open G2D: %s", strerror(errno));
+                free(g2d);
+            } else {
+                csc_handle->csc_hw_handle = g2d;
+            }
+            break;
+        }
+#endif
         default:
             ALOGE("%s:: unsupported csc_hw_type, csc use sw", __func__);
-            csc_handle->csc_hw_handle == NULL;
+            csc_handle->csc_hw_handle = NULL;
             break;
         }
     }
@@ -363,8 +406,7 @@ static CSC_ERRORCODE csc_init_hw(
     if (csc_handle->csc_method == CSC_METHOD_HW) {
         if (csc_handle->csc_hw_handle == NULL) {
             ALOGE("%s:: CSC_METHOD_HW can't open HW", __func__);
-            free(csc_handle);
-            csc_handle = NULL;
+            ret = CSC_Error;
         }
     }
 
@@ -415,6 +457,42 @@ static CSC_ERRORCODE csc_set_format(
                 0);
             break;
 #endif
+#ifdef ENABLE_G2D
+        case CSC_HW_TYPE_G2D:
+        {
+            g2d_data *g2d = (g2d_data *)csc_handle->csc_hw_handle;
+
+            g2d->src.width = ALIGN(csc_handle->src_format.width,
+                    GSCALER_IMG_ALIGN);
+            g2d->src.height = csc_handle->src_format.height;
+            g2d->src.stride = g2d->src.width *
+                    hal_2_g2d_bpp(csc_handle->src_format.color_format) >> 3;
+            g2d->src.order = hal_2_g2d_pixel_order(csc_handle->src_format.color_format);
+            g2d->src.fmt = hal_2_g2d_color_format(csc_handle->src_format.color_format);
+            g2d->src.rect.x1 = csc_handle->src_format.crop_left;
+            g2d->src.rect.y1 = csc_handle->src_format.crop_top;
+            g2d->src.rect.x2 = csc_handle->src_format.crop_left +
+                    csc_handle->src_format.crop_width;
+            g2d->src.rect.y2 = csc_handle->src_format.crop_top +
+                    csc_handle->src_format.crop_height;
+
+            g2d->dst.width = ALIGN(csc_handle->dst_format.width,
+                    GSCALER_IMG_ALIGN);
+            g2d->dst.height = csc_handle->dst_format.height;
+            g2d->dst.stride = g2d->dst.width *
+                    hal_2_g2d_bpp(csc_handle->dst_format.color_format) >> 3;
+            g2d->dst.order = hal_2_g2d_pixel_order(csc_handle->dst_format.color_format);
+            g2d->dst.fmt = hal_2_g2d_color_format(csc_handle->dst_format.color_format);
+            g2d->dst.rect.x1 = csc_handle->dst_format.crop_left;
+            g2d->dst.rect.y1 = csc_handle->dst_format.crop_top;
+            g2d->dst.rect.x2 = csc_handle->dst_format.crop_left +
+                    csc_handle->dst_format.crop_width;
+            g2d->dst.rect.y2 = csc_handle->dst_format.crop_top +
+                    csc_handle->dst_format.crop_height;
+
+            break;
+        }
+#endif
         default:
             ALOGE("%s:: unsupported csc_hw_type", __func__);
             break;
@@ -443,6 +521,22 @@ static CSC_ERRORCODE csc_set_buffer(
             exynos_gsc_set_src_addr(csc_handle->csc_hw_handle, csc_handle->src_buffer.planes, -1);
             exynos_gsc_set_dst_addr(csc_handle->csc_hw_handle, csc_handle->dst_buffer.planes, -1);
             break;
+#endif
+#ifdef ENABLE_G2D
+        case CSC_HW_TYPE_G2D:
+        {
+            g2d_data *g2d = (g2d_data *)csc_handle->csc_hw_handle;
+
+            g2d->src.addr.type = ADDR_DMA_BUF;
+            g2d->src.addr.fd[0] = (int)csc_handle->src_buffer.planes[0];
+            g2d->src.addr.fd[1] = (int)csc_handle->src_buffer.planes[1];
+
+            g2d->dst.addr.type = ADDR_DMA_BUF;
+            g2d->dst.addr.fd[0] = (int)csc_handle->dst_buffer.planes[0];
+            g2d->dst.addr.fd[1] = (int)csc_handle->dst_buffer.planes[1];
+
+            break;
+        }
 #endif
         default:
             ALOGE("%s:: unsupported csc_hw_type", __func__);
@@ -476,7 +570,7 @@ CSC_ERRORCODE csc_deinit(
     CSC_HANDLE *csc_handle;
 
     csc_handle = (CSC_HANDLE *)handle;
-    if (csc_handle->csc_method == CSC_METHOD_HW) {
+    if (csc_handle->csc_hw_handle) {
         switch (csc_handle->csc_hw_type) {
 #ifdef ENABLE_FIMC
         case CSC_HW_TYPE_FIMC:
@@ -487,6 +581,15 @@ CSC_ERRORCODE csc_deinit(
         case CSC_HW_TYPE_GSCALER:
             exynos_gsc_destroy(csc_handle->csc_hw_handle);
             break;
+#endif
+#ifdef ENABLE_G2D
+        case CSC_HW_TYPE_G2D:
+        {
+            g2d_data *g2d = (g2d_data *)csc_handle->csc_hw_handle;
+            close(g2d->fd);
+            free(g2d);
+            break;
+        }
 #endif
         default:
             ALOGE("%s:: unsupported csc_hw_type", __func__);
@@ -518,6 +621,22 @@ CSC_ERRORCODE csc_get_method(
     return ret;
 }
 
+CSC_ERRORCODE csc_set_method(
+    void           *handle,
+    CSC_METHOD     method)
+{
+    CSC_HANDLE *csc_handle;
+    CSC_ERRORCODE ret = CSC_ErrorNone;
+
+    if (handle == NULL)
+        return CSC_ErrorNotInit;
+
+    csc_handle = (CSC_HANDLE *)handle;
+    csc_handle->csc_method = method;
+
+    return ret;
+}
+
 CSC_ERRORCODE csc_set_hw_property(
     void                *handle,
     CSC_HW_PROPERTY_TYPE property,
@@ -530,12 +649,21 @@ CSC_ERRORCODE csc_set_hw_property(
         return CSC_ErrorNotInit;
 
     csc_handle = (CSC_HANDLE *)handle;
+
+    if (csc_handle->csc_hw_handle) {
+        ALOGE("%s:: cannot set hw property after hw is already initialized", __func__);
+        return CSC_ErrorUnsupportFormat;
+    }
+
     switch (property) {
     case CSC_HW_PROPERTY_FIXED_NODE:
         csc_handle->hw_property.fixed_node = value;
         break;
     case CSC_HW_PROPERTY_MODE_DRM:
         csc_handle->hw_property.mode_drm = value;
+        break;
+    case CSC_HW_PROPERTY_HW_TYPE:
+        csc_handle->csc_hw_type = value;
         break;
     default:
         ALOGE("%s:: not supported hw property", __func__);
@@ -711,11 +839,19 @@ CSC_ERRORCODE csc_convert(
         return CSC_ErrorNotInit;
 
     if ((csc_handle->csc_method == CSC_METHOD_HW) &&
-        (csc_handle->csc_hw_handle == NULL))
-        csc_init_hw(handle);
+        (csc_handle->csc_hw_handle == NULL)) {
+        ret = csc_init_hw(handle);
+        if (ret != CSC_ErrorNone)
+            return ret;
+    }
 
-    csc_set_format(csc_handle);
-    csc_set_buffer(csc_handle);
+    ret = csc_set_format(csc_handle);
+    if (ret != CSC_ErrorNone)
+        return ret;
+
+    ret = csc_set_buffer(csc_handle);
+    if (ret != CSC_ErrorNone)
+        return ret;
 
     if (csc_handle->csc_method == CSC_METHOD_HW)
         ret = conv_hw(csc_handle);

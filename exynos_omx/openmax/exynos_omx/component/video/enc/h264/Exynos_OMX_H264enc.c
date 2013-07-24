@@ -1533,7 +1533,6 @@ OMX_ERRORTYPE Exynos_H264Enc_Init(OMX_COMPONENTTYPE *pOMXComponent)
     ExynosVideoEncBufferOps *pInbufOps  = NULL;
     ExynosVideoEncBufferOps *pOutbufOps = NULL;
 
-    CSC_METHOD csc_method = CSC_METHOD_SW;
     int i = 0;
 
     FunctionIn();
@@ -1542,6 +1541,7 @@ OMX_ERRORTYPE Exynos_H264Enc_Init(OMX_COMPONENTTYPE *pOMXComponent)
     pH264Enc->hMFCH264Handle.bConfiguredMFCDst = OMX_FALSE;
     pExynosComponent->bUseFlagEOF = OMX_TRUE;
     pExynosComponent->bSaveFlagEOS = OMX_FALSE;
+    pExynosComponent->bBehaviorEOS = OMX_FALSE;
 
     eColorFormat = pExynosInputPort->portDefinition.format.video.eColorFormat;
     if (pExynosInputPort->bStoreMetaData == OMX_TRUE) {
@@ -1596,9 +1596,9 @@ OMX_ERRORTYPE Exynos_H264Enc_Init(OMX_COMPONENTTYPE *pOMXComponent)
                 pVideoEnc->pMFCEncInputBuffer[i]->fd[2] = -1;
                 pVideoEnc->pMFCEncInputBuffer[i]->bufferSize[2] = 0;
 
-                Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "pVideoEnc->pMFCEncInputBuffer[%d]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]);
-                Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[0]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0]);
-                Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[1]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1]);
+                Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncInputBuffer[%d]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]);
+                Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[0]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[0]);
+                Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "pVideoEnc->pMFCEncInputBuffer[%d]->pVirAddr[1]: 0x%x", i, pVideoEnc->pMFCEncInputBuffer[i]->pVirAddr[1]);
 
                 Exynos_CodecBufferEnQueue(pExynosComponent, INPUT_PORT_INDEX, pVideoEnc->pMFCEncInputBuffer[i]);
             }
@@ -1632,16 +1632,6 @@ OMX_ERRORTYPE Exynos_H264Enc_Init(OMX_COMPONENTTYPE *pOMXComponent)
 
     pExynosComponent->getAllDelayBuffer = OMX_FALSE;
 
-#if 0//defined(USE_CSC_GSCALER)
-    csc_method = CSC_METHOD_HW; //in case of Use ION buffer.
-#endif
-    pVideoEnc->csc_handle = csc_init(csc_method);
-    if (pVideoEnc->csc_handle == NULL) {
-        ret = OMX_ErrorInsufficientResources;
-        goto EXIT;
-    }
-    pVideoEnc->csc_set_format = OMX_FALSE;
-
 EXIT:
     FunctionOut();
 
@@ -1666,11 +1656,6 @@ OMX_ERRORTYPE Exynos_H264Enc_Terminate(OMX_COMPONENTTYPE *pOMXComponent)
     int i = 0, plane = 0;
 
     FunctionIn();
-
-    if (pVideoEnc->csc_handle != NULL) {
-        csc_deinit(pVideoEnc->csc_handle);
-        pVideoEnc->csc_handle = NULL;
-    }
 
     Exynos_OSAL_SignalTerminate(pH264Enc->hDestinationStartEvent);
     pH264Enc->hDestinationStartEvent = NULL;
@@ -2010,10 +1995,14 @@ OMX_ERRORTYPE Exynos_H264Enc_DstOut(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX
     }
 
     if ((displayStatus == VIDEO_FRAME_STATUS_CHANGE_RESOL) ||
-        ((pDstOutputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS)) {
+        (((pDstOutputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS) &&
+         (pExynosComponent->bBehaviorEOS == OMX_FALSE))) {
         Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "%x displayStatus:%d, nFlags0x%x", pExynosComponent, displayStatus, pDstOutputData->nFlags);
         pDstOutputData->remainDataLen = 0;
     }
+    if (((pDstOutputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS) &&
+        (pExynosComponent->bBehaviorEOS == OMX_TRUE))
+        pExynosComponent->bBehaviorEOS = OMX_FALSE;
 
     ret = OMX_ErrorNone;
 

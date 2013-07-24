@@ -37,7 +37,7 @@ struct private_handle_t;
 struct private_module_t {
     gralloc_module_t base;
 
-    private_handle_t* framebuffer;
+    struct private_handle_t* framebuffer;
     uint32_t flags;
     uint32_t numBuffers;
     uint32_t bufferMask;
@@ -65,6 +65,9 @@ struct private_handle_t {
     struct native_handle nativeHandle;
 #endif
 
+// set if using video encoding colorspace
+#define GRALLOC_USAGE_PRIVATE_CHROMA (GRALLOC_USAGE_PRIVATE_0)
+
     enum {
         PRIV_FLAGS_FRAMEBUFFER = 0x00000001,
         PRIV_FLAGS_USES_UMP    = 0x00000002,
@@ -86,6 +89,8 @@ struct private_handle_t {
     int     height;
     int     stride;
     int     vstride;
+    int     gamut;
+    int     chroma;
 
     // FIXME: the attributes below should be out-of-line
     void    *base;
@@ -97,7 +102,7 @@ struct private_handle_t {
 
 #ifdef __cplusplus
     static const int sNumFds = 3;
-    static const int sNumInts = 15;
+    static const int sNumInts = 17;
     static const int sMagic = 0x3141592;
 
 
@@ -105,7 +110,8 @@ struct private_handle_t {
 		     int h, int format, int stride, int vstride) :
         fd(fd), fd1(-1), fd2(-1), magic(sMagic), flags(flags), size(size),
         offset(0), format(format), width(w), height(h), stride(stride),
-        vstride(vstride), base(0), handle(0), handle1(0), handle2(0)
+        vstride(vstride), gamut(0), chroma(0), base(0), handle(0), handle1(0),
+        handle2(0)
     {
         version = sizeof(native_handle);
         numInts = sNumInts + 2;
@@ -116,8 +122,8 @@ struct private_handle_t {
 		     int h, int format, int stride, int vstride) :
         fd(fd), fd1(fd1), fd2(-1), magic(sMagic), flags(flags), size(size),
         offset(0), format(format), width(w), height(h), stride(stride),
-        vstride(vstride), base(0), base1(0), base2(0), handle(0), handle1(0),
-        handle2(0)
+        vstride(vstride), gamut(0), chroma(0), base(0), base1(0), base2(0),
+        handle(0), handle1(0), handle2(0)
     {
         version = sizeof(native_handle);
         numInts = sNumInts + 1;
@@ -128,8 +134,8 @@ struct private_handle_t {
 		     int h, int format, int stride, int vstride) :
         fd(fd), fd1(fd1), fd2(fd2), magic(sMagic), flags(flags), size(size),
         offset(0), format(format), width(w), height(h), stride(stride),
-        vstride(vstride), base(0), base1(0), base2(0), handle(0), handle1(0),
-        handle2(0)
+        vstride(vstride), gamut(0), chroma(0), base(0), base1(0), base2(0),
+        handle(0), handle1(0), handle2(0)
     {
         version = sizeof(native_handle);
         numInts = sNumInts;

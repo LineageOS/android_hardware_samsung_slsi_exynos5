@@ -9,6 +9,8 @@ LOCAL_MODULE := libExynosOMX_Venc
 LOCAL_ARM_MODE := arm
 LOCAL_MODULE_TAGS := optional
 
+LOCAL_CFLAGS := -DUSE_CSC_G2D
+
 LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
 	$(EXYNOS_OMX_INC)/exynos \
 	$(EXYNOS_OMX_TOP)/osal \

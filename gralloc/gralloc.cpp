@@ -44,10 +44,13 @@
 #include "exynos_format.h"
 #include "gr.h"
 
-#define ION_HEAP_EXYNOS_CONTIG_MASK     (1 << 4)
+#define ION_HEAP_EXYNOS_CONTIG_MASK (1 << 4)
 #define ION_EXYNOS_FIMD_VIDEO_MASK  (1 << 28)
 #define ION_EXYNOS_MFC_OUTPUT_MASK  (1 << 26)
 #define ION_EXYNOS_MFC_INPUT_MASK   (1 << 25)
+#define ION_HEAP_SYSTEM_ID          0
+#define ION_HEAP_EXYNOS_CONTIG_ID   4
+#define ION_HEAP_CHUNK_ID           6
 #define MB_1 (1024*1024)
 
 
@@ -121,9 +124,9 @@ static unsigned int _select_heap(int usage)
     unsigned int heap_mask;
 
     if (usage & GRALLOC_USAGE_PROTECTED)
-        heap_mask = ION_HEAP_EXYNOS_CONTIG_MASK;
+        heap_mask = (1 << ION_HEAP_EXYNOS_CONTIG_ID);
     else
-        heap_mask = ION_HEAP_SYSTEM_MASK;
+        heap_mask = (1 << ION_HEAP_SYSTEM_ID) | (1 << ION_HEAP_CHUNK_ID);
 
     return heap_mask;
 }
@@ -160,7 +163,7 @@ static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int usage,
     }
 
     if (format != HAL_PIXEL_FORMAT_BLOB) {
-        bpr = ALIGN(w*bpp, 16);
+        bpr = ALIGN(w*bpp, 64);
         vstride = ALIGN(h, 16);
         if (vstride < h + 2)
             size = bpr * (h + 2);
@@ -189,6 +192,7 @@ static int gralloc_alloc_framework_yuv(int ionfd, int w, int h, int format,
 {
     size_t size;
     int err, fd;
+    unsigned int heap_mask = _select_heap(usage);
 
     switch (format) {
         case HAL_PIXEL_FORMAT_YV12:
@@ -204,8 +208,7 @@ static int gralloc_alloc_framework_yuv(int ionfd, int w, int h, int format,
             return -EINVAL;
     }
 
-    err = ion_alloc_fd(ionfd, size, 0, 1 << ION_HEAP_TYPE_SYSTEM,
-                       ion_flags, &fd);
+    err = ion_alloc_fd(ionfd, size, 0, heap_mask, ion_flags, &fd);
     if (err)
         return err;
 
@@ -295,6 +298,16 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format,
         } else {
             *hnd = new private_handle_t(fd, fd1, luma_size, usage, w, h, format,
                                         *stride, luma_vstride);
+        }
+    }
+    // Set chroma & gamut fields
+    if (!err && *hnd) {
+        if (usage & GRALLOC_USAGE_PRIVATE_CHROMA) {
+            (*hnd)->chroma = HAL_PIXEL_CHROMA_BT601_8;
+            (*hnd)->gamut = HAL_PIXEL_GAMUT_NARROW_8;
+        } else {
+            (*hnd)->chroma = HAL_PIXEL_CHROMA_BT709_8;
+            (*hnd)->gamut = HAL_PIXEL_GAMUT_WIDE_8;
         }
     }
     return err;

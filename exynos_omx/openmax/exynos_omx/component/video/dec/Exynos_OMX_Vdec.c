@@ -127,6 +127,46 @@ OMX_BOOL Exynos_Check_BufferProcess_State(EXYNOS_OMX_BASECOMPONENT *pExynosCompo
     return ret;
 }
 
+OMX_ERRORTYPE Exynos_ResetAllPortConfig(OMX_COMPONENTTYPE *pOMXComponent)
+{
+    OMX_ERRORTYPE                  ret               = OMX_ErrorNone;
+    EXYNOS_OMX_BASECOMPONENT      *pExynosComponent  = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
+    EXYNOS_OMX_BASEPORT           *pExynosInputPort  = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
+    EXYNOS_OMX_BASEPORT           *pExynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
+
+    /* Input port */
+    pExynosInputPort->portDefinition.format.video.nFrameWidth = DEFAULT_FRAME_WIDTH;
+    pExynosInputPort->portDefinition.format.video.nFrameHeight= DEFAULT_FRAME_HEIGHT;
+    pExynosInputPort->portDefinition.format.video.nStride = 0; /*DEFAULT_FRAME_WIDTH;*/
+    pExynosInputPort->portDefinition.format.video.nSliceHeight = 0;
+    pExynosInputPort->portDefinition.nBufferSize = DEFAULT_VIDEO_INPUT_BUFFER_SIZE;
+    pExynosInputPort->portDefinition.format.video.pNativeRender = 0;
+    pExynosInputPort->portDefinition.format.video.bFlagErrorConcealment = OMX_FALSE;
+    pExynosInputPort->portDefinition.format.video.eColorFormat = OMX_COLOR_FormatUnused;
+    pExynosInputPort->portDefinition.bEnabled = OMX_TRUE;
+    pExynosInputPort->bufferProcessType = BUFFER_SHARE;
+    pExynosInputPort->portWayType = WAY2_PORT;
+
+    /* Output port */
+    pExynosOutputPort->portDefinition.format.video.nFrameWidth = DEFAULT_FRAME_WIDTH;
+    pExynosOutputPort->portDefinition.format.video.nFrameHeight= DEFAULT_FRAME_HEIGHT;
+    pExynosOutputPort->portDefinition.format.video.nStride = 0; /*DEFAULT_FRAME_WIDTH;*/
+    pExynosOutputPort->portDefinition.format.video.nSliceHeight = 0;
+    pExynosOutputPort->portDefinition.nBufferSize = DEFAULT_VIDEO_OUTPUT_BUFFER_SIZE;
+    pExynosOutputPort->portDefinition.format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;
+    Exynos_OSAL_Memset(pExynosOutputPort->portDefinition.format.video.cMIMEType, 0, MAX_OMX_MIMETYPE_SIZE);
+    Exynos_OSAL_Strcpy(pExynosOutputPort->portDefinition.format.video.cMIMEType, "raw/video");
+    pExynosOutputPort->portDefinition.format.video.pNativeRender = 0;
+    pExynosOutputPort->portDefinition.format.video.bFlagErrorConcealment = OMX_FALSE;
+    pExynosOutputPort->portDefinition.format.video.eColorFormat = OMX_COLOR_FormatYUV420Planar;
+    pExynosOutputPort->portDefinition.bEnabled = OMX_TRUE;
+    pExynosOutputPort->bufferProcessType = BUFFER_COPY | BUFFER_ANBSHARE;
+    pExynosOutputPort->bIsANBEnabled = OMX_FALSE;
+    pExynosOutputPort->portWayType = WAY2_PORT;
+
+    return ret;
+}
+
 OMX_ERRORTYPE Exynos_Input_CodecBufferToData(EXYNOS_OMX_BASECOMPONENT *pExynosComponent, OMX_PTR codecBuffer, EXYNOS_OMX_DATA *pData)
 {
     OMX_ERRORTYPE                  ret = OMX_ErrorNone;
@@ -394,9 +434,9 @@ OMX_BOOL Exynos_Preprocessor_InputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
 
         if ((srcInputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS) {
             Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "bSaveFlagEOS : OMX_TRUE");
-            srcInputData->dataLen = 0;
-            srcInputData->remainDataLen = 0;
             pExynosComponent->bSaveFlagEOS = OMX_TRUE;
+            if (srcInputData->dataLen != 0)
+                pExynosComponent->bBehaviorEOS = OMX_TRUE;
         }
 
         if (pExynosComponent->checkTimeStamp.needSetStartTimeStamp == OMX_TRUE) {
@@ -1008,6 +1048,9 @@ OMX_ERRORTYPE Exynos_OMX_BufferProcess_Terminate(OMX_HANDLETYPE hComponent)
     Exynos_OSAL_ThreadTerminate(pVideoDec->hDstOutputThread);
     pVideoDec->hDstOutputThread = NULL;
 
+    pExynosComponent->checkTimeStamp.needSetStartTimeStamp = OMX_FALSE;
+    pExynosComponent->checkTimeStamp.needCheckStartTimeStamp = OMX_FALSE;
+
 EXIT:
     FunctionOut();
 
@@ -1062,6 +1105,7 @@ OMX_ERRORTYPE Exynos_OMX_VideoDecodeComponentInit(OMX_IN OMX_HANDLETYPE hCompone
     pExynosComponent->hComponentHandle = (OMX_HANDLETYPE)pVideoDec;
 
     pExynosComponent->bSaveFlagEOS = OMX_FALSE;
+    pExynosComponent->bBehaviorEOS = OMX_FALSE;
     pExynosComponent->bMultiThreadProcess = OMX_TRUE;
 
     /* Input port */

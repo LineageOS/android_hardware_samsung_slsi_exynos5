@@ -1453,6 +1453,7 @@ OMX_ERRORTYPE Exynos_H264Dec_Init(OMX_COMPONENTTYPE *pOMXComponent)
     pH264Dec->hMFCH264Handle.bConfiguredMFCDst = OMX_FALSE;
     pExynosComponent->bUseFlagEOF = OMX_TRUE;
     pExynosComponent->bSaveFlagEOS = OMX_FALSE;
+    pExynosComponent->bBehaviorEOS = OMX_FALSE;
 
     /* H.264 Codec Open */
     ret = H264CodecOpen(pH264Dec);
@@ -1524,6 +1525,7 @@ OMX_ERRORTYPE Exynos_H264Dec_Init(OMX_COMPONENTTYPE *pOMXComponent)
     if (pVideoDec->bDRMPlayerMode == OMX_TRUE) {
         pVideoDec->csc_handle = csc_init(CSC_METHOD_HW);
         csc_set_hw_property(pVideoDec->csc_handle, CSC_HW_PROPERTY_FIXED_NODE, 2);
+        csc_set_hw_property(pVideoDec->csc_handle, CSC_HW_PROPERTY_HW_TYPE, CSC_HW_TYPE_GSCALER);
         csc_set_hw_property(pVideoDec->csc_handle, CSC_HW_PROPERTY_MODE_DRM, pVideoDec->bDRMPlayerMode);
     } else {
         pVideoDec->csc_handle = csc_init(csc_method);
@@ -1615,6 +1617,8 @@ OMX_ERRORTYPE Exynos_H264Dec_Terminate(OMX_COMPONENTTYPE *pOMXComponent)
         /* Does not require any actions. */
     }
     H264CodecClose(pH264Dec);
+
+    Exynos_ResetAllPortConfig(pOMXComponent);
 
 EXIT:
     FunctionOut();
@@ -1903,6 +1907,11 @@ OMX_ERRORTYPE Exynos_H264Dec_DstOut(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX
         ((pDstOutputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS)) {
         Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "displayStatus:%d, nFlags0x%x", displayStatus, pDstOutputData->nFlags);
         pDstOutputData->remainDataLen = 0;
+        if (((pDstOutputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS) &&
+            (pExynosComponent->bBehaviorEOS == OMX_TRUE)) {
+            pDstOutputData->remainDataLen = bufferGeometry->nFrameWidth * bufferGeometry->nFrameHeight * 3 / 2;
+            pExynosComponent->bBehaviorEOS = OMX_FALSE;
+        }
     } else {
         pDstOutputData->remainDataLen = bufferGeometry->nFrameWidth * bufferGeometry->nFrameHeight * 3 / 2;
     }

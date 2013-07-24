@@ -20,6 +20,7 @@
 #include <unistd.h> /* size_t */
 
 #define ION_FLAG_CACHED 1
+#define ION_FLAG_CACHED_NEEDS_SYNC 2
 
 #define ION_HEAP_SYSTEM_MASK            (1 << 0)
 #define ION_HEAP_SYSTEM_CONTIG_MASK     (1 << 1)

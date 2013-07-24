@@ -172,9 +172,9 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
 
 
             case ANDROID_SCALER_CROP_REGION:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 3))
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 4))
                     break;
-                for (i=0 ; i<curr_entry.count ; i++)
+                for (i=0 ; i<3; i++)
                     dst->ctl.scaler.cropRegion[i] = ALIGN(curr_entry.data.i32[i], 2);
                 break;
 
@@ -230,7 +230,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
 
 
 
-            case ANDROID_STATS_FACE_DETECT_MODE:
+            case ANDROID_STATISTICS_FACE_DETECT_MODE:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE, 1))
                     break;
                 dst->ctl.stats.faceDetectMode = (enum facedetect_mode)(curr_entry.data.u8[0] + 1);
@@ -271,7 +271,7 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 dst_ext->ae_lock = (enum ae_lockmode)(curr_entry.data.u8[0]);
                 break;
 
-            case ANDROID_CONTROL_AE_EXP_COMPENSATION:
+            case ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION:
                 if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32, 1))
                     break;
                 dst->ctl.aa.aeExpCompensation = curr_entry.data.i32[0] + 5;
@@ -570,17 +570,17 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
         return NO_MEMORY;
 
     intData = metadata->ctl.aa.aeExpCompensation - 5;
-    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_EXP_COMPENSATION,
+    if (0 != add_camera_metadata_entry(dst, ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION,
                 &intData, 1))
         return NO_MEMORY;
 
     byteData = metadata->dm.stats.faceDetectMode - 1;
-    if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_DETECT_MODE,
+    if (0 != add_camera_metadata_entry(dst, ANDROID_STATISTICS_FACE_DETECT_MODE,
                 &byteData, 1))
         return NO_MEMORY;
 
     int maxFacecount = CAMERA2_MAX_FACES;
-    if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_MAX_FACE_COUNT,
+    if (0 != add_camera_metadata_entry(dst, ANDROID_STATISTICS_INFO_MAX_FACE_COUNT,
                 &maxFacecount, 1))
         return NO_MEMORY;
 
@@ -601,19 +601,19 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
     }
 
     if (tempFaceCount > 0) {
-        if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_RECTANGLES,
+        if (0 != add_camera_metadata_entry(dst, ANDROID_STATISTICS_FACE_RECTANGLES,
                     &metaFaceRectangles, 4 * tempFaceCount))
             return NO_MEMORY;
 
-        if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_LANDMARKS,
+        if (0 != add_camera_metadata_entry(dst, ANDROID_STATISTICS_FACE_LANDMARKS,
                     &mataFaceLandmarks, 6 * tempFaceCount))
             return NO_MEMORY;
 
-        if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_IDS,
+        if (0 != add_camera_metadata_entry(dst, ANDROID_STATISTICS_FACE_IDS,
                     &mataFaceIds, tempFaceCount))
             return NO_MEMORY;
 
-        if (0 != add_camera_metadata_entry(dst, ANDROID_STATS_FACE_SCORES,
+        if (0 != add_camera_metadata_entry(dst, ANDROID_STATISTICS_FACE_SCORES,
                     &metaFaceScores, tempFaceCount))
             return NO_MEMORY;
     }
@@ -621,9 +621,15 @@ status_t MetadataConverter::ToDynamicMetadata(struct camera2_shot_ext * metadata
                 &metadata->dm.aa.isoValue, 1))
         return NO_MEMORY;
 
-
+    // Need a four-entry crop region
+    uint32_t cropRegion[4] = {
+        metadata->ctl.scaler.cropRegion[0],
+        metadata->ctl.scaler.cropRegion[1],
+        metadata->ctl.scaler.cropRegion[2],
+        0
+    };
     if (0 != add_camera_metadata_entry(dst, ANDROID_SCALER_CROP_REGION,
-                &metadata->ctl.scaler.cropRegion, 3))
+                cropRegion, 4))
         return NO_MEMORY;
 
     byteData = metadata->dm.aa.aeState - 1;

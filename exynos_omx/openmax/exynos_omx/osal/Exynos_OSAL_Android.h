@@ -37,6 +37,8 @@
 extern "C" {
 #endif
 
+OMX_COLOR_FORMATTYPE Exynos_OSAL_GetANBColorFormat(OMX_IN OMX_U32 handle);
+
 OMX_ERRORTYPE Exynos_OSAL_GetANBParameter(OMX_IN OMX_HANDLETYPE hComponent,
                                           OMX_IN OMX_INDEXTYPE nIndex,
                                           OMX_INOUT OMX_PTR ComponentParameterStructure);

@@ -30,7 +30,7 @@ enum {
     HAL_PIXEL_FORMAT_YCbCr_420_SP               = 0x105,
     HAL_PIXEL_FORMAT_YCrCb_422_SP               = 0x106,
     HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED         = 0x107,
-    HAL_PIXEL_FORMAT_ARGB888                    = 0x108,
+    HAL_PIXEL_FORMAT_CUSTOM_ARGB_8888           = 0x108,
     // support custom format for zero copy
     HAL_PIXEL_FORMAT_CUSTOM_YCbCr_420_SP        = 0x110,
     HAL_PIXEL_FORMAT_CUSTOM_YCrCb_420_SP        = 0x111,
@@ -46,6 +46,24 @@ enum {
     HAL_PIXEL_FORMAT_EXYNOS_YV12                = 0x11C,
     HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP        = 0x11D,
     HAL_PIXEL_FORMAT_CUSTOM_MAX
+};
+
+// Gamut (colorspace range)
+enum {
+    HAL_PIXEL_GAMUT_DEFAULT = 0,
+    // Values range 0-255
+    HAL_PIXEL_GAMUT_WIDE_8,
+    // Values range 16-235
+    HAL_PIXEL_GAMUT_NARROW_8
+};
+
+// Chromaticities (colorspace parameters)
+enum {
+    HAL_PIXEL_CHROMA_DEFAULT = 0,
+    // BT.601 "Standard Definition" color space
+    HAL_PIXEL_CHROMA_BT601_8,
+    // BT.709 "High Definition" color space
+    HAL_PIXEL_CHROMA_BT709_8
 };
 
 struct ADDRS {
