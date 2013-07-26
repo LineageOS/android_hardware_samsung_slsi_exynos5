@@ -274,10 +274,6 @@ static enum s3c_fb_pixel_format exynos5_format_to_s3c_format(int format)
         return S3C_FB_PIXEL_FORMAT_RGBA_8888;
     case HAL_PIXEL_FORMAT_RGBX_8888:
         return S3C_FB_PIXEL_FORMAT_RGBX_8888;
-    case HAL_PIXEL_FORMAT_RGBA_5551:
-        return S3C_FB_PIXEL_FORMAT_RGBA_5551;
-    case HAL_PIXEL_FORMAT_RGB_565:
-        return S3C_FB_PIXEL_FORMAT_RGB_565;
     case HAL_PIXEL_FORMAT_BGRA_8888:
         return S3C_FB_PIXEL_FORMAT_BGRA_8888;
     default:
@@ -298,8 +294,6 @@ static bool exynos5_format_is_rgb(int format)
     case HAL_PIXEL_FORMAT_RGB_888:
     case HAL_PIXEL_FORMAT_RGB_565:
     case HAL_PIXEL_FORMAT_BGRA_8888:
-    case HAL_PIXEL_FORMAT_RGBA_5551:
-    case HAL_PIXEL_FORMAT_RGBA_4444:
         return true;
 
     default:
@@ -341,8 +335,6 @@ static uint8_t exynos5_format_to_bpp(int format)
     case HAL_PIXEL_FORMAT_BGRA_8888:
         return 32;
 
-    case HAL_PIXEL_FORMAT_RGBA_5551:
-    case HAL_PIXEL_FORMAT_RGBA_4444:
     case HAL_PIXEL_FORMAT_RGB_565:
         return 16;
 
