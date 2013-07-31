@@ -22,6 +22,7 @@
 
 /* Fixed */
 #define VIDEO_BUFFER_MAX_PLANES 3
+#define VIDEO_BUFFER_MAX_NUM    32
 
 typedef enum _ExynosVideoBoolType {
     VIDEO_FALSE = 0,
@@ -107,14 +108,28 @@ typedef struct _ExynosVideoPlane {
     int            fd;
 } ExynosVideoPlane;
 
+typedef struct _ReleaseDPB {
+    int fd;
+    int fd1;
+    int fd2;
+} ReleaseDPB;
+
+typedef struct _PrivateDataShareBuffer {
+    int index;
+    ReleaseDPB dpbFD[VIDEO_BUFFER_MAX_NUM];
+}PrivateDataShareBuffer;
+
 typedef struct _ExynosVideoBuffer {
     ExynosVideoPlane            planes[VIDEO_BUFFER_MAX_PLANES];
     ExynosVideoGeometry        *pGeometry;
     ExynosVideoFrameStatusType  displayStatus;
     ExynosVideoFrameType        frameType;
     ExynosVideoBoolType         bQueued;
+    ExynosVideoBoolType         bSlotUsed;
     ExynosVideoBoolType         bRegistered;
     void                       *pPrivate;
+    PrivateDataShareBuffer      PDSB;
+    int                         nIndexUseCnt;
 } ExynosVideoBuffer;
 
 typedef struct _ExynosVideoFramePacking{
@@ -269,6 +284,9 @@ typedef struct _ExynosVideoDecBufferOps {
     ExynosVideoErrorType  (*Register)(void *pHandle, ExynosVideoPlane *planes, int nPlanes);
     ExynosVideoErrorType  (*Clear_RegisteredBuffer)(void *pHandle);
     ExynosVideoErrorType  (*Clear_Queue)(void *pHandle);
+    ExynosVideoErrorType  (*ExtensionEnqueue)(void *pHandle, unsigned char *pBuffer[], unsigned int *pFd[], unsigned int allocLen[], unsigned int dataSize[], int nPlanes, void *pPrivate);
+    ExynosVideoErrorType  (*ExtensionDequeue)(void *pHandle, ExynosVideoBuffer *pVideoBuffer);
+    ExynosVideoErrorType  (*Enable_DynamicDPB)(void *pHandle);
 } ExynosVideoDecBufferOps;
 
 typedef struct _ExynosVideoEncBufferOps {

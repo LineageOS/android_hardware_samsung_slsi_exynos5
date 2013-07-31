@@ -60,6 +60,7 @@
 #define MFC_INPUT_BUFFER_PLANE              1
 #define MFC_OUTPUT_BUFFER_PLANE             2
 
+#define MAX_OUTPUTBUFFER_NUM_DYNAMIC        0 /* Dynamic number of metadata buffer */
 #define PLATFORM_DISPLAY_BUFFER             1
 
 typedef struct
@@ -82,6 +83,7 @@ typedef struct _DECODE_CODEC_EXTRA_BUFFERINFO
     OMX_U32 imageWidth;
     OMX_U32 imageHeight;
     OMX_COLOR_FORMATTYPE ColorFormat;
+    PrivateDataShareBuffer PDSB;
 } DECODE_CODEC_EXTRA_BUFFERINFO;
 
 typedef struct _EXYNOS_OMX_VIDEODEC_COMPONENT
@@ -108,6 +110,8 @@ typedef struct _EXYNOS_OMX_VIDEODEC_COMPONENT
     /* CSC handle */
     OMX_PTR csc_handle;
     OMX_U32 csc_set_format;
+
+    OMX_HANDLETYPE hRefHandle;
 
     OMX_ERRORTYPE (*exynos_codec_srcInputProcess) (OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA *pInputData);
     OMX_ERRORTYPE (*exynos_codec_srcOutputProcess) (OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA *pInputData);
