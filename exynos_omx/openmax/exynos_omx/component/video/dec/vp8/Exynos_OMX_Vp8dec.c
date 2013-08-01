@@ -673,8 +673,8 @@ OMX_ERRORTYPE VP8CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA
             pExynosInputPort->portDefinition.format.video.nStride = ((pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth + 15) & (~15));
             pExynosInputPort->portDefinition.format.video.nSliceHeight = ((pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight + 15) & (~15));
 
-            pExynosOutputPort->portDefinition.nBufferCountActual = pVp8Dec->hMFCVp8Handle.maxDPBNum - 2;
-            pExynosOutputPort->portDefinition.nBufferCountMin = pVp8Dec->hMFCVp8Handle.maxDPBNum - 2;
+            pExynosOutputPort->portDefinition.nBufferCountActual = pVp8Dec->hMFCVp8Handle.maxDPBNum - 1;
+            pExynosOutputPort->portDefinition.nBufferCountMin = pVp8Dec->hMFCVp8Handle.maxDPBNum - 1;
 
             Exynos_UpdateFrameSize(pOMXComponent);
             pExynosOutputPort->exceptionFlag = NEED_PORT_DISABLE;
