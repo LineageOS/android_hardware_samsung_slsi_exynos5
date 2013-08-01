@@ -764,8 +764,8 @@ OMX_ERRORTYPE H264CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DAT
             pExynosInputPort->portDefinition.format.video.nStride = ((pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameWidth + 15) & (~15));
             pExynosInputPort->portDefinition.format.video.nSliceHeight = ((pH264Dec->hMFCH264Handle.codecOutbufConf.nFrameHeight + 15) & (~15));
 
-            pExynosOutputPort->portDefinition.nBufferCountActual = pH264Dec->hMFCH264Handle.maxDPBNum - 2;
-            pExynosOutputPort->portDefinition.nBufferCountMin = pH264Dec->hMFCH264Handle.maxDPBNum - 2;
+            pExynosOutputPort->portDefinition.nBufferCountActual = pH264Dec->hMFCH264Handle.maxDPBNum - 1;
+            pExynosOutputPort->portDefinition.nBufferCountMin = pH264Dec->hMFCH264Handle.maxDPBNum - 1;
 
             Exynos_UpdateFrameSize(pOMXComponent);
             pExynosOutputPort->exceptionFlag = NEED_PORT_DISABLE;
