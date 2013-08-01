@@ -1952,6 +1952,7 @@ OMX_ERRORTYPE Exynos_Mpeg4Dec_DstOut(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OM
         if ((displayStatus == VIDEO_FRAME_STATUS_DISPLAY_DECODING) ||
             (displayStatus == VIDEO_FRAME_STATUS_DISPLAY_ONLY) ||
             (displayStatus == VIDEO_FRAME_STATUS_CHANGE_RESOL) ||
+            (displayStatus == VIDEO_FRAME_STATUS_DECODING_FINISHED) ||
             (CHECK_PORT_BEING_FLUSHED(pExynosOutputPort))) {
             if (pVideoBuffer != NULL) {
                 ret = OMX_ErrorNone;
@@ -2050,6 +2051,7 @@ OMX_ERRORTYPE Exynos_Mpeg4Dec_DstOut(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OM
     }
 
     if ((displayStatus == VIDEO_FRAME_STATUS_CHANGE_RESOL) ||
+        (displayStatus == VIDEO_FRAME_STATUS_DECODING_FINISHED) ||
         ((pDstOutputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS)) {
         Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "displayStatus:%d, nFlags0x%x", displayStatus, pDstOutputData->nFlags);
         pDstOutputData->remainDataLen = 0;

@@ -715,7 +715,7 @@ OMX_ERRORTYPE Exynos_OMX_SrcInputBufferProcess(OMX_HANDLETYPE hComponent)
             Exynos_OSAL_SleepMillisec(0);
 
             if ((CHECK_PORT_BEING_FLUSHED(exynosInputPort)) ||
-                ((exynosOutputPort->exceptionFlag == NEED_PORT_DISABLE) && (ret == OMX_ErrorInputDataDecodeYet)))
+                ((exynosOutputPort->exceptionFlag != GENERAL_STATE) && (ret == OMX_ErrorInputDataDecodeYet)))
                 break;
             if (exynosInputPort->portState != OMX_StateIdle)
                 break;
@@ -831,7 +831,7 @@ OMX_ERRORTYPE Exynos_OMX_DstInputBufferProcess(OMX_HANDLETYPE hComponent)
     EXYNOS_OMX_BASEPORT      *exynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
     EXYNOS_OMX_DATABUFFER    *dstInputUseBuffer = &exynosOutputPort->way.port2WayDataBuffer.inputDataBuffer;
     EXYNOS_OMX_DATA           dstInputData;
-    
+
     FunctionIn();
 
     while (!pVideoDec->bExitBufferProcessThread) {
@@ -842,7 +842,8 @@ OMX_ERRORTYPE Exynos_OMX_DstInputBufferProcess(OMX_HANDLETYPE hComponent)
             Exynos_OSAL_SleepMillisec(0);
 
             if ((CHECK_PORT_BEING_FLUSHED(exynosOutputPort)) ||
-                (!CHECK_PORT_POPULATED(exynosOutputPort)))
+                (!CHECK_PORT_POPULATED(exynosOutputPort)) ||
+                (exynosOutputPort->exceptionFlag != GENERAL_STATE))
                 break;
             if (exynosOutputPort->portState != OMX_StateIdle)
                 break;
@@ -1230,6 +1231,8 @@ OMX_ERRORTYPE Exynos_OMX_VideoDecodeComponentInit(OMX_IN OMX_HANDLETYPE hCompone
     }
 
     Exynos_OSAL_Memset(pVideoDec, 0, sizeof(EXYNOS_OMX_VIDEODEC_COMPONENT));
+    pVideoDec->bReconfigDPB = OMX_FALSE;
+    pVideoDec->nSavedDPBCnt = 0;
     pExynosComponent->hComponentHandle = (OMX_HANDLETYPE)pVideoDec;
 
     pExynosComponent->bSaveFlagEOS = OMX_FALSE;

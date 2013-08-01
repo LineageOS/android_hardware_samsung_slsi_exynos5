@@ -413,6 +413,7 @@ OMX_ERRORTYPE Exynos_OMX_FlushPort(OMX_COMPONENTTYPE *pOMXComponent, OMX_S32 por
 {
     OMX_ERRORTYPE          ret = OMX_ErrorNone;
     EXYNOS_OMX_BASECOMPONENT *pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
+    EXYNOS_OMX_VIDEODEC_COMPONENT *pVideoDec = (EXYNOS_OMX_VIDEODEC_COMPONENT *)pExynosComponent->hComponentHandle;
     EXYNOS_OMX_BASEPORT      *pExynosPort = NULL;
     OMX_BUFFERHEADERTYPE     *bufferHeader = NULL;
     EXYNOS_OMX_DATABUFFER    *pDataPortBuffer[2] = {NULL, NULL};
@@ -469,7 +470,10 @@ OMX_ERRORTYPE Exynos_OMX_FlushPort(OMX_COMPONENTTYPE *pOMXComponent, OMX_S32 por
             }
             Exynos_ResetCodecData(&pExynosPort->processData);
 
-            maxBufferNum = pExynosPort->portDefinition.nBufferCountActual;
+            if (pVideoDec->bReconfigDPB == OMX_TRUE)
+                maxBufferNum = pVideoDec->nSavedDPBCnt;
+            else
+                maxBufferNum = pExynosPort->portDefinition.nBufferCountActual;
             for (i = 0; i < maxBufferNum; i++) {
                 if (pExynosPort->extendBufferHeader[i].bBufferInOMX == OMX_TRUE) {
                     if (portIndex == OUTPUT_PORT_INDEX) {
@@ -562,7 +566,9 @@ OMX_ERRORTYPE Exynos_OMX_BufferFlush(OMX_COMPONENTTYPE *pOMXComponent, OMX_S32 n
     pVideoDec->exynos_codec_stop(pOMXComponent, nPortIndex);
     Exynos_OSAL_MutexLock(flushPortBuffer[1]->bufferMutex);
     ret = Exynos_OMX_FlushPort(pOMXComponent, nPortIndex);
-    if ((pExynosComponent->pExynosPort[nPortIndex].bufferProcessType & BUFFER_COPY) == BUFFER_COPY)
+    if (pVideoDec->bReconfigDPB == OMX_TRUE)
+        pVideoDec->exynos_codec_reconfigAllBuffers(pOMXComponent, nPortIndex);
+    else if ((pExynosComponent->pExynosPort[nPortIndex].bufferProcessType & BUFFER_COPY) == BUFFER_COPY)
         pVideoDec->exynos_codec_enqueueAllBuffer(pOMXComponent, nPortIndex);
     Exynos_ResetCodecData(&pExynosPort->processData);
 
