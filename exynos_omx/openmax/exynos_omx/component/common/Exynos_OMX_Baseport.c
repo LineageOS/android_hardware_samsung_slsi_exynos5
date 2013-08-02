@@ -870,6 +870,7 @@ OMX_ERRORTYPE Exynos_ResetCodecData(EXYNOS_OMX_DATA *pData)
     pData->timeStamp     = 0;
     pData->pPrivate      = NULL;
     pData->bufferHeader  = NULL;
+    pData->allocSize     = 0;
 
 EXIT:
     return ret;
