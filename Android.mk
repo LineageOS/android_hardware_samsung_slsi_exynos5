@@ -16,6 +16,7 @@
 #
 
 ifeq ($(TARGET_BOARD_PLATFORM),exynos5)
+ifeq ($(TARGET_SLSI_VARIANT),)
 
 exynos5_dirs := \
 	libion_exynos \
@@ -60,4 +61,5 @@ USE_HWC_CSC_THREAD := true
 
 include $(call all-named-subdir-makefiles,$(exynos5_dirs))
 
+endif
 endif
