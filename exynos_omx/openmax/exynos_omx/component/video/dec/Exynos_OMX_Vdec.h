@@ -60,6 +60,8 @@
 #define MFC_INPUT_BUFFER_PLANE              1
 #define MFC_OUTPUT_BUFFER_PLANE             2
 
+#define PLATFORM_DISPLAY_BUFFER             1
+
 typedef struct
 {
     void *pAddrY;

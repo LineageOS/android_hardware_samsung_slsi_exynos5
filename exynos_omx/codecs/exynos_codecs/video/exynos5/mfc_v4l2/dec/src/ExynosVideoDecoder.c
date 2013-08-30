@@ -354,6 +354,30 @@ EXIT:
 }
 
 /*
+ * [Decoder OPS] Set I-Frame Decoding
+ */
+static ExynosVideoErrorType MFC_Decoder_Set_IFrameDecoding(
+    void *pHandle)
+{
+    ExynosVideoDecContext *pCtx = (ExynosVideoDecContext *)pHandle;
+    ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
+
+    if (pCtx == NULL) {
+        ALOGE("%s: Video context info must be supplied", __func__);
+        ret = VIDEO_ERROR_BADPARAM;
+        goto EXIT;
+    }
+
+    if (exynos_v4l2_s_ctrl(pCtx->hDec, V4L2_CID_MPEG_MFC51_VIDEO_I_FRAME_DECODING, 1) != 0) {
+        ret = VIDEO_ERROR_APIFAIL;
+        goto EXIT;
+    }
+
+EXIT:
+    return ret;
+}
+
+/*
  * [Decoder OPS] Enable Packed PB
  */
 static ExynosVideoErrorType MFC_Decoder_Enable_PackedPB(void *pHandle)
@@ -1719,6 +1743,7 @@ static ExynosVideoDecOps defDecOps = {
     .Init                   = MFC_Decoder_Init,
     .Finalize               = MFC_Decoder_Finalize,
     .Set_DisplayDelay       = MFC_Decoder_Set_DisplayDelay,
+    .Set_IFrameDecoding     = MFC_Decoder_Set_IFrameDecoding,
     .Enable_PackedPB        = MFC_Decoder_Enable_PackedPB,
     .Enable_LoopFilter      = MFC_Decoder_Enable_LoopFilter,
     .Enable_SliceMode       = MFC_Decoder_Enable_SliceMode,

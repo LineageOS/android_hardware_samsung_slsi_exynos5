@@ -226,6 +226,7 @@ typedef struct _ExynosVideoDecOps {
     int                   (*Get_FrameTag)(void *pHandle);
     int                   (*Get_ActualBufferCount)(void *pHandle);
     ExynosVideoErrorType  (*Set_DisplayDelay)(void *pHandle, int delay);
+    ExynosVideoErrorType  (*Set_IFrameDecoding)(void *pHandle);
     ExynosVideoErrorType  (*Enable_PackedPB)(void *pHandle);
     ExynosVideoErrorType  (*Enable_LoopFilter)(void *pHandle);
     ExynosVideoErrorType  (*Enable_SliceMode)(void *pHandle);
