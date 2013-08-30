@@ -87,11 +87,9 @@ OMX_ERRORTYPE Exynos_OMX_VideoDecodeGetExtensionIndex(
     OMX_IN OMX_HANDLETYPE  hComponent,
     OMX_IN OMX_STRING      cParameterName,
     OMX_OUT OMX_INDEXTYPE *pIndexType);
-OMX_ERRORTYPE Exynos_InputBufferReturn(OMX_COMPONENTTYPE *pOMXComponent);
-OMX_ERRORTYPE Exynos_OutputBufferReturn(OMX_COMPONENTTYPE *pOMXComponent);
+OMX_ERRORTYPE Exynos_InputBufferReturn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATABUFFER *dataBuffer);
+OMX_ERRORTYPE Exynos_OutputBufferReturn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATABUFFER *dataBuffer);
 OMX_ERRORTYPE Exynos_OMX_BufferFlush(OMX_COMPONENTTYPE *pOMXComponent, OMX_S32 nPortIndex, OMX_BOOL bEvent);
-OMX_ERRORTYPE Exynos_FlushInputBufferReturn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATABUFFER *dataBuffer);
-OMX_ERRORTYPE Exynos_FlushOutputBufferReturn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATABUFFER *dataBuffer);
 
 #ifdef USE_ANB
 OMX_ERRORTYPE Exynos_Shared_ANBBufferToData(EXYNOS_OMX_DATABUFFER *pUseBuffer, EXYNOS_OMX_DATA *pData, EXYNOS_OMX_BASEPORT *pExynosPort, EXYNOS_OMX_PLANE nPlane);

@@ -372,7 +372,7 @@ OMX_ERRORTYPE Exynos_OMX_Release_Resource(OMX_COMPONENTTYPE *pOMXComponent)
     Exynos_OSAL_MutexLock(ghVideoRMComponentListMutex);
 
     pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
-    
+
     if (pExynosComponent->codecType == HW_VIDEO_DEC_CODEC) {
         pComponentTemp = gpVideoDecRMWaitingList;
         if (gpVideoDecRMComponentList == NULL) {

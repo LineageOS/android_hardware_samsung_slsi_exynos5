@@ -682,7 +682,6 @@ OMX_ERRORTYPE Exynos_OSAL_SetANBParameter(
         goto EXIT;
     }
 
-
     switch (nIndex) {
     case OMX_IndexParamEnableAndroidBuffers:
     {

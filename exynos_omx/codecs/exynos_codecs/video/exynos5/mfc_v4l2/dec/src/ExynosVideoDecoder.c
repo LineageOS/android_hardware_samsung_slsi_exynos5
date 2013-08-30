@@ -1484,7 +1484,7 @@ static ExynosVideoErrorType MFC_Decoder_Enqueue_Inbuf(
 
     if ((((OMX_BUFFERHEADERTYPE *)pPrivate)->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS) {
         buf.flags |= V4L2_BUF_FLAG_LAST_FRAME;
-        ALOGD("%s: OMX_BUFFERFLAG_EOS => LAST_FRAME: 0x%x", __func__,
+        ALOGV("%s: OMX_BUFFERFLAG_EOS => LAST_FRAME: 0x%x", __func__,
               !!(buf.flags & V4L2_BUF_FLAG_LAST_FRAME));
     }
 
