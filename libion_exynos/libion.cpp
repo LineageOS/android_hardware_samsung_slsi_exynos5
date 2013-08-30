@@ -127,3 +127,24 @@ int ion_sync(ion_client client, ion_buffer buffer)
 
     return ioctl(client, ION_IOC_SYNC, &data);
 }
+
+int ion_incRef(int fd, int share_fd, unsigned long **handle)
+{
+    struct ion_fd_data data;
+
+    data.fd = share_fd;
+
+    int ret = ioctl(fd, ION_IOC_IMPORT, &data);
+    if (ret < 0)
+            return ret;
+    *handle = (unsigned long*)(data.handle);
+    return ret;
+}
+
+int ion_decRef(int fd, unsigned long *handle)
+{
+    struct ion_handle_data data;
+    data.handle = (ion_handle)handle;
+
+    return ioctl(fd, ION_IOC_FREE, &data);
+}
