@@ -83,6 +83,9 @@ typedef enum _EXYNOS_OMX_INDEXTYPE
     /* for Android Store Metadata Inbuffer */
 #define EXYNOS_INDEX_PARAM_STORE_METADATA_BUFFER "OMX.google.android.index.storeMetaDataInBuffers"
     OMX_IndexParamStoreMetaDataBuffer       = 0x7F000014,
+    /* prepend SPS/PPS to I/IDR for H.264 Encoder */
+#define EXYNOS_INDEX_PARAM_PREPEND_SPSPPS_TO_IDR "OMX.google.android.index.prependSPSPPSToIDRFrames"
+    OMX_IndexParamPrependSPSPPSToIDR        = 0x7F000015,
 
     /* for Android PV OpenCore*/
     OMX_COMPONENT_CAPABILITY_TYPE_INDEX     = 0xFF7A347

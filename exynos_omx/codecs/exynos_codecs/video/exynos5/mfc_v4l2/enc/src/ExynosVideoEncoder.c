@@ -824,6 +824,30 @@ EXIT:
 }
 
 /*
+ * [Encoder OPS] Enable Prepend SPS and PPS to every IDR Frames
+ */
+static ExynosVideoErrorType MFC_Encoder_Enable_PrependSpsPpsToIdr(void *pHandle)
+{
+    ExynosVideoEncContext *pCtx = (ExynosVideoEncContext *)pHandle;
+    ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
+
+    if (pCtx == NULL) {
+        ALOGE("%s: Video context info must be supplied", __func__);
+        ret = VIDEO_ERROR_BADPARAM;
+        goto EXIT;
+    }
+
+    if (exynos_v4l2_s_ctrl(pCtx->hEnc, V4L2_CID_MPEG_VIDEO_H264_PREPEND_SPSPPS_TO_IDR, 1) != 0) {
+        ALOGE("%s: Failed to s_ctrl", __func__);
+        ret = VIDEO_ERROR_APIFAIL;
+        goto EXIT;
+    }
+
+EXIT:
+    return ret;
+}
+
+/*
  * [Encoder Buffer OPS] Enable Cacheable (Input)
  */
 static ExynosVideoErrorType MFC_Encoder_Enable_Cacheable_Inbuf(void *pHandle)
@@ -2245,17 +2269,18 @@ EXIT:
  * [Encoder OPS] Common
  */
 static ExynosVideoEncOps defEncOps = {
-    .nSize          = 0,
-    .Init           = MFC_Encoder_Init,
-    .Finalize       = MFC_Encoder_Finalize,
-    .Set_EncParam   = MFC_Encoder_Set_EncParam,
-    .Set_FrameType  = MFC_Encoder_Set_FrameType,
-    .Set_FrameRate  = MFC_Encoder_Set_FrameRate,
-    .Set_BitRate    = MFC_Encoder_Set_BitRate,
-    .Set_FrameSkip  = MFC_Encoder_Set_FrameSkip,
-    .Set_IDRPeriod  = MFC_Encoder_Set_IDRPeriod,
-    .Set_FrameTag   = MFC_Encoder_Set_FrameTag,
-    .Get_FrameTag   = MFC_Encoder_Get_FrameTag,
+    .nSize                      = 0,
+    .Init                       = MFC_Encoder_Init,
+    .Finalize                   = MFC_Encoder_Finalize,
+    .Set_EncParam               = MFC_Encoder_Set_EncParam,
+    .Set_FrameType              = MFC_Encoder_Set_FrameType,
+    .Set_FrameRate              = MFC_Encoder_Set_FrameRate,
+    .Set_BitRate                = MFC_Encoder_Set_BitRate,
+    .Set_FrameSkip              = MFC_Encoder_Set_FrameSkip,
+    .Set_IDRPeriod              = MFC_Encoder_Set_IDRPeriod,
+    .Set_FrameTag               = MFC_Encoder_Set_FrameTag,
+    .Get_FrameTag               = MFC_Encoder_Get_FrameTag,
+    .Enable_PrependSpsPpsToIdr  = MFC_Encoder_Enable_PrependSpsPpsToIdr,
 };
 
 /*
