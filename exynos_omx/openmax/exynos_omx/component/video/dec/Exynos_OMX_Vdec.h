@@ -107,6 +107,10 @@ typedef struct _EXYNOS_OMX_VIDEODEC_COMPONENT
     /* For DRM Play */
     OMX_BOOL bDRMPlayerMode;
 
+    /* For Reconfiguration DPB */
+    OMX_BOOL bReconfigDPB;
+    OMX_U32  nSavedDPBCnt;
+
     /* CSC handle */
     OMX_PTR csc_handle;
     OMX_U32 csc_set_format;
@@ -127,6 +131,7 @@ typedef struct _EXYNOS_OMX_VIDEODEC_COMPONENT
                                    OMX_BOOL bPreviousFrameEOF, OMX_BOOL *pbEndOfFrame);
     OMX_ERRORTYPE (*exynos_codec_getCodecInputPrivateData) (OMX_PTR codecBuffer, OMX_PTR addr, OMX_U32 *size);
     OMX_ERRORTYPE (*exynos_codec_getCodecOutputPrivateData) (OMX_PTR codecBuffer, OMX_PTR addr[], OMX_U32 size[]);
+    OMX_ERRORTYPE (*exynos_codec_reconfigAllBuffers) (OMX_COMPONENTTYPE *pOMXComponent, OMX_U32 nPortIndex);
 } EXYNOS_OMX_VIDEODEC_COMPONENT;
 
 #ifdef __cplusplus

@@ -1064,6 +1064,7 @@ EXIT:
         }
 
         free(pCtx->pOutbuf);
+        pCtx->pOutbuf = NULL;
     }
 
     return ret;
@@ -1653,7 +1654,7 @@ static ExynosVideoBuffer *MFC_Decoder_Dequeue_Outbuf(void *pHandle)
     pthread_mutex_t       *pMutex = NULL;
 
     struct v4l2_buffer buf;
-    int value;
+    int value, state;
 
     if (pCtx == NULL) {
         ALOGE("%s: Video context info must be supplied", __func__);
@@ -1702,7 +1703,11 @@ static ExynosVideoBuffer *MFC_Decoder_Dequeue_Outbuf(void *pHandle)
         pOutbuf->displayStatus = VIDEO_FRAME_STATUS_DISPLAY_ONLY;
         break;
     case 3:
-        pOutbuf->displayStatus = VIDEO_FRAME_STATUS_CHANGE_RESOL;
+        exynos_v4l2_g_ctrl(pCtx->hDec, V4L2_CID_MPEG_MFC51_VIDEO_CHECK_STATE, &state);
+        if (state == 1) /* Resolution is changed */
+            pOutbuf->displayStatus = VIDEO_FRAME_STATUS_CHANGE_RESOL;
+        else            /* Decoding is finished */
+            pOutbuf->displayStatus = VIDEO_FRAME_STATUS_DECODING_FINISHED;
         break;
     default:
         pOutbuf->displayStatus = VIDEO_FRAME_STATUS_UNKNOWN;
@@ -1766,6 +1771,96 @@ static ExynosVideoErrorType MFC_Decoder_Clear_Queued_Outbuf(void *pHandle)
 
     for (i = 0; i < pCtx->nOutbufs; i++) {
         pCtx->pOutbuf[i].bQueued = VIDEO_FALSE;
+    }
+
+EXIT:
+    return ret;
+}
+
+/*
+ * [Decoder Buffer OPS] Cleanup Buffer (Input)
+ */
+static ExynosVideoErrorType MFC_Decoder_Cleanup_Buffer_Inbuf(void *pHandle)
+{
+    ExynosVideoDecContext *pCtx = (ExynosVideoDecContext *)pHandle;
+    ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
+
+    struct v4l2_requestbuffers req;
+    int nBufferCount = 0;
+
+    if (pCtx == NULL) {
+        ALOGE("%s: Video context info must be supplied", __func__);
+        ret = VIDEO_ERROR_BADPARAM;
+        goto EXIT;
+    }
+
+    nBufferCount = 0; /* for clean-up */
+
+    memset(&req, 0, sizeof(req));
+
+    req.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+    req.count = nBufferCount;
+
+    if (pCtx->bShareInbuf == VIDEO_TRUE)
+        req.memory = pCtx->nMemoryType;
+    else
+        req.memory = V4L2_MEMORY_MMAP;
+
+    if (exynos_v4l2_reqbufs(pCtx->hDec, &req) != 0) {
+        ret = VIDEO_ERROR_APIFAIL;
+        goto EXIT;
+    }
+
+    pCtx->nInbufs = (int)req.count;
+
+    if (pCtx->pInbuf != NULL) {
+        free(pCtx->pInbuf);
+        pCtx->pInbuf = NULL;
+    }
+
+EXIT:
+    return ret;
+}
+
+/*
+ * [Decoder Buffer OPS] Cleanup Buffer (Output)
+ */
+static ExynosVideoErrorType MFC_Decoder_Cleanup_Buffer_Outbuf(void *pHandle)
+{
+    ExynosVideoDecContext *pCtx = (ExynosVideoDecContext *)pHandle;
+    ExynosVideoErrorType   ret  = VIDEO_ERROR_NONE;
+
+    struct v4l2_requestbuffers req;
+    int nBufferCount = 0;
+
+    if (pCtx == NULL) {
+        ALOGE("%s: Video context info must be supplied", __func__);
+        ret = VIDEO_ERROR_BADPARAM;
+        goto EXIT;
+    }
+
+    nBufferCount = 0; /* for clean-up */
+
+    memset(&req, 0, sizeof(req));
+
+    req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+    req.count = nBufferCount;
+
+    if (pCtx->bShareOutbuf == VIDEO_TRUE)
+        req.memory = pCtx->nMemoryType;
+    else
+        req.memory = V4L2_MEMORY_MMAP;
+
+    if (exynos_v4l2_reqbufs(pCtx->hDec, &req) != 0) {
+        ret = VIDEO_ERROR_APIFAIL;
+        goto EXIT;
+    }
+
+    pCtx->nOutbufs = (int)req.count;
+
+    if (pCtx->pOutbuf != NULL) {
+        free(pCtx->pOutbuf);
+        pCtx->pOutbuf = NULL;
     }
 
 EXIT:
@@ -1858,7 +1953,7 @@ static ExynosVideoErrorType MFC_Decoder_ExtensionEnqueue_Outbuf(
 
     struct v4l2_plane  planes[VIDEO_DECODER_OUTBUF_PLANES];
     struct v4l2_buffer buf;
-    int index, i;
+    int state, index, i;
 
     if (pCtx == NULL) {
         ALOGE("%s: Video context info must be supplied", __func__);
@@ -1925,15 +2020,22 @@ static ExynosVideoErrorType MFC_Decoder_ExtensionEnqueue_Outbuf(
     pthread_mutex_unlock(pMutex);
 
     if (exynos_v4l2_qbuf(pCtx->hDec, &buf) != 0) {
-        ALOGE("%s: Failed to enqueue output buffer", __func__);
         pthread_mutex_lock(pMutex);
         pCtx->pOutbuf[buf.index].nIndexUseCnt--;
         pCtx->pOutbuf[buf.index].pPrivate = NULL;
         pCtx->pOutbuf[buf.index].bQueued  = VIDEO_FALSE;
         if (pCtx->pOutbuf[buf.index].nIndexUseCnt == 0)
             pCtx->pOutbuf[buf.index].bSlotUsed = VIDEO_FALSE;
+        exynos_v4l2_g_ctrl(pCtx->hDec, V4L2_CID_MPEG_MFC51_VIDEO_CHECK_STATE, &state);
         pthread_mutex_unlock(pMutex);
-        ret = VIDEO_ERROR_APIFAIL;
+
+        if (state == 1) {
+            /* The case of Resolution is changed */
+            ret = VIDEO_ERROR_WRONGBUFFERSIZE;
+        } else {
+            ALOGE("%s: Failed to enqueue output buffer", __func__);
+            ret = VIDEO_ERROR_APIFAIL;
+        }
         goto EXIT;
     }
 
@@ -1954,7 +2056,7 @@ static ExynosVideoErrorType MFC_Decoder_ExtensionDequeue_Outbuf(
     ExynosVideoBuffer      *pOutbuf = NULL;
     PrivateDataShareBuffer *pPDSB  = NULL;
     struct v4l2_buffer buf;
-    int value, i, j;
+    int value, state, i, j;
 
     if (pCtx == NULL) {
         ALOGE("%s: Video context info must be supplied", __func__);
@@ -2000,7 +2102,11 @@ static ExynosVideoErrorType MFC_Decoder_ExtensionDequeue_Outbuf(
         pOutbuf->displayStatus = VIDEO_FRAME_STATUS_DISPLAY_ONLY;
         break;
     case 3:
-        pOutbuf->displayStatus = VIDEO_FRAME_STATUS_CHANGE_RESOL;
+        exynos_v4l2_g_ctrl(pCtx->hDec, V4L2_CID_MPEG_MFC51_VIDEO_CHECK_STATE, &state);
+        if (state == 1) /* Resolution is changed */
+            pOutbuf->displayStatus = VIDEO_FRAME_STATUS_CHANGE_RESOL;
+        else            /* Decoding is finished */
+            pOutbuf->displayStatus = VIDEO_FRAME_STATUS_DECODING_FINISHED;
         break;
     default:
         pOutbuf->displayStatus = VIDEO_FRAME_STATUS_UNKNOWN;
@@ -2106,6 +2212,7 @@ static ExynosVideoDecBufferOps defInbufOps = {
     .Register               = MFC_Decoder_Register_Inbuf,
     .Clear_RegisteredBuffer = MFC_Decoder_Clear_RegisteredBuffer_Inbuf,
     .Clear_Queue            = MFC_Decoder_Clear_Queued_Inbuf,
+    .Cleanup_Buffer         = MFC_Decoder_Cleanup_Buffer_Inbuf,
 };
 
 /*
@@ -2127,6 +2234,7 @@ static ExynosVideoDecBufferOps defOutbufOps = {
     .Register               = MFC_Decoder_Register_Outbuf,
     .Clear_RegisteredBuffer = MFC_Decoder_Clear_RegisteredBuffer_Outbuf,
     .Clear_Queue            = MFC_Decoder_Clear_Queued_Outbuf,
+    .Cleanup_Buffer         = MFC_Decoder_Cleanup_Buffer_Outbuf,
     .ExtensionEnqueue       = MFC_Decoder_ExtensionEnqueue_Outbuf,
     .ExtensionDequeue       = MFC_Decoder_ExtensionDequeue_Outbuf,
     .Enable_DynamicDPB      = MFC_Decoder_Enable_DynamicDPB,

@@ -38,6 +38,7 @@ typedef enum _ExynosVideoErrorType {
     VIDEO_ERROR_MAPFAIL   = -5,
     VIDEO_ERROR_NOBUFFERS = -6,
     VIDEO_ERROR_POLL      = -7,
+    VIDEO_ERROR_WRONGBUFFERSIZE = -8,
 } ExynosVideoErrorType;
 
 typedef enum _ExynosVideoCodingType {
@@ -75,6 +76,7 @@ typedef enum _ExynosVideoFrameStatusType {
     VIDEO_FRAME_STATUS_DECODING_ONLY,
     VIDEO_FRAME_STATUS_DISPLAY_DECODING,
     VIDEO_FRAME_STATUS_DISPLAY_ONLY,
+    VIDEO_FRAME_STATUS_DECODING_FINISHED,
     VIDEO_FRAME_STATUS_CHANGE_RESOL,
 } ExynosVideoFrameStatusType;
 
@@ -284,6 +286,7 @@ typedef struct _ExynosVideoDecBufferOps {
     ExynosVideoErrorType  (*Register)(void *pHandle, ExynosVideoPlane *planes, int nPlanes);
     ExynosVideoErrorType  (*Clear_RegisteredBuffer)(void *pHandle);
     ExynosVideoErrorType  (*Clear_Queue)(void *pHandle);
+    ExynosVideoErrorType  (*Cleanup_Buffer)(void *pHandle);
     ExynosVideoErrorType  (*ExtensionEnqueue)(void *pHandle, unsigned char *pBuffer[], unsigned int *pFd[], unsigned int allocLen[], unsigned int dataSize[], int nPlanes, void *pPrivate);
     ExynosVideoErrorType  (*ExtensionDequeue)(void *pHandle, ExynosVideoBuffer *pVideoBuffer);
     ExynosVideoErrorType  (*Enable_DynamicDPB)(void *pHandle);
