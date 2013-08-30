@@ -100,7 +100,7 @@ typedef struct _EXYNOS_OMX_DATA
     OMX_TICKS timeStamp;
     OMX_PTR   pPrivate;
     CODEC_EXTRA_BUFFERINFO extInfo;
-    
+
     /* For Share Buffer */
     OMX_BUFFERHEADERTYPE* bufferHeader;
 } EXYNOS_OMX_DATA;

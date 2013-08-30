@@ -45,6 +45,7 @@
 
 #define MAX_TIMESTAMP        40
 #define MAX_FLAGS            40
+#define MAX_BUFFER_REF       40
 
 #define MAX_BUFFER_PLANE     3
 

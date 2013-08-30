@@ -339,7 +339,7 @@ OMX_BOOL Exynos_Preprocessor_InputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
 #ifdef USE_METADATABUFFERTYPE
             if (exynosInputPort->bStoreMetaData == OMX_TRUE) {
                 OMX_PTR ppBuf[MAX_BUFFER_PLANE];
-                OMX_PTR allocSize[MAX_BUFFER_PLANE];
+                OMX_U32 allocSize[MAX_BUFFER_PLANE];
                 int     plane = 0;
 
                 if (inputUseBuffer->dataLen <= 0) {
@@ -352,11 +352,11 @@ OMX_BOOL Exynos_Preprocessor_InputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
                         /* Make EOS Buffer for MFC Processing scheme */
                         /* Use ION Allocator */
                         /*Alloc Y-Buffer */
-                        allocSize[0] = nFrameWidth * nFrameHeight;
+                        allocSize[0] = ALIGN(nFrameWidth, 16) * ALIGN(nFrameHeight, 16);
                         srcInputData->buffer.multiPlaneBuffer.dataBuffer[0] = (void *)Exynos_OSAL_SharedMemory_Alloc(pVideoEnc->hSharedMemory, allocSize[0], NORMAL_MEMORY);
                         srcInputData->buffer.multiPlaneBuffer.fd[0] = Exynos_OSAL_SharedMemory_VirtToION(pVideoEnc->hSharedMemory, srcInputData->buffer.multiPlaneBuffer.dataBuffer[0]);
                         /*Alloc C-Buffer */
-                        allocSize[1] = nFrameWidth * nFrameHeight >> 1;
+                        allocSize[1] = ALIGN(allocSize[0] / 2, 256);
                         srcInputData->buffer.multiPlaneBuffer.dataBuffer[1] = (void *)Exynos_OSAL_SharedMemory_Alloc(pVideoEnc->hSharedMemory, allocSize[1], NORMAL_MEMORY);
                         srcInputData->buffer.multiPlaneBuffer.fd[1] = Exynos_OSAL_SharedMemory_VirtToION(pVideoEnc->hSharedMemory, srcInputData->buffer.multiPlaneBuffer.dataBuffer[1]);
                         /* input buffers are 2 plane. */
