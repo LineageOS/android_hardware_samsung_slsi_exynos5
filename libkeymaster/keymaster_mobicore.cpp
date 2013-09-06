@@ -165,8 +165,8 @@ static int exynos_km_import_keypair(const keymaster_device_t* dev,
     OWNERSHIP_TRANSFERRED(pkcs8);
 
     /* change key format */
-    RSA* rsa = pkey.get()->pkey.rsa;
-    if (rsa == NULL) {
+    Unique_RSA rsa(EVP_PKEY_get1_RSA(pkey.get()));
+    if (rsa.get() == NULL) {
         logOpenSSLError("get rsa key format");
 	return -1;
     }
