@@ -331,22 +331,22 @@ status_t MetadataConverter::ToInternalShot(camera_metadata_t * request, struct c
                 break;
 
             case ANDROID_REQUEST_OUTPUT_STREAMS:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE))
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32))
                     break;
 
                 dst->ctl.request.outputStreams[0] = 0;
                 for (i=0 ; i<curr_entry.count ; i++) {
-                    ALOGV("DEBUG(%s): OUTPUT_STREAM[%d] = %d ",  __FUNCTION__, i, curr_entry.data.u8[i]);
-                    dst->ctl.request.outputStreams[0] |= (1 << curr_entry.data.u8[i]);
+                    ALOGV("DEBUG(%s): OUTPUT_STREAM[%d] = %d ",  __FUNCTION__, i, curr_entry.data.i32[i]);
+                    dst->ctl.request.outputStreams[0] |= (1 << curr_entry.data.i32[i]);
                 }
                 break;
 
             case ANDROID_REQUEST_INPUT_STREAMS:
-                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_BYTE))
+                if (NO_ERROR != CheckEntryTypeMismatch(&curr_entry, TYPE_INT32))
                     break;
 
                 for (i=0 ; i<curr_entry.count ; i++) {
-                    dst_ext->reprocessInput = curr_entry.data.u8[0];
+                    dst_ext->reprocessInput = curr_entry.data.i32[0];
                     ALOGV("DEBUG(%s): ANDROID_REQUEST_INPUT_STREAMS[%d] = %d ",  __FUNCTION__, i, dst_ext->reprocessInput);
                 }
                 break;
