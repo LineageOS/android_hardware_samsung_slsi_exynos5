@@ -38,3 +38,7 @@ PRODUCT_PACKAGES += \
 # Keystore
 PRODUCT_PACKAGES += \
 	keystore.exynos5
+
+# Memory Tracker HAL
+PRODUCT_PACKAGES += \
+	memtrack.exynos5
