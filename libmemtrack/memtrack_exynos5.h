@@ -17,7 +17,7 @@
 #ifndef _MEMTRACK_EXYNOS5_H_
 #define _MEMTRACK_EXYNOS5_H_
 
-int mali_memtrack_get_memory(pid_t pid, enum memtrack_type type,
+int mali_memtrack_get_memory(pid_t pid, int type,
                              struct memtrack_record *records,
                              size_t *num_records);
 
