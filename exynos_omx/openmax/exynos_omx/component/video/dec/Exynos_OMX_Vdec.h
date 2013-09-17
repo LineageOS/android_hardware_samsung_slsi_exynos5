@@ -61,7 +61,6 @@
 #define MFC_OUTPUT_BUFFER_PLANE             2
 
 #define MAX_OUTPUTBUFFER_NUM_DYNAMIC        0 /* Dynamic number of metadata buffer */
-#define PLATFORM_DISPLAY_BUFFER             1
 
 typedef struct
 {
@@ -109,7 +108,6 @@ typedef struct _EXYNOS_OMX_VIDEODEC_COMPONENT
 
     /* For Reconfiguration DPB */
     OMX_BOOL bReconfigDPB;
-    OMX_U32  nSavedDPBCnt;
 
     /* CSC handle */
     OMX_PTR csc_handle;

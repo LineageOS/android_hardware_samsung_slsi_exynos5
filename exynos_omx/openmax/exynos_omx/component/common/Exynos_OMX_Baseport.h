@@ -191,6 +191,9 @@ typedef struct _EXYNOS_OMX_BASEPORT
     OMX_HANDLETYPE                 hAllCodecBufferReturnEvent;
     OMX_HANDLETYPE                 hPortMutex;
     EXYNOS_OMX_EXCEPTION_STATE     exceptionFlag;
+
+    OMX_PARAM_PORTDEFINITIONTYPE   newPortDefinition;
+    OMX_CONFIG_RECTTYPE            newCropRectangle;
 } EXYNOS_OMX_BASEPORT;
 
 
