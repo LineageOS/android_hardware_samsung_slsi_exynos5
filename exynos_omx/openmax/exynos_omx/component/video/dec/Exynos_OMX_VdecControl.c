@@ -722,7 +722,7 @@ OMX_ERRORTYPE Exynos_OutputBufferReturn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS
         bufferHeader->nFlags     = dataBuffer->nFlags;
         bufferHeader->nTimeStamp = dataBuffer->timeStamp;
 
-        if (exynosOMXOutputPort->bStoreMetaData == OMX_TRUE)
+        if ((exynosOMXOutputPort->bStoreMetaData == OMX_TRUE) && (bufferHeader->nFilledLen > 0))
             bufferHeader->nFilledLen = bufferHeader->nAllocLen;
 
         if (pExynosComponent->propagateMarkType.hMarkTargetComponent != NULL) {
