@@ -2415,6 +2415,7 @@ int ExynosCameraHWInterface2::setNotifyCallback(camera2_notify_callback notify_c
 int ExynosCameraHWInterface2::getMetadataVendorTagOps(vendor_tag_query_ops_t **ops)
 {
     ALOGV("DEBUG(%s):", __FUNCTION__);
+    *ops = NULL;
     return 0;
 }
 
