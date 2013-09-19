@@ -470,10 +470,7 @@ OMX_ERRORTYPE Exynos_OMX_FlushPort(OMX_COMPONENTTYPE *pOMXComponent, OMX_S32 por
             }
             Exynos_ResetCodecData(&pExynosPort->processData);
 
-            if (pVideoDec->bReconfigDPB == OMX_TRUE)
-                maxBufferNum = pVideoDec->nSavedDPBCnt;
-            else
-                maxBufferNum = pExynosPort->portDefinition.nBufferCountActual;
+            maxBufferNum = pExynosPort->portDefinition.nBufferCountActual;
             for (i = 0; i < maxBufferNum; i++) {
                 if (pExynosPort->extendBufferHeader[i].bBufferInOMX == OMX_TRUE) {
                     if (portIndex == OUTPUT_PORT_INDEX) {
@@ -605,6 +602,32 @@ EXIT:
     }
 
     FunctionOut();
+
+    return ret;
+}
+
+OMX_ERRORTYPE Exynos_ResolutionUpdate(OMX_COMPONENTTYPE *pOMXComponent)
+{
+    OMX_ERRORTYPE                  ret                = OMX_ErrorNone;
+    EXYNOS_OMX_BASECOMPONENT      *pExynosComponent   = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
+    EXYNOS_OMX_VIDEODEC_COMPONENT *pVideoDec          = (EXYNOS_OMX_VIDEODEC_COMPONENT *)pExynosComponent->hComponentHandle;
+    EXYNOS_OMX_BASEPORT           *pInputPort         = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
+    EXYNOS_OMX_BASEPORT           *pOutputPort        = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
+
+    pOutputPort->cropRectangle.nTop     = pOutputPort->newCropRectangle.nTop;
+    pOutputPort->cropRectangle.nLeft    = pOutputPort->newCropRectangle.nLeft;
+    pOutputPort->cropRectangle.nWidth   = pOutputPort->newCropRectangle.nWidth;
+    pOutputPort->cropRectangle.nHeight  = pOutputPort->newCropRectangle.nHeight;
+
+    pInputPort->portDefinition.format.video.nFrameWidth     = pInputPort->newPortDefinition.format.video.nFrameWidth;
+    pInputPort->portDefinition.format.video.nFrameHeight    = pInputPort->newPortDefinition.format.video.nFrameHeight;
+    pInputPort->portDefinition.format.video.nStride         = pInputPort->newPortDefinition.format.video.nStride;
+    pInputPort->portDefinition.format.video.nSliceHeight    = pInputPort->newPortDefinition.format.video.nSliceHeight;
+
+    pOutputPort->portDefinition.nBufferCountActual  = pOutputPort->newPortDefinition.nBufferCountActual;
+    pOutputPort->portDefinition.nBufferCountMin     = pOutputPort->newPortDefinition.nBufferCountMin;
+
+    Exynos_UpdateFrameSize(pOMXComponent);
 
     return ret;
 }
