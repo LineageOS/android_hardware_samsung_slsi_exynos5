@@ -262,6 +262,9 @@ OMX_ERRORTYPE Exynos_ResetAllPortConfig(OMX_COMPONENTTYPE *pOMXComponent)
     pExynosOutputPort->portDefinition.format.video.pNativeRender = 0;
     pExynosOutputPort->portDefinition.format.video.bFlagErrorConcealment = OMX_FALSE;
     pExynosOutputPort->portDefinition.format.video.eColorFormat = OMX_COLOR_FormatYUV420Planar;
+    pExynosOutputPort->portDefinition.nBufferCountActual = MAX_VIDEO_OUTPUTBUFFER_NUM;
+    pExynosOutputPort->portDefinition.nBufferCountMin = MAX_VIDEO_OUTPUTBUFFER_NUM;
+    pExynosOutputPort->portDefinition.nBufferSize = DEFAULT_VIDEO_OUTPUT_BUFFER_SIZE;
     pExynosOutputPort->portDefinition.bEnabled = OMX_TRUE;
     pExynosOutputPort->bufferProcessType = BUFFER_COPY | BUFFER_ANBSHARE;
     pExynosOutputPort->bIsANBEnabled = OMX_FALSE;
