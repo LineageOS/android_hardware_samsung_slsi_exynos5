@@ -696,8 +696,6 @@ OMX_ERRORTYPE VP8CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA
     pVp8Dec->hMFCVp8Handle.maxDPBNum = pDecOps->Get_ActualBufferCount(hMFCHandle);
     if (pVideoDec->bThumbnailMode == OMX_FALSE)
         pVp8Dec->hMFCVp8Handle.maxDPBNum += EXTRA_DPB_NUM;
-    else
-        pVp8Dec->hMFCVp8Handle.maxDPBNum += PLATFORM_DISPLAY_BUFFER;
     Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "Vp8CodecSetup nOutbufs: %d", pVp8Dec->hMFCVp8Handle.maxDPBNum);
 
     pVp8Dec->hMFCVp8Handle.bConfiguredMFCSrc = OMX_TRUE;
@@ -731,8 +729,8 @@ OMX_ERRORTYPE VP8CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA
             pExynosInputPort->portDefinition.format.video.nStride = ((pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth + 15) & (~15));
             pExynosInputPort->portDefinition.format.video.nSliceHeight = ((pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight + 15) & (~15));
 
-            pExynosOutputPort->portDefinition.nBufferCountActual = pVp8Dec->hMFCVp8Handle.maxDPBNum - PLATFORM_DISPLAY_BUFFER;
-            pExynosOutputPort->portDefinition.nBufferCountMin = pVp8Dec->hMFCVp8Handle.maxDPBNum - PLATFORM_DISPLAY_BUFFER;
+            pExynosOutputPort->portDefinition.nBufferCountActual = pVp8Dec->hMFCVp8Handle.maxDPBNum;
+            pExynosOutputPort->portDefinition.nBufferCountMin = pVp8Dec->hMFCVp8Handle.maxDPBNum;
 
             Exynos_UpdateFrameSize(pOMXComponent);
             pExynosOutputPort->exceptionFlag = NEED_PORT_DISABLE;
@@ -775,15 +773,18 @@ OMX_ERRORTYPE VP8CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
 
     FunctionIn();
 
-    /* get dpb count */
-    nOutbufs = pVp8Dec->hMFCVp8Handle.maxDPBNum;
-
     if ((pExynosOutputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
+        /* BUFFER_COPY case, get dpb count */
+        nOutbufs = pVp8Dec->hMFCVp8Handle.maxDPBNum;
+
         /* should be done before prepare output buffer */
         if (pOutbufOps->Enable_Cacheable(hMFCHandle) != VIDEO_ERROR_NONE) {
             ret = OMX_ErrorInsufficientResources;
             goto EXIT;
         }
+    } else {
+        /*BUFFER_SHERE case, get dpb count */
+        nOutbufs = pExynosOutputPort->portDefinition.nBufferCountActual;
     }
     if (pOutbufOps->Enable_DynamicDPB(hMFCHandle) != VIDEO_ERROR_NONE) {
         ret = OMX_ErrorUndefined;
