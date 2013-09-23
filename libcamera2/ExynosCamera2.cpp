@@ -393,7 +393,7 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
 
     // android.info
 
-    int32_t hardwareLevel = ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_FULL;
+    int32_t hardwareLevel = ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED;
     ADD_OR_SIZE(ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL,
             &hardwareLevel, 1);
 
