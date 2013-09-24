@@ -274,6 +274,8 @@ static enum s3c_fb_pixel_format exynos5_format_to_s3c_format(int format)
         return S3C_FB_PIXEL_FORMAT_RGBA_8888;
     case HAL_PIXEL_FORMAT_RGBX_8888:
         return S3C_FB_PIXEL_FORMAT_RGBX_8888;
+    case HAL_PIXEL_FORMAT_RGB_565:
+        return S3C_FB_PIXEL_FORMAT_RGB_565;
     case HAL_PIXEL_FORMAT_BGRA_8888:
         return S3C_FB_PIXEL_FORMAT_BGRA_8888;
     default:
