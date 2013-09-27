@@ -401,11 +401,11 @@ static bool exynos5_supports_gscaler(hwc_layer_1_t &layer, int format,
             dst_crop_w_aligned(dest_w) &&
             handle->stride <= max_w &&
             handle->stride % GSC_W_ALIGNMENT == 0 &&
-            src_w <= dest_w * max_downscale &&
+            src_w < dest_w * max_downscale &&
             dest_w <= src_w * max_upscale &&
             handle->vstride <= max_h &&
             handle->vstride % GSC_H_ALIGNMENT == 0 &&
-            src_h <= dest_h * max_downscale &&
+            src_h < dest_h * max_downscale &&
             dest_h <= src_h * max_upscale &&
             // per 46.2
             (!rot90or270 || layer.sourceCrop.top % 2 == 0) &&
