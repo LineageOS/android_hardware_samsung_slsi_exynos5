@@ -715,6 +715,8 @@ status_t ExynosCamera2::constructDefaultRequest(
 
     /** android.sensor */
 
+    static const int64_t defaultExposureTime = 8000000LL; // 1/125 s
+    ADD_OR_SIZE(ANDROID_SENSOR_EXPOSURE_TIME, &defaultExposureTime, 1);
 
     static const int64_t frameDuration = 33333333L; // 1/30 s
     ADD_OR_SIZE(ANDROID_SENSOR_FRAME_DURATION, &frameDuration, 1);
