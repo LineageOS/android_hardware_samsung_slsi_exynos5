@@ -6407,7 +6407,7 @@ static int HAL2_camera_device_open(const struct hw_module_t* module,
     Mutex::Autolock lock(g_camera_mutex);
     if (g_camera_vaild) {
         ALOGE("ERR(%s): Can't open, other camera is in use", __FUNCTION__);
-        return -EBUSY;
+        return -EUSERS;
     }
     g_camera_vaild = false;
     ALOGD("\n\n>>> I'm Samsung's CameraHAL_2(ID:%d) <<<\n\n", cameraId);
