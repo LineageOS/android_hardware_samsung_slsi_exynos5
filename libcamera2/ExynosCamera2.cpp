@@ -425,6 +425,11 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
             ANDROID_LENS_FACING_FRONT : ANDROID_LENS_FACING_BACK;
     ADD_OR_SIZE(ANDROID_LENS_FACING, &lensFacing, 1);
 
+    // android.request
+    static const int32_t maxNumOutputStreams[] = {1, 3, 1};
+    ADD_OR_SIZE(ANDROID_REQUEST_MAX_NUM_OUTPUT_STREAMS, maxNumOutputStreams,
+            sizeof(maxNumOutputStreams)/sizeof(int32_t));
+
     // android.sensor
     ADD_OR_SIZE(ANDROID_SENSOR_INFO_EXPOSURE_TIME_RANGE,
             Sensor::kExposureTimeRange, 2);
@@ -449,7 +454,9 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
         m_curCameraInfo->sensorW, m_curCameraInfo->sensorH
     };
     ADD_OR_SIZE(ANDROID_SENSOR_INFO_PIXEL_ARRAY_SIZE, pixelArraySize, 2);
-    ADD_OR_SIZE(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE, pixelArraySize,2);
+
+    int32_t activeArraySize[4] = { 0, 0, pixelArraySize[0], pixelArraySize[1]};
+    ADD_OR_SIZE(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE, activeArraySize,4);
 
     ADD_OR_SIZE(ANDROID_SENSOR_INFO_WHITE_LEVEL,
             &Sensor::kMaxRawValue, 1);
@@ -460,6 +467,10 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
     };
     ADD_OR_SIZE(ANDROID_SENSOR_BLACK_LEVEL_PATTERN,
             blackLevelPattern, sizeof(blackLevelPattern)/sizeof(int32_t));
+
+    static const int32_t orientation[1] = {0};
+    ADD_OR_SIZE(ANDROID_SENSOR_ORIENTATION,
+            orientation, 1);
 
     //TODO: sensor color calibration fields
 
