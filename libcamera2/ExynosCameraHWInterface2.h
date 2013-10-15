@@ -311,6 +311,9 @@ public:
     void    pushSensorQ(int index);
     int     popSensorQ();
     void    releaseSensorQ();
+
+    bool    m_vdisEnable;
+
 private:
 
     MetadataConverter               *m_metadataConverter;
