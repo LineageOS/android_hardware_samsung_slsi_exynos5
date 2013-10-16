@@ -280,6 +280,7 @@ int cam_int_s_input(node_info_t *node, int index)
 gralloc_module_t const* ExynosCameraHWInterface2::m_grallocHal;
 
 RequestManager::RequestManager(SignalDrivenThread* main_thread):
+    m_vdisEnable(false),
     m_lastAeMode(0),
     m_lastAaMode(0),
     m_lastAwbMode(0),
@@ -718,7 +719,7 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
         m_lastAeComp = (int)(shot_ext->shot.ctl.aa.aeExpCompensation);
     }
 
-    if (request_shot->shot.ctl.aa.videoStabilizationMode) {
+    if (request_shot->shot.ctl.aa.videoStabilizationMode && m_vdisEnable) {
         m_vdisBubbleEn = true;
         shot_ext->dis_bypass = 0;
         shot_ext->dnr_bypass = 0;
@@ -1759,6 +1760,10 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
                 AllocatedStream->attachSubStream(STREAM_ID_RECORD, 10);
             if (m_subStreams[STREAM_ID_PRVCB].type != SUBSTREAM_TYPE_NONE)
                 AllocatedStream->attachSubStream(STREAM_ID_PRVCB, 70);
+
+            // set video stabilization killswitch
+            m_requestManager->m_vdisEnable = width > 352 && height > 288;
+
             return 0;
         } else if (allocCase == 1) {
             *stream_id = STREAM_ID_RECORD;
