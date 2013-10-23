@@ -461,11 +461,15 @@ OMX_ERRORTYPE H264CodecStop(OMX_COMPONENTTYPE *pOMXComponent, OMX_U32 nPortIndex
     pInbufOps  = pH264Dec->hMFCH264Handle.pInbufOps;
     pOutbufOps = pH264Dec->hMFCH264Handle.pOutbufOps;
 
-    if ((nPortIndex == INPUT_PORT_INDEX) && (pInbufOps != NULL))
+    if ((nPortIndex == INPUT_PORT_INDEX) && (pInbufOps != NULL)) {
         pInbufOps->Stop(hMFCHandle);
-    else if ((nPortIndex == OUTPUT_PORT_INDEX) && (pOutbufOps != NULL))
+    } else if ((nPortIndex == OUTPUT_PORT_INDEX) && (pOutbufOps != NULL)) {
+        EXYNOS_OMX_BASECOMPONENT *pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
+        EXYNOS_OMX_BASEPORT *pExynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
         pOutbufOps->Stop(hMFCHandle);
-
+        if (pExynosOutputPort->bufferProcessType == BUFFER_SHARE)
+            pOutbufOps->Clear_RegisteredBuffer(hMFCHandle);
+    }
     ret = OMX_ErrorNone;
 
 EXIT:
