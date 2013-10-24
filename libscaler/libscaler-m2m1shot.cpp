@@ -30,7 +30,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
-#include <videodev2.h>
+#include <linux/videodev2.h>
 
 #include <exynos_scaler.h>
 
