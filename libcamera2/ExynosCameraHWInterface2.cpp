@@ -280,6 +280,7 @@ int cam_int_s_input(node_info_t *node, int index)
 gralloc_module_t const* ExynosCameraHWInterface2::m_grallocHal;
 
 RequestManager::RequestManager(SignalDrivenThread* main_thread):
+    m_vdisEnable(false),
     m_lastAeMode(0),
     m_lastAaMode(0),
     m_lastAwbMode(0),
@@ -718,7 +719,7 @@ void    RequestManager::UpdateIspParameters(struct camera2_shot_ext *shot_ext, i
         m_lastAeComp = (int)(shot_ext->shot.ctl.aa.aeExpCompensation);
     }
 
-    if (request_shot->shot.ctl.aa.videoStabilizationMode) {
+    if (request_shot->shot.ctl.aa.videoStabilizationMode && m_vdisEnable) {
         m_vdisBubbleEn = true;
         shot_ext->dis_bypass = 0;
         shot_ext->dnr_bypass = 0;
@@ -1728,7 +1729,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             *usage                              = GRALLOC_USAGE_SW_WRITE_OFTEN;
             if (m_wideAspect)
                 *usage                         |= GRALLOC_USAGE_PRIVATE_CHROMA;
-            *max_buffers                        = 6;
+            *max_buffers                        = 7;
 
             newParameters.width                 = width;
             newParameters.height                = height;
@@ -1759,6 +1760,10 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
                 AllocatedStream->attachSubStream(STREAM_ID_RECORD, 10);
             if (m_subStreams[STREAM_ID_PRVCB].type != SUBSTREAM_TYPE_NONE)
                 AllocatedStream->attachSubStream(STREAM_ID_PRVCB, 70);
+
+            // set video stabilization killswitch
+            m_requestManager->m_vdisEnable = width > 352 && height > 288;
+
             return 0;
         } else if (allocCase == 1) {
             *stream_id = STREAM_ID_RECORD;
@@ -1775,7 +1780,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
             if (m_wideAspect)
                 *usage |= GRALLOC_USAGE_PRIVATE_CHROMA;
-            *max_buffers = 6;
+            *max_buffers = 7;
 
             subParameters->type         = SUBSTREAM_TYPE_RECORD;
             subParameters->width        = width;
@@ -1819,13 +1824,12 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             m_streamThreadInitialize((SignalDrivenThread*)AllocatedStream);
 
             *format_actual                      = HAL_PIXEL_FORMAT_EXYNOS_YV12;
-            *max_buffers                        = 6;
 
             *format_actual = HAL_PIXEL_FORMAT_YCbCr_422_I; // YUYV
             *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
             if (m_wideAspect)
                 *usage |= GRALLOC_USAGE_PRIVATE_CHROMA;
-            *max_buffers = 6;
+            *max_buffers = 7;
 
             newParameters.width                 = width;
             newParameters.height                = height;
@@ -1874,13 +1878,12 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
             m_streamThreadInitialize((SignalDrivenThread*)AllocatedStream);
 
             *format_actual                      = HAL_PIXEL_FORMAT_EXYNOS_YV12;
-            *max_buffers                        = 6;
 
             *format_actual = HAL_PIXEL_FORMAT_YCbCr_422_I; // YUYV
             *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
             if (m_wideAspect)
                 *usage |= GRALLOC_USAGE_PRIVATE_CHROMA;
-            *max_buffers = 6;
+            *max_buffers = 7;
 
             newParameters.width                 = width;
             newParameters.height                = height;
@@ -1934,7 +1937,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
         *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
         if (m_wideAspect)
             *usage |= GRALLOC_USAGE_PRIVATE_CHROMA;
-        *max_buffers = 4;
+        *max_buffers = 5;
 
         subParameters->type          = SUBSTREAM_TYPE_JPEG;
         subParameters->width         = width;
@@ -1972,7 +1975,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
         *usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
         if (m_wideAspect)
             *usage |= GRALLOC_USAGE_PRIVATE_CHROMA;
-        *max_buffers = 6;
+        *max_buffers = 7;
 
         subParameters->type         = SUBSTREAM_TYPE_PRVCB;
         subParameters->width        = width;
@@ -2417,6 +2420,7 @@ int ExynosCameraHWInterface2::setNotifyCallback(camera2_notify_callback notify_c
 int ExynosCameraHWInterface2::getMetadataVendorTagOps(vendor_tag_query_ops_t **ops)
 {
     ALOGV("DEBUG(%s):", __FUNCTION__);
+    *ops = NULL;
     return 0;
 }
 
@@ -6408,7 +6412,7 @@ static int HAL2_camera_device_open(const struct hw_module_t* module,
     Mutex::Autolock lock(g_camera_mutex);
     if (g_camera_vaild) {
         ALOGE("ERR(%s): Can't open, other camera is in use", __FUNCTION__);
-        return -EBUSY;
+        return -EUSERS;
     }
     g_camera_vaild = false;
     ALOGD("\n\n>>> I'm Samsung's CameraHAL_2(ID:%d) <<<\n\n", cameraId);

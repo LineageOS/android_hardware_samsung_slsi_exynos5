@@ -39,6 +39,7 @@
 #include <media/hardware/MetadataBufferType.h>
 #include <gralloc_priv.h>
 
+#include "Exynos_OSAL_Mutex.h"
 #include "Exynos_OSAL_Semaphore.h"
 #include "Exynos_OMX_Baseport.h"
 #include "Exynos_OMX_Basecomponent.h"
@@ -47,6 +48,7 @@
 #include "Exynos_OMX_Venc.h"
 #include "Exynos_OSAL_Android.h"
 #include "exynos_format.h"
+#include "ion.h"
 
 #undef  EXYNOS_LOG_TAG
 #define EXYNOS_LOG_TAG    "Exynos_OSAL_Android"
@@ -59,6 +61,11 @@ using namespace android;
 extern "C" {
 #endif
 
+int getIonFd(gralloc_module_t const *module)
+{
+    private_module_t* m = const_cast<private_module_t*>(reinterpret_cast<const private_module_t*>(module));
+    return m->ionfd;
+}
 
 OMX_ERRORTYPE Exynos_OSAL_LockANBHandle(
     OMX_IN OMX_U32 handle,
@@ -156,6 +163,21 @@ EXIT:
     return ret;
 }
 
+OMX_U32 Exynos_OSAL_GetANBStride(OMX_IN OMX_U32 handle)
+{
+    FunctionIn();
+
+    OMX_U32 nStride = 0;
+    private_handle_t *priv_hnd = (private_handle_t *) handle;
+
+    nStride = priv_hnd->stride;
+
+EXIT:
+    FunctionOut();
+
+    return nStride;
+}
+
 OMX_ERRORTYPE Exynos_OSAL_LockANB(
     OMX_IN OMX_PTR pBuffer,
     OMX_IN OMX_U32 width,
@@ -186,6 +208,267 @@ OMX_ERRORTYPE Exynos_OSAL_UnlockANB(OMX_IN OMX_PTR pBuffer)
     android_native_buffer_t *pANB = (android_native_buffer_t *) pBuffer;
 
     ret = Exynos_OSAL_UnlockANBHandle((OMX_U32)pANB->handle);
+
+EXIT:
+    FunctionOut();
+
+    return ret;
+}
+
+OMX_ERRORTYPE Exynos_OSAL_LockMetaData(
+    OMX_IN OMX_PTR pBuffer,
+    OMX_IN OMX_U32 width,
+    OMX_IN OMX_U32 height,
+    OMX_IN OMX_COLOR_FORMATTYPE format,
+    OMX_OUT OMX_U32 *pStride,
+    OMX_OUT OMX_PTR planes)
+{
+    FunctionIn();
+
+    OMX_ERRORTYPE ret = OMX_ErrorNone;
+    OMX_PTR pBuf;
+
+    ret = Exynos_OSAL_GetInfoFromMetaData((OMX_BYTE)pBuffer, &pBuf);
+    if (ret == OMX_ErrorNone) {
+        ret = Exynos_OSAL_LockANBHandle((OMX_U32)pBuf, width, height, format, planes);
+        *pStride = Exynos_OSAL_GetANBStride((OMX_U32)pBuf);
+    }
+
+EXIT:
+    FunctionOut();
+
+    return ret;
+}
+
+OMX_ERRORTYPE Exynos_OSAL_UnlockMetaData(OMX_IN OMX_PTR pBuffer)
+{
+    FunctionIn();
+
+    OMX_ERRORTYPE ret = OMX_ErrorNone;
+    OMX_PTR pBuf;
+
+    ret = Exynos_OSAL_GetInfoFromMetaData((OMX_BYTE)pBuffer, &pBuf);
+    if (ret == OMX_ErrorNone)
+        ret = Exynos_OSAL_UnlockANBHandle((OMX_U32)pBuf);
+
+EXIT:
+    FunctionOut();
+
+    return ret;
+}
+
+OMX_HANDLETYPE Exynos_OSAL_RefANB_Create()
+{
+    int i = 0;
+    EXYNOS_OMX_REF_HANDLE *phREF = NULL;
+    OMX_ERRORTYPE err = OMX_ErrorNone;
+
+    FunctionIn();
+
+    phREF = (EXYNOS_OMX_REF_HANDLE *) Exynos_OSAL_Malloc(sizeof(EXYNOS_OMX_REF_HANDLE));
+    if (phREF == NULL)
+        goto EXIT;
+
+    Exynos_OSAL_Memset(phREF, 0, sizeof(EXYNOS_OMX_REF_HANDLE));
+    for (i = 0; i < MAX_BUFFER_REF; i++) {
+        phREF->SharedBuffer[i].BufferFd  = -1;
+        phREF->SharedBuffer[i].BufferFd1 = -1;
+        phREF->SharedBuffer[i].BufferFd2 = -1;
+    }
+
+    err = Exynos_OSAL_MutexCreate(&phREF->hMutex);
+    if (err != OMX_ErrorNone) {
+        Exynos_OSAL_Free(phREF);
+        phREF = NULL;
+    }
+
+EXIT:
+    FunctionOut();
+
+    return ((OMX_HANDLETYPE)phREF);
+}
+
+OMX_ERRORTYPE Exynos_OSAL_RefANB_Reset(OMX_HANDLETYPE hREF)
+{
+    int i = 0;
+    OMX_ERRORTYPE ret = OMX_ErrorNone;
+    EXYNOS_OMX_REF_HANDLE *phREF = (EXYNOS_OMX_REF_HANDLE *)hREF;
+    gralloc_module_t* module = NULL;
+
+    FunctionIn();
+
+    if (phREF == NULL) {
+        ret = OMX_ErrorBadParameter;
+        goto EXIT;
+    }
+
+    hw_get_module(GRALLOC_HARDWARE_MODULE_ID, (const hw_module_t **)&module);
+
+    Exynos_OSAL_MutexLock(phREF->hMutex);
+    for (i = 0; i < MAX_BUFFER_REF; i++) {
+        if (phREF->SharedBuffer[i].BufferFd > -1) {
+            while(phREF->SharedBuffer[i].cnt > 0) {
+                if (phREF->SharedBuffer[i].BufferFd > -1)
+                    ion_decRef(getIonFd(module), phREF->SharedBuffer[i].pIonHandle);
+                if (phREF->SharedBuffer[i].BufferFd1 > -1)
+                    ion_decRef(getIonFd(module), phREF->SharedBuffer[i].pIonHandle1);
+                if (phREF->SharedBuffer[i].BufferFd2 > -1)
+                    ion_decRef(getIonFd(module), phREF->SharedBuffer[i].pIonHandle2);
+                phREF->SharedBuffer[i].cnt--;
+            }
+            phREF->SharedBuffer[i].BufferFd    = -1;
+            phREF->SharedBuffer[i].BufferFd1   = -1;
+            phREF->SharedBuffer[i].BufferFd2   = -1;
+            phREF->SharedBuffer[i].pIonHandle  = NULL;
+            phREF->SharedBuffer[i].pIonHandle1 = NULL;
+            phREF->SharedBuffer[i].pIonHandle2 = NULL;
+        }
+    }
+    Exynos_OSAL_MutexUnlock(phREF->hMutex);
+
+EXIT:
+    FunctionOut();
+
+    return ret;
+}
+
+OMX_ERRORTYPE Exynos_OSAL_RefANB_Terminate(OMX_HANDLETYPE hREF)
+{
+    OMX_ERRORTYPE ret = OMX_ErrorNone;
+    EXYNOS_OMX_REF_HANDLE *phREF = (EXYNOS_OMX_REF_HANDLE *)hREF;
+    FunctionIn();
+
+    if (phREF == NULL) {
+        ret = OMX_ErrorBadParameter;
+        goto EXIT;
+    }
+
+    Exynos_OSAL_RefANB_Reset(phREF);
+
+    ret = Exynos_OSAL_MutexTerminate(phREF->hMutex);
+    if (ret != OMX_ErrorNone)
+        goto EXIT;
+
+    Exynos_OSAL_Free(phREF);
+    phREF = NULL;
+
+EXIT:
+    FunctionOut();
+
+    return ret;
+}
+
+OMX_ERRORTYPE Exynos_OSAL_RefANB_Increase(OMX_HANDLETYPE hREF, OMX_PTR pBuffer)
+{
+    int i;
+    OMX_ERRORTYPE ret = OMX_ErrorNone;
+    buffer_handle_t bufferHandle = (buffer_handle_t) pBuffer;//pANB->handle;
+    private_handle_t *priv_hnd = (private_handle_t *) bufferHandle;
+    EXYNOS_OMX_REF_HANDLE *phREF = (EXYNOS_OMX_REF_HANDLE *)hREF;
+    gralloc_module_t* module = NULL;
+
+    unsigned long *pIonHandle;
+    unsigned long *pIonHandle1;
+    unsigned long *pIonHandle2;
+
+    FunctionIn();
+
+    if (phREF == NULL) {
+        ret = OMX_ErrorBadParameter;
+        goto EXIT;
+    }
+
+    hw_get_module(GRALLOC_HARDWARE_MODULE_ID, (const hw_module_t **)&module);
+
+    Exynos_OSAL_MutexLock(phREF->hMutex);
+
+    if (priv_hnd->fd >= 0) {
+        ion_incRef(getIonFd(module), priv_hnd->fd, &pIonHandle);
+    }
+    if (priv_hnd->fd1 >= 0) {
+        ion_incRef(getIonFd(module), priv_hnd->fd1, &pIonHandle1);
+    }
+    if (priv_hnd->fd2 >= 0) {
+        ion_incRef(getIonFd(module), priv_hnd->fd2, &pIonHandle2);
+    }
+
+    for (i = 0; i < MAX_BUFFER_REF; i++) {
+        if (phREF->SharedBuffer[i].BufferFd == priv_hnd->fd) {
+            phREF->SharedBuffer[i].cnt++;
+            break;
+        }
+    }
+
+    if (i >=  MAX_BUFFER_REF) {
+        for (i = 0; i < MAX_BUFFER_REF; i++) {
+            if (phREF->SharedBuffer[i].BufferFd == -1) {
+                phREF->SharedBuffer[i].BufferFd    = priv_hnd->fd;
+                phREF->SharedBuffer[i].BufferFd1   = priv_hnd->fd1;
+                phREF->SharedBuffer[i].BufferFd2   = priv_hnd->fd2;
+                phREF->SharedBuffer[i].pIonHandle  = pIonHandle;
+                phREF->SharedBuffer[i].pIonHandle1 = pIonHandle1;
+                phREF->SharedBuffer[i].pIonHandle2 = pIonHandle2;
+                phREF->SharedBuffer[i].cnt++;
+                break;
+            }
+        }
+    }
+
+    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "inc fd:%d cnt:%d", phREF->SharedBuffer[i].BufferFd, phREF->SharedBuffer[i].cnt);
+
+    Exynos_OSAL_MutexUnlock(phREF->hMutex);
+
+    if (i >=  MAX_BUFFER_REF) {
+        ret = OMX_ErrorUndefined;
+    }
+
+EXIT:
+    FunctionOut();
+
+    return ret;
+}
+
+OMX_ERRORTYPE Exynos_OSAL_RefANB_Decrease(OMX_HANDLETYPE hREF, OMX_U32 BufferFd)
+{
+    int i;
+    OMX_ERRORTYPE ret = OMX_ErrorNone;
+    EXYNOS_OMX_REF_HANDLE *phREF = (EXYNOS_OMX_REF_HANDLE *)hREF;
+    gralloc_module_t* module = NULL;
+
+    FunctionIn();
+
+    if ((phREF == NULL) || (BufferFd < 0)) {
+        ret = OMX_ErrorBadParameter;
+        goto EXIT;
+    }
+
+    Exynos_OSAL_MutexLock(phREF->hMutex);
+    hw_get_module(GRALLOC_HARDWARE_MODULE_ID, (const hw_module_t **)&module);
+    for (i = 0; i < MAX_BUFFER_REF; i++) {
+        if (phREF->SharedBuffer[i].BufferFd == BufferFd) {
+            ion_decRef(getIonFd(module), phREF->SharedBuffer[i].pIonHandle);
+            ion_decRef(getIonFd(module), phREF->SharedBuffer[i].pIonHandle1);
+            ion_decRef(getIonFd(module), phREF->SharedBuffer[i].pIonHandle2);
+            phREF->SharedBuffer[i].cnt--;
+            if (phREF->SharedBuffer[i].cnt == 0) {
+                phREF->SharedBuffer[i].BufferFd    = -1;
+                phREF->SharedBuffer[i].BufferFd1   = -1;
+                phREF->SharedBuffer[i].BufferFd2   = -1;
+                phREF->SharedBuffer[i].pIonHandle  = NULL;
+                phREF->SharedBuffer[i].pIonHandle1 = NULL;
+                phREF->SharedBuffer[i].pIonHandle2 = NULL;
+            }
+            break;
+        }
+    }
+    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "dec fd:%d cnt:%d", phREF->SharedBuffer[i].BufferFd, phREF->SharedBuffer[i].cnt);
+
+    Exynos_OSAL_MutexUnlock(phREF->hMutex);
+
+    if (i >=  MAX_BUFFER_REF) {
+        ret = OMX_ErrorUndefined;
+        goto EXIT;
+    }
 
 EXIT:
     FunctionOut();
@@ -399,7 +682,6 @@ OMX_ERRORTYPE Exynos_OSAL_SetANBParameter(
         goto EXIT;
     }
 
-
     switch (nIndex) {
     case OMX_IndexParamEnableAndroidBuffers:
     {
@@ -428,7 +710,8 @@ OMX_ERRORTYPE Exynos_OSAL_SetANBParameter(
         }
 
         /* ANB and DPB Buffer Sharing */
-        pExynosPort->bIsANBEnabled = pANBParams->enable;
+        if (pExynosPort->bStoreMetaData != OMX_TRUE)
+            pExynosPort->bIsANBEnabled = pANBParams->enable;
         if ((portIndex == OUTPUT_PORT_INDEX) &&
             (pExynosPort->bIsANBEnabled == OMX_TRUE) &&
             ((pExynosPort->bufferProcessType & BUFFER_ANBSHARE) == BUFFER_ANBSHARE)) {
@@ -494,7 +777,6 @@ OMX_ERRORTYPE Exynos_OSAL_SetANBParameter(
 
     case OMX_IndexParamStoreMetaDataBuffer:
     {
-        EXYNOS_OMX_VIDEOENC_COMPONENT *pVideoEnc = (EXYNOS_OMX_VIDEOENC_COMPONENT *)pExynosComponent->hComponentHandle;;
         StoreMetaDataInBuffersParams *pANBParams = (StoreMetaDataInBuffersParams *) ComponentParameterStructure;
         OMX_U32 portIndex = pANBParams->nPortIndex;
         EXYNOS_OMX_BASEPORT *pExynosPort = NULL;
@@ -519,7 +801,20 @@ OMX_ERRORTYPE Exynos_OSAL_SetANBParameter(
         }
 
         pExynosPort->bStoreMetaData = pANBParams->bStoreMetaData;
-        pVideoEnc->bFirstInput = OMX_TRUE;
+        if (pExynosComponent->codecType == HW_VIDEO_ENC_CODEC) {
+            EXYNOS_OMX_VIDEOENC_COMPONENT *pVideoEnc = (EXYNOS_OMX_VIDEOENC_COMPONENT *)pExynosComponent->hComponentHandle;;
+            pVideoEnc->bFirstInput = OMX_TRUE;
+        } else if (pExynosComponent->codecType == HW_VIDEO_DEC_CODEC) {
+            EXYNOS_OMX_VIDEODEC_COMPONENT *pVideoDec = (EXYNOS_OMX_VIDEODEC_COMPONENT *)pExynosComponent->hComponentHandle;;
+            if ((portIndex == OUTPUT_PORT_INDEX) &&
+                (pExynosPort->bStoreMetaData == OMX_TRUE) &&
+                ((pExynosPort->bufferProcessType & BUFFER_ANBSHARE) == BUFFER_ANBSHARE)) {
+                pExynosPort->bufferProcessType = BUFFER_SHARE;
+                pExynosPort->portDefinition.format.video.eColorFormat = (OMX_COLOR_FORMATTYPE)OMX_SEC_COLOR_FormatNV12Tiled;
+                Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "OMX_IndexParamStoreMetaDataBuffer & bufferProcessType change to BUFFER_SHARE");
+            }
+
+        }
     }
         break;
 
@@ -589,6 +884,25 @@ OMX_ERRORTYPE Exynos_OSAL_GetInfoFromMetaData(OMX_IN OMX_BYTE pBuffer,
 EXIT:
     FunctionOut();
 
+    return ret;
+}
+
+OMX_ERRORTYPE Exynos_OSAL_SetPrependSPSPPSToIDR(
+    OMX_PTR pComponentParameterStructure,
+    OMX_PTR pbPrependSpsPpsToIdr)
+{
+    OMX_ERRORTYPE                    ret        = OMX_ErrorNone;
+    PrependSPSPPSToIDRFramesParams  *pANBParams = (PrependSPSPPSToIDRFramesParams *)pComponentParameterStructure;
+
+    ret = Exynos_OMX_Check_SizeVersion(pANBParams, sizeof(PrependSPSPPSToIDRFramesParams));
+    if (ret != OMX_ErrorNone) {
+        Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "%s: Exynos_OMX_Check_SizeVersion(PrependSPSPPSToIDRFrames) is failed", __func__);
+        goto EXIT;
+    }
+
+    (*((OMX_BOOL *)pbPrependSpsPpsToIdr)) = pANBParams->bEnable;
+
+EXIT:
     return ret;
 }
 

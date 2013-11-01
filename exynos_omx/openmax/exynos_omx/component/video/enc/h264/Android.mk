@@ -23,7 +23,8 @@ LOCAL_STATIC_LIBRARIES := libExynosOMX_Venc libExynosOMX_OSAL libExynosOMX_Basec
 	libswconverter libExynosVideoApi
 
 LOCAL_SHARED_LIBRARIES := libc libdl libcutils libutils liblog libui \
-	libExynosOMX_Resourcemanager libcsc libexynosv4l2 libion_exynos
+	libExynosOMX_Resourcemanager libcsc libexynosv4l2 libion_exynos \
+	libhardware
 
 LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
 	$(EXYNOS_OMX_INC)/exynos \

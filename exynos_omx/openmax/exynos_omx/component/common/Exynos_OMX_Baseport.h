@@ -100,7 +100,7 @@ typedef struct _EXYNOS_OMX_DATA
     OMX_TICKS timeStamp;
     OMX_PTR   pPrivate;
     CODEC_EXTRA_BUFFERINFO extInfo;
-    
+
     /* For Share Buffer */
     OMX_BUFFERHEADERTYPE* bufferHeader;
 } EXYNOS_OMX_DATA;
@@ -127,6 +127,7 @@ typedef enum _EXYNOS_OMX_EXCEPTION_STATE
     GENERAL_STATE = 0x00,
     NEED_PORT_FLUSH,
     NEED_PORT_DISABLE,
+    INVALID_STATE,
 } EXYNOS_OMX_EXCEPTION_STATE;
 
 typedef enum _EXYNOS_OMX_PLANE
@@ -190,6 +191,9 @@ typedef struct _EXYNOS_OMX_BASEPORT
     OMX_HANDLETYPE                 hAllCodecBufferReturnEvent;
     OMX_HANDLETYPE                 hPortMutex;
     EXYNOS_OMX_EXCEPTION_STATE     exceptionFlag;
+
+    OMX_PARAM_PORTDEFINITIONTYPE   newPortDefinition;
+    OMX_CONFIG_RECTTYPE            newCropRectangle;
 } EXYNOS_OMX_BASEPORT;
 
 

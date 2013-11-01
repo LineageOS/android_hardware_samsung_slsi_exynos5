@@ -33,11 +33,29 @@
 #include "OMX_Core.h"
 #include "OMX_Index.h"
 
+typedef struct _EXYNOS_OMX_SHARED_BUFFER {
+    OMX_S32 BufferFd;
+    OMX_S32 BufferFd1;
+    OMX_S32 BufferFd2;
+    unsigned long *pIonHandle;
+    unsigned long *pIonHandle1;
+    unsigned long *pIonHandle2;
+    OMX_U32 cnt;
+} EXYNOS_OMX_SHARED_BUFFER;
+
+typedef struct _EXYNOS_OMX_REF_HANDLE {
+    OMX_HANDLETYPE hMutex;
+    EXYNOS_OMX_SHARED_BUFFER SharedBuffer[MAX_BUFFER_REF];
+} EXYNOS_OMX_REF_HANDLE;
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 OMX_COLOR_FORMATTYPE Exynos_OSAL_GetANBColorFormat(OMX_IN OMX_U32 handle);
+
+OMX_U32 Exynos_OSAL_GetANBStride(OMX_IN OMX_U32 handle);
 
 OMX_ERRORTYPE Exynos_OSAL_GetANBParameter(OMX_IN OMX_HANDLETYPE hComponent,
                                           OMX_IN OMX_INDEXTYPE nIndex,
@@ -56,6 +74,15 @@ OMX_ERRORTYPE Exynos_OSAL_LockANB(OMX_IN OMX_PTR pBuffer,
 
 OMX_ERRORTYPE Exynos_OSAL_UnlockANB(OMX_IN OMX_PTR pBuffer);
 
+OMX_ERRORTYPE Exynos_OSAL_LockMetaData(OMX_IN OMX_PTR pBuffer,
+                                       OMX_IN OMX_U32 width,
+                                       OMX_IN OMX_U32 height,
+                                       OMX_IN OMX_COLOR_FORMATTYPE format,
+                                       OMX_OUT OMX_U32 *pStride,
+                                       OMX_OUT OMX_PTR planes);
+
+OMX_ERRORTYPE Exynos_OSAL_UnlockMetaData(OMX_IN OMX_PTR pBuffer);
+
 OMX_ERRORTYPE Exynos_OSAL_LockANBHandle(OMX_IN OMX_U32 pBuffer,
                                         OMX_IN OMX_U32 width,
                                         OMX_IN OMX_U32 height,
@@ -70,6 +97,8 @@ OMX_ERRORTYPE Exynos_OSAL_GetInfoFromMetaData(OMX_IN OMX_BYTE pBuffer,
 OMX_ERRORTYPE Exynos_OSAL_CheckANB(OMX_IN EXYNOS_OMX_DATA *pBuffer,
                                    OMX_OUT OMX_BOOL *bIsANBEnabled);
 
+OMX_ERRORTYPE Exynos_OSAL_SetPrependSPSPPSToIDR(OMX_PTR pComponentParameterStructure,
+                                                OMX_PTR pbPrependSpsPpsToIdr);
 OMX_COLOR_FORMATTYPE Exynos_OSAL_Hal2OMXPixelFormat(unsigned int hal_format);
 
 unsigned int Exynos_OSAL_OMX2HalPixelFormat(OMX_COLOR_FORMATTYPE omx_format);

@@ -45,6 +45,7 @@
 
 #define MAX_TIMESTAMP        40
 #define MAX_FLAGS            40
+#define MAX_BUFFER_REF       40
 
 #define MAX_BUFFER_PLANE     3
 
@@ -68,8 +69,8 @@ typedef struct _EXYNOS_OMX_PRIORITYMGMTTYPE
 
 typedef enum _EXYNOS_OMX_INDEXTYPE
 {
-#define EXYNOS_INDEX_PARAM_ENABLE_THUMBNAIL "OMX.SEC.index.ThumbnailMode"
-    OMX_IndexVendorThumbnailMode            = 0x7F000001,
+#define EXYNOS_INDEX_PARAM_ENABLE_THUMBNAIL "OMX.SEC.index.enableThumbnailMode"
+    OMX_IndexParamEnableThumbnailMode       = 0x7F000001,
 #define EXYNOS_INDEX_CONFIG_VIDEO_INTRAPERIOD "OMX.SEC.index.VideoIntraPeriod"
     OMX_IndexConfigVideoIntraPeriod         = 0x7F000002,
 
@@ -83,6 +84,9 @@ typedef enum _EXYNOS_OMX_INDEXTYPE
     /* for Android Store Metadata Inbuffer */
 #define EXYNOS_INDEX_PARAM_STORE_METADATA_BUFFER "OMX.google.android.index.storeMetaDataInBuffers"
     OMX_IndexParamStoreMetaDataBuffer       = 0x7F000014,
+    /* prepend SPS/PPS to I/IDR for H.264 Encoder */
+#define EXYNOS_INDEX_PARAM_PREPEND_SPSPPS_TO_IDR "OMX.google.android.index.prependSPSPPSToIDRFrames"
+    OMX_IndexParamPrependSPSPPSToIDR        = 0x7F000015,
 
     /* for Android PV OpenCore*/
     OMX_COMPONENT_CAPABILITY_TYPE_INDEX     = 0xFF7A347
@@ -157,6 +161,13 @@ typedef struct _EXYNOS_OMX_VIDEO_PROFILELEVEL
     OMX_S32  profile;
     OMX_S32  level;
 } EXYNOS_OMX_VIDEO_PROFILELEVEL;
+
+typedef struct _EXYNOS_OMX_VIDEO_THUMBNAILMODE {
+    OMX_U32 nSize;
+    OMX_VERSIONTYPE nVersion;
+    OMX_U32 nPortIndex;
+    OMX_BOOL bEnable;
+} EXYNOS_OMX_VIDEO_THUMBNAILMODE;
 
 #define OMX_VIDEO_CodingVPX     0x09    /**< Google VPX, formerly known as On2 VP8 */
 

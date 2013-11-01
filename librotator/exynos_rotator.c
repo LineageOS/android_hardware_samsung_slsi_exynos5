@@ -480,7 +480,7 @@ static bool m_exynos_rotator_set_format(
         int value = 0;
 
         if (exynos_v4l2_g_ctrl(fd, V4L2_CID_ROTATE, &value) < 0) {
-            ALOGE("%s::exynos_v4l2_g_ctrl(V4L2_CID_ROTATE) fail");
+            ALOGE("%s::exynos_v4l2_g_ctrl(V4L2_CID_ROTATE) fail", __func__);
             return false;
         }
 

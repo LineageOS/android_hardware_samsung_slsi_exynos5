@@ -274,8 +274,6 @@ static enum s3c_fb_pixel_format exynos5_format_to_s3c_format(int format)
         return S3C_FB_PIXEL_FORMAT_RGBA_8888;
     case HAL_PIXEL_FORMAT_RGBX_8888:
         return S3C_FB_PIXEL_FORMAT_RGBX_8888;
-    case HAL_PIXEL_FORMAT_RGBA_5551:
-        return S3C_FB_PIXEL_FORMAT_RGBA_5551;
     case HAL_PIXEL_FORMAT_RGB_565:
         return S3C_FB_PIXEL_FORMAT_RGB_565;
     case HAL_PIXEL_FORMAT_BGRA_8888:
@@ -298,8 +296,6 @@ static bool exynos5_format_is_rgb(int format)
     case HAL_PIXEL_FORMAT_RGB_888:
     case HAL_PIXEL_FORMAT_RGB_565:
     case HAL_PIXEL_FORMAT_BGRA_8888:
-    case HAL_PIXEL_FORMAT_RGBA_5551:
-    case HAL_PIXEL_FORMAT_RGBA_4444:
         return true;
 
     default:
@@ -341,8 +337,6 @@ static uint8_t exynos5_format_to_bpp(int format)
     case HAL_PIXEL_FORMAT_BGRA_8888:
         return 32;
 
-    case HAL_PIXEL_FORMAT_RGBA_5551:
-    case HAL_PIXEL_FORMAT_RGBA_4444:
     case HAL_PIXEL_FORMAT_RGB_565:
         return 16;
 
@@ -407,11 +401,11 @@ static bool exynos5_supports_gscaler(hwc_layer_1_t &layer, int format,
             dst_crop_w_aligned(dest_w) &&
             handle->stride <= max_w &&
             handle->stride % GSC_W_ALIGNMENT == 0 &&
-            src_w <= dest_w * max_downscale &&
+            src_w < dest_w * max_downscale &&
             dest_w <= src_w * max_upscale &&
             handle->vstride <= max_h &&
             handle->vstride % GSC_H_ALIGNMENT == 0 &&
-            src_h <= dest_h * max_downscale &&
+            src_h < dest_h * max_downscale &&
             dest_h <= src_h * max_upscale &&
             // per 46.2
             (!rot90or270 || layer.sourceCrop.top % 2 == 0) &&
@@ -1490,9 +1484,6 @@ static int exynos5_clear_fimd(exynos5_hwc_composer_device_1_t *pdev)
 static int exynos5_set_fimd(exynos5_hwc_composer_device_1_t *pdev,
         hwc_display_contents_1_t* contents)
 {
-    if (!contents->dpy || !contents->sur)
-        return 0;
-
     hwc_layer_1_t *fb_layer = NULL;
     int err = 0;
 

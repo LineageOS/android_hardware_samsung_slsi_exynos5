@@ -45,6 +45,10 @@ typedef struct _ExynosVideoDecContext {
     void                *pInMutex;
     void                *pOutMutex;
     int                  nMemoryType;
+
+    void                *hIONHandle;
+    int                  nPrivateDataShareFD;
+    void                *nPrivateDataShareAddress;
 } ExynosVideoDecContext;
 
 #endif /* _EXYNOS_VIDEO_DEC_H_ */

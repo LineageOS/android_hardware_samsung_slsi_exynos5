@@ -167,7 +167,7 @@ int Exynos_OSAL_SetElemNum(EXYNOS_QUEUE *queueHandle, int ElemNum)
         return -1;
 
     Exynos_OSAL_MutexLock(queue->qMutex);
-    queue->numElem = ElemNum; 
+    queue->numElem = ElemNum;
     Exynos_OSAL_MutexUnlock(queue->qMutex);
     return ElemNum;
 }
