@@ -803,7 +803,6 @@ OMX_ERRORTYPE Exynos_OSAL_SetANBParameter(
         pExynosPort->bStoreMetaData = pANBParams->bStoreMetaData;
         if (pExynosComponent->codecType == HW_VIDEO_ENC_CODEC) {
             EXYNOS_OMX_VIDEOENC_COMPONENT *pVideoEnc = (EXYNOS_OMX_VIDEOENC_COMPONENT *)pExynosComponent->hComponentHandle;;
-            pVideoEnc->bFirstInput = OMX_TRUE;
         } else if (pExynosComponent->codecType == HW_VIDEO_DEC_CODEC) {
             EXYNOS_OMX_VIDEODEC_COMPONENT *pVideoDec = (EXYNOS_OMX_VIDEODEC_COMPONENT *)pExynosComponent->hComponentHandle;;
             if ((portIndex == OUTPUT_PORT_INDEX) &&
