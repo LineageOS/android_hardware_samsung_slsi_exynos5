@@ -159,6 +159,10 @@ int ion_unmap(void *addr, size_t len);
  */
 int ion_sync(ion_client client, ion_buffer buffer);
 
+int ion_incRef(int fd, int share_fd, unsigned long **handle);
+
+int ion_decRef(int fd, unsigned long *handle);
+
 #ifdef __cplusplus
 }
 #endif

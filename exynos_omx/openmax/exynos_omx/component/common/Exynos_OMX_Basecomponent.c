@@ -663,6 +663,22 @@ static OMX_ERRORTYPE Exynos_StateSet(EXYNOS_OMX_BASECOMPONENT *pExynosComponent,
         }
         Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "to OMX_StateLoaded");
     } else if ((destState == OMX_StateIdle) && (pExynosComponent->currentState == OMX_StateExecuting)) {
+        EXYNOS_OMX_BASEPORT *pExynosPort = NULL;
+
+        pExynosPort = &(pExynosComponent->pExynosPort[INPUT_PORT_INDEX]);
+        if ((pExynosPort->portDefinition.bEnabled == OMX_FALSE) &&
+            (pExynosPort->portState == OMX_StateIdle)) {
+            pExynosPort->exceptionFlag = INVALID_STATE;
+            Exynos_OSAL_SemaphorePost(pExynosPort->loadedResource);
+        }
+
+        pExynosPort = &(pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX]);
+        if ((pExynosPort->portDefinition.bEnabled == OMX_FALSE) &&
+            (pExynosPort->portState == OMX_StateIdle)) {
+            pExynosPort->exceptionFlag = INVALID_STATE;
+            Exynos_OSAL_SemaphorePost(pExynosPort->loadedResource);
+        }
+
         pExynosComponent->transientState = EXYNOS_OMX_TransStateExecutingToIdle;
         Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "to OMX_StateIdle");
     } else if ((destState == OMX_StateExecuting) && (pExynosComponent->currentState == OMX_StateIdle)) {

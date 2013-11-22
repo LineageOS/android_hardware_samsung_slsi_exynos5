@@ -60,6 +60,8 @@
 #define MFC_INPUT_BUFFER_PLANE              1
 #define MFC_OUTPUT_BUFFER_PLANE             2
 
+#define MAX_OUTPUTBUFFER_NUM_DYNAMIC        0 /* Dynamic number of metadata buffer */
+
 typedef struct
 {
     void *pAddrY;
@@ -80,6 +82,7 @@ typedef struct _DECODE_CODEC_EXTRA_BUFFERINFO
     OMX_U32 imageWidth;
     OMX_U32 imageHeight;
     OMX_COLOR_FORMATTYPE ColorFormat;
+    PrivateDataShareBuffer PDSB;
 } DECODE_CODEC_EXTRA_BUFFERINFO;
 
 typedef struct _EXYNOS_OMX_VIDEODEC_COMPONENT
@@ -103,9 +106,14 @@ typedef struct _EXYNOS_OMX_VIDEODEC_COMPONENT
     /* For DRM Play */
     OMX_BOOL bDRMPlayerMode;
 
+    /* For Reconfiguration DPB */
+    OMX_BOOL bReconfigDPB;
+
     /* CSC handle */
     OMX_PTR csc_handle;
     OMX_U32 csc_set_format;
+
+    OMX_HANDLETYPE hRefHandle;
 
     OMX_ERRORTYPE (*exynos_codec_srcInputProcess) (OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA *pInputData);
     OMX_ERRORTYPE (*exynos_codec_srcOutputProcess) (OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA *pInputData);
@@ -121,6 +129,7 @@ typedef struct _EXYNOS_OMX_VIDEODEC_COMPONENT
                                    OMX_BOOL bPreviousFrameEOF, OMX_BOOL *pbEndOfFrame);
     OMX_ERRORTYPE (*exynos_codec_getCodecInputPrivateData) (OMX_PTR codecBuffer, OMX_PTR addr, OMX_U32 *size);
     OMX_ERRORTYPE (*exynos_codec_getCodecOutputPrivateData) (OMX_PTR codecBuffer, OMX_PTR addr[], OMX_U32 size[]);
+    OMX_ERRORTYPE (*exynos_codec_reconfigAllBuffers) (OMX_COMPONENTTYPE *pOMXComponent, OMX_U32 nPortIndex);
 } EXYNOS_OMX_VIDEODEC_COMPONENT;
 
 #ifdef __cplusplus

@@ -104,12 +104,6 @@ unsigned int hal_2_g2d_color_format(unsigned int hal_format)
     case HAL_PIXEL_FORMAT_RGB_565:
         return CF_RGB_565;
 
-    case HAL_PIXEL_FORMAT_RGBA_5551:
-        return CF_ARGB_1555;
-
-    case HAL_PIXEL_FORMAT_RGBA_4444:
-        return CF_ARGB_4444;
-
     case HAL_PIXEL_FORMAT_YCbCr_422_I:
         return CF_YCBCR_422;
 
@@ -132,8 +126,6 @@ unsigned int hal_2_g2d_pixel_order(unsigned int hal_format)
     case HAL_PIXEL_FORMAT_RGBX_8888:
     case HAL_PIXEL_FORMAT_RGB_888:
     case HAL_PIXEL_FORMAT_RGB_565:
-    case HAL_PIXEL_FORMAT_RGBA_5551:
-    case HAL_PIXEL_FORMAT_RGBA_4444:
         return RGB_AX;
 
     case HAL_PIXEL_FORMAT_YCbCr_422_I:
@@ -160,8 +152,6 @@ size_t hal_2_g2d_bpp(unsigned int hal_format)
             return 24;
 
         case HAL_PIXEL_FORMAT_RGB_565:
-        case HAL_PIXEL_FORMAT_RGBA_5551:
-        case HAL_PIXEL_FORMAT_RGBA_4444:
             return 16;
 
         case HAL_PIXEL_FORMAT_YCbCr_422_I:

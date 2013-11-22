@@ -30,7 +30,8 @@ LOCAL_ARM_MODE := arm
 LOCAL_STATIC_LIBRARIES := libExynosOMX_Vdec libExynosOMX_OSAL libExynosOMX_Basecomponent \
 	libswconverter libExynosVideoApi
 LOCAL_SHARED_LIBRARIES := libc libdl libcutils libutils liblog libui \
-	libExynosOMX_Resourcemanager libcsc libexynosv4l2 libion_exynos libexynosgscaler
+	libExynosOMX_Resourcemanager libcsc libexynosv4l2 libion_exynos libexynosgscaler \
+	libhardware
 
 ifeq ($(BOARD_USES_MFC_FPS),true)
 LOCAL_CFLAGS += -DCONFIG_MFC_FPS
