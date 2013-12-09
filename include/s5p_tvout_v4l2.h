@@ -19,7 +19,7 @@
 
 #include <linux/fb.h>
 
-#include "videodev2.h"
+#include <linux/videodev2.h>
 #include "videodev2_exynos_media.h"
 
 #ifdef __cplusplus
