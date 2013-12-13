@@ -261,6 +261,8 @@ OMX_HANDLETYPE Exynos_OSAL_RefANB_Create()
 {
     int i = 0;
     EXYNOS_OMX_REF_HANDLE *phREF = NULL;
+    gralloc_module_t      *module = NULL;
+
     OMX_ERRORTYPE err = OMX_ErrorNone;
 
     FunctionIn();
@@ -275,6 +277,9 @@ OMX_HANDLETYPE Exynos_OSAL_RefANB_Create()
         phREF->SharedBuffer[i].BufferFd1 = -1;
         phREF->SharedBuffer[i].BufferFd2 = -1;
     }
+
+    hw_get_module(GRALLOC_HARDWARE_MODULE_ID, (const hw_module_t **)&module);
+    phREF->pGrallocModule = (OMX_PTR)module;
 
     err = Exynos_OSAL_MutexCreate(&phREF->hMutex);
     if (err != OMX_ErrorNone) {
@@ -302,7 +307,7 @@ OMX_ERRORTYPE Exynos_OSAL_RefANB_Reset(OMX_HANDLETYPE hREF)
         goto EXIT;
     }
 
-    hw_get_module(GRALLOC_HARDWARE_MODULE_ID, (const hw_module_t **)&module);
+    module = (gralloc_module_t *)phREF->pGrallocModule;
 
     Exynos_OSAL_MutexLock(phREF->hMutex);
     for (i = 0; i < MAX_BUFFER_REF; i++) {
@@ -345,6 +350,8 @@ OMX_ERRORTYPE Exynos_OSAL_RefANB_Terminate(OMX_HANDLETYPE hREF)
 
     Exynos_OSAL_RefANB_Reset(phREF);
 
+    phREF->pGrallocModule = NULL;
+
     ret = Exynos_OSAL_MutexTerminate(phREF->hMutex);
     if (ret != OMX_ErrorNone)
         goto EXIT;
@@ -378,7 +385,7 @@ OMX_ERRORTYPE Exynos_OSAL_RefANB_Increase(OMX_HANDLETYPE hREF, OMX_PTR pBuffer)
         goto EXIT;
     }
 
-    hw_get_module(GRALLOC_HARDWARE_MODULE_ID, (const hw_module_t **)&module);
+    module = (gralloc_module_t *)phREF->pGrallocModule;
 
     Exynos_OSAL_MutexLock(phREF->hMutex);
 
@@ -442,8 +449,10 @@ OMX_ERRORTYPE Exynos_OSAL_RefANB_Decrease(OMX_HANDLETYPE hREF, OMX_U32 BufferFd)
         goto EXIT;
     }
 
+    module = (gralloc_module_t *)phREF->pGrallocModule;
+
     Exynos_OSAL_MutexLock(phREF->hMutex);
-    hw_get_module(GRALLOC_HARDWARE_MODULE_ID, (const hw_module_t **)&module);
+
     for (i = 0; i < MAX_BUFFER_REF; i++) {
         if (phREF->SharedBuffer[i].BufferFd == BufferFd) {
             ion_decRef(getIonFd(module), phREF->SharedBuffer[i].pIonHandle);

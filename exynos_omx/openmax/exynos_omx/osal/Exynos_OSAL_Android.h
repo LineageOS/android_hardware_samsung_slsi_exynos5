@@ -45,6 +45,7 @@ typedef struct _EXYNOS_OMX_SHARED_BUFFER {
 
 typedef struct _EXYNOS_OMX_REF_HANDLE {
     OMX_HANDLETYPE hMutex;
+    OMX_PTR pGrallocModule;
     EXYNOS_OMX_SHARED_BUFFER SharedBuffer[MAX_BUFFER_REF];
 } EXYNOS_OMX_REF_HANDLE;
 
