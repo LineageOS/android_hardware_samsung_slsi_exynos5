@@ -27,7 +27,7 @@ extern "C" {
 
 #include <sys/types.h>
 #include <sys/ioctl.h>
-#include <videodev2.h>
+#include <linux/videodev2.h>
 #include <fcntl.h>
 #include <stdbool.h>
 #include <string.h>
