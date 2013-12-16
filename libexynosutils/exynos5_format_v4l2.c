@@ -41,7 +41,7 @@
 #include "exynos_format.h"
 #include "s5p_fimc_v4l2.h"
 #include <utils/Log.h>
-#include "videodev2.h"
+#include <linux/videodev2.h>
 #include "videodev2_exynos_media.h"
 
 int HAL_PIXEL_FORMAT_2_V4L2_PIX(
