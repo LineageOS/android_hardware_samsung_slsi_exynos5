@@ -897,7 +897,7 @@ status_t ExynosCamera2::constructDefaultRequest(
     static const uint8_t effectMode = ANDROID_CONTROL_EFFECT_MODE_OFF;
     ADD_OR_SIZE(ANDROID_CONTROL_EFFECT_MODE, &effectMode, 1);
 
-    static const uint8_t sceneMode = ANDROID_CONTROL_SCENE_MODE_UNSUPPORTED;
+    static const uint8_t sceneMode = ANDROID_CONTROL_SCENE_MODE_DISABLED;
     ADD_OR_SIZE(ANDROID_CONTROL_SCENE_MODE, &sceneMode, 1);
 
     static const uint8_t aeMode = ANDROID_CONTROL_AE_MODE_ON;
