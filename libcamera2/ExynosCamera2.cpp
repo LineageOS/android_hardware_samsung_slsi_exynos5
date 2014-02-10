@@ -749,7 +749,6 @@ status_t ExynosCamera2::constructDefaultRequest(
     uint8_t demosaicMode = 0;
     uint8_t noiseMode = 0;
     uint8_t shadingMode = 0;
-    uint8_t geometricMode = 0;
     uint8_t colorMode = 0;
     uint8_t tonemapMode = 0;
     uint8_t edgeMode = 0;
@@ -766,7 +765,6 @@ status_t ExynosCamera2::constructDefaultRequest(
         demosaicMode = ANDROID_DEMOSAIC_MODE_HIGH_QUALITY;
         noiseMode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
         shadingMode = ANDROID_SHADING_MODE_HIGH_QUALITY;
-        geometricMode = ANDROID_GEOMETRIC_MODE_HIGH_QUALITY;
         colorMode = ANDROID_COLOR_CORRECTION_MODE_HIGH_QUALITY;
         tonemapMode = ANDROID_TONEMAP_MODE_HIGH_QUALITY;
         edgeMode = ANDROID_EDGE_MODE_HIGH_QUALITY;
@@ -781,7 +779,6 @@ status_t ExynosCamera2::constructDefaultRequest(
         demosaicMode = ANDROID_DEMOSAIC_MODE_FAST;
         noiseMode = ANDROID_NOISE_REDUCTION_MODE_FAST;
         shadingMode = ANDROID_SHADING_MODE_FAST;
-        geometricMode = ANDROID_GEOMETRIC_MODE_FAST;
         colorMode = ANDROID_COLOR_CORRECTION_MODE_FAST;
         tonemapMode = ANDROID_TONEMAP_MODE_FAST;
         edgeMode = ANDROID_EDGE_MODE_FAST;
@@ -791,7 +788,6 @@ status_t ExynosCamera2::constructDefaultRequest(
     ADD_OR_SIZE(ANDROID_DEMOSAIC_MODE, &demosaicMode, 1);
     ADD_OR_SIZE(ANDROID_NOISE_REDUCTION_MODE, &noiseMode, 1);
     ADD_OR_SIZE(ANDROID_SHADING_MODE, &shadingMode, 1);
-    ADD_OR_SIZE(ANDROID_GEOMETRIC_MODE, &geometricMode, 1);
     ADD_OR_SIZE(ANDROID_COLOR_CORRECTION_MODE, &colorMode, 1);
     ADD_OR_SIZE(ANDROID_TONEMAP_MODE, &tonemapMode, 1);
     ADD_OR_SIZE(ANDROID_EDGE_MODE, &edgeMode, 1);
