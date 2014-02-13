@@ -800,6 +800,14 @@ OMX_ERRORTYPE Exynos_OSAL_SetANBParameter(
             goto EXIT;
         }
 
+        // WORKAROUND: do not advertise metadata mode support for VP8 decoder until it can handle dynamic resolution change
+        // TRICKY: check VP8 decode feature on input port, but matching feature in on output port
+        bool isVP8Decoder = pExynosComponent->pExynosPort[INPUT_PORT_INDEX].portDefinition.format.video.eCompressionFormat == OMX_VIDEO_CodingVPX;
+        if (isVP8Decoder && portIndex == OUTPUT_PORT_INDEX) {
+            ret = OMX_ErrorNotImplemented;
+            goto EXIT;
+        }
+
         pExynosPort->bStoreMetaData = pANBParams->bStoreMetaData;
         if (pExynosComponent->codecType == HW_VIDEO_ENC_CODEC) {
             EXYNOS_OMX_VIDEOENC_COMPONENT *pVideoEnc = (EXYNOS_OMX_VIDEOENC_COMPONENT *)pExynosComponent->hComponentHandle;;
