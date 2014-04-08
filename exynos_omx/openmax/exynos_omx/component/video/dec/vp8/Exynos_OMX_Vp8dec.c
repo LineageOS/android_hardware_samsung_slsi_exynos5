@@ -513,6 +513,61 @@ EXIT:
     return ret;
 }
 
+OMX_ERRORTYPE VP8CodecReconfigAllBuffers(
+    OMX_COMPONENTTYPE   *pOMXComponent,
+    OMX_U32              nPortIndex)
+{
+    OMX_ERRORTYPE                    ret                = OMX_ErrorNone;
+    EXYNOS_OMX_BASECOMPONENT        *pExynosComponent   = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
+    EXYNOS_OMX_VIDEODEC_COMPONENT   *pVideoDec          = (EXYNOS_OMX_VIDEODEC_COMPONENT *)pExynosComponent->hComponentHandle;
+    EXYNOS_OMX_BASEPORT             *pExynosPort        = &pExynosComponent->pExynosPort[nPortIndex];
+    EXYNOS_VP8DEC_HANDLE            *pVp8Dec            = (EXYNOS_VP8DEC_HANDLE *)pVideoDec->hCodecHandle;
+    void                            *hMFCHandle         = pVp8Dec->hMFCVp8Handle.hMFCHandle;
+    ExynosVideoDecBufferOps         *pBufferOps         = NULL;
+
+    FunctionIn();
+
+    if ((nPortIndex == INPUT_PORT_INDEX) &&
+        (pVp8Dec->bSourceStart == OMX_TRUE)) {
+        ret = OMX_ErrorNotImplemented;
+        goto EXIT;
+    } else if ((nPortIndex == OUTPUT_PORT_INDEX) &&
+               (pVp8Dec->bDestinationStart == OMX_TRUE)) {
+        pBufferOps  = pVp8Dec->hMFCVp8Handle.pOutbufOps;
+
+        if (pExynosPort->bufferProcessType & BUFFER_COPY) {
+            /**********************************/
+            /* Codec Buffer Free & Unregister */
+            /**********************************/
+            Exynos_Free_CodecBuffers(pOMXComponent, OUTPUT_PORT_INDEX);
+            Exynos_CodecBufferReset(pExynosComponent, OUTPUT_PORT_INDEX);
+            pBufferOps->Clear_RegisteredBuffer(hMFCHandle);
+            pBufferOps->Cleanup_Buffer(hMFCHandle);
+        } else if (pExynosPort->bufferProcessType & BUFFER_SHARE) {
+            /**********************************/
+            /* Codec Buffer Unregister */
+            /**********************************/
+            pBufferOps->Clear_RegisteredBuffer(hMFCHandle);
+            pBufferOps->Cleanup_Buffer(hMFCHandle);
+        }
+        /******************************************************/
+        /* V4L2 Destnation Setup for DPB Buffer Number Change */
+        /******************************************************/
+        VP8CodecDstSetup(pOMXComponent);
+        pVideoDec->bReconfigDPB = OMX_FALSE;
+
+        Exynos_ResolutionUpdate(pOMXComponent);
+    } else {
+        ret = OMX_ErrorBadParameter;
+        goto EXIT;
+    }
+
+EXIT:
+    FunctionOut();
+
+    return ret;
+}
+
 OMX_ERRORTYPE VP8CodecEnQueueAllBuffer(OMX_COMPONENTTYPE *pOMXComponent, OMX_U32 nPortIndex)
 {
     OMX_ERRORTYPE                  ret = OMX_ErrorNone;
@@ -564,6 +619,131 @@ OMX_ERRORTYPE VP8CodecEnQueueAllBuffer(OMX_COMPONENTTYPE *pOMXComponent, OMX_U32
         ret = OMX_ErrorBadParameter;
         goto EXIT;
     }
+
+EXIT:
+    FunctionOut();
+
+    return ret;
+}
+
+OMX_ERRORTYPE VP8CodecCheckResolutionChange(OMX_COMPONENTTYPE *pOMXComponent)
+{
+    OMX_ERRORTYPE                  ret                = OMX_ErrorNone;
+    EXYNOS_OMX_BASECOMPONENT      *pExynosComponent   = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
+    EXYNOS_OMX_VIDEODEC_COMPONENT *pVideoDec          = (EXYNOS_OMX_VIDEODEC_COMPONENT *)pExynosComponent->hComponentHandle;
+    EXYNOS_VP8DEC_HANDLE          *pVp8Dec            = (EXYNOS_VP8DEC_HANDLE *)pVideoDec->hCodecHandle;
+    void                          *hMFCHandle         = pVp8Dec->hMFCVp8Handle.hMFCHandle;
+    EXYNOS_OMX_BASEPORT           *pInputPort         = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
+    EXYNOS_OMX_BASEPORT           *pOutputPort        = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
+    ExynosVideoDecOps             *pDecOps            = pVp8Dec->hMFCVp8Handle.pDecOps;
+    ExynosVideoDecBufferOps       *pOutbufOps         = pVp8Dec->hMFCVp8Handle.pOutbufOps;
+
+    OMX_CONFIG_RECTTYPE *pCropRectangle = NULL;
+    OMX_PARAM_PORTDEFINITIONTYPE *pInputPortDefinition = NULL;
+    OMX_PARAM_PORTDEFINITIONTYPE *pOutputPortDefinition = NULL;
+
+    FunctionIn();
+    /* get geometry for output */
+    Exynos_OSAL_Memset(&pVp8Dec->hMFCVp8Handle.codecOutbufConf, 0, sizeof(ExynosVideoGeometry));
+    if (pOutbufOps->Get_Geometry(hMFCHandle, &pVp8Dec->hMFCVp8Handle.codecOutbufConf) != VIDEO_ERROR_NONE) {
+        Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to get geometry for parsed header info");
+        ret = OMX_ErrorInsufficientResources;
+        goto EXIT;
+    }
+
+    /* get dpb count */
+    pVp8Dec->hMFCVp8Handle.maxDPBNum = pDecOps->Get_ActualBufferCount(hMFCHandle);
+    if (pVideoDec->bThumbnailMode == OMX_FALSE)
+        pVp8Dec->hMFCVp8Handle.maxDPBNum += EXTRA_DPB_NUM;
+    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "Vp8CodecSetup nOutbufs: %d", pVp8Dec->hMFCVp8Handle.maxDPBNum);
+
+    pVp8Dec->hMFCVp8Handle.bConfiguredMFCSrc = OMX_TRUE;
+
+    if (pVideoDec->bReconfigDPB != OMX_TRUE) {
+        pCropRectangle = &(pOutputPort->cropRectangle);
+        pInputPortDefinition = &(pInputPort->portDefinition);
+        pOutputPortDefinition = &(pOutputPort->portDefinition);
+    } else {
+        pCropRectangle = &(pOutputPort->newCropRectangle);
+        pInputPortDefinition = &(pInputPort->newPortDefinition);
+        pOutputPortDefinition = &(pOutputPort->newPortDefinition);
+    }
+
+    pCropRectangle->nTop     = pVp8Dec->hMFCVp8Handle.codecOutbufConf.cropRect.nTop;
+    pCropRectangle->nLeft    = pVp8Dec->hMFCVp8Handle.codecOutbufConf.cropRect.nLeft;
+    pCropRectangle->nWidth   = pVp8Dec->hMFCVp8Handle.codecOutbufConf.cropRect.nWidth;
+    pCropRectangle->nHeight  = pVp8Dec->hMFCVp8Handle.codecOutbufConf.cropRect.nHeight;
+
+    if (pOutputPort->bufferProcessType & BUFFER_COPY) {
+        if ((pVideoDec->bReconfigDPB) ||
+            (pInputPort->portDefinition.format.video.nFrameWidth != pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth) ||
+            (pInputPort->portDefinition.format.video.nFrameHeight != pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight)) {
+            pInputPortDefinition->format.video.nFrameWidth  = pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth;
+            pInputPortDefinition->format.video.nFrameHeight = pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight;
+            pInputPortDefinition->format.video.nStride      = ((pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth + 15) & (~15));
+            pInputPortDefinition->format.video.nSliceHeight = ((pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight + 15) & (~15));
+            pOutputPortDefinition->nBufferCountActual       = pOutputPort->portDefinition.nBufferCountActual;
+            pOutputPortDefinition->nBufferCountMin          = pOutputPort->portDefinition.nBufferCountMin;
+            if (pVideoDec->bReconfigDPB != OMX_TRUE)
+                Exynos_UpdateFrameSize(pOMXComponent);
+            pOutputPort->exceptionFlag = NEED_PORT_DISABLE;
+
+            /** Send Port Settings changed call back **/
+            (*(pExynosComponent->pCallbacks->EventHandler))
+                (pOMXComponent,
+                 pExynosComponent->callbackData,
+                 OMX_EventPortSettingsChanged, /* The command was completed */
+                 OMX_DirOutput, /* This is the port index */
+                 0,
+                 NULL);
+        }
+    } else if (pOutputPort->bufferProcessType & BUFFER_SHARE) {
+        if ((pVideoDec->bReconfigDPB) ||
+            (pInputPort->portDefinition.format.video.nFrameWidth != pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth) ||
+            (pInputPort->portDefinition.format.video.nFrameHeight != pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight) ||
+            (pOutputPort->portDefinition.nBufferCountActual != pVp8Dec->hMFCVp8Handle.maxDPBNum)) {
+            pInputPortDefinition->format.video.nFrameWidth  = pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth;
+            pInputPortDefinition->format.video.nFrameHeight = pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight;
+            pInputPortDefinition->format.video.nStride      = ((pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth + 15) & (~15));
+            pInputPortDefinition->format.video.nSliceHeight = ((pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight + 15) & (~15));
+            pOutputPortDefinition->nBufferCountActual       = pVp8Dec->hMFCVp8Handle.maxDPBNum;
+            pOutputPortDefinition->nBufferCountMin          = pVp8Dec->hMFCVp8Handle.maxDPBNum;
+            if (pVideoDec->bReconfigDPB != OMX_TRUE)
+                Exynos_UpdateFrameSize(pOMXComponent);
+            pOutputPort->exceptionFlag = NEED_PORT_DISABLE;
+
+            /** Send Port Settings changed call back **/
+            (*(pExynosComponent->pCallbacks->EventHandler))
+                (pOMXComponent,
+                 pExynosComponent->callbackData,
+                 OMX_EventPortSettingsChanged, /* The command was completed */
+                 OMX_DirOutput, /* This is the port index */
+                 0,
+                 NULL);
+        }
+    }
+    if ((pVideoDec->bReconfigDPB == OMX_TRUE) ||
+        (pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth != pVp8Dec->hMFCVp8Handle.codecOutbufConf.cropRect.nWidth) ||
+        (pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight != pVp8Dec->hMFCVp8Handle.codecOutbufConf.cropRect.nHeight)) {
+        /* Check Crop */
+        pInputPortDefinition->format.video.nFrameWidth  = pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth;
+        pInputPortDefinition->format.video.nFrameHeight = pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight;
+        pInputPortDefinition->format.video.nStride      = ((pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth + 15) & (~15));
+        pInputPortDefinition->format.video.nSliceHeight = ((pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight + 15) & (~15));
+        if (pVideoDec->bReconfigDPB != OMX_TRUE)
+            Exynos_UpdateFrameSize(pOMXComponent);
+
+        /** Send crop info call back **/
+        (*(pExynosComponent->pCallbacks->EventHandler))
+            (pOMXComponent,
+             pExynosComponent->callbackData,
+             OMX_EventPortSettingsChanged, /* The command was completed */
+             OMX_DirOutput, /* This is the port index */
+             OMX_IndexConfigCommonOutputCrop,
+             NULL);
+    }
+
+    ret = OMX_ErrorNone;
 
 EXIT:
     FunctionOut();
@@ -688,67 +868,8 @@ OMX_ERRORTYPE VP8CodecSrcSetup(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA
         goto EXIT;
     }
 
-    /* get geometry for output */
-    Exynos_OSAL_Memset(&pVp8Dec->hMFCVp8Handle.codecOutbufConf, 0, sizeof(ExynosVideoGeometry));
-    if (pOutbufOps->Get_Geometry(hMFCHandle, &pVp8Dec->hMFCVp8Handle.codecOutbufConf) != VIDEO_ERROR_NONE) {
-        Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Failed to get geometry for parsed header info");
-        ret = OMX_ErrorInsufficientResources;
-        goto EXIT;
-    }
+    VP8CodecCheckResolutionChange(pOMXComponent);
 
-    /* get dpb count */
-    pVp8Dec->hMFCVp8Handle.maxDPBNum = pDecOps->Get_ActualBufferCount(hMFCHandle);
-    if (pVideoDec->bThumbnailMode == OMX_FALSE)
-        pVp8Dec->hMFCVp8Handle.maxDPBNum += EXTRA_DPB_NUM;
-    Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "Vp8CodecSetup nOutbufs: %d", pVp8Dec->hMFCVp8Handle.maxDPBNum);
-
-    pVp8Dec->hMFCVp8Handle.bConfiguredMFCSrc = OMX_TRUE;
-
-    if ((pExynosOutputPort->bufferProcessType & BUFFER_COPY) == BUFFER_COPY) {
-        if ((pExynosInputPort->portDefinition.format.video.nFrameWidth != pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth) ||
-            (pExynosInputPort->portDefinition.format.video.nFrameHeight != pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight)) {
-            pExynosInputPort->portDefinition.format.video.nFrameWidth = pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth;
-            pExynosInputPort->portDefinition.format.video.nFrameHeight = pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight;
-            pExynosInputPort->portDefinition.format.video.nStride = ((pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth + 15) & (~15));
-            pExynosInputPort->portDefinition.format.video.nSliceHeight = ((pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight + 15) & (~15));
-
-            Exynos_UpdateFrameSize(pOMXComponent);
-            pExynosOutputPort->exceptionFlag = NEED_PORT_DISABLE;
-
-            /** Send Port Settings changed call back **/
-            (*(pExynosComponent->pCallbacks->EventHandler))
-                (pOMXComponent,
-                 pExynosComponent->callbackData,
-                 OMX_EventPortSettingsChanged, /* The command was completed */
-                 OMX_DirOutput, /* This is the port index */
-                 0,
-                 NULL);
-        }
-    } else if (pExynosOutputPort->bufferProcessType == BUFFER_SHARE) {
-        if ((pExynosInputPort->portDefinition.format.video.nFrameWidth != pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth) ||
-            (pExynosInputPort->portDefinition.format.video.nFrameHeight != pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight) ||
-            (pExynosOutputPort->portDefinition.nBufferCountActual != pVp8Dec->hMFCVp8Handle.maxDPBNum)) {
-            pExynosInputPort->portDefinition.format.video.nFrameWidth = pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth;
-            pExynosInputPort->portDefinition.format.video.nFrameHeight = pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight;
-            pExynosInputPort->portDefinition.format.video.nStride = ((pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameWidth + 15) & (~15));
-            pExynosInputPort->portDefinition.format.video.nSliceHeight = ((pVp8Dec->hMFCVp8Handle.codecOutbufConf.nFrameHeight + 15) & (~15));
-
-            pExynosOutputPort->portDefinition.nBufferCountActual = pVp8Dec->hMFCVp8Handle.maxDPBNum;
-            pExynosOutputPort->portDefinition.nBufferCountMin = pVp8Dec->hMFCVp8Handle.maxDPBNum;
-
-            Exynos_UpdateFrameSize(pOMXComponent);
-            pExynosOutputPort->exceptionFlag = NEED_PORT_DISABLE;
-
-            /** Send Port Settings changed call back **/
-            (*(pExynosComponent->pCallbacks->EventHandler))
-                (pOMXComponent,
-                 pExynosComponent->callbackData,
-                 OMX_EventPortSettingsChanged, /* The command was completed */
-                 OMX_DirOutput, /* This is the port index */
-                 0,
-                 NULL);
-        }
-    }
     Exynos_OSAL_SleepMillisec(0);
     ret = OMX_ErrorInputDataDecodeYet;
     VP8CodecStop(pOMXComponent, INPUT_PORT_INDEX);
@@ -1559,6 +1680,19 @@ OMX_ERRORTYPE Exynos_VP8Dec_DstOut(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_
         }
     }
 
+    if ((pVideoDec->bThumbnailMode == OMX_FALSE) &&
+        (displayStatus == VIDEO_FRAME_STATUS_CHANGE_RESOL)) {
+        if (pVideoDec->bReconfigDPB != OMX_TRUE) {
+            pExynosOutputPort->exceptionFlag = NEED_PORT_FLUSH;
+            pVideoDec->bReconfigDPB = OMX_TRUE;
+            VP8CodecCheckResolutionChange(pOMXComponent);
+            pVideoDec->csc_set_format = OMX_FALSE;
+        }
+        Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "VIDEO_FRAME_STATUS_CHANGE_RESOL");
+        ret = OMX_ErrorNone;
+        goto EXIT;
+    }
+
     if (ret != OMX_ErrorNone)
         goto EXIT;
 
@@ -1944,6 +2078,7 @@ OSCL_EXPORT_REF OMX_ERRORTYPE Exynos_OMX_ComponentInit(
     pVideoDec->exynos_checkInputFrame                 = &Check_VP8_Frame;
     pVideoDec->exynos_codec_getCodecInputPrivateData  = &GetCodecInputPrivateData;
     pVideoDec->exynos_codec_getCodecOutputPrivateData = &GetCodecOutputPrivateData;
+    pVideoDec->exynos_codec_reconfigAllBuffers        = &VP8CodecReconfigAllBuffers;
 
     pVideoDec->hSharedMemory = Exynos_OSAL_SharedMemory_Open();
     if (pVideoDec->hSharedMemory == NULL) {
