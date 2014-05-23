@@ -3216,7 +3216,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                             (m_ctlInfo.scene.prevSceneMode == AA_SCENE_MODE_FACE_PRIORITY)) {
                         switch (m_afMode) {
                         case AA_AFMODE_CONTINUOUS_PICTURE:
-                            shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE_FACE;
+                            shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE;
                             ALOGD("### Face AF Mode change (Mode %d) ", shot_ext->shot.ctl.aa.afMode);
                             break;
                         }
