@@ -1616,6 +1616,10 @@ static int exynos5_set_hdmi(exynos5_hwc_composer_device_1_t *pdev,
                     contents->retireFenceFd = merged;
                 }
             } else {
+                if (layer.acquireFenceFd >= 0) {
+                    close(layer.acquireFenceFd);
+                    layer.acquireFenceFd = -1;
+                }
                 hdmi_hide_layer(pdev, pdev->hdmi_layers[1]);
             }
         }
