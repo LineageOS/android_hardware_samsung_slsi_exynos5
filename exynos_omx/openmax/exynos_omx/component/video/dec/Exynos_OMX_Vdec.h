@@ -62,6 +62,8 @@
 
 #define MAX_OUTPUTBUFFER_NUM_DYNAMIC        0 /* Dynamic number of metadata buffer */
 
+#define MAX_DISPLAY_EXTRA_BUFFER            2
+
 typedef struct
 {
     void *pAddrY;

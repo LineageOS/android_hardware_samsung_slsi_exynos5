@@ -1208,9 +1208,10 @@ OMX_ERRORTYPE Exynos_OMX_VideoDecodeSetParameter(
         break;
     case OMX_IndexParamPortDefinition:
     {
-        OMX_PARAM_PORTDEFINITIONTYPE *pPortDefinition = (OMX_PARAM_PORTDEFINITIONTYPE *)ComponentParameterStructure;
-        OMX_U32                       portIndex = pPortDefinition->nPortIndex;
-        EXYNOS_OMX_BASEPORT             *pExynosPort;
+        OMX_PARAM_PORTDEFINITIONTYPE  *pPortDefinition = (OMX_PARAM_PORTDEFINITIONTYPE *)ComponentParameterStructure;
+        EXYNOS_OMX_VIDEODEC_COMPONENT *pVideoDec = (EXYNOS_OMX_VIDEODEC_COMPONENT *)pExynosComponent->hComponentHandle;
+        OMX_U32                        portIndex = pPortDefinition->nPortIndex;
+        EXYNOS_OMX_BASEPORT           *pExynosPort;
         OMX_U32 width, height, size;
         OMX_U32 realWidth, realHeight;
 
@@ -1231,7 +1232,9 @@ OMX_ERRORTYPE Exynos_OMX_VideoDecodeSetParameter(
                 goto EXIT;
             }
         }
-        if (pPortDefinition->nBufferCountActual < pExynosPort->portDefinition.nBufferCountMin) {
+        if ((pPortDefinition->nBufferCountActual < pExynosPort->portDefinition.nBufferCountMin) ||
+            ((pVideoDec->bDRMPlayerMode == OMX_TRUE) &&
+             (pPortDefinition->nBufferCountActual > (pExynosPort->portDefinition.nBufferCountMin + MAX_DISPLAY_EXTRA_BUFFER)))) {
             ret = OMX_ErrorBadParameter;
             goto EXIT;
         }
