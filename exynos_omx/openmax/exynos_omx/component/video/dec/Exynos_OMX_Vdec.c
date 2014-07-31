@@ -397,7 +397,7 @@ OMX_BOOL Exynos_CSC_OutputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA
         ExynosVideoPlane planes[MAX_BUFFER_PLANE];
         OMX_U32 stride;
         if (exynosOutputPort->bIsANBEnabled == OMX_TRUE) {
-            Exynos_OSAL_LockANB(pOutputBuf, width, height, exynosOutputPort->portDefinition.format.video.eColorFormat, &stride, planes);
+            Exynos_OSAL_LockANBHandle(pOutputBuf, width, height, exynosOutputPort->portDefinition.format.video.eColorFormat, &stride, planes);
         } else if (exynosOutputPort->bStoreMetaData == OMX_TRUE) {
             Exynos_OSAL_LockMetaData(pOutputBuf, width, height, exynosOutputPort->portDefinition.format.video.eColorFormat, &stride, planes);
         }
@@ -460,7 +460,7 @@ OMX_BOOL Exynos_CSC_OutputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA
 
 #ifdef USE_ANB
     if (exynosOutputPort->bIsANBEnabled == OMX_TRUE) {
-        Exynos_OSAL_UnlockANB(pOutputBuf);
+        Exynos_OSAL_UnlockANBHandle(pOutputBuf);
     } else if (exynosOutputPort->bStoreMetaData == OMX_TRUE) {
         Exynos_OSAL_UnlockMetaData(pOutputBuf);
     }

@@ -1512,7 +1512,7 @@ OMX_ERRORTYPE Exynos_Shared_ANBBufferToData(EXYNOS_OMX_DATABUFFER *pUseBuffer, E
         OMX_U32 stride;
         if ((pUseBuffer->bufferHeader != NULL) && (pUseBuffer->bufferHeader->pBuffer != NULL)) {
             if (pExynosPort->bIsANBEnabled == OMX_TRUE) {
-                Exynos_OSAL_LockANB(pUseBuffer->bufferHeader->pBuffer, width, height, pExynosPort->portDefinition.format.video.eColorFormat, &stride, planes);
+                Exynos_OSAL_LockANBHandle(pUseBuffer->bufferHeader->pBuffer, width, height, pExynosPort->portDefinition.format.video.eColorFormat, &stride, planes);
             } else if (pExynosPort->bStoreMetaData == OMX_TRUE) {
                 Exynos_OSAL_LockMetaData(pUseBuffer->bufferHeader->pBuffer, width, height, pExynosPort->portDefinition.format.video.eColorFormat, &stride, planes);
             }
@@ -1573,7 +1573,7 @@ OMX_ERRORTYPE Exynos_Shared_DataToANBBuffer(EXYNOS_OMX_DATA *pData, EXYNOS_OMX_D
     }
 
     if (pExynosPort->bIsANBEnabled == OMX_TRUE) {
-        Exynos_OSAL_UnlockANB(pUseBuffer->bufferHeader->pBuffer);
+        Exynos_OSAL_UnlockANBHandle(pUseBuffer->bufferHeader->pBuffer);
     } else if (pExynosPort->bStoreMetaData == OMX_TRUE) {
         Exynos_OSAL_UnlockMetaData(pUseBuffer->bufferHeader->pBuffer);
     } else {

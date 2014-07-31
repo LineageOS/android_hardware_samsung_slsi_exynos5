@@ -322,10 +322,11 @@ OMX_BOOL Exynos_CSC_InputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_DATA 
         Exynos_OSAL_GetInfoFromMetaData((OMX_BYTE)inputUseBuffer->bufferHeader->pBuffer, ppBuf);
         if (eColorFormat == OMX_COLOR_FormatAndroidOpaque) {
             ExynosVideoPlane planes[MAX_BUFFER_PLANE];
-            size_t i;
+            OMX_U32 stride;
+            int i;
 
             csc_src_color_format = omx_2_hal_pixel_format((unsigned int)Exynos_OSAL_GetANBColorFormat(ppBuf[0]));
-            Exynos_OSAL_LockANBHandle((OMX_U32)ppBuf[0], nFrameWidth, nFrameHeight, OMX_COLOR_FormatAndroidOpaque, planes);
+            Exynos_OSAL_LockANBHandle((OMX_U32)ppBuf[0], nFrameWidth, nFrameHeight, OMX_COLOR_FormatAndroidOpaque, &stride, planes);
 
 #if defined(USE_CSC_GSCALER) || defined(USE_CSC_G2D)
             csc_method = CSC_METHOD_HW;
@@ -472,8 +473,9 @@ OMX_BOOL Exynos_Preprocessor_InputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
 
                     if (eColorFormat == OMX_COLOR_FormatAndroidOpaque) {
                         ExynosVideoPlane planes[MAX_BUFFER_PLANE];
+                        OMX_U32 stride;
 
-                        Exynos_OSAL_LockANBHandle((OMX_U32)ppBuf[0], nFrameWidth, nFrameHeight, OMX_COLOR_FormatYUV420SemiPlanar, planes);
+                        Exynos_OSAL_LockANBHandle((OMX_U32)ppBuf[0], nFrameWidth, nFrameHeight, OMX_COLOR_FormatYUV420SemiPlanar, &stride, planes);
 
                         srcInputData->buffer.multiPlaneBuffer.fd[0] = planes[0].fd;
                         srcInputData->buffer.multiPlaneBuffer.fd[1] = planes[1].fd;
