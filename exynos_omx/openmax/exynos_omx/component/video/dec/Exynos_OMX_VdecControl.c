@@ -1260,6 +1260,11 @@ OMX_ERRORTYPE Exynos_OMX_VideoDecodeSetParameter(
         pExynosPort->portDefinition.format.video.nSliceHeight = height;
         pExynosPort->portDefinition.nBufferSize = (size > pExynosPort->portDefinition.nBufferSize) ? size : pExynosPort->portDefinition.nBufferSize;
 
+        pExynosPort->cropRectangle.nTop = 0;
+        pExynosPort->cropRectangle.nLeft = 0;
+        pExynosPort->cropRectangle.nWidth = realWidth;
+        pExynosPort->cropRectangle.nHeight = realHeight;
+
         if (portIndex == INPUT_PORT_INDEX) {
             EXYNOS_OMX_BASEPORT *pExynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
             pExynosOutputPort->portDefinition.format.video.nFrameWidth = pExynosPort->portDefinition.format.video.nFrameWidth;
