@@ -799,10 +799,6 @@ bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i,
         return false;
     }
 
-    if (exynos5_visible_width(layer, handle->format, pdev) < BURSTLEN_BYTES) {
-        ALOGV("\tlayer %u: visible area is too narrow", i);
-        return false;
-    }
     if (exynos5_requires_gscaler(layer, handle->format)) {
         if (!exynos5_supports_gscaler(layer, handle->format, false)) {
             ALOGV("\tlayer %u: gscaler required but not supported", i);
@@ -813,6 +809,10 @@ bool exynos5_supports_overlay(hwc_layer_1_t &layer, size_t i,
             ALOGV("\tlayer %u: pixel format %u not supported", i, handle->format);
             return false;
         }
+    }
+    if (exynos5_visible_width(layer, handle->format, pdev) < BURSTLEN_BYTES) {
+        ALOGV("\tlayer %u: visible area is too narrow", i);
+        return false;
     }
     if (!exynos5_blending_is_supported(layer.blending)) {
         ALOGV("\tlayer %u: blending %d not supported", i, layer.blending);
