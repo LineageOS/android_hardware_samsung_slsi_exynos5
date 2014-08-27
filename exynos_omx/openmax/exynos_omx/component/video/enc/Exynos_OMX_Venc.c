@@ -565,7 +565,8 @@ OMX_BOOL Exynos_Preprocessor_InputData(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_
                 pExynosComponent->bBehaviorEOS = OMX_TRUE;
         }
 
-        if (pExynosComponent->checkTimeStamp.needSetStartTimeStamp == OMX_TRUE) {
+        if ((pExynosComponent->checkTimeStamp.needSetStartTimeStamp == OMX_TRUE) &&
+            (srcInputData->nFlags & OMX_BUFFERFLAG_CODECCONFIG) != OMX_BUFFERFLAG_CODECCONFIG) {
             pExynosComponent->checkTimeStamp.needCheckStartTimeStamp = OMX_TRUE;
             pExynosComponent->checkTimeStamp.startTimeStamp = srcInputData->timeStamp;
             pExynosComponent->checkTimeStamp.nStartFlags = srcInputData->nFlags;
