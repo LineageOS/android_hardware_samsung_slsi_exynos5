@@ -420,9 +420,12 @@ OMX_ERRORTYPE Exynos_OSAL_RefANB_Decrease(OMX_HANDLETYPE hREF, OMX_U32 BufferFd)
 
     for (i = 0; i < MAX_BUFFER_REF; i++) {
         if (phREF->SharedBuffer[i].BufferFd == BufferFd) {
-            ion_decRef(getIonFd(module), phREF->SharedBuffer[i].pIonHandle);
-            ion_decRef(getIonFd(module), phREF->SharedBuffer[i].pIonHandle1);
-            ion_decRef(getIonFd(module), phREF->SharedBuffer[i].pIonHandle2);
+            if (phREF->SharedBuffer[i].BufferFd > -1)
+                ion_decRef(getIonFd(module), phREF->SharedBuffer[i].pIonHandle);
+            if (phREF->SharedBuffer[i].BufferFd1 > -1)
+                ion_decRef(getIonFd(module), phREF->SharedBuffer[i].pIonHandle1);
+            if (phREF->SharedBuffer[i].BufferFd2 > -1)
+                ion_decRef(getIonFd(module), phREF->SharedBuffer[i].pIonHandle2);
             phREF->SharedBuffer[i].cnt--;
             if (phREF->SharedBuffer[i].cnt == 0) {
                 phREF->SharedBuffer[i].BufferFd    = -1;
