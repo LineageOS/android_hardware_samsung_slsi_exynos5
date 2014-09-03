@@ -1944,6 +1944,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
         subParameters->height        = height;
         subParameters->format        = *format_actual;
         subParameters->svcPlanes     = 1;
+        parentStream->m_parameters.streamOps =
         subParameters->streamOps     = stream_ops;
         subParameters->usage         = *usage;
         subParameters->numOwnSvcBuffers = *max_buffers;
@@ -1982,6 +1983,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
         subParameters->height       = height;
         subParameters->format       = *format_actual;
         subParameters->svcPlanes     = NUM_PLANES(*format_actual);
+        parentStream->m_parameters.streamOps =
         subParameters->streamOps     = stream_ops;
         subParameters->usage         = *usage;
         subParameters->numOwnSvcBuffers = *max_buffers;
