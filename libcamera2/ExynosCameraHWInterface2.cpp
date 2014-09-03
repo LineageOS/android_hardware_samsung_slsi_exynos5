@@ -281,12 +281,12 @@ gralloc_module_t const* ExynosCameraHWInterface2::m_grallocHal;
 
 RequestManager::RequestManager(SignalDrivenThread* main_thread):
     m_vdisEnable(false),
+    m_lastCompletedFrameCnt(-1),
     m_lastAeMode(0),
     m_lastAaMode(0),
     m_lastAwbMode(0),
-    m_vdisBubbleEn(false),
     m_lastAeComp(0),
-    m_lastCompletedFrameCnt(-1)
+    m_vdisBubbleEn(false)
 {
     m_metadataConverter = new MetadataConverter;
     m_mainThread = main_thread;
@@ -556,7 +556,7 @@ void RequestManager::CheckCompleted(int index)
         ALOGV("(%s): Completed(index:%d)(frameCnt:%d)", __FUNCTION__,
                 index, entries[index].internal_shot.shot.ctl.request.frameCount );
         entries[index].status = COMPLETED;
-        if (m_lastCompletedFrameCnt + 1 == entries[index].internal_shot.shot.ctl.request.frameCount)
+        if (m_lastCompletedFrameCnt + 1 == (int)entries[index].internal_shot.shot.ctl.request.frameCount)
             m_mainThread->SetSignal(SIGNAL_MAIN_STREAM_OUTPUT_DONE);
     }
 }
@@ -759,7 +759,7 @@ bool    RequestManager::IsVdisEnable(void)
 int     RequestManager::FindEntryIndexByFrameCnt(int frameCnt)
 {
     for (int i = 0 ; i < NUM_MAX_REQUEST_MGR_ENTRY ; i++) {
-        if (entries[i].internal_shot.shot.ctl.request.frameCount == frameCnt)
+        if ((int)entries[i].internal_shot.shot.ctl.request.frameCount == frameCnt)
             return i;
     }
     return -1;
@@ -944,34 +944,34 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
             m_numOfRemainingReqInSvc(0),
             m_isRequestQueuePending(false),
             m_isRequestQueueNull(true),
-            m_isIspStarted(false),
+            m_halDevice(dev),
             m_ionCameraClient(0),
-            m_zoomRatio(1),
+            m_isIspStarted(false),
+            m_sccLocalBufferValid(false),
+            m_cameraId(cameraId),
             m_scp_closing(false),
             m_scp_closed(false),
-            m_afState(HAL_AFSTATE_INACTIVE),
-            m_afMode(NO_CHANGE),
-            m_afMode2(NO_CHANGE),
+            m_wideAspect(false),
+            m_zoomRatio(1),
             m_vdisBubbleCnt(0),
             m_vdisDupFrame(0),
+            m_jpegEncodingCount(0),
+            m_scpForceSuspended(false),
+            m_afState(HAL_AFSTATE_INACTIVE),
+            m_afTriggerId(0),
+            m_afMode(NO_CHANGE),
+            m_afMode2(NO_CHANGE),
             m_IsAfModeUpdateRequired(false),
             m_IsAfTriggerRequired(false),
             m_IsAfLockRequired(false),
             m_serviceAfState(ANDROID_CONTROL_AF_STATE_INACTIVE),
-            m_sccLocalBufferValid(false),
-            m_wideAspect(false),
-            m_scpOutputSignalCnt(0),
-            m_scpOutputImageCnt(0),
-            m_afTriggerId(0),
             m_afPendingTriggerId(0),
             m_afModeWaitingCnt(0),
-            m_jpegEncodingCount(0),
-            m_scpForceSuspended(false),
-            m_halDevice(dev),
+            m_scpOutputSignalCnt(0),
+            m_scpOutputImageCnt(0),
             m_nightCaptureCnt(0),
             m_nightCaptureFrameCnt(0),
             m_lastSceneMode(0),
-            m_cameraId(cameraId),
             m_thumbNailW(160),
             m_thumbNailH(120)
 {
@@ -1805,7 +1805,7 @@ int ExynosCameraHWInterface2::allocateStream(uint32_t width, uint32_t height, in
         }
     }
     else if ((format == CAMERA2_HAL_PIXEL_FORMAT_ZSL)
-            && (width == m_camera2->getSensorW()) && (height == m_camera2->getSensorH())) {
+            && ((int32_t)width == m_camera2->getSensorW()) && ((int32_t)height == m_camera2->getSensorH())) {
 
         if (!(m_streamThreads[1].get())) {
             ALOGV("DEBUG(%s): stream thread 1 not exist", __FUNCTION__);
@@ -2349,9 +2349,9 @@ int ExynosCameraHWInterface2::releaseStream(uint32_t stream_id)
 }
 
 int ExynosCameraHWInterface2::allocateReprocessStream(
-    uint32_t width, uint32_t height, uint32_t format,
-    const camera2_stream_in_ops_t *reprocess_stream_ops,
-    uint32_t *stream_id, uint32_t *consumer_usage, uint32_t *max_buffers)
+    uint32_t /*width*/, uint32_t /*height*/, uint32_t /*format*/,
+    const camera2_stream_in_ops_t* /*reprocess_stream_ops*/,
+    uint32_t* /*stream_id*/, uint32_t* /*consumer_usage*/, uint32_t* /*max_buffers*/)
 {
     ALOGV("DEBUG(%s):", __FUNCTION__);
     return 0;
@@ -2424,7 +2424,7 @@ int ExynosCameraHWInterface2::getMetadataVendorTagOps(vendor_tag_query_ops_t **o
     return 0;
 }
 
-int ExynosCameraHWInterface2::dump(int fd)
+int ExynosCameraHWInterface2::dump(int /*fd*/)
 {
     ALOGV("DEBUG(%s):", __FUNCTION__);
     return 0;
@@ -2542,7 +2542,7 @@ bool ExynosCameraHWInterface2::m_getRatioSize(int  src_w,  int   src_h,
     unsigned int w_align = (*crop_w & (CAMERA_CROP_WIDTH_RESTRAIN_NUM - 1));
     if (w_align != 0) {
         if (  (CAMERA_CROP_WIDTH_RESTRAIN_NUM >> 1) <= w_align
-            && *crop_w + (CAMERA_CROP_WIDTH_RESTRAIN_NUM - w_align) <= dst_w) {
+            && (int)(*crop_w + (CAMERA_CROP_WIDTH_RESTRAIN_NUM - w_align)) <= dst_w) {
             *crop_w += (CAMERA_CROP_WIDTH_RESTRAIN_NUM - w_align);
         }
         else
@@ -2553,7 +2553,7 @@ bool ExynosCameraHWInterface2::m_getRatioSize(int  src_w,  int   src_h,
     unsigned int h_align = (*crop_h & (CAMERA_CROP_HEIGHT_RESTRAIN_NUM - 1));
     if (h_align != 0) {
         if (  (CAMERA_CROP_HEIGHT_RESTRAIN_NUM >> 1) <= h_align
-            && *crop_h + (CAMERA_CROP_HEIGHT_RESTRAIN_NUM - h_align) <= dst_h) {
+            && (int)(*crop_h + (CAMERA_CROP_HEIGHT_RESTRAIN_NUM - h_align)) <= dst_h) {
             *crop_h += (CAMERA_CROP_HEIGHT_RESTRAIN_NUM - h_align);
         }
         else
@@ -2630,7 +2630,7 @@ int    BayerBufManager::MarkSensorEnqueue(int index)
     return 0;
 }
 
-int    BayerBufManager::MarkSensorDequeue(int index, int reqFrameCnt, nsecs_t *timeStamp)
+int    BayerBufManager::MarkSensorDequeue(int index, int reqFrameCnt, nsecs_t* /*timeStamp*/)
 {
     ALOGV("DEBUG(%s)    : BayerIndex[%d] reqFrameCnt(%d)", __FUNCTION__, index, reqFrameCnt);
 
@@ -3049,6 +3049,8 @@ void ExynosCameraHWInterface2::m_preCaptureAeState(struct camera2_shot_ext * sho
         // At flash auto mode, main flash have to be done if pre-flash was done.
         if (m_ctlInfo.flash.m_flashDecisionResult && m_ctlInfo.flash.m_afFlashDoneFlg)
             shot_ext->shot.dm.aa.aeState = AE_STATE_FLASH_REQUIRED;
+        // FALLTHRU
+    default:
         break;
     }
 }
@@ -3195,7 +3197,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             zoomLeft = (crop_w - zoomWidth) / 2;
             zoomTop = (crop_h - zoomHeight) / 2;
 
-            int32_t new_cropRegion[3] = { zoomLeft, zoomTop, zoomWidth };
+            int32_t new_cropRegion[3] = { (int32_t)zoomLeft, (int32_t)zoomTop, (int32_t)zoomWidth };
 
             int cropCompensation = (new_cropRegion[0] * 2 + new_cropRegion[2]) - ALIGN(crop_w, 4);
             if (cropCompensation)
@@ -3218,6 +3220,8 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                         case AA_AFMODE_CONTINUOUS_PICTURE:
                             shot_ext->shot.ctl.aa.afMode = AA_AFMODE_CONTINUOUS_PICTURE;
                             ALOGD("### Face AF Mode change (Mode %d) ", shot_ext->shot.ctl.aa.afMode);
+                            // FALLTHRU
+                        default:
                             break;
                         }
                     }
@@ -3975,7 +3979,7 @@ void ExynosCameraHWInterface2::m_streamFunc_direct(SignalDrivenThread *self)
         }
         while(0);
 
-        while ((selfStreamParms->numSvcBufsInHal - (selfStreamParms->numSvcBuffers - NUM_SCP_BUFFERS)) 
+        while ((selfStreamParms->numSvcBufsInHal - (selfStreamParms->numSvcBuffers - NUM_SCP_BUFFERS))
                     < selfStreamParms->minUndequedBuffer) {
             res = selfStreamParms->streamOps->dequeue_buffer(selfStreamParms->streamOps, &buf);
             if (res != NO_ERROR || buf == NULL) {
@@ -4757,7 +4761,7 @@ bool ExynosCameraHWInterface2::yuv2Jpeg(ExynosBuffer *yuvBuf,
         goto jpeg_encode_done;
     }
 
-    if (res = jpegEnc.encode((int *)&jpegBuf->size.s, &mExifInfo)) {
+    if ((res = jpegEnc.encode((int *)&jpegBuf->size.s, &mExifInfo))) {
         ALOGE("ERR(%s):jpegEnc.encode() fail ret(%d)", __FUNCTION__, res);
         goto jpeg_encode_done;
     }
@@ -4835,7 +4839,7 @@ void ExynosCameraHWInterface2::OnAfTrigger(int id)
     }
 }
 
-void ExynosCameraHWInterface2::OnAfTriggerAutoMacro(int id)
+void ExynosCameraHWInterface2::OnAfTriggerAutoMacro(int /*id*/)
 {
     int nextState = NO_TRANSITION;
 
@@ -4930,7 +4934,7 @@ void ExynosCameraHWInterface2::OnAfTriggerCAFPicture(int id)
 }
 
 
-void ExynosCameraHWInterface2::OnAfTriggerCAFVideo(int id)
+void ExynosCameraHWInterface2::OnAfTriggerCAFVideo(int /*id*/)
 {
     int nextState = NO_TRANSITION;
 
@@ -5577,7 +5581,7 @@ void ExynosCameraHWInterface2::OnAfCancel(int id)
     }
 }
 
-void ExynosCameraHWInterface2::OnAfCancelAutoMacro(int id)
+void ExynosCameraHWInterface2::OnAfCancelAutoMacro(int /*id*/)
 {
     int nextState = NO_TRANSITION;
 
@@ -5606,7 +5610,7 @@ void ExynosCameraHWInterface2::OnAfCancelAutoMacro(int id)
         m_afState = nextState;
 }
 
-void ExynosCameraHWInterface2::OnAfCancelCAFPicture(int id)
+void ExynosCameraHWInterface2::OnAfCancelCAFPicture(int /*id*/)
 {
     int nextState = NO_TRANSITION;
 
@@ -5634,7 +5638,7 @@ void ExynosCameraHWInterface2::OnAfCancelCAFPicture(int id)
         m_afState = nextState;
 }
 
-void ExynosCameraHWInterface2::OnAfCancelCAFVideo(int id)
+void ExynosCameraHWInterface2::OnAfCancelCAFVideo(int /*id*/)
 {
     int nextState = NO_TRANSITION;
 
@@ -5755,7 +5759,7 @@ void ExynosCameraHWInterface2::m_setExifFixedAttribute(void)
 }
 
 void ExynosCameraHWInterface2::m_setExifChangedAttribute(exif_attribute_t *exifInfo, ExynosRect *rect,
-	camera2_shot_ext *currentEntry)
+        camera2_shot_ext *currentEntry)
 {
     camera2_dm *dm = &(currentEntry->shot.dm);
     camera2_ctl *ctl = &(currentEntry->shot.ctl);
@@ -6397,6 +6401,7 @@ static camera2_device_ops_t camera2_device_ops = {
         SET_METHOD(set_notify_callback),
         SET_METHOD(get_metadata_vendor_tag_ops),
         SET_METHOD(dump),
+        get_instance_metadata : NULL
 };
 
 #undef SET_METHOD
@@ -6477,11 +6482,15 @@ extern "C" {
           name               : "Exynos Camera HAL2",
           author             : "Samsung Corporation",
           methods            : &camera_module_methods,
-          dso:                NULL,
-          reserved:           {0},
+          dso                : NULL,
+          reserved           : {0},
       },
       get_number_of_cameras : HAL2_getNumberOfCameras,
-      get_camera_info       : HAL2_getCameraInfo
+      get_camera_info       : HAL2_getCameraInfo,
+      set_callbacks         : NULL,
+      get_vendor_tag_ops    : NULL,
+      open_legacy           : NULL,
+      reserved              : {0}
     };
 }
 
