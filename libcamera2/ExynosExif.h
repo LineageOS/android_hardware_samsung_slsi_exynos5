@@ -30,8 +30,9 @@
 #define IFD_SIZE                    12
 #define OFFSET_SIZE                 4
 
-#define NUM_0TH_IFD_TIFF            10
-#define NUM_0TH_IFD_EXIF            22
+/* Add any additional writeExifIfd() in sections, increase buffer size */
+#define NUM_0TH_IFD_TIFF            11
+#define NUM_0TH_IFD_EXIF            24
 #define NUM_0TH_IFD_GPS             10
 #define NUM_1TH_IFD_TIFF            9
 
@@ -55,6 +56,7 @@
 #define EXIF_TAG_ORIENTATION                    0x0112
 #define EXIF_TAG_SOFTWARE                       0x0131
 #define EXIF_TAG_DATE_TIME                      0x0132
+#define EXIF_TAG_SUBSEC_TIME                    0x9290
 #define EXIF_TAG_YCBCR_POSITIONING              0x0213
 #define EXIF_TAG_EXIF_IFD_POINTER               0x8769
 #define EXIF_TAG_GPS_IFD_POINTER                0x8825
@@ -66,7 +68,9 @@
 #define EXIF_TAG_ISO_SPEED_RATING               0x8827
 #define EXIF_TAG_EXIF_VERSION                   0x9000
 #define EXIF_TAG_DATE_TIME_ORG                  0x9003
+#define EXIF_TAG_SUBSEC_TIME_ORG                0x9291
 #define EXIF_TAG_DATE_TIME_DIGITIZE             0x9004
+#define EXIF_TAG_SUBSEC_TIME_DIGITIZE           0x9292
 #define EXIF_TAG_SHUTTER_SPEED                  0x9201
 #define EXIF_TAG_APERTURE                       0x9202
 #define EXIF_TAG_BRIGHTNESS                     0x9203
@@ -181,6 +185,7 @@ typedef struct {
     unsigned char software[32];
     unsigned char exif_version[4];
     unsigned char date_time[20];
+    unsigned char sub_sec[4];
     unsigned char user_comment[150];
 
     uint32_t width;

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "ExynosJpegForCamera"
 #include <utils/Log.h>
 
 #include "ExynosJpegEncoderForCamera.h"
@@ -22,7 +23,6 @@
 static const char ExifAsciiPrefix[] = { 0x41, 0x53, 0x43, 0x49, 0x49, 0x0, 0x0, 0x0 };
 
 #define JPEG_ERROR_LOG ALOGE
-#define LOG_TAG "ExynosJpegForCamera"
 
 #define JPEG_THUMBNAIL_QUALITY (60)
 #define EXIF_LIMIT_SIZE (64*1024)
@@ -212,7 +212,7 @@ int  ExynosJpegEncoderForCamera::setOutBuf(int buf, char* vBuf, int size)
         return ERROR_NOT_YET_CREATED;
     }
 
-    if (buf == NULL) {
+    if (!buf) {
         return ERROR_BUFFR_IS_NULL;
     }
 
@@ -260,7 +260,7 @@ int ExynosJpegEncoderForCamera::encode(int *size, exif_attribute_t *exifInfo)
     int iJpegBuffer = m_stMainOutBuf.ionBuffer[0];
     char *pcJpegBuffer = m_stMainOutBuf.pcBuf[0];
 
-    if (pcJpegBuffer[0] == NULL) {
+    if (!pcJpegBuffer[0]) {
         JPEG_ERROR_LOG("%s::pcJpegBuffer[0] is null!!\n", __func__);
         return ERROR_OUT_BUFFER_CREATE_FAIL;
     }
@@ -361,6 +361,8 @@ int ExynosJpegEncoderForCamera::makeExif (unsigned char *exifOut,
                  strlen((char *)exifInfo->software) + 1, exifInfo->software, &LongerTagOffest, pIfdStart);
     writeExifIfd(&pCur, EXIF_TAG_DATE_TIME, EXIF_TYPE_ASCII,
                  20, exifInfo->date_time, &LongerTagOffest, pIfdStart);
+    writeExifIfd(&pCur, EXIF_TAG_SUBSEC_TIME, EXIF_TYPE_ASCII,
+                 sizeof(exifInfo->sub_sec), exifInfo->sub_sec);
     writeExifIfd(&pCur, EXIF_TAG_YCBCR_POSITIONING, EXIF_TYPE_SHORT,
                  1, exifInfo->ycbcr_positioning);
     writeExifIfd(&pCur, EXIF_TAG_EXIF_IFD_POINTER, EXIF_TYPE_LONG,
@@ -394,8 +396,12 @@ int ExynosJpegEncoderForCamera::makeExif (unsigned char *exifOut,
                  4, exifInfo->exif_version);
     writeExifIfd(&pCur, EXIF_TAG_DATE_TIME_ORG, EXIF_TYPE_ASCII,
                  20, exifInfo->date_time, &LongerTagOffest, pIfdStart);
+    writeExifIfd(&pCur, EXIF_TAG_SUBSEC_TIME_ORG, EXIF_TYPE_ASCII,
+                 sizeof(exifInfo->sub_sec), exifInfo->sub_sec);
     writeExifIfd(&pCur, EXIF_TAG_DATE_TIME_DIGITIZE, EXIF_TYPE_ASCII,
                  20, exifInfo->date_time, &LongerTagOffest, pIfdStart);
+    writeExifIfd(&pCur, EXIF_TAG_SUBSEC_TIME_DIGITIZE, EXIF_TYPE_ASCII,
+                 sizeof(exifInfo->sub_sec), exifInfo->sub_sec);
     writeExifIfd(&pCur, EXIF_TAG_SHUTTER_SPEED, EXIF_TYPE_SRATIONAL,
                  1, (rational_t *)&exifInfo->shutter_speed, &LongerTagOffest, pIfdStart);
     writeExifIfd(&pCur, EXIF_TAG_APERTURE, EXIF_TYPE_RATIONAL,
@@ -561,14 +567,13 @@ int ExynosJpegEncoderForCamera::makeExif (unsigned char *exifOut,
         memcpy(pNextIfdOffset, &tmp, OFFSET_SIZE);  // NEXT IFD offset skipped on 0th IFD
     }
 
-    unsigned char App1Marker[2] = { 0xff, 0xe1 };
-    memcpy(pApp1Start, App1Marker, 2);
-    pApp1Start += 2;
+    *(pApp1Start++) = 0xff;
+    *(pApp1Start++) = 0xe1;
 
     *size = 10 + LongerTagOffest;
     tmp = *size - 2;    // APP1 Maker isn't counted
-    unsigned char size_mm[2] = {(tmp >> 8) & 0xFF, tmp & 0xFF};
-    memcpy(pApp1Start, size_mm, 2);
+    *(pApp1Start++) = (tmp >> 8) & 0xFF;
+    *(pApp1Start++) = tmp & 0xFF;
 
     return ERROR_NONE;
 }

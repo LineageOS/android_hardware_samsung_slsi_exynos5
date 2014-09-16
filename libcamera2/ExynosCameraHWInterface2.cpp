@@ -33,6 +33,7 @@
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "ExynosCameraHAL2"
+#include <sys/time.h>
 #include <utils/Log.h>
 #include <math.h>
 
@@ -5790,11 +5791,13 @@ void ExynosCameraHWInterface2::m_setExifChangedAttribute(exif_attribute_t *exifI
     }
 
     //3 Date time
-    time_t rawtime;
+    struct timeval rawtime;
     struct tm *timeinfo;
-    time(&rawtime);
-    timeinfo = localtime(&rawtime);
+    gettimeofday(&rawtime, NULL);
+    timeinfo = localtime(&rawtime.tv_sec);
     strftime((char *)exifInfo->date_time, 20, "%Y:%m:%d %H:%M:%S", timeinfo);
+    snprintf((char *)exifInfo->sub_sec, sizeof(exifInfo->sub_sec), "%03lu",
+        (unsigned long)rawtime.tv_usec / 1000UL);
 
     //2 0th IFD Exif Private Tags
     //3 Exposure Time
