@@ -1214,6 +1214,7 @@ OMX_ERRORTYPE Exynos_OMX_VideoDecodeSetParameter(
         EXYNOS_OMX_BASEPORT           *pExynosPort;
         OMX_U32 width, height, size;
         OMX_U32 realWidth, realHeight;
+        OMX_U32 originalWidth, originalHeight;
 
         if (portIndex >= pExynosComponent->portParam.nPorts) {
             ret = OMX_ErrorBadPortIndex;
@@ -1239,6 +1240,8 @@ OMX_ERRORTYPE Exynos_OMX_VideoDecodeSetParameter(
             goto EXIT;
         }
 
+        originalWidth = pExynosPort->portDefinition.format.video.nFrameWidth;
+        originalHeight = pExynosPort->portDefinition.format.video.nFrameHeight;
         Exynos_OSAL_Memcpy(&pExynosPort->portDefinition, pPortDefinition, pPortDefinition->nSize);
 
 #ifdef USE_ANB // Modified by Google engineer
@@ -1260,10 +1263,12 @@ OMX_ERRORTYPE Exynos_OMX_VideoDecodeSetParameter(
         pExynosPort->portDefinition.format.video.nSliceHeight = height;
         pExynosPort->portDefinition.nBufferSize = (size > pExynosPort->portDefinition.nBufferSize) ? size : pExynosPort->portDefinition.nBufferSize;
 
-        pExynosPort->cropRectangle.nTop = 0;
-        pExynosPort->cropRectangle.nLeft = 0;
-        pExynosPort->cropRectangle.nWidth = realWidth;
-        pExynosPort->cropRectangle.nHeight = realHeight;
+        if (realWidth != originalWidth || realHeight != originalHeight) {
+            pExynosPort->cropRectangle.nTop = 0;
+            pExynosPort->cropRectangle.nLeft = 0;
+            pExynosPort->cropRectangle.nWidth = realWidth;
+            pExynosPort->cropRectangle.nHeight = realHeight;
+        }
 
         if (portIndex == INPUT_PORT_INDEX) {
             EXYNOS_OMX_BASEPORT *pExynosOutputPort = &pExynosComponent->pExynosPort[OUTPUT_PORT_INDEX];
@@ -1271,6 +1276,15 @@ OMX_ERRORTYPE Exynos_OMX_VideoDecodeSetParameter(
             pExynosOutputPort->portDefinition.format.video.nFrameHeight = pExynosPort->portDefinition.format.video.nFrameHeight;
             pExynosOutputPort->portDefinition.format.video.nStride = width;
             pExynosOutputPort->portDefinition.format.video.nSliceHeight = height;
+            // if resetting the output port size, also reset the crop size for the output port;
+            // otherwise, output crop will not be updated when setting up the output port because
+            // the output size would not have changed after we updated it here
+            if (realWidth != originalWidth || realHeight != originalHeight) {
+                pExynosOutputPort->cropRectangle.nTop = 0;
+                pExynosOutputPort->cropRectangle.nLeft = 0;
+                pExynosOutputPort->cropRectangle.nWidth = realWidth;
+                pExynosOutputPort->cropRectangle.nHeight = realHeight;
+            }
 
             switch (pExynosOutputPort->portDefinition.format.video.eColorFormat) {
             case OMX_COLOR_FormatYUV420Planar:
