@@ -23,6 +23,7 @@
 static const char ExifAsciiPrefix[] = { 0x41, 0x53, 0x43, 0x49, 0x49, 0x0, 0x0, 0x0 };
 
 #define JPEG_ERROR_LOG ALOGE
+#define JPEG_WARNING_LOG ALOGW
 
 #define JPEG_THUMBNAIL_QUALITY (60)
 #define EXIF_LIMIT_SIZE (64*1024)
@@ -41,7 +42,7 @@ ExynosJpegEncoderForCamera::ExynosJpegEncoderForCamera()
     m_thumbnailW = 0;
     m_thumbnailH = 0;
     m_thumbnailQuality = JPEG_THUMBNAIL_QUALITY;
-    m_ionJpegClient = 0;
+    m_ionJpegClient = -1;
     initJpegMemory(&m_stThumbInBuf, MAX_IMAGE_PLANE_NUM);
     initJpegMemory(&m_stThumbOutBuf, MAX_IMAGE_PLANE_NUM);
     initJpegMemory(&m_stMainInBuf, MAX_IMAGE_PLANE_NUM);
@@ -88,11 +89,15 @@ int ExynosJpegEncoderForCamera::create(void)
         }
     }
 
-    m_ionJpegClient = createIonClient(m_ionJpegClient);
-    if(m_ionJpegClient == 0) {
+    m_ionJpegClient =
+        m_stMainOutBuf.ionClient =
+        m_stMainInBuf.ionClient =
+        m_stThumbInBuf.ionClient =
+        m_stThumbOutBuf.ionClient =
+            createIonClient(m_ionJpegClient);
+    if(m_ionJpegClient < 0) {
         return ERROR_CANNOT_CREATE_EXYNOS_JPEG_ENC_HAL;
     }
-    m_stMainOutBuf.ionClient = m_stMainInBuf.ionClient = m_stThumbInBuf.ionClient = m_stThumbOutBuf.ionClient = m_ionJpegClient;
 
     m_flagCreate = true;
 
@@ -118,11 +123,24 @@ int ExynosJpegEncoderForCamera::destroy(void)
         freeJpegMemory(&m_stThumbOutBuf, MAX_IMAGE_PLANE_NUM);
         initJpegMemory(&m_stMainInBuf, MAX_IMAGE_PLANE_NUM);
         initJpegMemory(&m_stMainOutBuf, MAX_IMAGE_PLANE_NUM);
-        m_ionJpegClient = deleteIonClient(m_ionJpegClient);
-        m_stMainOutBuf.ionClient = m_stMainInBuf.ionClient = m_stThumbInBuf.ionClient = m_stThumbOutBuf.ionClient = m_ionJpegClient;
+        m_ionJpegClient =
+            m_stMainOutBuf.ionClient =
+            m_stMainInBuf.ionClient =
+            m_stThumbInBuf.ionClient =
+            m_stThumbOutBuf.ionClient =
+                deleteIonClient(m_ionJpegClient);
         m_jpegThumb->destroy();
         delete m_jpegThumb;
         m_jpegThumb = NULL;
+    }
+    if (m_ionJpegClient >= 0) {
+        JPEG_WARNING_LOG("WARNING(%s):Ion Client created outside of m_jpegThumb\n", __func__);
+        m_ionJpegClient =
+            m_stMainOutBuf.ionClient =
+            m_stMainInBuf.ionClient =
+            m_stThumbInBuf.ionClient =
+            m_stThumbOutBuf.ionClient =
+                deleteIonClient(m_ionJpegClient);
     }
 
     m_flagCreate = false;
@@ -924,11 +942,10 @@ int ExynosJpegEncoderForCamera::encodeThumbnail(unsigned int *size, bool useMain
 
 int ExynosJpegEncoderForCamera::createIonClient(ion_client ionClient)
 {
-    if (ionClient == 0) {
+    if (ionClient < 0) {
         ionClient = ion_client_create();
         if (ionClient < 0) {
             JPEG_ERROR_LOG("[%s]src ion client create failed, value = %d\n", __func__, ionClient);
-            return 0;
         }
     }
 
@@ -937,13 +954,10 @@ int ExynosJpegEncoderForCamera::createIonClient(ion_client ionClient)
 
 int ExynosJpegEncoderForCamera::deleteIonClient(ion_client ionClient)
 {
-    if (ionClient != 0) {
-        if (ionClient > 0) {
-            ion_client_destroy(ionClient);
-        }
-        ionClient = 0;
+    if (ionClient >= 0) {
+        ion_client_destroy(ionClient);
     }
-
+    ionClient = -1;
     return ionClient;
 }
 
@@ -952,8 +966,8 @@ int ExynosJpegEncoderForCamera::allocJpegMemory(struct stJpegMem *pstMem, int iM
     int ret = ERROR_NONE;
     int i = 0;
 
-    if (pstMem->ionClient == 0) {
-        JPEG_ERROR_LOG("[%s] i = %d , ionClient is zero (%d)\n", __func__, i, pstMem->ionClient);
+    if (pstMem->ionClient < 0) {
+        JPEG_ERROR_LOG("[%s] i = %d , ionClient is closed (%d)\n", __func__, i, pstMem->ionClient);
         return ERROR_BUFFR_IS_NULL;
     }
 
@@ -986,8 +1000,8 @@ int ExynosJpegEncoderForCamera::allocJpegMemory(struct stJpegMem *pstMem, int iM
 
 void ExynosJpegEncoderForCamera::freeJpegMemory(struct stJpegMem *pstMem, int iMemoryNum)
 {
-    int i =0 ;
-    if (pstMem->ionClient == 0) {
+    int i = 0;
+    if (pstMem->ionClient < 0) {
         return;
     }
 
@@ -1013,6 +1027,6 @@ void ExynosJpegEncoderForCamera::initJpegMemory(struct stJpegMem *pstMem, int iM
         pstMem->ionBuffer[i] = -1;
         pstMem->iSize[i] = 0;
     }
-    pstMem->ionClient = 0;
+    pstMem->ionClient = -1;
 }
 
