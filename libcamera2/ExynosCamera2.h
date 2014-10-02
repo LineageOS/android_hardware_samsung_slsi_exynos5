@@ -28,6 +28,9 @@
  *
  */
 
+#ifndef EXYNOS_CAMERA_2_H
+#define EXYNOS_CAMERA_2_H
+
 #include <hardware/camera2.h>
 #include <camera/Camera.h>
 #include <camera/CameraParameters.h>
@@ -35,6 +38,9 @@
 #include "fimc-is-metadata.h"
 
 namespace android {
+
+extern int32_t SUPPORT_THUMBNAIL_REAR_SIZE[3][2];
+extern int32_t SUPPORT_THUMBNAIL_FRONT_SIZE[4][2];
 
 struct ExynosCamera2Info
 {
@@ -99,3 +105,5 @@ public:
     int     m_cameraId;
 };
 }
+
+#endif

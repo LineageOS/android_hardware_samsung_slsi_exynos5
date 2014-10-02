@@ -38,6 +38,21 @@
 
 namespace android {
 
+int32_t SUPPORT_THUMBNAIL_REAR_SIZE[3][2] =
+{
+    {160, 120},
+    {160, 90},
+    {144, 96}
+};
+
+int32_t SUPPORT_THUMBNAIL_FRONT_SIZE[4][2] =
+{
+    {160, 120},
+    {160, 160},
+    {160, 90},
+    {144, 96}
+};
+
 class Sensor {
 public:
     /**
@@ -527,13 +542,23 @@ status_t ExynosCamera2::constructStaticInfo(camera_metadata_t **info,
 
     // android.jpeg
 
-    static const int32_t jpegThumbnailSizes[] = {
-            160, 120,
-            160, 160,
-            160, 90,
-            144, 96,
-              0, 0
-    };
+    size_t sizeOfThumbnailList = (cameraId) ? sizeof(SUPPORT_THUMBNAIL_FRONT_SIZE) /
+            sizeof(int32_t) : sizeof(SUPPORT_THUMBNAIL_REAR_SIZE) / sizeof(int32_t);
+
+    // Copy sizes from front or back camera
+    int32_t jpegThumbnailSizes[sizeOfThumbnailList + 2];
+
+    if (cameraId) {
+        memcpy(jpegThumbnailSizes, SUPPORT_THUMBNAIL_FRONT_SIZE,
+                sizeof(int32_t) * sizeOfThumbnailList);
+    } else {
+        memcpy(jpegThumbnailSizes, SUPPORT_THUMBNAIL_REAR_SIZE,
+                sizeof(int32_t) * sizeOfThumbnailList);
+    }
+
+    // Always include 0,0 size in list
+    jpegThumbnailSizes[sizeOfThumbnailList] = 0;
+    jpegThumbnailSizes[sizeOfThumbnailList + 1] = 0;
 
     ADD_OR_SIZE(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES,
             jpegThumbnailSizes, sizeof(jpegThumbnailSizes)/sizeof(int32_t));

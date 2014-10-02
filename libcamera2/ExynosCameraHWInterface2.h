@@ -150,21 +150,6 @@ enum is_subscenario_id {
 	ISS_SUB_END
 };
 
-int SUPPORT_THUMBNAIL_REAR_SIZE[][2] =
-{
-    {160, 120},
-    {160, 90},
-    {144, 96}
-};
-
-int SUPPORT_THUMBNAIL_FRONT_SIZE[][2] =
-{
-    {160, 120},
-    {160, 160},
-    {160, 90},
-    {144, 96}
-};
-
 enum is_set_flash_command_state {
     IS_FLASH_STATE_NONE = 0,
     IS_FLASH_STATE_ON = 1,
