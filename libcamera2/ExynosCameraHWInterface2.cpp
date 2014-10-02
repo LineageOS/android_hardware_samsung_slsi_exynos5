@@ -4662,7 +4662,7 @@ bool ExynosCameraHWInterface2::m_checkThumbnailSize(int w, int h)
 
     //REAR Camera
     if(this->getCameraId() == 0) {
-        sizeOfSupportList = sizeof(SUPPORT_THUMBNAIL_REAR_SIZE) / (sizeof(int)*2);
+        sizeOfSupportList = sizeof(SUPPORT_THUMBNAIL_REAR_SIZE) / (sizeof(int32_t)*2);
 
         for(int i = 0; i < sizeOfSupportList; i++) {
             if((SUPPORT_THUMBNAIL_REAR_SIZE[i][0] == w) &&(SUPPORT_THUMBNAIL_REAR_SIZE[i][1] == h))
@@ -4671,7 +4671,7 @@ bool ExynosCameraHWInterface2::m_checkThumbnailSize(int w, int h)
 
     }
     else {
-        sizeOfSupportList = sizeof(SUPPORT_THUMBNAIL_FRONT_SIZE) / (sizeof(int)*2);
+        sizeOfSupportList = sizeof(SUPPORT_THUMBNAIL_FRONT_SIZE) / (sizeof(int32_t)*2);
 
         for(int i = 0; i < sizeOfSupportList; i++) {
             if((SUPPORT_THUMBNAIL_FRONT_SIZE[i][0] == w) &&(SUPPORT_THUMBNAIL_FRONT_SIZE[i][1] == h))
