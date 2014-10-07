@@ -1613,8 +1613,10 @@ OMX_ERRORTYPE Exynos_VP8Dec_DstIn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_D
                                 (unsigned int *)nAllocLen, (unsigned int *)dataLen,
                                 MFC_OUTPUT_BUFFER_PLANE, pDstInputData->bufferHeader);
     if (codecReturn != VIDEO_ERROR_NONE) {
-        Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "%s : %d", __FUNCTION__, __LINE__);
-        ret = (OMX_ERRORTYPE)OMX_ErrorCodecDecode;
+        if (codecReturn != VIDEO_ERROR_WRONGBUFFERSIZE) {
+            Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "%s : %d", __FUNCTION__, __LINE__);
+            ret = (OMX_ERRORTYPE)OMX_ErrorCodecDecode;
+        }
         goto EXIT;
     }
     VP8CodecStart(pOMXComponent, OUTPUT_PORT_INDEX);
@@ -1786,8 +1788,7 @@ OMX_ERRORTYPE Exynos_VP8Dec_DstOut(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_
         Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "timestamp %lld us (%.2f secs), indexTimestamp: %d, nFlags: 0x%x", pDstOutputData->timeStamp, pDstOutputData->timeStamp / 1E6, indexTimestamp, pDstOutputData->nFlags);
     }
 
-    if ((displayStatus == VIDEO_FRAME_STATUS_CHANGE_RESOL) ||
-        (displayStatus == VIDEO_FRAME_STATUS_DECODING_FINISHED) ||
+    if ((displayStatus == VIDEO_FRAME_STATUS_DECODING_FINISHED) ||
         ((pDstOutputData->nFlags & OMX_BUFFERFLAG_EOS) == OMX_BUFFERFLAG_EOS)) {
         Exynos_OSAL_Log(EXYNOS_LOG_TRACE, "displayStatus:%d, nFlags0x%x", displayStatus, pDstOutputData->nFlags);
         pDstOutputData->remainDataLen = 0;
