@@ -1136,10 +1136,11 @@ OMX_ERRORTYPE Mpeg4CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
                                 (unsigned int *)dataLen, MFC_OUTPUT_BUFFER_PLANE, NULL);
         }
     } else if ((pExynosOutputPort->bufferProcessType & BUFFER_SHARE) == BUFFER_SHARE) {
-        /* Register input buffer */
+        /* Register output buffer */
         /*************/
         /*    TBD    */
         /*************/
+        ExynosVideoErrorType codecReturn = VIDEO_ERROR_NONE;
         ExynosVideoPlane plane;
         for (i = 0; i < pExynosOutputPort->portDefinition.nBufferCountActual; i++) {
             plane.addr = pExynosOutputPort->extendBufferHeader[i].OMXBufferHeader->pBuffer;
@@ -1150,8 +1151,13 @@ OMX_ERRORTYPE Mpeg4CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
                 ret = OMX_ErrorInsufficientResources;
                 goto EXIT;
             }
-            pOutbufOps->Enqueue(hMFCHandle, (unsigned char **)&pExynosOutputPort->extendBufferHeader[i].OMXBufferHeader->pBuffer,
+            codecReturn = pOutbufOps->Enqueue(hMFCHandle, (unsigned char **)&pExynosOutputPort->extendBufferHeader[i].OMXBufferHeader->pBuffer,
                                    (unsigned int *)dataLen, MFC_OUTPUT_BUFFER_PLANE, NULL);
+            if (codecReturn != VIDEO_ERROR_NONE) {
+                Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Output buffer that has been entered is invalid.");
+                ret = OMX_ErrorUndefined;
+                goto EXIT;
+            }
         }
     }
 
@@ -1933,6 +1939,9 @@ OMX_ERRORTYPE Exynos_Mpeg4Enc_SrcIn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX
     }
     if (pMpeg4Enc->hMFCMpeg4Handle.bConfiguredMFCDst == OMX_FALSE) {
         ret = Mpeg4CodecDstSetup(pOMXComponent);
+        if (ret != OMX_ErrorNone) {
+            goto EXIT;
+        }
     }
 
     if (pVideoEnc->configChange == OMX_TRUE) {
