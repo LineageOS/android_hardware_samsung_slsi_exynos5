@@ -1008,6 +1008,7 @@ OMX_ERRORTYPE H264CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
         /*************/
         /*    TBD    */
         /*************/
+        ExynosVideoErrorType codecReturn = VIDEO_ERROR_NONE;
         ExynosVideoPlane plane;
         for (i = 0; i < pExynosOutputPort->portDefinition.nBufferCountActual; i++) {
             plane.addr = pExynosOutputPort->extendBufferHeader[i].OMXBufferHeader->pBuffer;
@@ -1018,8 +1019,13 @@ OMX_ERRORTYPE H264CodecDstSetup(OMX_COMPONENTTYPE *pOMXComponent)
                 ret = OMX_ErrorInsufficientResources;
                 goto EXIT;
             }
-            pOutbufOps->Enqueue(hMFCHandle, (unsigned char **)&pExynosOutputPort->extendBufferHeader[i].OMXBufferHeader->pBuffer,
+            codecReturn = pOutbufOps->Enqueue(hMFCHandle, (unsigned char **)&pExynosOutputPort->extendBufferHeader[i].OMXBufferHeader->pBuffer,
                                    (unsigned int *)dataLen, MFC_OUTPUT_BUFFER_PLANE, NULL);
+            if (codecReturn != VIDEO_ERROR_NONE) {
+                Exynos_OSAL_Log(EXYNOS_LOG_ERROR, "Output buffer that has been entered is invalid.");
+                ret = OMX_ErrorUndefined;
+                goto EXIT;
+            }
         }
     }
 
@@ -1735,6 +1741,9 @@ OMX_ERRORTYPE Exynos_H264Enc_SrcIn(OMX_COMPONENTTYPE *pOMXComponent, EXYNOS_OMX_
     }
     if (pH264Enc->hMFCH264Handle.bConfiguredMFCDst == OMX_FALSE) {
         ret = H264CodecDstSetup(pOMXComponent);
+        if (ret != OMX_ErrorNone) {
+            goto EXIT;
+        }
     }
 
     if (pVideoEnc->configChange == OMX_TRUE) {
