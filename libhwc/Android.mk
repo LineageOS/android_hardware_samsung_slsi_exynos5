@@ -23,6 +23,10 @@ LOCAL_SHARED_LIBRARIES := liblog libcutils libEGL libGLESv1_CM libhardware \
     libhardware_legacy libion_exynos libutils libsync libexynosgscaler libexynosv4l2 libMcClient
 LOCAL_CFLAGS += -DLOG_TAG=\"hwcomposer\"
 
+ifeq ($(TARGET_SOC),exynos5430)
+    LOCAL_CFLAGS += -DSAMSUNG_EXYNOS5430
+endif
+
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/../include \
     $(LOCAL_PATH)/../libexynosutils

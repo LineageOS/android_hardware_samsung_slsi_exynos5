@@ -26,7 +26,11 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+#ifdef SAMSUNG_EXYNOS5430
+#include <decon-fb.h>
+#else
 #include <s3c-fb.h>
+#endif
 
 #include <EGL/egl.h>
 
@@ -2118,6 +2122,7 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
         for (size_t j = 0; j < NUM_GSC_DST_BUFS; j++)
             dev->gsc[i].dst_buf_fence[j] = -1;
 
+#ifndef SAMSUNG_EXYNOS5430
     dev->hdmi_mixer0 = open("/dev/v4l-subdev7", O_RDWR);
     if (dev->hdmi_mixer0 < 0)
         ALOGE("failed to open hdmi mixer0 subdev");
@@ -2137,14 +2142,23 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
         ret = dev->hdmi_layers[1].fd;
         goto err_hdmi0;
     }
+#endif
 
+#ifdef SAMSUNG_EXYNOS5430
+    dev->vsync_fd = open("/sys/devices/13800000.decon_fb/vsync", O_RDONLY);
+#else
     dev->vsync_fd = open("/sys/devices/platform/exynos5-fb.1/vsync", O_RDONLY);
+#endif
     if (dev->vsync_fd < 0) {
         ALOGE("failed to open vsync attribute");
         ret = dev->vsync_fd;
         goto err_hdmi1;
     }
 
+#ifdef SAMSUNG_EXYNOS5430
+    dev->hdmi_hpd = false;
+    dev->hdmi_enabled = false;
+#else
     sw_fd = open("/sys/class/switch/hdmi/state", O_RDONLY);
     if (sw_fd) {
         char val;
@@ -2156,6 +2170,7 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
             }
         }
     }
+#endif
 
     dev->base.common.tag = HARDWARE_DEVICE_TAG;
     dev->base.common.version = HWC_DEVICE_API_VERSION_1_1;
