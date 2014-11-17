@@ -99,7 +99,7 @@ base: {
         version_major: 1,
         version_minor: 0,
         id: GRALLOC_HARDWARE_MODULE_ID,
-        name: "Graphics Memory Allocator Module",
+        name: "Exynos5 Graphics Memory Allocator Module",
         author: "The Android Open Source Project",
         methods: &gralloc_module_methods
     },
