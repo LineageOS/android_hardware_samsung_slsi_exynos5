@@ -16,8 +16,6 @@ GLOBAL_INCLUDES := \
 	$(COMP_PATH_MobiCoreDriverMod)/Public \
 	$(COMP_PATH_MobiCore)/inc/TlCm
 
-GLOBAL_CXX_STL := stlport
-
 # Include the Daemon
 include $(MOBICORE_PROJECT_PATH)/daemon/Android.mk
 
