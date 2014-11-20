@@ -615,10 +615,15 @@ void RequestManager::ApplyDynamicMetadata(struct camera2_shot_ext *shot_ext)
     ALOGV("DEBUG(%s): frameCnt(%d)", __FUNCTION__, shot_ext->shot.ctl.request.frameCount);
 
     for (i = 0 ; i < NUM_MAX_REQUEST_MGR_ENTRY ; i++) {
-        if((entries[i].internal_shot.shot.ctl.request.frameCount == shot_ext->shot.ctl.request.frameCount)
-            && (entries[i].status == CAPTURED)){
-            entries[i].status = METADONE;
-            break;
+        if (entries[i].internal_shot.shot.ctl.request.frameCount
+                == shot_ext->shot.ctl.request.frameCount) {
+            if (entries[i].status == CAPTURED) {
+                entries[i].status = METADONE;
+                break;
+            }
+            if (entries[i].status == METADONE) {
+                return;
+            }
         }
     }
 
@@ -861,9 +866,10 @@ camera2_shot_ext *  RequestManager::GetInternalShotExt(int index)
     return &currentEntry->internal_shot;
 }
 
-int     RequestManager::FindFrameCnt(struct camera2_shot_ext * shot_ext)
+int     RequestManager::FindFrameCnt(struct camera2_shot_ext * shot_ext, bool drain)
 {
     Mutex::Autolock lock(m_requestMutex);
+    Mutex::Autolock lock2(m_numOfEntriesLock);
     int i;
 
     if (m_numOfEntries == 0) {
@@ -877,6 +883,9 @@ int     RequestManager::FindFrameCnt(struct camera2_shot_ext * shot_ext)
 
         if (entries[i].status == REQUESTED) {
             entries[i].status = CAPTURED;
+            return entries[i].internal_shot.shot.ctl.request.frameCount;
+        }
+        if (drain && (entries[i].status >= CAPTURED)) {
             return entries[i].internal_shot.shot.ctl.request.frameCount;
         }
         CAM_LOGE("ERR(%s): frameCount(%d), index(%d), status(%d)", __FUNCTION__, shot_ext->shot.ctl.request.frameCount, i, entries[i].status);
@@ -3154,7 +3163,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             matchedFrameCnt = m_ctlInfo.flash.m_flashFrameCount;
             ALOGV("Skip frame, request is fixed at %d", matchedFrameCnt);
         } else {
-            matchedFrameCnt = m_requestManager->FindFrameCnt(shot_ext);
+            matchedFrameCnt = m_requestManager->FindFrameCnt(shot_ext, m_isRequestQueueNull);
         }
 
         if (matchedFrameCnt == -1 && m_vdisBubbleCnt > 0) {
