@@ -1061,7 +1061,7 @@ ExynosCameraHWInterface2::ExynosCameraHWInterface2(int cameraId, camera2_device_
         m_ctlInfo.flash.m_afFlashDoneFlg= false;
         m_ctlInfo.flash.m_flashEnableFlg = false;
         m_ctlInfo.flash.m_flashFrameCount = 0;
-        m_ctlInfo.flash.m_flashCnt = 0;
+        m_ctlInfo.flash.m_flashCnt = IS_FLASH_STATE_NONE;
         m_ctlInfo.flash.m_flashTimeOut = 0;
         m_ctlInfo.flash.m_flashDecisionResult = false;
         m_ctlInfo.flash.m_flashTorchMode = false;
@@ -2966,7 +2966,7 @@ void ExynosCameraHWInterface2::m_preCaptureSetter(struct camera2_shot_ext * shot
         shot_ext->request_scc = 0;
         shot_ext->request_scp = 0;
         m_ctlInfo.flash.m_flashEnableFlg = false;
-        m_ctlInfo.flash.m_flashCnt = 0;
+        m_ctlInfo.flash.m_flashCnt = IS_FLASH_STATE_NONE;
         m_ctlInfo.flash.m_afFlashDoneFlg= false;
         break;
     case IS_FLASH_STATE_NONE:
@@ -3240,7 +3240,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                         m_ctlInfo.flash.m_flashEnableFlg = false;
                         m_ctlInfo.flash.m_afFlashDoneFlg = false;
                         m_ctlInfo.flash.m_flashDecisionResult = false;
-                        m_ctlInfo.flash.m_flashCnt = 0;
+                        m_ctlInfo.flash.m_flashCnt = IS_FLASH_STATE_NONE;
                     }
                     m_ctlInfo.af.m_afTriggerTimeOut = 1;
                 }
@@ -3376,7 +3376,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 if (!m_ctlInfo.flash.m_flashDecisionResult) {
                     m_ctlInfo.flash.m_flashEnableFlg = false;
                     m_ctlInfo.flash.m_afFlashDoneFlg = false;
-                    m_ctlInfo.flash.m_flashCnt = 0;
+                    m_ctlInfo.flash.m_flashCnt = IS_FLASH_STATE_NONE;
                 } else if ((m_ctlInfo.flash.m_flashCnt == IS_FLASH_STATE_AUTO_DONE) ||
                                           (m_ctlInfo.flash.m_flashCnt == IS_FLASH_STATE_AUTO_OFF)) {
                     ALOGD("(%s): [Flash] Flash capture start : skip request scc 1#####", __FUNCTION__);
@@ -3390,7 +3390,7 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                     shot_ext->shot.ctl.aa.aeflashMode = AA_FLASHMODE_OFF;
                     m_ctlInfo.flash.m_flashEnableFlg = false;
                     m_ctlInfo.flash.m_afFlashDoneFlg= false;
-                    m_ctlInfo.flash.m_flashCnt = 0;
+                    m_ctlInfo.flash.m_flashCnt = IS_FLASH_STATE_NONE;
                 }
             } else if (shot_ext->shot.ctl.aa.captureIntent == AA_CAPTURE_INTENT_STILL_CAPTURE) {
                 m_ctlInfo.flash.m_flashDecisionResult = false;
@@ -3417,8 +3417,14 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 shot_ext->request_scc = 0;
                 m_reprocessingFrameCnt = shot_ext->shot.ctl.request.frameCount;
                 m_ctlInfo.flash.m_flashDecisionResult = false;
-                memcpy(&m_jpegMetadata, (void*)(m_requestManager->GetInternalShotExtByFrameCnt(m_reprocessingFrameCnt)),
-                    sizeof(struct camera2_shot_ext));
+                void *shot = m_requestManager->GetInternalShotExtByFrameCnt(m_reprocessingFrameCnt);
+                if (!shot) { // m_isRequestQueueNull reuse current
+                    ALOGD("(%s): isReprocessing: "
+                        "m_reprocessingFrameCnt missing, using shot_ext",
+                        __FUNCTION__);
+                    shot = shot_ext;
+                }
+                memcpy(&m_jpegMetadata, shot, sizeof(struct camera2_shot_ext));
                 m_streamThreads[1]->SetSignal(SIGNAL_STREAM_REPROCESSING_START);
                 m_ctlInfo.flash.m_flashEnableFlg = false;
             }
@@ -3521,11 +3527,17 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
             if (shot_ext->request_scc) {
                 ALOGV("send SIGNAL_STREAM_DATA_COMING (SCC)");
                 if (shot_ext->shot.ctl.request.outputStreams[0] & STREAM_MASK_JPEG) {
-                    if (m_ctlInfo.flash.m_flashCnt < IS_FLASH_STATE_CAPTURE)
-                        memcpy(&m_jpegMetadata, (void*)(m_requestManager->GetInternalShotExtByFrameCnt(shot_ext->shot.ctl.request.frameCount)),
-                            sizeof(struct camera2_shot_ext));
-                    else
-                        memcpy(&m_jpegMetadata, (void*)shot_ext, sizeof(struct camera2_shot_ext));
+                    void *shot = shot_ext;
+                    if (m_ctlInfo.flash.m_flashCnt < IS_FLASH_STATE_CAPTURE) {
+                        shot = m_requestManager->GetInternalShotExtByFrameCnt(m_reprocessingFrameCnt);
+                        if (!shot) { // m_isRequestQueueNull reuse current
+                            ALOGD("(%s): request_scc: "
+                                "m_reprocessingFrameCnt missing, using shot_ext",
+                                __FUNCTION__);
+                            shot = shot_ext;
+                        }
+                    }
+                    memcpy(&m_jpegMetadata, shot, sizeof(struct camera2_shot_ext));
                 }
                 m_streamThreads[1]->SetSignal(SIGNAL_STREAM_DATA_COMING);
             }
