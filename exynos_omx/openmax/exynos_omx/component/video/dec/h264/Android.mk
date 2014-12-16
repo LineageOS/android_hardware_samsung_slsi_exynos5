@@ -7,7 +7,6 @@ LOCAL_SRC_FILES := \
 	Exynos_OMX_H264dec.c \
 	library_register.c
 
-LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE := libOMX.Exynos.AVC.Decoder
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/omx
 

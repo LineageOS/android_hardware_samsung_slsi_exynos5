@@ -27,7 +27,6 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := \
 	Exynos_OMX_Resourcemanager.c
 
-LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE := libExynosOMX_Resourcemanager
 
 LOCAL_CFLAGS :=
