@@ -44,7 +44,6 @@ LOCAL_CFLAGS :=
 
 LOCAL_MODULE := libcsc
 
-LOCAL_PRELINK_MODULE := false
 
 LOCAL_ARM_MODE := arm
 

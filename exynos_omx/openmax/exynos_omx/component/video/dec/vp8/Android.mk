@@ -7,7 +7,6 @@ LOCAL_SRC_FILES := \
 	Exynos_OMX_Vp8dec.c \
 	library_register.c
 
-LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE := libOMX.Exynos.VP8.Decoder
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/omx
 

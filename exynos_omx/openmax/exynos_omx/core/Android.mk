@@ -7,7 +7,6 @@ LOCAL_SRC_FILES := \
 	Exynos_OMX_Component_Register.c \
 	Exynos_OMX_Core.c
 
-LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE := libExynosOMX_Core
 
 LOCAL_CFLAGS :=
