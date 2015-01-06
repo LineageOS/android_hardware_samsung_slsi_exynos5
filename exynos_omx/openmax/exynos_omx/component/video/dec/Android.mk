@@ -1,6 +1,8 @@
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
+LOCAL_CLANG_CFLAGS += -Wno-int-conversion
+
 LOCAL_SRC_FILES := \
 	Exynos_OMX_VdecControl.c \
 	Exynos_OMX_Vdec.c

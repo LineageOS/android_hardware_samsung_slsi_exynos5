@@ -20,6 +20,11 @@ LOCAL_MODULE := libExynosOMX_OSAL
 
 LOCAL_CFLAGS :=
 
+LOCAL_CLANG_CFLAGS += \
+	-Wno-implicit-function-declaration \
+	-Wno-int-conversion \
+	-Wno-sign-compare
+
 ifeq ($(BOARD_USE_S3D_SUPPORT), true)
 LOCAL_CFLAGS += -DS3D_SUPPORT
 endif
