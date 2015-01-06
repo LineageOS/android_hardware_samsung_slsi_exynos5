@@ -65,7 +65,7 @@ int calc_plane(int width, int height)
     return (mbX * 16) * (mbY * 16);
 }
 
-inline void Exynos_UpdateFrameSize(OMX_COMPONENTTYPE *pOMXComponent)
+void Exynos_UpdateFrameSize(OMX_COMPONENTTYPE *pOMXComponent)
 {
     EXYNOS_OMX_BASECOMPONENT *pExynosComponent = (EXYNOS_OMX_BASECOMPONENT *)pOMXComponent->pComponentPrivate;
     EXYNOS_OMX_BASEPORT      *exynosInputPort = &pExynosComponent->pExynosPort[INPUT_PORT_INDEX];
