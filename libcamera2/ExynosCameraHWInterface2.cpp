@@ -3529,7 +3529,8 @@ void ExynosCameraHWInterface2::m_sensorThreadFunc(SignalDrivenThread * self)
                 if (shot_ext->shot.ctl.request.outputStreams[0] & STREAM_MASK_JPEG) {
                     void *shot = shot_ext;
                     if (m_ctlInfo.flash.m_flashCnt < IS_FLASH_STATE_CAPTURE) {
-                        shot = m_requestManager->GetInternalShotExtByFrameCnt(m_reprocessingFrameCnt);
+                        shot = m_requestManager->GetInternalShotExtByFrameCnt(
+                            shot_ext->shot.ctl.request.frameCount);
                         if (!shot) { // m_isRequestQueueNull reuse current
                             ALOGD("(%s): request_scc: "
                                 "m_reprocessingFrameCnt missing, using shot_ext",
