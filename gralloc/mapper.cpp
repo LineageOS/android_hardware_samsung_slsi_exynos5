@@ -31,6 +31,7 @@
 #include <hardware/gralloc.h>
 
 #include "gralloc_priv.h"
+#include "exynos_format.h"
 
 #include <ion/ion.h>
 #include <linux/ion.h>
@@ -57,16 +58,59 @@ static int gralloc_unmap(gralloc_module_t const* module, buffer_handle_t handle)
 {
     private_handle_t* hnd = (private_handle_t*)handle;
 
-    if (!hnd->base)
-        return 0;
-
-    if (munmap(hnd->base, hnd->size) < 0) {
+    if (hnd->base != NULL && munmap(hnd->base, hnd->size) < 0) {
         ALOGE("%s :could not unmap %s %p %d", __func__, strerror(errno),
               hnd->base, hnd->size);
     }
+    hnd->base = NULL;
+    if (hnd->base1 != NULL && hnd->format == HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED) {
+        // unmap plane-2 of mapped NV12 TILED format
+        size_t chroma_vstride = ALIGN(hnd->height / 2, 32);
+        size_t chroma_size = chroma_vstride * hnd->stride;
+        if (munmap(hnd->base1, chroma_size) < 0) {
+            ALOGE("%s :could not unmap %s %p %zd", __func__, strerror(errno),
+                  hnd->base1, chroma_size);
+        }
+        hnd->base1 = NULL;
+    }
     ALOGV("%s: base %p %d %d %d %d\n", __func__, hnd->base, hnd->size,
           hnd->width, hnd->height, hnd->stride);
-    hnd->base = 0;
+    return 0;
+}
+
+
+static int gralloc_map_yuv(gralloc_module_t const* module, buffer_handle_t handle)
+{
+    private_handle_t* hnd = (private_handle_t*)handle;
+
+    // only support NV12 TILED format
+    if (hnd->format != HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED) {
+        return -EINVAL;
+    }
+
+    size_t chroma_vstride = ALIGN(hnd->height / 2, 32);
+    size_t chroma_size = chroma_vstride * hnd->stride;
+    ALOGI("map_yuv: size=%d/%zu", hnd->size, chroma_size);
+
+    if (hnd->base == NULL) {
+        int err = gralloc_map(module, handle);
+        if (err != 0) {
+            return err;
+        }
+    }
+
+    // map plane-2 for NV12 TILED format
+    void* mappedAddress = mmap(0, chroma_size, PROT_READ|PROT_WRITE, MAP_SHARED,
+                               hnd->fd1, 0);
+    if (mappedAddress == MAP_FAILED) {
+        ALOGE("%s: could not mmap %s", __func__, strerror(errno));
+        gralloc_unmap(module, handle);
+        return -errno;
+    }
+
+    ALOGV("%s: chroma %p %d %d %d %d\n", __func__, mappedAddress, hnd->size,
+          hnd->width, hnd->height, hnd->stride);
+    hnd->base1 = mappedAddress;
     return 0;
 }
 
@@ -155,6 +199,54 @@ int gralloc_lock(gralloc_module_t const* module,
         gralloc_map(module, hnd);
     *vaddr = (void*)hnd->base;
     return 0;
+}
+
+int gralloc_lock_ycbcr(gralloc_module_t const* module,
+                 buffer_handle_t handle, int usage,
+                 int l, int t, int w, int h,
+                 struct android_ycbcr *ycbcr)
+{
+    // This is called when a YUV buffer is being locked for software
+    // access. In this implementation we have nothing to do since
+    // no synchronization with the HW is needed.
+    // Typically this is used to wait for the h/w to finish with
+    // this buffer if relevant. The data cache may need to be
+    // flushed or invalidated depending on the usage bits and the
+    // hardware.
+
+    if (private_handle_t::validate(handle) < 0)
+        return -EINVAL;
+
+    private_handle_t* hnd = (private_handle_t*)handle;
+    ALOGV("lock_ycbcr for fmt=%d %dx%d %dx%d %d", hnd->format, hnd->width, hnd->height,
+          hnd->stride, hnd->vstride, hnd->size);
+    switch (hnd->format) {
+        case HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
+        {
+            int err = 0;
+            if (hnd->base1 == NULL || hnd->base == NULL) {
+                err = gralloc_map_yuv(module, hnd);
+            }
+            if (err == 0) {
+                ycbcr->y  = (void*)hnd->base;
+                ycbcr->cb = (void*)hnd->base1;
+                ycbcr->cr = (void*)((uint8_t *)hnd->base + 1);
+                ycbcr->ystride = hnd->stride;
+                ycbcr->cstride = hnd->stride;
+                ycbcr->chroma_step = 2;
+                memset(ycbcr->reserved, 0, sizeof(ycbcr->reserved));
+            }
+            return err;
+        }
+        default:
+            return -EINVAL;
+    }
+}
+
+int gralloc_perform(struct gralloc_module_t const* module, int operation, ... )
+{
+    // dummy implementation required to implement lock_ycbcr
+    return -EINVAL;
 }
 
 int gralloc_unlock(gralloc_module_t const* module, 

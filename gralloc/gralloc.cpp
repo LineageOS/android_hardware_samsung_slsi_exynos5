@@ -71,6 +71,11 @@ extern int gralloc_lock(gralloc_module_t const* module,
                         int l, int t, int w, int h,
                         void** vaddr);
 
+extern int gralloc_lock_ycbcr(gralloc_module_t const* module,
+                              buffer_handle_t handle, int usage,
+                              int l, int t, int w, int h,
+                              struct android_ycbcr *ycbcr);
+
 extern int gralloc_unlock(gralloc_module_t const* module, 
                           buffer_handle_t handle);
 
@@ -79,6 +84,9 @@ extern int gralloc_register_buffer(gralloc_module_t const* module,
 
 extern int gralloc_unregister_buffer(gralloc_module_t const* module,
                                      buffer_handle_t handle);
+
+extern int gralloc_perform(struct gralloc_module_t const* module,
+                           int operation, ... );
 
 /*****************************************************************************/
 
@@ -101,6 +109,8 @@ base: {
     unregisterBuffer: gralloc_unregister_buffer,
     lock: gralloc_lock,
     unlock: gralloc_unlock,
+    perform: gralloc_perform,
+    lock_ycbcr: gralloc_lock_ycbcr,
 },
 framebuffer: 0,
 flags: 0,
