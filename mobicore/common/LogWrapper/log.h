@@ -36,6 +36,7 @@
 
 #include <unistd.h>
 #include <stdio.h>
+#include <string.h>
 #include <android/log.h>
 
 /** LOG_I(fmt, args...)
