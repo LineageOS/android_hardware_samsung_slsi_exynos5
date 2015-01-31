@@ -31,6 +31,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include <cstdlib>
+#include <cstring>
 
 #include <fcntl.h>
 #include <sys/mman.h>
