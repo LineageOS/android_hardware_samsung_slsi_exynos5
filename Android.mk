@@ -14,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 ifeq ($(TARGET_BOARD_PLATFORM),exynos5)
 ifeq ($(TARGET_SLSI_VARIANT),)
+ifneq ($(TARGET_SOC),exynos7420)
 
 exynos5_dirs := \
 	libion_exynos \
@@ -61,5 +61,6 @@ USE_HWC_CSC_THREAD := true
 
 include $(call all-named-subdir-makefiles,$(exynos5_dirs))
 
+endif
 endif
 endif
