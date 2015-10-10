@@ -72,13 +72,13 @@ void NetlinkServer::run(
         struct nlmsghdr *nlh = NULL;
         struct iovec iov;
         struct msghdr msg;
-        uint32_t len;
+        int32_t len;
 
         memset(&src_addr, 0, sizeof(src_addr));
         src_addr.nl_family = AF_NETLINK;
         src_addr.nl_pid = MC_DAEMON_PID;  /* daemon pid */
         src_addr.nl_groups = 0;  /* not in mcast groups */
-        if (bind(serverSock, (struct sockaddr *)&src_addr, sizeof(src_addr)) < 0) {
+        if (::bind(serverSock, (struct sockaddr *)&src_addr, sizeof(src_addr)) < 0) {
             LOG_ERRNO("Binding to server socket failed, because bind");
             close(serverSock);
             break;

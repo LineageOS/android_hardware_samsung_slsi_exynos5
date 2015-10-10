@@ -29,6 +29,7 @@
  */
 #define LOG_TAG "libcsc"
 #include <cutils/log.h>
+#include <errno.h>
 
 #include <stdio.h>
 #include <stdlib.h>

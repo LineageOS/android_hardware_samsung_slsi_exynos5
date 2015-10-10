@@ -105,7 +105,7 @@ const nsecs_t Sensor::kFrameDurationRange[2] =
 const uint8_t Sensor::kColorFilterArrangement = ANDROID_SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_RGGB;
 
 const uint32_t kAvailableFormats[5] = {
-        HAL_PIXEL_FORMAT_RAW_SENSOR,
+        HAL_PIXEL_FORMAT_RAW16,
         HAL_PIXEL_FORMAT_BLOB,
         HAL_PIXEL_FORMAT_RGBA_8888,
         HAL_PIXEL_FORMAT_YV12,

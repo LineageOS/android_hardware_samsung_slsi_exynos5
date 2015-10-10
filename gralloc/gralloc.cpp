@@ -48,6 +48,17 @@
 #define MB_1 (1024*1024)
 
 
+
+//these are no longer defined, but we DO support them, so let's keep that knowledge alive for potential binary-blob users
+#define HAL_PIXEL_FORMAT_sRGB_A_8888   12
+#define HAL_PIXEL_FORMAT_sRGB_X_8888   13
+
+
+
+
+
+
+
 /*****************************************************************************/
 
 struct gralloc_context_t {
@@ -160,7 +171,7 @@ static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int usage,
             bpp = 3;
             break;
         case HAL_PIXEL_FORMAT_RGB_565:
-        case HAL_PIXEL_FORMAT_RAW_SENSOR:
+        case HAL_PIXEL_FORMAT_RAW16:
             bpp = 2;
             break;
         case HAL_PIXEL_FORMAT_BLOB:

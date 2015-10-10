@@ -36,6 +36,7 @@
 
 #include <unistd.h>
 #include <stdio.h>
+#include <string.h>
 #include <android/log.h>
 
 /** LOG_I(fmt, args...)
@@ -98,10 +99,10 @@
     #define LOG_I(fmt, args...) DUMMY_FUNCTION()
     #define LOG_W(fmt, args...) DUMMY_FUNCTION()
 #else
-    #define LOG_I(...)  _LOG_x("I",__VA_ARGS__)
-    #define LOG_W(...)  _LOG_x("W",__VA_ARGS__)
+    #define LOG_I(...)  _LOG_x("I", __VA_ARGS__)
+    #define LOG_W(...)  _LOG_x("W", __VA_ARGS__)
 #endif
-    #define _LOG_E(...)  _LOG_x("E",__VA_ARGS__)
+    #define _LOG_E(...)  _LOG_x("E", __VA_ARGS__)
 
 #endif //defined(LOG_ANDROID)
 
@@ -118,7 +119,7 @@
             do \
             { \
                 _LOG_E("  *****************************"); \
-                _LOG_E("  *** ERROR: "__VA_ARGS__); \
+                _LOG_E("  *** ERROR: " __VA_ARGS__); \
                 _LOG_E("  *** Detected in %s:%i/%s()", __FILE__, __LINE__, __FUNCTION__); \
                 _LOG_E("  *****************************"); \
             } while(1!=1)

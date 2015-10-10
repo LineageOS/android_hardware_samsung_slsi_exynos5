@@ -81,7 +81,7 @@ OMX_ERRORTYPE Exynos_OSAL_LockANBHandle(
     GraphicBufferMapper &mapper = GraphicBufferMapper::get();
     buffer_handle_t bufferHandle = (buffer_handle_t) handle;
     private_handle_t *priv_hnd = (private_handle_t *) bufferHandle;
-    Rect bounds(width, height);
+    Rect bounds((uint32_t)width, (uint32_t)height);
     ExynosVideoPlane *vplanes = (ExynosVideoPlane *) planes;
     void *vaddr[MAX_BUFFER_PLANE];
 
