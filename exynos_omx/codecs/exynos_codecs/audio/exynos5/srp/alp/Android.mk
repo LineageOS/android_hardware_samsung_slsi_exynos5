@@ -7,6 +7,9 @@ LOCAL_SRC_FILES := \
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/include
 
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_MODULE := libsrpapi
 
 LOCAL_MODULE_TAGS := optional

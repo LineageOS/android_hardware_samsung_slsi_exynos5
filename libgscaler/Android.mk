@@ -30,6 +30,9 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_SRC_FILES := exynos_gscaler.c
 
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_MODULE_TAGS := eng
 LOCAL_MODULE := libexynosgscaler
 include $(BUILD_SHARED_LIBRARY)

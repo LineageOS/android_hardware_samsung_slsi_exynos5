@@ -30,6 +30,9 @@ LOCAL_SRC_FILES	+= 	\
 
 LOCAL_C_INCLUDES := hardware/samsung_slsi/exynos5/include
 
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_SHARED_LIBRARIES += libMcClient
 
 include hardware/samsung_slsi/exynos5/mobicore/common/LogWrapper/Android.mk

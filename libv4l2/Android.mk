@@ -21,6 +21,9 @@ LOCAL_SRC_FILES := \
 	exynos_subdev.c \
 	exynos_mc.c
 
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/../include \
 	$(TOP)/hardware/samsung_slsi/exynos5/libexynosutils

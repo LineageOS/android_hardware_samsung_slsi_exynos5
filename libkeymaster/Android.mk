@@ -27,6 +27,10 @@ LOCAL_C_INCLUDES := \
 	$(MOBICORE_PATH)/daemon/ClientLib/public \
 	$(MOBICORE_PATH)/common/MobiCore/inc/
 LOCAL_C_FLAGS = -fvisibility=hidden -Wall -Werror
+
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_SHARED_LIBRARIES := libcrypto liblog libMcClient
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES

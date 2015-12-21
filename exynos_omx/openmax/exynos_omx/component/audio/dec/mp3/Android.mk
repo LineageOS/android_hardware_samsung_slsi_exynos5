@@ -28,4 +28,7 @@ LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
 	$(EXYNOS_OMX_COMPONENT)/audio/dec \
 	hardware/samsung_slsi/exynos5/exynos_omx/codecs/exynos_codecs/audio/exynos5/srp/alp/include
 
+# Don't use clang
+LOCAL_CLANG := false
+
 include $(BUILD_SHARED_LIBRARY)

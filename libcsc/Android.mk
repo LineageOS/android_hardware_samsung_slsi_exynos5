@@ -19,6 +19,9 @@ LOCAL_CFLAGS := \
     -DUSE_SAMSUNG_COLORFORMAT \
     -DEXYNOS_OMX
 
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_MODULE := libcsc_helper
 LOCAL_MODULE_TAGS := optional
 LOCAL_STATIC_LIBRARIES := liblog

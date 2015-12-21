@@ -15,6 +15,9 @@
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_C_INCLUDES := $(LOCAL_PATH) \
 	hardware/samsung_slsi/exynos5/include
 

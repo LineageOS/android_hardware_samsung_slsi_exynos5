@@ -19,6 +19,9 @@ include $(CLEAR_VARS)
 # hw/<COPYPIX_HARDWARE_MODULE_ID>.<ro.product.board>.so
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)
 
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../include
 
 LOCAL_SRC_FILES:= \

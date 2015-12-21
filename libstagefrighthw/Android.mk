@@ -20,6 +20,9 @@ LOCAL_SRC_FILES := \
 
 LOCAL_CFLAGS += $(PV_CFLAGS_MINUS_VISIBILITY)
 
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_C_INCLUDES:= \
       frameworks/native/include/media/hardware \
       frameworks/native/include/media/openmax \

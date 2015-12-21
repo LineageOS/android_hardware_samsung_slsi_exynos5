@@ -20,6 +20,9 @@ LOCAL_SHARED_LIBRARIES := liblog libutils libcutils
 
 LOCAL_CFLAGS += -DEXYNOS_PLATFORM_ON_ANDROID
 
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_C_INCLUDES := $(LOCAL_PATH)
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../include
 LOCAL_C_INCLUDES += framework/base/include

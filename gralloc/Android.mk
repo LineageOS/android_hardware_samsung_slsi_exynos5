@@ -28,7 +28,10 @@ LOCAL_SRC_FILES := 	\
 	gralloc.cpp 	\
 	framebuffer.cpp \
 	mapper.cpp
-	
+
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_MODULE := gralloc.exynos5
 LOCAL_CFLAGS:= -DLOG_TAG=\"gralloc\"
 LOCAL_MODULE_TAGS := optional

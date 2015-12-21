@@ -11,6 +11,9 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_CFLAGS := -DUSE_CSC_G2D
 
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
 	$(EXYNOS_OMX_INC)/exynos \
 	$(EXYNOS_OMX_TOP)/osal \

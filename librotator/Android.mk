@@ -20,6 +20,9 @@ include $(CLEAR_VARS)
 LOCAL_PRELINK_MODULE := false
 LOCAL_SHARED_LIBRARIES := liblog libutils libcutils libexynosutils libexynosv4l2
 
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/../include \
 	$(LOCAL_PATH)/../libexynosutils

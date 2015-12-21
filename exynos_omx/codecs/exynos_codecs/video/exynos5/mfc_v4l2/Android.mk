@@ -11,6 +11,9 @@ LOCAL_C_INCLUDES := \
 	hardware/samsung_slsi/exynos5/include \
 	hardware/samsung_slsi/exynos5/exynos_omx/openmax/exynos_omx/include/khronos
 
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_MODULE := libExynosVideoApi
 LOCAL_MODULE_TAGS := optional
 LOCAL_PRELINK_MODULE := false

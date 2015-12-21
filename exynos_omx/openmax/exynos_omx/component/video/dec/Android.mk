@@ -9,6 +9,9 @@ LOCAL_MODULE := libExynosOMX_Vdec
 LOCAL_ARM_MODE := arm
 LOCAL_MODULE_TAGS := optional
 
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
 	$(EXYNOS_OMX_INC)/exynos \
 	$(EXYNOS_OMX_TOP)/osal \

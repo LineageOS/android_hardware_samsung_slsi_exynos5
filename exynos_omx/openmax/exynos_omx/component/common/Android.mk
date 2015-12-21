@@ -11,6 +11,9 @@ LOCAL_MODULE := libExynosOMX_Basecomponent
 
 LOCAL_CFLAGS :=
 
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_STATIC_LIBRARIES := libExynosOMX_OSAL
 LOCAL_SHARED_LIBRARIES := libcutils libutils
 

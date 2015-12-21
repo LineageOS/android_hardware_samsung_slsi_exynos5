@@ -12,6 +12,9 @@ LOCAL_MODULE := libExynosOMX_Core
 
 LOCAL_CFLAGS :=
 
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_ARM_MODE := arm
 
 LOCAL_STATIC_LIBRARIES := libExynosOMX_OSAL libExynosOMX_Basecomponent

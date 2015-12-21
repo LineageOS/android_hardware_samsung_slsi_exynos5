@@ -22,6 +22,9 @@ LOCAL_PRELINK_MODULE := false
 
 LOCAL_CFLAGS :=
 
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_ARM_MODE := arm
 
 LOCAL_STATIC_LIBRARIES :=

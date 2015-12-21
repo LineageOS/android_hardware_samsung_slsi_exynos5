@@ -23,6 +23,9 @@ LOCAL_SHARED_LIBRARIES:= libutils libcutils libbinder liblog libcamera_client li
 
 LOCAL_CFLAGS += -DGAIA_FW_BETA
 
+# Don't use clang
+LOCAL_CLANG := false
+
 LOCAL_SHARED_LIBRARIES += libexynosutils libhwjpeg libexynosv4l2 libcsc libion_exynos libcamera_metadata
 
 LOCAL_MODULE := camera.exynos5

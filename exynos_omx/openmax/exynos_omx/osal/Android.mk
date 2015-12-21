@@ -21,6 +21,9 @@ LOCAL_MODULE := libExynosOMX_OSAL
 
 LOCAL_CFLAGS :=
 
+# Don't use clang
+LOCAL_CLANG := false
+
 ifeq ($(BOARD_USE_S3D_SUPPORT), true)
 LOCAL_CFLAGS += -DS3D_SUPPORT
 endif
