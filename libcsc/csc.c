@@ -31,6 +31,7 @@
 #include <cutils/log.h>
 #include <errno.h>
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <utils/Log.h>

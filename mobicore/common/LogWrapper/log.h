@@ -69,8 +69,8 @@
     #define LOG_W(fmt, args...) DUMMY_FUNCTION()
 #else
     // add LINE
-    #define LOG_I(fmt, args...) LOG_i(fmt";%d", ## args, __LINE__)
-    #define LOG_W(fmt, args...) LOG_w(fmt";%d", ## args, __LINE__)
+    #define LOG_I(fmt, args...) LOG_i(fmt ";%d", ## args, __LINE__)
+    #define LOG_W(fmt, args...) LOG_w(fmt ";%d", ## args, __LINE__)
 #endif
     // LOG_E is always defined
     #define _LOG_E(fmt, args...) LOG_e(fmt, ## args)

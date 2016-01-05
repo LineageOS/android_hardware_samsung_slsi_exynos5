@@ -66,7 +66,7 @@ struct RSA_Delete {
 };
 typedef UniquePtr<RSA, RSA_Delete> Unique_RSA;
 
-typedef UniquePtr<keymaster0_device_t> Unique_keymaster0_device_t;
+typedef UniquePtr<keymaster0_device_t> Unique_keymaster_device_t;
 
 /**
  * Many OpenSSL APIs take ownership of an argument on success but don't free the argument
@@ -229,7 +229,7 @@ static int exynos_km_import_keypair(const keymaster0_device_t* dev,
     return 0;
 }
 
-static int exynos_km_get_keypair_public(const struct keymaster0_device* dev,
+static int exynos_km_get_keypair_public(const keymaster0_device_t* dev,
         const uint8_t* key_blob, const size_t key_blob_length,
         uint8_t** x509_data, size_t* x509_data_length) {
     uint32_t bin_mod_len;
@@ -431,7 +431,7 @@ static int exynos_km_open(const hw_module_t* module, const char* name,
     if (strcmp(name, KEYSTORE_KEYMASTER) != 0)
         return -EINVAL;
 
-    Unique_keymaster0_device_t dev(new keymaster0_device_t);
+    Unique_keymaster_device_t dev(new keymaster0_device_t);
     if (dev.get() == NULL)
         return -ENOMEM;
 

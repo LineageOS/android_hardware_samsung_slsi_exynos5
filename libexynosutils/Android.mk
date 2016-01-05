@@ -15,7 +15,6 @@
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
-LOCAL_PRELINK_MODULE := false
 LOCAL_SHARED_LIBRARIES := liblog libutils libcutils
 
 LOCAL_CFLAGS += -DEXYNOS_PLATFORM_ON_ANDROID

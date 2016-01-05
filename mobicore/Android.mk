@@ -11,13 +11,10 @@ COMP_PATH_MobiCoreDriverMod := $(MOBICORE_PROJECT_PATH)/include
 
 
 # Application wide Cflags
-GLOBAL_INCLUDES := bionic \
-	external/libcxx \
+GLOBAL_INCLUDES := \
 	$(COMP_PATH_MobiCore)/inc \
 	$(COMP_PATH_MobiCoreDriverMod)/Public \
 	$(COMP_PATH_MobiCore)/inc/TlCm
-
-GLOBAL_LIBRARIES := libc++
 
 # Include the Daemon
 include $(MOBICORE_PROJECT_PATH)/daemon/Android.mk

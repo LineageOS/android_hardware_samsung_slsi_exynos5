@@ -23,7 +23,6 @@ LOCAL_MODULE := keystore.exynos5
 LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR_SHARED_LIBRARIES)/hw
 LOCAL_SRC_FILES := keymaster_mobicore.cpp tlcTeeKeymaster_if.c
 LOCAL_C_INCLUDES := \
-	external/openssl/include \
 	$(MOBICORE_PATH)/daemon/ClientLib/public \
 	$(MOBICORE_PATH)/common/MobiCore/inc/
 LOCAL_C_FLAGS = -fvisibility=hidden -Wall -Werror

@@ -7,7 +7,6 @@ LOCAL_SRC_FILES := \
 	Exynos_OMX_Mp3dec.c \
 	library_register.c
 
-LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE := libOMX.Exynos.MP3.Decoder
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/omx
 
