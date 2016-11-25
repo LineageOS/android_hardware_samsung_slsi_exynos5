@@ -862,3 +862,34 @@ CSC_ERRORCODE csc_convert(
 
     return ret;
 }
+
+CSC_ERRORCODE csc_convert_with_rotation(
+    void *handle, int rotation, int flip_horizontal, int flip_vertical)
+{
+    CSC_HANDLE *csc_handle = (CSC_HANDLE *)handle;
+    CSC_ERRORCODE ret = CSC_ErrorNone;
+
+    if (csc_handle == NULL)
+        return CSC_ErrorNotInit;
+
+    if ((csc_handle->csc_method == CSC_METHOD_HW) &&
+        (csc_handle->csc_hw_handle == NULL))
+        csc_init_hw(handle);
+
+    csc_set_format(csc_handle);
+    csc_set_buffer(csc_handle);
+
+    exynos_gsc_set_rotation(csc_handle->csc_hw_handle, rotation, flip_horizontal, flip_vertical);
+
+    if (csc_handle->csc_method == CSC_METHOD_HW)
+        ret = conv_hw(csc_handle);
+    else
+        ret = conv_sw(csc_handle);
+
+    return ret;
+}
+
+CSC_ERRORCODE csc_set_filter_property(void *handle)
+{
+    return CSC_ErrorNone;
+}
