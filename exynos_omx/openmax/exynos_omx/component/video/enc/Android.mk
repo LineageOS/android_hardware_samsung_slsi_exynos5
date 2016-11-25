@@ -13,7 +13,9 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_CFLAGS := -DUSE_CSC_G2D
 
-LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
+LOCAL_C_INCLUDES := \
+	$(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include \
+	$(EXYNOS_OMX_INC)/khronos \
 	$(EXYNOS_OMX_INC)/exynos \
 	$(EXYNOS_OMX_TOP)/osal \
 	$(EXYNOS_OMX_TOP)/core \
@@ -22,6 +24,9 @@ LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
 	hardware/samsung_slsi/exynos5/include \
 	hardware/samsung_slsi/exynos5/libcsc \
 	hardware/samsung_slsi/exynos5/exynos_omx/codecs/exynos_codecs/video/exynos5/mfc_v4l2/include
+
+LOCAL_ADDITIONAL_DEPENDENCIES := \
+	$(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
 ifeq ($(BOARD_USE_METADATABUFFERTYPE), true)
 LOCAL_CFLAGS += -DUSE_METADATABUFFERTYPE
