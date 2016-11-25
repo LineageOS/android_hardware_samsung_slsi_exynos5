@@ -32,7 +32,9 @@ endif
 LOCAL_SHARED_LIBRARIES := libhardware
 LOCAL_STATIC_LIBRARIES := liblog libcutils
 
-LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
+LOCAL_C_INCLUDES := \
+	$(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include \
+	$(EXYNOS_OMX_INC)/khronos \
 	$(EXYNOS_OMX_INC)/exynos \
 	$(EXYNOS_OMX_TOP)/osal \
 	$(EXYNOS_OMX_COMPONENT)/common \
@@ -44,5 +46,8 @@ LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
 	frameworks/native/include/media/hardware \
 	frameworks/native/include/media/openmax \
 	hardware/samsung_slsi/exynos5/exynos_omx/codecs/exynos_codecs/video/exynos5/mfc_v4l2/include
+
+LOCAL_ADDITIONAL_DEPENDENCIES := \
+	$(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
 include $(BUILD_STATIC_LIBRARY)

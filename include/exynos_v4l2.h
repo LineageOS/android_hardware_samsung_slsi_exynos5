@@ -42,7 +42,7 @@ extern "C" {
 /* V4L2 */
 #include <stdbool.h>
 #include <linux/videodev2.h> /* vendor specific videodev2.h */
-#include "videodev2_exynos_media.h"
+#include <linux/videodev2_exynos_media.h>
 
 /*! \ingroup exynos_v4l2 */
 int exynos_v4l2_open(const char *filename, int oflag, ...);
@@ -96,7 +96,7 @@ int exynos_v4l2_g_ext_ctrl(int fd, struct v4l2_ext_controls *ctrl);
 int exynos_v4l2_s_ext_ctrl(int fd, struct v4l2_ext_controls *ctrl);
 
 /* V4L2_SUBDEV */
-#include <v4l2-subdev.h>
+#include <linux/v4l2-subdev.h>
 
 /*! \ingroup exynos_v4l2 */
 int exynos_subdev_open(const char *filename, int oflag, ...);
@@ -122,7 +122,7 @@ int exynos_subdev_s_frame_interval(int fd, struct v4l2_subdev_frame_interval *fr
 int exynos_subdev_enum_mbus_code(int fd, struct v4l2_subdev_mbus_code_enum *mbus_code_enum);
 
 /* MEDIA CONTORLLER */
-#include <media.h>
+#include <linux/media.h>
 
 /*! media_link
  * \ingroup exynos_v4l2
