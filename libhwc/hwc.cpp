@@ -47,25 +47,10 @@
 #include "ion.h"
 #include "gralloc_priv.h"
 #include "exynos_gscaler.h"
+#include "exynos_hwc.h"
 #include "exynos_format.h"
 #include "exynos_v4l2.h"
 #include "s5p_tvout_v4l2.h"
-
-const size_t NUM_HW_WINDOWS = 5;
-const size_t NO_FB_NEEDED = NUM_HW_WINDOWS + 1;
-const size_t MAX_PIXELS = 2560 * 1600 * 2;
-const size_t GSC_W_ALIGNMENT = 16;
-const size_t GSC_H_ALIGNMENT = 16;
-const size_t GSC_DST_CROP_W_ALIGNMENT_RGB888 = 32;
-const size_t GSC_DST_W_ALIGNMENT_RGB888 = 32;
-const size_t GSC_DST_H_ALIGNMENT_RGB888 = 1;
-const size_t FIMD_GSC_IDX = 0;
-const size_t HDMI_GSC_IDX = 1;
-const int AVAILABLE_GSC_UNITS[] = { 0, 3 };
-const size_t NUM_GSC_UNITS = sizeof(AVAILABLE_GSC_UNITS) /
-        sizeof(AVAILABLE_GSC_UNITS[0]);
-const size_t BURSTLEN_BYTES = 16 * 8;
-const size_t NUM_HDMI_BUFFERS = 3;
 
 struct exynos5_hwc_composer_device_1_t;
 
@@ -1363,6 +1348,9 @@ static void exynos5_config_handle(private_handle_t *handle,
     cfg.stride = handle->stride * bpp / 8;
     cfg.blending = exynos5_blending_to_s3c_blending(blending);
     cfg.fence_fd = fence_fd;
+
+    // Setup the alpha plane
+    setup_alpha_plane(&cfg, 255);
 }
 
 static void exynos5_config_overlay(hwc_layer_1_t *layer, s3c_fb_win_config &cfg,
@@ -2122,31 +2110,25 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
         for (size_t j = 0; j < NUM_GSC_DST_BUFS; j++)
             dev->gsc[i].dst_buf_fence[j] = -1;
 
-    dev->hdmi_mixer0 = open("/dev/v4l-subdev7", O_RDWR);
+    dev->hdmi_mixer0 = open(HDMI_MIXER_0, O_RDWR);
     if (dev->hdmi_mixer0 < 0)
         ALOGE("failed to open hdmi mixer0 subdev");
 
     dev->hdmi_layers[0].id = 0;
-    dev->hdmi_layers[0].fd = open("/dev/video16", O_RDWR);
-    if (dev->hdmi_layers[0].fd < 0) {
+    dev->hdmi_layers[0].fd = open(HDMI_LAYERS[0], O_RDWR);
+    if (dev->hdmi_layers[0].fd < 0)
         ALOGE("failed to open hdmi layer0 device");
-        ret = dev->hdmi_layers[0].fd;
-        goto err_mixer0;
-    }
 
     dev->hdmi_layers[1].id = 1;
-    dev->hdmi_layers[1].fd = open("/dev/video17", O_RDWR);
-    if (dev->hdmi_layers[1].fd < 0) {
+    dev->hdmi_layers[1].fd = open(HDMI_LAYERS[1], O_RDWR);
+    if (dev->hdmi_layers[1].fd < 0)
         ALOGE("failed to open hdmi layer1 device");
-        ret = dev->hdmi_layers[1].fd;
-        goto err_hdmi0;
-    }
 
-    dev->vsync_fd = open("/sys/devices/platform/exynos5-fb.1/vsync", O_RDONLY);
+    dev->vsync_fd = open(VSYNC_FD, O_RDONLY);
     if (dev->vsync_fd < 0) {
         ALOGE("failed to open vsync attribute");
         ret = dev->vsync_fd;
-        goto err_hdmi1;
+        goto err_vsync;
     }
 
     sw_fd = open("/sys/class/switch/hdmi/state", O_RDONLY);
@@ -2193,13 +2175,6 @@ static int exynos5_open(const struct hw_module_t *module, const char *name,
 
 err_vsync:
     close(dev->vsync_fd);
-err_mixer0:
-    if (dev->hdmi_mixer0 >= 0)
-        close(dev->hdmi_mixer0);
-err_hdmi1:
-    close(dev->hdmi_layers[0].fd);
-err_hdmi0:
-    close(dev->hdmi_layers[1].fd);
 err_ioctl:
     close(dev->fd);
 err_open_fb:
