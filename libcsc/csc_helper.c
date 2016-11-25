@@ -17,14 +17,13 @@
 
 #define LOG_TAG "libcsc_helper"
 #include <cutils/log.h>
-
+#include <linux/fimg2d.h>
 #include <system/graphics.h>
 
 #include "Exynos_OMX_Def.h"
 
 #include "csc.h"
 #include "exynos_format.h"
-#include "fimg2d.h"
 
 OMX_COLOR_FORMATTYPE hal_2_omx_pixel_format(
     unsigned int hal_format)

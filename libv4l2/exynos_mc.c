@@ -37,7 +37,7 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
-#include <media.h>
+#include <linux/media.h>
 #include <linux/kdev_t.h>
 #include <linux/types.h>
 

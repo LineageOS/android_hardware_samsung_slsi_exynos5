@@ -11,7 +11,9 @@ LOCAL_MODULE := libExynosOMX_Vdec
 LOCAL_ARM_MODE := arm
 LOCAL_MODULE_TAGS := optional
 
-LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
+LOCAL_C_INCLUDES := \
+	$(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include \
+	$(EXYNOS_OMX_INC)/khronos \
 	$(EXYNOS_OMX_INC)/exynos \
 	$(EXYNOS_OMX_TOP)/osal \
 	$(EXYNOS_OMX_TOP)/core \
@@ -20,6 +22,9 @@ LOCAL_C_INCLUDES := $(EXYNOS_OMX_INC)/khronos \
 	hardware/samsung_slsi/exynos5/include \
 	hardware/samsung_slsi/exynos5/libcsc \
 	hardware/samsung_slsi/exynos5/exynos_omx/codecs/exynos_codecs/video/exynos5/mfc_v4l2/include
+
+LOCAL_ADDITIONAL_DEPENDENCIES := \
+	$(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
 ifeq ($(BOARD_USE_ANB), true)
 LOCAL_STATIC_LIBRARIES := libExynosOMX_OSAL libcsc_helper

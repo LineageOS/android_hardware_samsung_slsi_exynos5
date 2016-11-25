@@ -10,10 +10,14 @@ LOCAL_SRC_FILES := \
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 
 LOCAL_C_INCLUDES := \
+    $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include \
     system/core/include \
     $(LOCAL_PATH)/../exynos_omx/openmax/$(OMX_NAME)_omx/include/khronos \
     $(LOCAL_PATH)/../exynos_omx/openmax/$(OMX_NAME)_omx/include/$(OMX_NAME) \
     hardware/samsung_slsi/exynos5/include
+
+LOCAL_ADDITIONAL_DEPENDENCIES := \
+    $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
 LOCAL_CFLAGS := \
     -DUSE_SAMSUNG_COLORFORMAT \

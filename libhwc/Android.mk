@@ -23,8 +23,12 @@ LOCAL_SHARED_LIBRARIES := liblog libcutils libEGL libGLESv1_CM libhardware \
 LOCAL_CFLAGS += -DLOG_TAG=\"hwcomposer\"
 
 LOCAL_C_INCLUDES := \
+    $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include \
     $(LOCAL_PATH)/../include \
     $(LOCAL_PATH)/../libexynosutils
+
+LOCAL_ADDITIONAL_DEPENDENCIES := \
+    $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
 LOCAL_SRC_FILES := hwc.cpp
 
