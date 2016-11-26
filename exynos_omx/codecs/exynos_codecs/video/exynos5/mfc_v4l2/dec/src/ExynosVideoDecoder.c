@@ -49,6 +49,11 @@
 
 #define MAX_OUTPUTBUFFER_COUNT 32
 
+/* Linux 3.10 */
+#ifndef V4L2_BUF_FLAG_LAST_FRAME
+#define V4L2_BUF_FLAG_LAST_FRAME 0x4000
+#endif
+
 /*
  * [Common] __CodingType_To_V4L2PixelFormat
  */
