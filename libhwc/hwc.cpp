@@ -731,7 +731,8 @@ static int hdmi_output(struct exynos5_hwc_composer_device_1_t *dev,
     hl.current_buf = (hl.current_buf + 1) % NUM_HDMI_BUFFERS;
 
     if (!hl.streaming) {
-        if (exynos_v4l2_streamon(hl.fd, buffer.type) < 0) {
+        enum v4l2_buf_type buffer_type = static_cast<v4l2_buf_type>(buffer.type);
+        if (exynos_v4l2_streamon(hl.fd, buffer_type) < 0) {
             ALOGE("%s: layer%d: streamon failed %d", __func__, hl.id, errno);
             ret = -1;
             goto err;
