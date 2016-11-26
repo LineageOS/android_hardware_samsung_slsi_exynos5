@@ -37,6 +37,7 @@
 
 #include "gralloc_priv.h"
 #include "exynos_format.h"
+#include "exynos_gralloc.h"
 
 #define ION_HEAP_EXYNOS_CONTIG_MASK (1 << 4)
 #define ION_EXYNOS_FIMD_VIDEO_MASK  (1 << 28)
@@ -159,40 +160,9 @@ static int gralloc_alloc_rgb(int ionfd, int w, int h, int format, int usage,
         }
     }
 
-    switch (format) {
-        case HAL_PIXEL_FORMAT_RGBA_8888:
-        case HAL_PIXEL_FORMAT_RGBX_8888:
-        case HAL_PIXEL_FORMAT_BGRA_8888:
-        case HAL_PIXEL_FORMAT_sRGB_A_8888:
-        case HAL_PIXEL_FORMAT_sRGB_X_8888:
-            bpp = 4;
-            break;
-        case HAL_PIXEL_FORMAT_RGB_888:
-            bpp = 3;
-            break;
-        case HAL_PIXEL_FORMAT_RGB_565:
-        case HAL_PIXEL_FORMAT_RAW16:
-            bpp = 2;
-            break;
-        case HAL_PIXEL_FORMAT_BLOB:
-            *stride = w;
-            vstride = h;
-            size = w * h;
-            break;
-        default:
-            return -EINVAL;
-    }
-
-    if (format != HAL_PIXEL_FORMAT_BLOB) {
-        bpr = ALIGN(w*bpp, 64);
-        vstride = ALIGN(h, 16);
-        if (vstride < h + 2)
-            size = bpr * (h + 2);
-        else
-            size = bpr * vstride;
-        *stride = bpr / bpp;
-        size = ALIGN(size, PAGE_SIZE);
-    }
+    err = handle_rgb_format(w, h, format, usage, stride, &size, &bpr, &bpp, &vstride);
+    if (err)
+        return err;
 
     if (usage & GRALLOC_USAGE_PROTECTED) {
         alignment = MB_1;
@@ -215,19 +185,9 @@ static int gralloc_alloc_framework_yuv(int ionfd, int w, int h, int format,
     int err, fd;
     unsigned int heap_mask = _select_heap(usage);
 
-    switch (format) {
-        case HAL_PIXEL_FORMAT_YV12:
-            *stride = ALIGN(w, 16);
-            size = (*stride * h) + (ALIGN(*stride / 2, 16) * h);
-            break;
-        case HAL_PIXEL_FORMAT_YCrCb_420_SP:
-            *stride = w;
-            size = *stride * h * 3 / 2;
-            break;
-        default:
-            ALOGE("invalid yuv format %d\n", format);
-            return -EINVAL;
-    }
+    err = handle_framework_yuv_format(w, h, format, stride, &size);
+    if (err)
+        return err;
 
     err = ion_alloc_fd(ionfd, size, 0, heap_mask, ion_flags, &fd);
     if (err)
@@ -258,43 +218,11 @@ static int gralloc_alloc_yuv(int ionfd, int w, int h, int format,
             format = HAL_PIXEL_FORMAT_YCbCr_420_SP; // NV12M
         }
     }
-    switch (format) {
-        case HAL_PIXEL_FORMAT_EXYNOS_YV12:
-            {
-                *stride = ALIGN(w, 32);
-                luma_vstride = ALIGN(h, 16);
-                luma_size = luma_vstride * *stride;
-                chroma_size = (luma_vstride / 2) * ALIGN(*stride / 2, 16);
-                planes = 3;
-                break;
-            }
-        case HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP:
-        case HAL_PIXEL_FORMAT_YCbCr_420_SP:
-        case HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
-            {
-                size_t chroma_vstride = ALIGN(h / 2, 32);
-                luma_vstride = ALIGN(h, 32);
-                luma_size = luma_vstride * *stride;
-                chroma_size = chroma_vstride * *stride;
-                planes = 2;
-                break;
-            }
-        case HAL_PIXEL_FORMAT_YV12:
-        case HAL_PIXEL_FORMAT_YCrCb_420_SP:
-            return gralloc_alloc_framework_yuv(ionfd, w, h, format, usage,
-                                               ion_flags, hnd, stride);
-        case HAL_PIXEL_FORMAT_YCbCr_422_I:
-            {
-                luma_vstride = h;
-                luma_size = luma_vstride * *stride * 2;
-                chroma_size = 0;
-                planes = 1;
-                break;
-            }
-        default:
-            ALOGE("invalid yuv format %d\n", format);
-            return -EINVAL;
-    }
+
+    err = handle_yuv_format(ionfd, w, h, format, usage, ion_flags, hnd, stride, &luma_vstride,
+                            &luma_size, &chroma_size, &planes);
+    if (err)
+        return err;
 
     if (usage & GRALLOC_USAGE_PROTECTED)
 	ion_flags |= ION_EXYNOS_MFC_OUTPUT_MASK;
