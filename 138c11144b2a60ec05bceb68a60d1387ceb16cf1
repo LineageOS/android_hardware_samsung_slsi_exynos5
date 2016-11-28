@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "5f681702_8c2769b7",
+        "filename": "exynos_omx/codecs/exynos_codecs/video/exynos5/mfc_v4l2/enc/src/ExynosVideoEncoder.c",
+        "patchSetId": 2
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 2681
+      },
+      "writtenOn": "2016-11-28T16:23:19Z",
+      "side": 1,
+      "message": "For some reason, this causes the build to fail for manta as it is.\nIf it is changed to the following, it builds:\n\n#ifdef V4L2_MPEG_VIDEO_H264_SEI_FP_ARRANGEMENT_TYPE_SIDE_BY_SIDE",
+      "revId": "138c11144b2a60ec05bceb68a60d1387ceb16cf1",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    }
+  ]
+}
