@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "5f681702_82d72d24",
+        "filename": "include/exynos_hwc.h",
+        "patchSetId": 3
+      },
+      "lineNbr": 30,
+      "author": {
+        "id": 14769
+      },
+      "writtenOn": "2016-12-01T06:50:35Z",
+      "side": 1,
+      "message": "Each distinct include of this header file (it is currently one) will generate its own copy of the array, whether the compiler optimizes-out the definition is compiler-specific. You also might get duplicate definition error during linking if you do not use \"static\".",
+      "revId": "7cfaeaeecc48ecdea1bad529d9d3ac3278f6e5f6",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
+    }
+  ]
+}
