@@ -16,6 +16,24 @@
       "revId": "7cfaeaeecc48ecdea1bad529d9d3ac3278f6e5f6",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "5f681702_820a8d87",
+        "filename": "include/exynos_hwc.h",
+        "patchSetId": 3
+      },
+      "lineNbr": 30,
+      "author": {
+        "id": 7155
+      },
+      "writtenOn": "2016-12-01T07:07:38Z",
+      "side": 1,
+      "message": "...which is completely irrelevant here.\nThe header will only ever be included by hwc.cpp (it was designed this way, to only mimic the cpp code).\nThe only reason why it is in the include path is so that it can be easily overriden in the device tree.",
+      "parentUuid": "5f681702_82d72d24",
+      "revId": "7cfaeaeecc48ecdea1bad529d9d3ac3278f6e5f6",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
     }
   ]
 }

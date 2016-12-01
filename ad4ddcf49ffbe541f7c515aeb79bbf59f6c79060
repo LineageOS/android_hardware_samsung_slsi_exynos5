@@ -16,6 +16,24 @@
       "revId": "ad4ddcf49ffbe541f7c515aeb79bbf59f6c79060",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "5f681702_e2ff0165",
+        "filename": "libhwc/hwc.cpp",
+        "patchSetId": 3
+      },
+      "lineNbr": 2196,
+      "author": {
+        "id": 7155
+      },
+      "writtenOn": "2016-12-01T07:07:38Z",
+      "side": 0,
+      "message": "I changed the behavior of the code (checK the changes above).\nBefore, hwc would bail out if there was an error while opening the hdmi file descriptors. This is not the case any longer (we now allow devices to use this hwc module without those HDMI subdev nodes).\nThus, no closing necessary (if we do not exit).\n\nAlso, err_hdmi{0,1}:\nThese labels would only be reached if the fd was \u003c 0 (which means we did not have a valid handle in the first place and \u0027trying\u0027 to close it does nothing). You can\u0027t close what is not open.",
+      "parentUuid": "5f681702_c22c8549",
+      "revId": "ad4ddcf49ffbe541f7c515aeb79bbf59f6c79060",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
     }
   ]
 }
