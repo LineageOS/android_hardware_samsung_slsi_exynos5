@@ -34,6 +34,24 @@
       "revId": "7cfaeaeecc48ecdea1bad529d9d3ac3278f6e5f6",
       "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "5f681702_22f9f97f",
+        "filename": "include/exynos_hwc.h",
+        "patchSetId": 3
+      },
+      "lineNbr": 30,
+      "author": {
+        "id": 7155
+      },
+      "writtenOn": "2016-12-01T07:10:56Z",
+      "side": 1,
+      "message": "I agree we can make all the consts static though.",
+      "parentUuid": "5f681702_820a8d87",
+      "revId": "7cfaeaeecc48ecdea1bad529d9d3ac3278f6e5f6",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71",
+      "unresolved": false
     }
   ]
 }
