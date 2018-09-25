@@ -16,10 +16,12 @@
 #
 
 ifeq ($(TARGET_BOARD_PLATFORM),exynos5)
+ifeq ($(TARGET_SLSI_VARIANT),bsp)
 
 exynos5_dirs := \
 	libkeymaster
 
 include $(call all-named-subdir-makefiles,$(exynos5_dirs))
 
+endif # TARGET_SLSI_VARIANT
 endif
