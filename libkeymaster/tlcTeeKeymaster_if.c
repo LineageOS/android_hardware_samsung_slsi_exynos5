@@ -99,7 +99,7 @@ static tciMessage_ptr TEE_Open(
 
     } while (false);
 
-    LOG_I("TEE_Open(): returning pointer to TCI buffer: 0x%.8x\n", pTci);
+    //LOG_I("TEE_Open(): returning pointer to TCI buffer: 0x%.8x\n", pTci);
 
     return pTci;
 }

@@ -28,7 +28,7 @@
 #include <openssl/err.h>
 #include <openssl/x509.h>
 
-#include <UniquePtr.h>
+#include <nativehelper/UniquePtr.h>
 
 #define LOG_TAG "ExynosKeyMaster"
 #include <cutils/log.h>
@@ -484,20 +484,20 @@ static int exynos_km_open(const hw_module_t* module, const char* name,
 }
 
 static struct hw_module_methods_t keystore_module_methods = {
-    open: exynos_km_open,
+    .open = exynos_km_open,
 };
 
 struct keystore_module HAL_MODULE_INFO_SYM
 __attribute__ ((visibility ("default"))) = {
-    common: {
-        tag: HARDWARE_MODULE_TAG,
-        version_major: 1,
-        version_minor: 0,
-        id: KEYSTORE_HARDWARE_MODULE_ID,
-        name: "Keymaster Exynos HAL",
-        author: "Samsung S.LSI",
-        methods: &keystore_module_methods,
-        dso: 0,
-        reserved: {},
+    .common = {
+        .tag = HARDWARE_MODULE_TAG,
+        .version_major = 1,
+        .version_minor = 0,
+        .id = KEYSTORE_HARDWARE_MODULE_ID,
+        .name = "Keymaster Exynos HAL",
+        .author = "Samsung S.LSI",
+        .methods = &keystore_module_methods,
+        .dso = 0,
+        .reserved = {},
     },
 };
